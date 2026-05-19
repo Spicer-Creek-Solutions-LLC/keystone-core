@@ -146,9 +146,9 @@ func (f *stateFixture) installModule(name string, opts ...func(*fixtureModule)) 
 }
 
 // receiveAll drains a stream until io.EOF.
-func receiveAll(t *testing.T, stream grpc.ServerStreamingClient[v1.ApplyStateResponse]) []*v1.ApplyStateResponse {
+func receiveAll[T any](t *testing.T, stream grpc.ServerStreamingClient[T]) []*T {
 	t.Helper()
-	var out []*v1.ApplyStateResponse
+	var out []*T
 	for {
 		msg, err := stream.Recv()
 		if errors.Is(err, io.EOF) {

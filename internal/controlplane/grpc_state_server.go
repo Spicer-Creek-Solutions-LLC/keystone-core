@@ -264,7 +264,14 @@ func (s *StateGRPCServer) GetStateHistory(ctx context.Context, req *v1.GetStateH
 // reconstruct YAML from per-decl history. New run_id; new state_runs
 // row; the stream shape matches ApplyState's so the CLI's drain loop
 // is identical.
-func (s *StateGRPCServer) RollbackState(req *v1.RollbackStateRequest, stream grpc.ServerStreamingServer[v1.ApplyStateResponse]) error {
+func (s *StateGRPCServer) RollbackState(req *v1.RollbackStateRequest, rbStream grpc.ServerStreamingServer[v1.RollbackStateResponse]) error {
+	// RollbackState streams RollbackStateResponse (distinct from
+	// ApplyStateResponse for buf RPC_REQUEST_RESPONSE_UNIQUE) but the
+	// internal apply machinery (streamObserver, send helpers) is typed
+	// to ApplyStateResponse. The adapter presents the ApplyState shape
+	// and translates each message on Send — keeping this body and the
+	// shared observer untouched.
+	stream := rollbackStreamAdapter{rbStream}
 	if req.GetRunId() == "" {
 		return status.Error(codes.InvalidArgument, "run_id is required")
 	}
@@ -506,6 +513,28 @@ func driftStateToRecordOutcome(s statemgmt.DriftState) state.StateRunOutcome {
 // either a stream send, a persistence write, or both. Persistence
 // errors accumulate in persistErrs so they can roll up into the run's
 // final ErrorMessage rather than aborting the stream.
+// rollbackStreamAdapter presents a RollbackStateResponse server
+// stream as an ApplyStateResponse one. The embedded interface
+// promotes Context/SetHeader/etc.; the declared Send shadows the
+// embedded Send and translates the (identical-shape) oneof so the
+// RollbackState body and streamObserver remain ApplyState-typed.
+type rollbackStreamAdapter struct {
+	grpc.ServerStreamingServer[v1.RollbackStateResponse]
+}
+
+func (a rollbackStreamAdapter) Send(m *v1.ApplyStateResponse) error {
+	out := &v1.RollbackStateResponse{}
+	switch e := m.GetEvent().(type) {
+	case *v1.ApplyStateResponse_RunId:
+		out.Event = &v1.RollbackStateResponse_RunId{RunId: e.RunId}
+	case *v1.ApplyStateResponse_DeclResult:
+		out.Event = &v1.RollbackStateResponse_DeclResult{DeclResult: e.DeclResult}
+	case *v1.ApplyStateResponse_Terminal:
+		out.Event = &v1.RollbackStateResponse_Terminal{Terminal: e.Terminal}
+	}
+	return a.ServerStreamingServer.Send(out)
+}
+
 type streamObserver struct {
 	stream      grpc.ServerStreamingServer[v1.ApplyStateResponse]
 	store       state.StateHistoryStore

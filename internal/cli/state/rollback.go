@@ -4,9 +4,36 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc"
 
 	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 )
+
+// rollbackClientAdapter presents a RollbackStateResponse client
+// stream as an ApplyStateResponse one (the two messages are
+// shape-identical; RollbackStateResponse is distinct only to satisfy
+// buf RPC_REQUEST_RESPONSE_UNIQUE) so the shared drainApplyStream
+// loop is reused unchanged.
+type rollbackClientAdapter struct {
+	grpc.ServerStreamingClient[v1.RollbackStateResponse]
+}
+
+func (a rollbackClientAdapter) Recv() (*v1.ApplyStateResponse, error) {
+	m, err := a.ServerStreamingClient.Recv()
+	if err != nil {
+		return nil, err
+	}
+	out := &v1.ApplyStateResponse{}
+	switch e := m.GetEvent().(type) {
+	case *v1.RollbackStateResponse_RunId:
+		out.Event = &v1.ApplyStateResponse_RunId{RunId: e.RunId}
+	case *v1.RollbackStateResponse_DeclResult:
+		out.Event = &v1.ApplyStateResponse_DeclResult{DeclResult: e.DeclResult}
+	case *v1.RollbackStateResponse_Terminal:
+		out.Event = &v1.ApplyStateResponse_Terminal{Terminal: e.Terminal}
+	}
+	return out, nil
+}
 
 type rollbackFlags struct {
 	DryRun  bool
@@ -62,5 +89,5 @@ func runRollback(cmd *cobra.Command, runID string, g *globals, flags *rollbackFl
 	if err != nil {
 		return fmt.Errorf("rollback: %w", err)
 	}
-	return drainApplyStream(stream, out, g.Output)
+	return drainApplyStream(rollbackClientAdapter{stream}, out, g.Output)
 }

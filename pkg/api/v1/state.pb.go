@@ -1645,6 +1645,109 @@ func (x *RollbackStateRequest) GetClusterId() string {
 	return ""
 }
 
+// RollbackStateResponse is structurally identical to
+// ApplyStateResponse (same oneof, same field numbers — wire- and
+// shape-compatible so the CLI drain loop is unchanged) but a distinct
+// message: buf STANDARD RPC_REQUEST_RESPONSE_UNIQUE requires each RPC
+// its own response type.
+type RollbackStateResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Event:
+	//
+	//	*RollbackStateResponse_RunId
+	//	*RollbackStateResponse_DeclResult
+	//	*RollbackStateResponse_Terminal
+	Event         isRollbackStateResponse_Event `protobuf_oneof:"event"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RollbackStateResponse) Reset() {
+	*x = RollbackStateResponse{}
+	mi := &file_keystone_core_v1_state_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RollbackStateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RollbackStateResponse) ProtoMessage() {}
+
+func (x *RollbackStateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_keystone_core_v1_state_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RollbackStateResponse.ProtoReflect.Descriptor instead.
+func (*RollbackStateResponse) Descriptor() ([]byte, []int) {
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *RollbackStateResponse) GetEvent() isRollbackStateResponse_Event {
+	if x != nil {
+		return x.Event
+	}
+	return nil
+}
+
+func (x *RollbackStateResponse) GetRunId() string {
+	if x != nil {
+		if x, ok := x.Event.(*RollbackStateResponse_RunId); ok {
+			return x.RunId
+		}
+	}
+	return ""
+}
+
+func (x *RollbackStateResponse) GetDeclResult() *StateDeclarationResult {
+	if x != nil {
+		if x, ok := x.Event.(*RollbackStateResponse_DeclResult); ok {
+			return x.DeclResult
+		}
+	}
+	return nil
+}
+
+func (x *RollbackStateResponse) GetTerminal() *StateRunTerminal {
+	if x != nil {
+		if x, ok := x.Event.(*RollbackStateResponse_Terminal); ok {
+			return x.Terminal
+		}
+	}
+	return nil
+}
+
+type isRollbackStateResponse_Event interface {
+	isRollbackStateResponse_Event()
+}
+
+type RollbackStateResponse_RunId struct {
+	RunId string `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3,oneof"` // first event in stream
+}
+
+type RollbackStateResponse_DeclResult struct {
+	DeclResult *StateDeclarationResult `protobuf:"bytes,2,opt,name=decl_result,json=declResult,proto3,oneof"` // per-decl as runner progresses
+}
+
+type RollbackStateResponse_Terminal struct {
+	Terminal *StateRunTerminal `protobuf:"bytes,3,opt,name=terminal,proto3,oneof"` // last event
+}
+
+func (*RollbackStateResponse_RunId) isRollbackStateResponse_Event() {}
+
+func (*RollbackStateResponse_DeclResult) isRollbackStateResponse_Event() {}
+
+func (*RollbackStateResponse_Terminal) isRollbackStateResponse_Event() {}
+
 var File_keystone_core_v1_state_proto protoreflect.FileDescriptor
 
 const file_keystone_core_v1_state_proto_rawDesc = "" +
@@ -1797,7 +1900,13 @@ const file_keystone_core_v1_state_proto_rawDesc = "" +
 	"\x06source\x18\x03 \x01(\tR\x06source\x12\x19\n" +
 	"\bagent_id\x18\x04 \x01(\tR\aagentId\x12\x1d\n" +
 	"\n" +
-	"cluster_id\x18\x05 \x01(\tR\tclusterId*\xad\x01\n" +
+	"cluster_id\x18\x05 \x01(\tR\tclusterId\"\xc8\x01\n" +
+	"\x15RollbackStateResponse\x12\x17\n" +
+	"\x06run_id\x18\x01 \x01(\tH\x00R\x05runId\x12K\n" +
+	"\vdecl_result\x18\x02 \x01(\v2(.keystone.core.v1.StateDeclarationResultH\x00R\n" +
+	"declResult\x12@\n" +
+	"\bterminal\x18\x03 \x01(\v2\".keystone.core.v1.StateRunTerminalH\x00R\bterminalB\a\n" +
+	"\x05event*\xad\x01\n" +
 	"\x0eStateRunStatus\x12 \n" +
 	"\x1cSTATE_RUN_STATUS_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18STATE_RUN_STATUS_RUNNING\x10\x01\x12\x1e\n" +
@@ -1830,7 +1939,7 @@ const file_keystone_core_v1_state_proto_rawDesc = "" +
 	"\x13DRIFT_STATE_IN_SYNC\x10\x01\x12\x17\n" +
 	"\x13DRIFT_STATE_DRIFTED\x10\x02\x12\x15\n" +
 	"\x11DRIFT_STATE_ERROR\x10\x03\x12\x17\n" +
-	"\x13DRIFT_STATE_SKIPPED\x10\x042\xcc\x04\n" +
+	"\x13DRIFT_STATE_SKIPPED\x10\x042\xcf\x04\n" +
 	"\fStateService\x12Y\n" +
 	"\n" +
 	"ApplyState\x12#.keystone.core.v1.ApplyStateRequest\x1a$.keystone.core.v1.ApplyStateResponse0\x01\x12W\n" +
@@ -1838,8 +1947,8 @@ const file_keystone_core_v1_state_proto_rawDesc = "" +
 	"CheckState\x12#.keystone.core.v1.CheckStateRequest\x1a$.keystone.core.v1.CheckStateResponse\x12Z\n" +
 	"\vDetectDrift\x12$.keystone.core.v1.DetectDriftRequest\x1a%.keystone.core.v1.DetectDriftResponse\x12f\n" +
 	"\x0fGetStateHistory\x12(.keystone.core.v1.GetStateHistoryRequest\x1a).keystone.core.v1.GetStateHistoryResponse\x12c\n" +
-	"\x0eGetStateStatus\x12'.keystone.core.v1.GetStateStatusRequest\x1a(.keystone.core.v1.GetStateStatusResponse\x12_\n" +
-	"\rRollbackState\x12&.keystone.core.v1.RollbackStateRequest\x1a$.keystone.core.v1.ApplyStateResponse0\x01B1Z/go.keystone-core.io/keystone-core/pkg/api/v1;v1b\x06proto3"
+	"\x0eGetStateStatus\x12'.keystone.core.v1.GetStateStatusRequest\x1a(.keystone.core.v1.GetStateStatusResponse\x12b\n" +
+	"\rRollbackState\x12&.keystone.core.v1.RollbackStateRequest\x1a'.keystone.core.v1.RollbackStateResponse0\x01B1Z/go.keystone-core.io/keystone-core/pkg/api/v1;v1b\x06proto3"
 
 var (
 	file_keystone_core_v1_state_proto_rawDescOnce sync.Once
@@ -1854,7 +1963,7 @@ func file_keystone_core_v1_state_proto_rawDescGZIP() []byte {
 }
 
 var file_keystone_core_v1_state_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_keystone_core_v1_state_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_keystone_core_v1_state_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_keystone_core_v1_state_proto_goTypes = []any{
 	(StateRunStatus)(0),             // 0: keystone.core.v1.StateRunStatus
 	(StateRunMode)(0),               // 1: keystone.core.v1.StateRunMode
@@ -1877,69 +1986,72 @@ var file_keystone_core_v1_state_proto_goTypes = []any{
 	(*GetStateStatusRequest)(nil),   // 18: keystone.core.v1.GetStateStatusRequest
 	(*GetStateStatusResponse)(nil),  // 19: keystone.core.v1.GetStateStatusResponse
 	(*RollbackStateRequest)(nil),    // 20: keystone.core.v1.RollbackStateRequest
-	nil,                             // 21: keystone.core.v1.ApplyStateRequest.FactsEntry
-	nil,                             // 22: keystone.core.v1.ApplyStateRequest.VariableOverridesEntry
-	nil,                             // 23: keystone.core.v1.CheckStateRequest.FactsEntry
-	nil,                             // 24: keystone.core.v1.CheckStateRequest.VariableOverridesEntry
-	nil,                             // 25: keystone.core.v1.DetectDriftRequest.FactsEntry
-	nil,                             // 26: keystone.core.v1.DetectDriftRequest.VariableOverridesEntry
-	(*timestamppb.Timestamp)(nil),   // 27: google.protobuf.Timestamp
-	(*Target)(nil),                  // 28: keystone.core.v1.Target
+	(*RollbackStateResponse)(nil),   // 21: keystone.core.v1.RollbackStateResponse
+	nil,                             // 22: keystone.core.v1.ApplyStateRequest.FactsEntry
+	nil,                             // 23: keystone.core.v1.ApplyStateRequest.VariableOverridesEntry
+	nil,                             // 24: keystone.core.v1.CheckStateRequest.FactsEntry
+	nil,                             // 25: keystone.core.v1.CheckStateRequest.VariableOverridesEntry
+	nil,                             // 26: keystone.core.v1.DetectDriftRequest.FactsEntry
+	nil,                             // 27: keystone.core.v1.DetectDriftRequest.VariableOverridesEntry
+	(*timestamppb.Timestamp)(nil),   // 28: google.protobuf.Timestamp
+	(*Target)(nil),                  // 29: keystone.core.v1.Target
 }
 var file_keystone_core_v1_state_proto_depIdxs = []int32{
 	2,  // 0: keystone.core.v1.StateDeclarationResult.outcome:type_name -> keystone.core.v1.StateRunOutcome
-	27, // 1: keystone.core.v1.StateDeclarationResult.started_at:type_name -> google.protobuf.Timestamp
+	28, // 1: keystone.core.v1.StateDeclarationResult.started_at:type_name -> google.protobuf.Timestamp
 	1,  // 2: keystone.core.v1.StateRun.mode:type_name -> keystone.core.v1.StateRunMode
-	27, // 3: keystone.core.v1.StateRun.started_at:type_name -> google.protobuf.Timestamp
-	27, // 4: keystone.core.v1.StateRun.ended_at:type_name -> google.protobuf.Timestamp
+	28, // 3: keystone.core.v1.StateRun.started_at:type_name -> google.protobuf.Timestamp
+	28, // 4: keystone.core.v1.StateRun.ended_at:type_name -> google.protobuf.Timestamp
 	0,  // 5: keystone.core.v1.StateRun.status:type_name -> keystone.core.v1.StateRunStatus
 	5,  // 6: keystone.core.v1.StateRun.aggregates:type_name -> keystone.core.v1.StateRunAggregates
 	4,  // 7: keystone.core.v1.DriftDeclaration.state:type_name -> keystone.core.v1.DriftState
 	3,  // 8: keystone.core.v1.DriftDeclaration.severity:type_name -> keystone.core.v1.DriftSeverity
 	0,  // 9: keystone.core.v1.StateRunTerminal.status:type_name -> keystone.core.v1.StateRunStatus
 	5,  // 10: keystone.core.v1.StateRunTerminal.aggregates:type_name -> keystone.core.v1.StateRunAggregates
-	28, // 11: keystone.core.v1.ApplyStateRequest.target:type_name -> keystone.core.v1.Target
-	21, // 12: keystone.core.v1.ApplyStateRequest.facts:type_name -> keystone.core.v1.ApplyStateRequest.FactsEntry
-	22, // 13: keystone.core.v1.ApplyStateRequest.variable_overrides:type_name -> keystone.core.v1.ApplyStateRequest.VariableOverridesEntry
+	29, // 11: keystone.core.v1.ApplyStateRequest.target:type_name -> keystone.core.v1.Target
+	22, // 12: keystone.core.v1.ApplyStateRequest.facts:type_name -> keystone.core.v1.ApplyStateRequest.FactsEntry
+	23, // 13: keystone.core.v1.ApplyStateRequest.variable_overrides:type_name -> keystone.core.v1.ApplyStateRequest.VariableOverridesEntry
 	6,  // 14: keystone.core.v1.ApplyStateResponse.decl_result:type_name -> keystone.core.v1.StateDeclarationResult
 	9,  // 15: keystone.core.v1.ApplyStateResponse.terminal:type_name -> keystone.core.v1.StateRunTerminal
-	28, // 16: keystone.core.v1.CheckStateRequest.target:type_name -> keystone.core.v1.Target
-	23, // 17: keystone.core.v1.CheckStateRequest.facts:type_name -> keystone.core.v1.CheckStateRequest.FactsEntry
-	24, // 18: keystone.core.v1.CheckStateRequest.variable_overrides:type_name -> keystone.core.v1.CheckStateRequest.VariableOverridesEntry
+	29, // 16: keystone.core.v1.CheckStateRequest.target:type_name -> keystone.core.v1.Target
+	24, // 17: keystone.core.v1.CheckStateRequest.facts:type_name -> keystone.core.v1.CheckStateRequest.FactsEntry
+	25, // 18: keystone.core.v1.CheckStateRequest.variable_overrides:type_name -> keystone.core.v1.CheckStateRequest.VariableOverridesEntry
 	0,  // 19: keystone.core.v1.CheckStateResponse.status:type_name -> keystone.core.v1.StateRunStatus
 	5,  // 20: keystone.core.v1.CheckStateResponse.aggregates:type_name -> keystone.core.v1.StateRunAggregates
 	6,  // 21: keystone.core.v1.CheckStateResponse.declarations:type_name -> keystone.core.v1.StateDeclarationResult
-	28, // 22: keystone.core.v1.DetectDriftRequest.target:type_name -> keystone.core.v1.Target
-	25, // 23: keystone.core.v1.DetectDriftRequest.facts:type_name -> keystone.core.v1.DetectDriftRequest.FactsEntry
-	26, // 24: keystone.core.v1.DetectDriftRequest.variable_overrides:type_name -> keystone.core.v1.DetectDriftRequest.VariableOverridesEntry
+	29, // 22: keystone.core.v1.DetectDriftRequest.target:type_name -> keystone.core.v1.Target
+	26, // 23: keystone.core.v1.DetectDriftRequest.facts:type_name -> keystone.core.v1.DetectDriftRequest.FactsEntry
+	27, // 24: keystone.core.v1.DetectDriftRequest.variable_overrides:type_name -> keystone.core.v1.DetectDriftRequest.VariableOverridesEntry
 	0,  // 25: keystone.core.v1.DetectDriftResponse.status:type_name -> keystone.core.v1.StateRunStatus
 	3,  // 26: keystone.core.v1.DetectDriftResponse.aggregate_severity:type_name -> keystone.core.v1.DriftSeverity
 	5,  // 27: keystone.core.v1.DetectDriftResponse.aggregates:type_name -> keystone.core.v1.StateRunAggregates
 	8,  // 28: keystone.core.v1.DetectDriftResponse.statuses:type_name -> keystone.core.v1.DriftDeclaration
 	1,  // 29: keystone.core.v1.GetStateHistoryRequest.mode:type_name -> keystone.core.v1.StateRunMode
 	0,  // 30: keystone.core.v1.GetStateHistoryRequest.status:type_name -> keystone.core.v1.StateRunStatus
-	27, // 31: keystone.core.v1.GetStateHistoryRequest.since:type_name -> google.protobuf.Timestamp
-	27, // 32: keystone.core.v1.GetStateHistoryRequest.until:type_name -> google.protobuf.Timestamp
+	28, // 31: keystone.core.v1.GetStateHistoryRequest.since:type_name -> google.protobuf.Timestamp
+	28, // 32: keystone.core.v1.GetStateHistoryRequest.until:type_name -> google.protobuf.Timestamp
 	7,  // 33: keystone.core.v1.GetStateHistoryResponse.runs:type_name -> keystone.core.v1.StateRun
 	7,  // 34: keystone.core.v1.GetStateStatusResponse.run:type_name -> keystone.core.v1.StateRun
 	6,  // 35: keystone.core.v1.GetStateStatusResponse.declarations:type_name -> keystone.core.v1.StateDeclarationResult
-	10, // 36: keystone.core.v1.StateService.ApplyState:input_type -> keystone.core.v1.ApplyStateRequest
-	12, // 37: keystone.core.v1.StateService.CheckState:input_type -> keystone.core.v1.CheckStateRequest
-	14, // 38: keystone.core.v1.StateService.DetectDrift:input_type -> keystone.core.v1.DetectDriftRequest
-	16, // 39: keystone.core.v1.StateService.GetStateHistory:input_type -> keystone.core.v1.GetStateHistoryRequest
-	18, // 40: keystone.core.v1.StateService.GetStateStatus:input_type -> keystone.core.v1.GetStateStatusRequest
-	20, // 41: keystone.core.v1.StateService.RollbackState:input_type -> keystone.core.v1.RollbackStateRequest
-	11, // 42: keystone.core.v1.StateService.ApplyState:output_type -> keystone.core.v1.ApplyStateResponse
-	13, // 43: keystone.core.v1.StateService.CheckState:output_type -> keystone.core.v1.CheckStateResponse
-	15, // 44: keystone.core.v1.StateService.DetectDrift:output_type -> keystone.core.v1.DetectDriftResponse
-	17, // 45: keystone.core.v1.StateService.GetStateHistory:output_type -> keystone.core.v1.GetStateHistoryResponse
-	19, // 46: keystone.core.v1.StateService.GetStateStatus:output_type -> keystone.core.v1.GetStateStatusResponse
-	11, // 47: keystone.core.v1.StateService.RollbackState:output_type -> keystone.core.v1.ApplyStateResponse
-	42, // [42:48] is the sub-list for method output_type
-	36, // [36:42] is the sub-list for method input_type
-	36, // [36:36] is the sub-list for extension type_name
-	36, // [36:36] is the sub-list for extension extendee
-	0,  // [0:36] is the sub-list for field type_name
+	6,  // 36: keystone.core.v1.RollbackStateResponse.decl_result:type_name -> keystone.core.v1.StateDeclarationResult
+	9,  // 37: keystone.core.v1.RollbackStateResponse.terminal:type_name -> keystone.core.v1.StateRunTerminal
+	10, // 38: keystone.core.v1.StateService.ApplyState:input_type -> keystone.core.v1.ApplyStateRequest
+	12, // 39: keystone.core.v1.StateService.CheckState:input_type -> keystone.core.v1.CheckStateRequest
+	14, // 40: keystone.core.v1.StateService.DetectDrift:input_type -> keystone.core.v1.DetectDriftRequest
+	16, // 41: keystone.core.v1.StateService.GetStateHistory:input_type -> keystone.core.v1.GetStateHistoryRequest
+	18, // 42: keystone.core.v1.StateService.GetStateStatus:input_type -> keystone.core.v1.GetStateStatusRequest
+	20, // 43: keystone.core.v1.StateService.RollbackState:input_type -> keystone.core.v1.RollbackStateRequest
+	11, // 44: keystone.core.v1.StateService.ApplyState:output_type -> keystone.core.v1.ApplyStateResponse
+	13, // 45: keystone.core.v1.StateService.CheckState:output_type -> keystone.core.v1.CheckStateResponse
+	15, // 46: keystone.core.v1.StateService.DetectDrift:output_type -> keystone.core.v1.DetectDriftResponse
+	17, // 47: keystone.core.v1.StateService.GetStateHistory:output_type -> keystone.core.v1.GetStateHistoryResponse
+	19, // 48: keystone.core.v1.StateService.GetStateStatus:output_type -> keystone.core.v1.GetStateStatusResponse
+	21, // 49: keystone.core.v1.StateService.RollbackState:output_type -> keystone.core.v1.RollbackStateResponse
+	44, // [44:50] is the sub-list for method output_type
+	38, // [38:44] is the sub-list for method input_type
+	38, // [38:38] is the sub-list for extension type_name
+	38, // [38:38] is the sub-list for extension extendee
+	0,  // [0:38] is the sub-list for field type_name
 }
 
 func init() { file_keystone_core_v1_state_proto_init() }
@@ -1953,13 +2065,18 @@ func file_keystone_core_v1_state_proto_init() {
 		(*ApplyStateResponse_DeclResult)(nil),
 		(*ApplyStateResponse_Terminal)(nil),
 	}
+	file_keystone_core_v1_state_proto_msgTypes[16].OneofWrappers = []any{
+		(*RollbackStateResponse_RunId)(nil),
+		(*RollbackStateResponse_DeclResult)(nil),
+		(*RollbackStateResponse_Terminal)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_keystone_core_v1_state_proto_rawDesc), len(file_keystone_core_v1_state_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   22,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

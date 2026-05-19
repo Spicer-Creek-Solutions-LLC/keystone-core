@@ -31,7 +31,7 @@ type fakeClient struct {
 	historyErr      error
 	statusResp      *v1.GetStateStatusResponse
 	statusErr       error
-	rollbackStream  *fakeApplyStream
+	rollbackStream  *fakeRollbackStream
 	rollbackErr     error
 	applyReqs       []*v1.ApplyStateRequest
 	checkReqs       []*v1.CheckStateRequest
@@ -77,14 +77,16 @@ func (c *fakeClient) RollbackState(_ context.Context, req *v1.RollbackStateReque
 	return c.rollbackStream, nil
 }
 
-// fakeApplyStream serves a fixed slice of events then io.EOF.
-type fakeApplyStream struct {
+// fakeStream serves a fixed slice of events then io.EOF. Generic so
+// the apply and (distinct-typed) rollback response streams share one
+// fake.
+type fakeStream[T any] struct {
 	grpc.ClientStream
-	events []*v1.ApplyStateResponse
+	events []*T
 	idx    int
 }
 
-func (s *fakeApplyStream) Recv() (*v1.ApplyStateResponse, error) {
+func (s *fakeStream[T]) Recv() (*T, error) {
 	if s.idx >= len(s.events) {
 		return nil, io.EOF
 	}
@@ -92,6 +94,11 @@ func (s *fakeApplyStream) Recv() (*v1.ApplyStateResponse, error) {
 	s.idx++
 	return e, nil
 }
+
+type (
+	fakeApplyStream    = fakeStream[v1.ApplyStateResponse]
+	fakeRollbackStream = fakeStream[v1.RollbackStateResponse]
+)
 
 // dialFor returns a Deps backed by client.
 func dialFor(client v1.StateServiceClient) Deps {
@@ -647,12 +654,12 @@ func TestShow_ErrorBubblesUp(t *testing.T) {
 
 func TestRollback_StreamsAndPropagatesFlags(t *testing.T) {
 	t.Parallel()
-	stream := &fakeApplyStream{events: []*v1.ApplyStateResponse{
-		{Event: &v1.ApplyStateResponse_RunId{RunId: "r-new"}},
-		{Event: &v1.ApplyStateResponse_DeclResult{DeclResult: &v1.StateDeclarationResult{
+	stream := &fakeRollbackStream{events: []*v1.RollbackStateResponse{
+		{Event: &v1.RollbackStateResponse_RunId{RunId: "r-new"}},
+		{Event: &v1.RollbackStateResponse_DeclResult{DeclResult: &v1.StateDeclarationResult{
 			DeclId: "file:/a", Outcome: v1.StateRunOutcome_STATE_RUN_OUTCOME_CHANGED,
 		}}},
-		{Event: &v1.ApplyStateResponse_Terminal{Terminal: &v1.StateRunTerminal{
+		{Event: &v1.RollbackStateResponse_Terminal{Terminal: &v1.StateRunTerminal{
 			RunId: "r-new", Status: v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED,
 			Aggregates: &v1.StateRunAggregates{Total: 1, Changed: 1},
 		}}},
@@ -688,8 +695,8 @@ func TestRollback_StreamsAndPropagatesFlags(t *testing.T) {
 
 func TestRollback_FailingTerminalReturnsError(t *testing.T) {
 	t.Parallel()
-	stream := &fakeApplyStream{events: []*v1.ApplyStateResponse{
-		{Event: &v1.ApplyStateResponse_Terminal{Terminal: &v1.StateRunTerminal{
+	stream := &fakeRollbackStream{events: []*v1.RollbackStateResponse{
+		{Event: &v1.RollbackStateResponse_Terminal{Terminal: &v1.StateRunTerminal{
 			Status: v1.StateRunStatus_STATE_RUN_STATUS_FAILED,
 			Aggregates: &v1.StateRunAggregates{},
 		}}},
