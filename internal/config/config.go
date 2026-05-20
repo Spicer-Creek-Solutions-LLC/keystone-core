@@ -54,6 +54,7 @@ type Config struct {
 	GitOps   GitOpsConfig   `koanf:"gitops"`
 	Webhook  WebhookConfig  `koanf:"webhook"`
 	Metrics  MetricsConfig  `koanf:"metrics"`
+	Tracing  TracingConfig  `koanf:"tracing"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.
@@ -144,6 +145,17 @@ func defaultConfig() *Config {
 			Enabled: true,
 			Path:    "/metrics",
 		},
+		Tracing: TracingConfig{
+			Enabled:            false, // opt-in; sampling overhead
+			ServiceName:        "kscore-server",
+			Exporter:           TracingExporterStdout,
+			Sampler:            TracingSamplerProbabilistic,
+			SampleRate:         0.1,
+			RateLimitPerSecond: 100,
+			BatchSize:          512,
+			QueueSize:          2048,
+			FlushInterval:      5 * time.Second,
+		},
 	}
 	applyEventsDefaults(&c.Events)
 	applyClusterDefaults(&c.Cluster)
@@ -231,6 +243,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.Metrics.Validate(); err != nil {
 		return fmt.Errorf("metrics: %w", err)
+	}
+	if err := c.Tracing.Validate(); err != nil {
+		return fmt.Errorf("tracing: %w", err)
 	}
 	return nil
 }

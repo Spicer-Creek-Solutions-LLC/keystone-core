@@ -105,7 +105,7 @@ See `PROJECT-DETAILS.md §4.16`.
 
 - [x] `/metrics` exposes all v1.0 metrics in Prometheus exposition format. _(Task 3: `promhttp.HandlerFor(metricsRegistry.Gatherer(), …)` mounted on `publicMux` at `cfg.Metrics.Path` (default `/metrics`); same HTTP listener as `/health/*`, no auth, no new port. Disabled via `metrics.enabled=false`; 404s when Registry not supplied.)_
 - [x] Cardinality limiter drops metrics above threshold; logs warning with metric name. _(Task 1: `internal/metrics/cardinality.Limiter` enforces a per-metric cap with Drop (default) or Aggregate (`"_overflow"` sentinel) mode; drops emit `kscore_metrics_cardinality_total{metric,outcome}`; first-drop warn log is throttled per metric.)_
-- [ ] OTel traces export to OTLP receiver (test with otelcol or stdout exporter).
+- [x] OTel traces export to OTLP receiver (test with otelcol or stdout exporter). _(Task 4: `internal/tracing.New` builds a `*sdktrace.TracerProvider` with the configured Exporter (stdout / OTLP gRPC / OTLP HTTP / Zipkin), Sampler (`always_on/off` / `probabilistic` / `parent_based` / `rate_limiting` — `adaptive` deferred to v2.x+ ROADMAP), and a `BatchSpanProcessor` honoring `BatchSize` / `QueueSize` / `FlushInterval`. `Provider.Shutdown` flush is verified via a stub exporter test.)_
 - [ ] `/health/live` always 200; `/health/ready` returns 503 during startup grace period.
 - [ ] `/api/status` returns version, uptime, agent counts, memory, goroutines.
 - [ ] All 12 Grafana dashboards import successfully against a running CP and display non-empty panels.

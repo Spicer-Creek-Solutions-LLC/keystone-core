@@ -1210,6 +1210,22 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v2.x+ — architectural post-v1.0
 
+#### Adaptive sampling tied to error metrics
+
+- **Priority**: v2.x+
+- **What**: OTel `Sampler` implementation that rebalances sample rate on the observed error rate from `kscore_*_failed_total` metrics. PROJECT-DETAILS §4.16 line 1126 names `adaptive (rebalances on observed error rate)` as part of the v1.0 sampler enum, but Epic 17 Scope-out (line 82) defers it to v2.0 with the rationale "refinement". Epic 17 task 4 ships the other four samplers (`always_on/off`, `probabilistic`, `parent_based`, `rate_limiting`); `internal/config/TracingConfig.Validate` rejects `sampler=adaptive` with a pointer to this entry.
+- **Why deferred**: needs a stable kscore metric set + an error-rate-feedback path that doesn't exist in v1.0. The other four samplers cover every v1.0 use case (probabilistic at 0.1 is the documented default).
+- **Acceptance**: `tracing.sampler: adaptive` validates and constructs a sampler that increases sample rate on error spikes (>1% per-route 5xx) and decays back to baseline; integration test with a stub metric source.
+- **References**: Epic 17 Scope-out (line 82); PROJECT-DETAILS §4.16 line 1126; `internal/config/tracing.go` `Validate` adaptive branch.
+
+#### Zipkin exporter replacement — Zipkin module upstream-deprecated
+
+- **Priority**: v2.x+ (action well before early 2027)
+- **What**: `go.opentelemetry.io/otel/exporters/zipkin` is upstream-deprecated with planned removal in early 2027. Epic 17 task 4 ships Zipkin support because the epic explicitly lists it. Before the upstream removal lands, migrate operators currently using Zipkin to OTLP (HTTP or gRPC) — OTLP is the OTel-blessed wire format and most observability backends now accept it natively.
+- **Why deferred**: v1.0 still names Zipkin; switching defaults during a stability commitment is disruptive. The upstream deprecation gives a 2+ year runway.
+- **Acceptance**: Zipkin exporter removed from `internal/tracing/exporters.go`; migration note in release notes; `tracing.exporter=zipkin` validates with a deprecation warning pointing at OTLP.
+- **References**: `internal/tracing/exporters.go`; `go get` output noting `module go.opentelemetry.io/otel/exporters/zipkin is deprecated: The zipkin exporter is deprecated and will be removed in early 2027`.
+
 #### Embedded NATS / hybrid mode / leaf node / endpoint advertiser / supercluster / WebSocket
 
 - **Priority**: v2.x+
