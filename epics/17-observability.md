@@ -111,7 +111,7 @@ See `PROJECT-DETAILS.md §4.16`.
 - [x] All 12 Grafana dashboards import successfully against a running CP and display non-empty panels. _(Task 8: 12 JSON dashboards in `deploy/grafana/dashboards/` plus `expected_metrics.txt` and `README.md`. `deploy/grafana/dashboards_test.go` gates static correctness: each parses, has the required schema fields, every referenced `kscore_*` / `go_*` / `process_*` metric is in `expected_metrics.txt`, every `metricdefs.go` constant is listed, UIDs are unique with `kscore-` prefix. Live import / non-empty-panels verification is a manual pre-release step documented in the README.)_
 - [x] Correlation ID present in JSON log lines + gRPC metadata + span attributes for end-to-end requests. _(Task 10: HTTP middleware sits outermost in `pkg/api/server.buildHTTPHandler` and stamps the `X-Correlation-ID` header onto ctx (generating a fresh ID via `logging.NewCorrelationID` when absent or malformed); unary + stream gRPC interceptors do the same with the `x-correlation-id` metadata key + response trailer. `envelope.FromContext`/`ToContext` bridge ctx ↔ NATS message headers. `tracing.CorrelationIDAttr` returns the `kscore.correlation_id` span attribute from ctx. `cmd/kscore-server/main.go` calls `otel.SetTracerProvider` so the attribute path fires. End-to-end test `TestCorrelation_EndToEnd_HTTP` exercises all three surfaces from one request.)_
 - [x] pprof endpoint returns valid profile when enabled. _(Task 7: `internal/profiling.Server` registers `pprof.Index/Cmdline/Profile/Symbol/Trace` on a private `*http.ServeMux` (no global mux side effect) and binds to `cfg.Profiling.Host:Port` (default 127.0.0.1:6060, opt-in via `enabled=true`). Tests verify `/debug/pprof/`, `/debug/pprof/heap?debug=1`, and `/debug/pprof/goroutine?debug=1` return 200 with non-empty bodies. `MutexProfileFraction` / `BlockProfileRate` runtime knobs apply at Start and restore at Stop.)_
-- [ ] Coverage >75% on `internal/metrics`, `internal/tracing`.
+- [x] Coverage >75% on `internal/metrics`, `internal/tracing`. _(Task 11 reaffirms: `internal/metrics` 89.9%, `internal/metrics/cardinality` 90.5%, `internal/tracing` 90.4%. All above the 75% epic target.)_
 
 ## Risks
 
@@ -123,3 +123,38 @@ See `PROJECT-DETAILS.md §4.16`.
 ## References
 
 - PROJECT-DETAILS §4.16.
+
+## Closeout (Epic 17 — Observability)
+
+All 11 tasks landed; all 9 acceptance criteria ticked.
+
+Commits:
+
+| Task | Commit | Subject |
+|---|---|---|
+| 1 | `c69ad5a9` | metrics registry + Collector + Timer + cardinality limiter |
+| 2 | `bff693ac` | v1.0 metric defs + per-package emitters |
+| 3 | `25cb17c7` | `/metrics` HTTP handler on the main server |
+| 4 | `7ff7abca` | OTel `TracerProvider` + samplers + exporters + batch |
+| 5 | `778b32ea` | span helper attribute functions |
+| 6 | `bb314158` | health checker registry + concrete checkers |
+| 7 | `84e651fa` | pprof profiling endpoint |
+| 8 | `2e9f9681` | Grafana dashboards + metric-diff CI gate |
+| 10 | `3a03469b` | correlation ID middleware HTTP + gRPC + NATS + spans |
+| 11 | _(this commit)_ | observability integration test |
+
+Task 9 (`deploy/grafana/README.md` with import + datasource setup) was
+delivered inside Task 8's commit alongside the dashboard artifacts.
+
+ROADMAP deferrals introduced by this epic:
+
+- **Adaptive sampling tied to error metrics** — `v2.x+` per Scope-out
+  line 82. Validate rejects `tracing.sampler: adaptive` with a pointer
+  to the ROADMAP entry (`docs/project/ROADMAP.md`).
+- **Zipkin exporter replacement** — `v2.x+`. The upstream module is
+  deprecated with planned removal in early 2027; v1.0 ships it (epic
+  line 35 names it explicitly) and the ROADMAP entry tracks the OTLP
+  migration before the upstream removal lands.
+
+No new gate-v1.0 boot-wiring deferrals — every observability surface
+ships fully wired through `cmd/kscore-server/main.go`.
