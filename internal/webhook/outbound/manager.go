@@ -308,6 +308,62 @@ func (m *Manager) deliverOnce(ctx context.Context, sub *Subscription, d *Deliver
 	}
 }
 
+// TestSubscription dispatches a synthetic ping payload through the
+// configured [Dispatcher] (circuit-breaker-wrapped at boot) for a
+// single attempt — no retry loop — and persists the resulting
+// [DeliveryRecord]. The synthetic event type is "webhook.test"; the
+// payload is small, fixed-shape JSON so receivers can ignore it
+// cleanly. Used by the task-16 REST `POST {id}/test` endpoint and
+// the `kscore-webhook outbound test` CLI; intentionally not a full
+// retry attempt — the operator wants a "did my URL respond" verdict,
+// not the 30s+ retry/backoff dance.
+func (m *Manager) TestSubscription(ctx context.Context, subID string) (*DeliveryRecord, error) {
+	sub, ok, err := m.Store.GetSubscription(ctx, subID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("outbound: subscription %q not found", subID)
+	}
+	payload, err := json.Marshal(map[string]any{
+		"event":        "webhook.test",
+		"subscription": sub.ID,
+		"emitted_at":   m.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("outbound: build test payload: %w", err)
+	}
+	d := &DeliveryRecord{
+		ID:             m.IDGen(),
+		SubscriptionID: sub.ID,
+		EventType:      "webhook.test",
+		EventID:        "test-" + sub.ID,
+		Status:         DeliveryPending,
+		Attempt:        1,
+		DeliveredAt:    m.Now().UTC(),
+	}
+	if err := m.Store.SaveDelivery(ctx, d); err != nil {
+		return nil, fmt.Errorf("outbound: save test delivery: %w", err)
+	}
+	code, derr := m.Dispatcher.Deliver(ctx, sub, payload, d.ID)
+	d.StatusCode = code
+	d.DeliveredAt = m.Now().UTC()
+	if derr != nil {
+		d.Status = DeliveryFailed
+		d.Error = derr.Error()
+	} else {
+		d.Status = DeliverySuccess
+		d.Error = ""
+	}
+	if serr := m.Store.SaveDelivery(ctx, d); serr != nil {
+		m.Logger.Warn("outbound manager save test delivery final",
+			slog.String("subscription", sub.ID),
+			slog.String("delivery", d.ID),
+			slog.String("error", serr.Error()))
+	}
+	return d, nil
+}
+
 // saveFinal persists the current state of d and warns on store
 // errors — Manager never returns these (the audit record is
 // best-effort once the dispatch decision is made).

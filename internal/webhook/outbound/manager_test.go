@@ -514,3 +514,56 @@ func TestManager_Retry_NoRetriesOnSubMaxRetriesZero(t *testing.T) {
 		t.Errorf("dispatcher attempts = %d, want 1 (MaxRetries=0)", fd.attempts)
 	}
 }
+
+func TestManager_TestSubscription_Success(t *testing.T) {
+	t.Parallel()
+	d := &fakeDispatcher{status: 200}
+	m := newManager(t, d)
+	ctx := context.Background()
+	sub := newSub("ping", true, "irrelevant.*")
+	_ = m.Store.CreateSubscription(ctx, sub)
+
+	rec, err := m.TestSubscription(ctx, "ping")
+	if err != nil {
+		t.Fatalf("TestSubscription: %v", err)
+	}
+	if rec.Status != DeliverySuccess || rec.StatusCode != 200 || rec.EventType != "webhook.test" {
+		t.Errorf("unexpected delivery: %+v", rec)
+	}
+	d.mu.Lock()
+	if len(d.gotSubs) != 1 || d.gotSubs[0] != "ping" {
+		t.Errorf("dispatcher got = %v, want one call for ping", d.gotSubs)
+	}
+	// Payload contains the synthetic ping fields.
+	payload := string(d.gotPayls[0])
+	d.mu.Unlock()
+	if !strings.Contains(payload, `"event":"webhook.test"`) ||
+		!strings.Contains(payload, `"subscription":"ping"`) {
+		t.Errorf("synthetic payload = %s", payload)
+	}
+}
+
+func TestManager_TestSubscription_UnknownSub(t *testing.T) {
+	t.Parallel()
+	d := &fakeDispatcher{status: 200}
+	m := newManager(t, d)
+	if _, err := m.TestSubscription(context.Background(), "nope"); err == nil {
+		t.Error("TestSubscription(nope) = nil, want not-found error")
+	}
+}
+
+func TestManager_TestSubscription_DispatcherError_FailedRecord(t *testing.T) {
+	t.Parallel()
+	d := &fakeDispatcher{status: 502, err: errors.New("bad gateway")}
+	m := newManager(t, d)
+	ctx := context.Background()
+	_ = m.Store.CreateSubscription(ctx, newSub("err", true, "irrelevant.*"))
+
+	rec, err := m.TestSubscription(ctx, "err")
+	if err != nil {
+		t.Fatalf("TestSubscription: %v", err)
+	}
+	if rec.Status != DeliveryFailed || rec.StatusCode != 502 || !strings.Contains(rec.Error, "bad gateway") {
+		t.Errorf("delivery = %+v, want failed + 502 + error", rec)
+	}
+}

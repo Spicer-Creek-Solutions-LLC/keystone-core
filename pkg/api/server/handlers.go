@@ -127,7 +127,7 @@ func (s *Server) registerDomainHandlers(mux *http.ServeMux) {
 	schedule.NewHandler().Register(mux)
 	secrets.NewHandler(s.secretsBroker, s.secretsTransit, s.secretsLeases).Register(mux)
 	stateapi.NewHandler().Register(mux)
-	webhooks.NewHandler().Register(mux)
+	webhooks.NewHandler(webhooks.Providers{}).Register(mux)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

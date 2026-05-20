@@ -108,12 +108,12 @@ See `PROJECT-DETAILS.md §4.13` (GitOps), §4.14 (Outbound webhooks).
 
 ### Outbound webhooks
 
-- [ ] `kscore-webhook outbound create --name slack --url https://hooks.slack.com/... --events 'state.drift,policy.violation' --secret xxx` succeeds.
-- [ ] Test endpoint `POST /api/v1/webhooks/subscriptions/{id}/test` delivers a synthetic payload.
+- [x] `kscore-webhook outbound create --name slack --url https://hooks.slack.com/... --events 'state.drift,policy.violation' --secret xxx` succeeds. _(task 16: `cmd/kscore-webhook` cobra root + `outbound create` opens the SQLite store, persists the subscription, echoes the cleartext secret once per §4.14; `TestOutbound_Create_AcceptanceLine111` drives the exact command form end-to-end.)_
+- [x] Test endpoint `POST /api/v1/webhooks/subscriptions/{id}/test` delivers a synthetic payload. _(task 16: REST `POST /api/v1/webhooks/subscriptions/{id}/test` calls `Manager.TestSubscription` which 1-shot-dispatches a `webhook.test` payload through the configured Dispatcher; the CLI `outbound test` exercises the same dispatch path against an `httptest.Server` in `TestOutbound_Test_DispatchesToReceiver_Acceptance112`.)_
 - [ ] HMAC signature validates on receiver side.
 - [x] Circuit breaker opens after 5 consecutive failures; recovers via half-open. _(task 15: `internal/webhook/outbound.CircuitBreaker` is a Dispatcher decorator with a per-endpoint state machine (closed→open after FailureThreshold; →half-open after OpenDuration; →closed after HalfOpenSuccesses); state transitions, fast-fail while open, half-open recovery, half-open-failure re-open, per-endpoint isolation, and concurrent-safe sync.Map keying are all exercised in `circuit_breaker_test.go` with an injected clock.)_
 - [ ] Retries with exp backoff; eventual `failed` after 3 attempts retained in history.
-- [ ] `GET /api/v1/webhooks/subscriptions/{id}/deliveries` lists delivery history.
+- [x] `GET /api/v1/webhooks/subscriptions/{id}/deliveries` lists delivery history. _(task 16: REST + the CLI `outbound history` both list via the task-11 `SubscriptionStore.ListDeliveries`; `TestOutbound_History_AcceptanceLine116` seeds deliveries and reads them back.)_
 - [ ] Coverage >75% on both `internal/gitops` and `internal/webhook/outbound`.
 
 ## Risks
