@@ -159,6 +159,33 @@ func drainApplyStream(t *testing.T, stream grpc.ServerStreamingClient[v1.ApplySt
 	}
 }
 
+// drainRollbackStream mirrors [drainApplyStream] for the
+// RollbackStateResponse oneof, which became a distinct proto type
+// after [drainApplyStream] was first written. The two streams emit
+// the same RunId / DeclResult / Terminal events; only the wrapper
+// type names differ.
+func drainRollbackStream(t *testing.T, stream grpc.ServerStreamingClient[v1.RollbackStateResponse]) applyEvents {
+	t.Helper()
+	var ev applyEvents
+	for {
+		msg, err := stream.Recv()
+		if errors.Is(err, io.EOF) {
+			return ev
+		}
+		if err != nil {
+			t.Fatalf("stream recv: %v", err)
+		}
+		switch x := msg.GetEvent().(type) {
+		case *v1.RollbackStateResponse_RunId:
+			ev.runID = x.RunId
+		case *v1.RollbackStateResponse_DeclResult:
+			ev.decls = append(ev.decls, x.DeclResult)
+		case *v1.RollbackStateResponse_Terminal:
+			ev.terminal = x.Terminal
+		}
+	}
+}
+
 // applyFixture is the convenient one-call form: load + send + drain.
 func (f *stateFixture) applyFixture(t *testing.T, name string, dryRun bool) applyEvents {
 	t.Helper()
@@ -379,7 +406,7 @@ func TestEpic08_StateIntegration_HistoryAndRollback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RollbackState: %v", err)
 	}
-	rb := drainApplyStream(t, rbStream)
+	rb := drainRollbackStream(t, rbStream)
 	if rb.terminal.GetStatus() != v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED {
 		t.Fatalf("rollback: status=%v err=%q", rb.terminal.GetStatus(), rb.terminal.GetErrorMessage())
 	}
