@@ -22,6 +22,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/events"
+	"go.keystone-core.io/keystone-core/internal/health"
 	"go.keystone-core.io/keystone-core/internal/identity"
 	"go.keystone-core.io/keystone-core/internal/metrics"
 	"go.keystone-core.io/keystone-core/internal/secrets"
@@ -265,6 +266,14 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		secretsRT.stop(stopCtx, log)
 	}()
 
+	// Epic 17 task 6 — JetStream component for /health/ready. Manager
+	// exposes JetStream() (jsCtx, error); the health package wants
+	// "ctx → error", so we adapt with JetStreamPingerFunc.
+	jetStreamPinger := health.JetStreamPingerFunc(func(context.Context) error {
+		_, err := natsManager.JetStream()
+		return err
+	})
+
 	opts := server.Options{
 		Config:              cfg,
 		Logger:              log,
@@ -277,6 +286,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		Metrics:             srvMetrics,
 		ControlPlaneMetrics: cpMetrics,
 		MetricsRegistry:     metricsRegistry,
+		JetStreamPinger:     jetStreamPinger,
 	}
 	// Compose the command-terminal hook from (a) the audit emitter and
 	// (b) the controlplane metrics recorder. Either may be nil.

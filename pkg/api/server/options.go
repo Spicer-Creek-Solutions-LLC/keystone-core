@@ -10,6 +10,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/events"
+	"go.keystone-core.io/keystone-core/internal/health"
 	"go.keystone-core.io/keystone-core/internal/metrics"
 	"go.keystone-core.io/keystone-core/internal/policy"
 	"go.keystone-core.io/keystone-core/internal/secrets"
@@ -141,6 +142,19 @@ type Options struct {
 	// nil suppresses the handler. Production wiring builds the same
 	// Registry that Task 2 emitters register against.
 	MetricsRegistry *metrics.Registry
+
+	// JetStreamPinger probes JetStream for /health/ready. Epic 17 task
+	// 6 adds JetStream as a v1.0 health-checked component alongside
+	// NATS + DB. Optional — when nil, JetStream is omitted from the
+	// component map. Production wiring passes an adapter over
+	// natsmgr.Manager.JetStream().
+	JetStreamPinger health.JetStreamPinger
+
+	// HealthCheckers is the operator-supplied list of custom Checkers
+	// the server registers alongside NATS / DB / JetStream. Each one
+	// shows up as its own component key in /health/ready and
+	// /health/status. Optional.
+	HealthCheckers []health.Checker
 }
 
 // validate returns an error if required fields are missing or

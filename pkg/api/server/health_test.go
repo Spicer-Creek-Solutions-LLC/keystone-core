@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"go.keystone-core.io/keystone-core/internal/health"
 	"go.keystone-core.io/keystone-core/pkg/envelope"
 	"go.keystone-core.io/keystone-core/pkg/natsstatus"
 )
@@ -261,6 +262,52 @@ func (s slowHealthStore) Ping(ctx context.Context) error {
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	}
+}
+
+// TestHealthChecker_JetStreamExtraAppears verifies the Epic 17 task 6
+// JetStream component lands in the snapshot map when an extras checker
+// is registered alongside NATS+DB.
+func TestHealthChecker_JetStreamExtraAppears(t *testing.T) {
+	now := time.Date(2026, 5, 7, 12, 0, 0, 0, time.UTC)
+	clock := func() time.Time { return now }
+	jsChecker := health.NewJetStreamChecker(health.JetStreamPingerFunc(func(context.Context) error {
+		return nil
+	}), 0)
+	hc := newHealthChecker(stubNATS{}, stubHealthStore{},
+		now.Add(-time.Minute), 30*time.Second, time.Second, clock, discardLogger(),
+		jsChecker,
+	)
+
+	snap := hc.Snapshot(context.Background())
+	if !snap.Ready {
+		t.Fatalf("Ready=false, want true (nats + db + jetstream all ok)")
+	}
+	if c, ok := snap.Components["jetstream"]; !ok {
+		t.Fatal("jetstream component missing")
+	} else if c.Status != "ok" {
+		t.Errorf("jetstream = %+v, want ok", c)
+	}
+}
+
+// TestHealthChecker_JetStreamUnhealthy_MarksNotReady verifies a JS
+// failure flips Ready=false even when nats + db are ok.
+func TestHealthChecker_JetStreamUnhealthy_MarksNotReady(t *testing.T) {
+	now := time.Date(2026, 5, 7, 12, 0, 0, 0, time.UTC)
+	clock := func() time.Time { return now }
+	jsChecker := health.NewJetStreamChecker(health.JetStreamPingerFunc(func(context.Context) error {
+		return errors.New("jetstream not enabled")
+	}), 0)
+	hc := newHealthChecker(stubNATS{}, stubHealthStore{},
+		now.Add(-time.Minute), 30*time.Second, time.Second, clock, discardLogger(),
+		jsChecker,
+	)
+	snap := hc.Snapshot(context.Background())
+	if snap.Ready {
+		t.Errorf("Ready=true with JetStream down")
+	}
+	if c := snap.Components["jetstream"]; c.Status != "fail" {
+		t.Errorf("jetstream = %+v, want fail", c)
 	}
 }
 

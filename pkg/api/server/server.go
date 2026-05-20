@@ -17,6 +17,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/events"
+	"go.keystone-core.io/keystone-core/internal/health"
 	metricspkg "go.keystone-core.io/keystone-core/internal/metrics"
 	"go.keystone-core.io/keystone-core/internal/policy"
 	"go.keystone-core.io/keystone-core/internal/secrets"
@@ -226,10 +227,16 @@ func New(opts Options) (*Server, error) {
 	// goroutine launched" (a few ms earlier — irrelevant in practice
 	// but keeps the semantic stable across test fixtures).
 	s.startedAt = s.now()
+	extras := make([]health.Checker, 0, 1+len(opts.HealthCheckers))
+	if opts.JetStreamPinger != nil {
+		extras = append(extras, health.NewJetStreamChecker(opts.JetStreamPinger, 0))
+	}
+	extras = append(extras, opts.HealthCheckers...)
 	s.healthChecker = newHealthChecker(
 		s.nats, s.store, s.startedAt,
 		s.cfg.Health.StartupGracePeriod, s.cfg.Health.CheckTimeout,
 		s.now, s.logger,
+		extras...,
 	)
 	return s, nil
 }
