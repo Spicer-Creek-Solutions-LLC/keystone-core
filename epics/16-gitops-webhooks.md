@@ -112,9 +112,9 @@ See `PROJECT-DETAILS.md §4.13` (GitOps), §4.14 (Outbound webhooks).
 - [x] Test endpoint `POST /api/v1/webhooks/subscriptions/{id}/test` delivers a synthetic payload. _(task 16: REST `POST /api/v1/webhooks/subscriptions/{id}/test` calls `Manager.TestSubscription` which 1-shot-dispatches a `webhook.test` payload through the configured Dispatcher; the CLI `outbound test` exercises the same dispatch path against an `httptest.Server` in `TestOutbound_Test_DispatchesToReceiver_Acceptance112`.)_
 - [x] HMAC signature validates on receiver side. _(task 17: promoted the dispatcher's file-local `sign` into a public `Sign(secret, payload) string` returning `sha256=<hex>` + added `Verify(secret, signature, payload) bool` constant-time receiver-side validator (parses the `sha256=` prefix, hex-decodes, `hmac.Equal`); `TestVerify_RoundTrip` round-trips a Sign+Verify, `TestVerify_Rejects` rejects wrong-secret / tampered-payload / missing-prefix / bad-hex / length-mismatch.)_
 - [x] Circuit breaker opens after 5 consecutive failures; recovers via half-open. _(task 15: `internal/webhook/outbound.CircuitBreaker` is a Dispatcher decorator with a per-endpoint state machine (closed→open after FailureThreshold; →half-open after OpenDuration; →closed after HalfOpenSuccesses); state transitions, fast-fail while open, half-open recovery, half-open-failure re-open, per-endpoint isolation, and concurrent-safe sync.Map keying are all exercised in `circuit_breaker_test.go` with an injected clock.)_
-- [ ] Retries with exp backoff; eventual `failed` after 3 attempts retained in history.
+- [x] Retries with exp backoff; eventual `failed` after 3 attempts retained in history. _(task 18: `test/e2e/webhook/TestE2E_RetryExhaustion_Acceptance115` wires the real Manager + HTTPDispatcher + SQLite store against a 502-returning httptest.Server; the receiver sees `1+MaxRetries=3` POSTs, each with a valid X-Keystone-Signature; the final DeliveryRecord is persisted as `Failed / Attempt=3 / StatusCode=502` and survives a GetDelivery after the failure.)_
 - [x] `GET /api/v1/webhooks/subscriptions/{id}/deliveries` lists delivery history. _(task 16: REST + the CLI `outbound history` both list via the task-11 `SubscriptionStore.ListDeliveries`; `TestOutbound_History_AcceptanceLine116` seeds deliveries and reads them back.)_
-- [ ] Coverage >75% on both `internal/gitops` and `internal/webhook/outbound`.
+- [x] Coverage >75% on both `internal/gitops` and `internal/webhook/outbound`. _(task 18 closeout — per-package measurements at Epic-16 close: `internal/gitops/webhook` 93.5%, `internal/gitops/verification` 92.3%, `internal/gitops/rollback` 85.9%, `internal/gitops/rollback/gitexec` 82.6%, `internal/gitops/rollback/argoexec` 86.5%, `internal/webhook/outbound` 87.8%. All ≥75%.)_
 
 ## Risks
 
@@ -128,3 +128,13 @@ See `PROJECT-DETAILS.md §4.13` (GitOps), §4.14 (Outbound webhooks).
 ## References
 
 - PROJECT-DETAILS §4.13, §4.14.
+
+## Closeout — Epic 16: CLOSED
+
+- **Tasks**: 18/18 landed.
+- **Acceptance**: 13/13 ticked (102/103 webhook ingest + sig; 104/105/106 GitOps verify/rollback/approve CLI; 107 Git-revert; 111/112/113/114/115/116/117 outbound CLI/test/sig/CB/retry/history/coverage).
+- **Boot wiring deferrals** (carried as gate-v1.0 ROADMAP entries — none blocked Epic-16 closure):
+  - "GitOps webhook receiver boot registration (kscore-server)".
+  - "K8s rollout-undo client-go adapter + GitOps rollback boot wiring".
+  - "Outbound webhook Manager boot wiring (kscore-server)".
+- **End-to-end coverage**: build-tagged `test/e2e/webhook/` integration suite (`make test-integration`) exercises the outbound pipeline against a real httptest.Server; the receiver uses `outbound.Verify` so the test IS the receiver-side validator the epic asks for.
