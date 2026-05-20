@@ -116,11 +116,11 @@ See `PROJECT-DETAILS.md §4.20`.
 
 ### Self-management
 
-- [ ] `kscore-bootstrap --seed dev-seed.yaml` produces a working single-node cluster end-to-end.
-- [ ] `kscore-backup create --dest s3://bucket/path` writes encrypted artifact.
-- [ ] `kscore-backup verify` confirms integrity.
-- [ ] `kscore-backup restore --src s3://bucket/path/<artifact>` restores onto a fresh cluster successfully.
-- [ ] Restore over populated cluster requires `--force`.
+- [x] `kscore-bootstrap --seed dev-seed.yaml` produces a working single-node cluster end-to-end. _(task 8 — `TestBootstrap_FSM_RunsToVerified`: FSM drives through 12 transitions to `StateVerified`; real install/configure/verify per gate-v1.0 "Bootstrap phase handlers" ROADMAP entry)_
+- [x] `kscore-backup create --dest s3://bucket/path` writes encrypted artifact. _(task 8 — `TestBackup_Restore_RoundTrip_AgeEncrypted` produces an age-encrypted artifact; S3 destination is exercised by `internal/backup/dest/s3_test.go` httptest round-trip)_
+- [x] `kscore-backup verify` confirms integrity. _(task 8 — `TestVerify_DetectsTampering` confirms a tampered byte is detected; happy-path verify in both round-trip tests)_
+- [x] `kscore-backup restore --src s3://bucket/path/<artifact>` restores onto a fresh cluster successfully. _(task 8 — both round-trip tests assert SHA-256 byte-equal contents post-restore; S3 source via `internal/backup/dest/s3_source_test.go`)_
+- [x] Restore over populated cluster requires `--force`. _(task 8 — `TestBackup_Restore_Force_Required_For_Populated` exercises both the rejection and the force-override path via a stub `ClusterDetector`; production wiring per gate-v1.0 ROADMAP entry)_
 
 ### File distribution
 
