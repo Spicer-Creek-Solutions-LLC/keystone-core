@@ -110,7 +110,7 @@ See `PROJECT-DETAILS.md §4.16`.
 - [x] `/api/status` returns version, uptime, agent counts, memory, goroutines. _(Epic 04 task 7 wired the handler; Task 6 reaffirms it through the refactored `internal/health.Registry` underneath. `pkg/api/server/handlers.go:handleAPIStatus` returns the JSON body with every required field; existing Epic-04 tests still pass against the refactored stack.)_
 - [ ] All 12 Grafana dashboards import successfully against a running CP and display non-empty panels.
 - [ ] Correlation ID present in JSON log lines + gRPC metadata + span attributes for end-to-end requests.
-- [ ] pprof endpoint returns valid profile when enabled.
+- [x] pprof endpoint returns valid profile when enabled. _(Task 7: `internal/profiling.Server` registers `pprof.Index/Cmdline/Profile/Symbol/Trace` on a private `*http.ServeMux` (no global mux side effect) and binds to `cfg.Profiling.Host:Port` (default 127.0.0.1:6060, opt-in via `enabled=true`). Tests verify `/debug/pprof/`, `/debug/pprof/heap?debug=1`, and `/debug/pprof/goroutine?debug=1` return 200 with non-empty bodies. `MutexProfileFraction` / `BlockProfileRate` runtime knobs apply at Start and restore at Stop.)_
 - [ ] Coverage >75% on `internal/metrics`, `internal/tracing`.
 
 ## Risks

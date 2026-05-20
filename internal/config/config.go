@@ -53,8 +53,9 @@ type Config struct {
 	Cluster  ClusterConfig  `koanf:"cluster"`
 	GitOps   GitOpsConfig   `koanf:"gitops"`
 	Webhook  WebhookConfig  `koanf:"webhook"`
-	Metrics  MetricsConfig  `koanf:"metrics"`
-	Tracing  TracingConfig  `koanf:"tracing"`
+	Metrics   MetricsConfig   `koanf:"metrics"`
+	Tracing   TracingConfig   `koanf:"tracing"`
+	Profiling ProfilingConfig `koanf:"profiling"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.
@@ -156,6 +157,12 @@ func defaultConfig() *Config {
 			QueueSize:          2048,
 			FlushInterval:      5 * time.Second,
 		},
+		Profiling: ProfilingConfig{
+			Enabled:         false, // opt-in; pprof leaks heap state
+			Host:            "127.0.0.1",
+			Port:            6060,
+			ShutdownTimeout: 5 * time.Second,
+		},
 	}
 	applyEventsDefaults(&c.Events)
 	applyClusterDefaults(&c.Cluster)
@@ -246,6 +253,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.Tracing.Validate(); err != nil {
 		return fmt.Errorf("tracing: %w", err)
+	}
+	if err := c.Profiling.Validate(); err != nil {
+		return fmt.Errorf("profiling: %w", err)
 	}
 	return nil
 }

@@ -25,6 +25,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/health"
 	"go.keystone-core.io/keystone-core/internal/identity"
 	"go.keystone-core.io/keystone-core/internal/metrics"
+	"go.keystone-core.io/keystone-core/internal/profiling"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/internal/state"
@@ -96,6 +97,22 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		return fmt.Errorf("metrics (statemgmt): %w", err)
 	}
 	_ = stateMetrics // wired into statemgmt.Runner where v0.1 boot constructs one (cmd/kscore-blueprint); kscore-server delegates state runs to that path.
+
+	// Epic 17 task 7 — start the opt-in pprof listener early so a
+	// hung boot is still introspectable. Disabled by default; New
+	// returns (nil, nil) and the Start/Stop methods are nil-safe.
+	profSrv, err := profiling.New(cfg.Profiling, log)
+	if err != nil {
+		return fmt.Errorf("profiling: %w", err)
+	}
+	if err := profSrv.Start(ctx); err != nil {
+		return fmt.Errorf("profiling start: %w", err)
+	}
+	defer func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		_ = profSrv.Stop(stopCtx)
+	}()
 
 	stateCfg, err := cfg.Storage.ToStateConfig()
 	if err != nil {
