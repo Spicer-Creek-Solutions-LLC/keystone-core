@@ -490,6 +490,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `kscore-backup schedule add` registers a cron; rolling upgrade verifies health between waves.
 - **References**: Epic 18 scope-out (lines 61-65).
 
+#### Bootstrap phase handlers + durable checkpointer
+
+- **Priority**: gate-v1.0
+- **What**: Real `PhaseHandler` implementations for `kscore-bootstrap` (host detect via `/etc/os-release`, config-file writing, binary install + systemd unit, blueprint engine invocation, /health verify) plus a SQLite-backed `statemachine.Checkpointer` that survives process restarts.
+- **Why deferred**: Epic 18 task 2 ships the FSM seam + `internal/selfmgmt.BootstrapManager` + an in-memory checkpointer + a recording test double. Real handlers depend on install paths, systemd helpers, and the blueprint runtime; they compose at the CLI layer (Epic 18 task 7).
+- **Acceptance**: `kscore-bootstrap --seed dev-seed.yaml` runs end-to-end on a fresh Linux host and lands at `StateVerified`; SIGKILL mid-Configuring then restart resumes at `StateConfiguring`.
+- **References**: Epic 18 task 2 (this commit); Epic 18 task 7; `internal/selfmgmt/bootstrap.go`.
+
 #### Policy CRUD via gRPC (`CreatePolicy`/`UpdatePolicy`/`DeletePolicy`/`activate`/`deactivate`/`remediate`/`monitor`)
 
 - **Priority**: gate-v1.0
