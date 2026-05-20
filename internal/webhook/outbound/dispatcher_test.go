@@ -230,25 +230,3 @@ func TestDispatcher_BadURL(t *testing.T) {
 		t.Error("malformed URL = nil error, want request-build failure")
 	}
 }
-
-func TestSign_GitHubCompatibleShape(t *testing.T) {
-	t.Parallel()
-	// Lock in the sha256=<hex> spelling — receivers (incl. T17
-	// Verify) depend on this exact format.
-	got := sign([]byte("k"), []byte("hello"))
-	if !strings.HasPrefix(got, "sha256=") {
-		t.Fatalf("sign = %q, want sha256= prefix", got)
-	}
-	want := expectedSig("k", "hello")
-	if got != want {
-		t.Errorf("sign = %q, want %q", got, want)
-	}
-	// Different secret → different signature.
-	if sign([]byte("k2"), []byte("hello")) == got {
-		t.Error("sign should depend on secret")
-	}
-	// Different payload → different signature.
-	if sign([]byte("k"), []byte("hello!")) == got {
-		t.Error("sign should depend on payload")
-	}
-}

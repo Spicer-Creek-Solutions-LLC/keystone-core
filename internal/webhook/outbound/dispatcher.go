@@ -3,9 +3,6 @@ package outbound
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -96,17 +93,8 @@ func applyHeaders(req *http.Request, sub *Subscription, payload []byte, delivery
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(deliveryHeader, deliveryID)
 	if sub.Secret != "" {
-		req.Header.Set(signatureHeader, sign([]byte(sub.Secret), payload))
+		req.Header.Set(signatureHeader, Sign([]byte(sub.Secret), payload))
 	}
-}
-
-// sign returns the GitHub-compatible HMAC-SHA256 signature in the
-// "sha256=<hex>" form. Task 17 promotes this to a public Sign helper
-// alongside the matching Verify; until then it is dispatcher-local.
-func sign(secret, payload []byte) string {
-	mac := hmac.New(sha256.New, secret)
-	mac.Write(payload)
-	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
 }
 
 // compile-time assertion: HTTPDispatcher satisfies the task-12 seam.
