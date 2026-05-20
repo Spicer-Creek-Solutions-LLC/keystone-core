@@ -323,3 +323,194 @@ func TestMatches(t *testing.T) {
 		}
 	}
 }
+
+// flakyDispatcher fails the first failBeforeSuccess attempts then
+// succeeds. Records every attempt's payload.
+type flakyDispatcher struct {
+	mu                sync.Mutex
+	failBeforeSuccess int
+	attempts          int
+}
+
+func (f *flakyDispatcher) Deliver(_ context.Context, _ *Subscription, _ []byte, _ string) (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.attempts++
+	if f.attempts <= f.failBeforeSuccess {
+		return 502, errors.New("transient")
+	}
+	return 200, nil
+}
+
+// recordingStore wraps an inner SubscriptionStore and counts
+// SaveDelivery calls so tests can assert intermediate `retrying`
+// upserts actually happen.
+type recordingStore struct {
+	SubscriptionStore
+	mu     sync.Mutex
+	saves  int
+	states []DeliveryStatus
+}
+
+func (r *recordingStore) SaveDelivery(ctx context.Context, d *DeliveryRecord) error {
+	r.mu.Lock()
+	r.saves++
+	r.states = append(r.states, d.Status)
+	r.mu.Unlock()
+	return r.SubscriptionStore.SaveDelivery(ctx, d)
+}
+
+func TestManager_Retry_SucceedsOnNthAttempt(t *testing.T) {
+	t.Parallel()
+	fd := &flakyDispatcher{failBeforeSuccess: 2}
+	rec := &recordingStore{SubscriptionStore: NewMemoryStore()}
+	m := &Manager{
+		Store:                   rec,
+		Dispatcher:              fd,
+		MaxConcurrentDeliveries: 4,
+		Retry:                   RetryPolicy{BaseBackoff: time.Millisecond, MaxBackoff: 2 * time.Millisecond},
+		Jitterer:                func() float64 { return 0 },
+	}
+	if err := m.Start(context.Background()); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		_ = m.Stop(ctx)
+	})
+
+	ctx := context.Background()
+	sub := newSub("flaky", true, "state.drift")
+	sub.MaxRetries = 3
+	_ = rec.CreateSubscription(ctx, sub)
+	_ = m.Refresh(ctx)
+
+	m.Handle(ctx, mkEvent(t, "state.drift"))
+	waitFor(t, func() bool {
+		list, _ := rec.ListDeliveries(ctx, "flaky", 0)
+		return len(list) == 1 && list[0].Status == DeliverySuccess
+	}, "success after retries")
+
+	list, _ := rec.ListDeliveries(ctx, "flaky", 0)
+	if list[0].Attempt != 3 || list[0].Status != DeliverySuccess {
+		t.Errorf("delivery = %+v, want attempt=3 / success", list[0])
+	}
+
+	// The §4.14 `retrying` intermediate state must be persisted
+	// between attempts.
+	rec.mu.Lock()
+	gotRetrying := false
+	for _, s := range rec.states {
+		if s == DeliveryRetrying {
+			gotRetrying = true
+		}
+	}
+	saves := rec.saves
+	rec.mu.Unlock()
+	if !gotRetrying {
+		t.Errorf("no `retrying` state was persisted; states = %v", rec.states)
+	}
+	if saves < 4 { // 1 Pending + ≥2 Retrying + 1 Success
+		t.Errorf("saves = %d, want >=4", saves)
+	}
+}
+
+func TestManager_Retry_ExhaustedKeepsFailedRecord(t *testing.T) {
+	t.Parallel()
+	fd := &flakyDispatcher{failBeforeSuccess: 9999} // always fails
+	m := newManager(t, nil, func(m *Manager) {
+		m.Dispatcher = fd
+		m.Retry = RetryPolicy{BaseBackoff: time.Millisecond, MaxBackoff: 2 * time.Millisecond}
+		m.Jitterer = func() float64 { return 0 }
+	})
+
+	ctx := context.Background()
+	sub := newSub("doomed", true, "policy.violation")
+	sub.MaxRetries = 2 // 1 initial + 2 retries = 3 attempts
+	_ = m.Store.CreateSubscription(ctx, sub)
+	_ = m.Refresh(ctx)
+
+	m.Handle(ctx, mkEvent(t, "policy.violation"))
+	waitFor(t, func() bool {
+		list, _ := m.Store.ListDeliveries(ctx, "doomed", 0)
+		return len(list) == 1 && list[0].Status == DeliveryFailed
+	}, "failed after exhausting retries")
+
+	list, _ := m.Store.ListDeliveries(ctx, "doomed", 0)
+	if list[0].Attempt != 3 {
+		t.Errorf("attempt = %d, want 3 (1+MaxRetries)", list[0].Attempt)
+	}
+	if list[0].Status != DeliveryFailed {
+		t.Errorf("status = %s, want failed (record retained per §4.14)", list[0].Status)
+	}
+	fd.mu.Lock()
+	defer fd.mu.Unlock()
+	if fd.attempts != 3 {
+		t.Errorf("dispatcher attempts = %d, want 3", fd.attempts)
+	}
+}
+
+func TestManager_Retry_CtxCancelMidBackoff_TerminalFailed(t *testing.T) {
+	t.Parallel()
+	fd := &flakyDispatcher{failBeforeSuccess: 9999}
+	m := newManager(t, nil, func(m *Manager) {
+		m.Dispatcher = fd
+		// Big backoff so we can cancel mid-sleep.
+		m.Retry = RetryPolicy{BaseBackoff: 5 * time.Second, MaxBackoff: 10 * time.Second}
+		m.Jitterer = func() float64 { return 0 }
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	sub := newSub("bg", true, "state.drift")
+	sub.MaxRetries = 3
+	_ = m.Store.CreateSubscription(ctx, sub)
+	_ = m.Refresh(ctx)
+
+	m.Handle(ctx, mkEvent(t, "state.drift"))
+	// Wait for the first failed attempt to land + manager to enter
+	// the backoff sleep, then cancel.
+	waitFor(t, func() bool {
+		list, _ := m.Store.ListDeliveries(ctx, "bg", 0)
+		return len(list) == 1 && list[0].Status == DeliveryRetrying
+	}, "retrying state mid-loop")
+	cancel()
+
+	waitFor(t, func() bool {
+		list, _ := m.Store.ListDeliveries(context.Background(), "bg", 0)
+		return len(list) == 1 && list[0].Status == DeliveryFailed
+	}, "ctx-cancel mid-backoff → terminal failed")
+
+	fd.mu.Lock()
+	defer fd.mu.Unlock()
+	if fd.attempts > 1 {
+		t.Errorf("dispatcher attempts = %d, want exactly 1 (no retry after cancel)", fd.attempts)
+	}
+}
+
+func TestManager_Retry_NoRetriesOnSubMaxRetriesZero(t *testing.T) {
+	t.Parallel()
+	fd := &flakyDispatcher{failBeforeSuccess: 9999}
+	m := newManager(t, nil, func(m *Manager) {
+		m.Dispatcher = fd
+		m.Retry = RetryPolicy{BaseBackoff: time.Millisecond}
+		m.Jitterer = func() float64 { return 0 }
+	})
+
+	ctx := context.Background()
+	sub := newSub("one-shot", true, "*.fail")
+	sub.MaxRetries = 0
+	_ = m.Store.CreateSubscription(ctx, sub)
+	_ = m.Refresh(ctx)
+
+	m.Handle(ctx, mkEvent(t, "job.fail"))
+	waitFor(t, func() bool {
+		list, _ := m.Store.ListDeliveries(ctx, "one-shot", 0)
+		return len(list) == 1 && list[0].Status == DeliveryFailed
+	}, "single-shot failed")
+	fd.mu.Lock()
+	defer fd.mu.Unlock()
+	if fd.attempts != 1 {
+		t.Errorf("dispatcher attempts = %d, want 1 (MaxRetries=0)", fd.attempts)
+	}
+}

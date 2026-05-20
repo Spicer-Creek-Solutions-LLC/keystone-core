@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"path/filepath"
 	"sync"
 	"time"
@@ -59,9 +60,15 @@ type Manager struct {
 	// task 16).
 	RefreshInterval time.Duration
 
-	// IDGen / Now are deterministic seams for tests.
-	IDGen func() string
-	Now   func() time.Time
+	// Retry holds the shared exp-backoff tuning (task 14). The
+	// per-call attempt budget is per-subscription
+	// ([Subscription.MaxRetries], default 3 per the §4.14 schema).
+	Retry RetryPolicy
+
+	// IDGen / Now / Jitterer are deterministic seams for tests.
+	IDGen    func() string
+	Now      func() time.Time
+	Jitterer func() float64
 
 	mu        sync.RWMutex
 	subs      []*Subscription
@@ -100,6 +107,9 @@ func (m *Manager) Start(ctx context.Context) error {
 		}
 		if m.Now == nil {
 			m.Now = time.Now
+		}
+		if m.Jitterer == nil {
+			m.Jitterer = rand.Float64
 		}
 		if err := m.Refresh(ctx); err != nil {
 			m.startErr = err
@@ -263,20 +273,50 @@ func (m *Manager) fanOut(ctx context.Context, sub *Subscription, ev events.Event
 }
 
 func (m *Manager) deliverOnce(ctx context.Context, sub *Subscription, d *DeliveryRecord, payload []byte) {
-	code, err := m.Dispatcher.Deliver(ctx, sub, payload, d.ID)
-	d.StatusCode = code
-	d.DeliveredAt = m.Now().UTC()
-	if err != nil {
-		d.Status = DeliveryFailed
-		d.Error = err.Error()
-	} else {
-		d.Status = DeliverySuccess
-		d.Error = ""
+	maxAttempts := 1 + sub.MaxRetries
+	if maxAttempts < 1 {
+		maxAttempts = 1
 	}
-	if serr := m.Store.SaveDelivery(ctx, d); serr != nil {
-		m.Logger.Warn("outbound manager save final delivery",
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		d.Attempt = attempt
+		d.DeliveredAt = m.Now().UTC()
+		code, err := m.Dispatcher.Deliver(ctx, sub, payload, d.ID)
+		d.StatusCode = code
+		if err == nil {
+			d.Status = DeliverySuccess
+			d.Error = ""
+			m.saveFinal(ctx, sub, d)
+			return
+		}
+		d.Error = err.Error()
+		if attempt >= maxAttempts {
+			d.Status = DeliveryFailed
+			m.saveFinal(ctx, sub, d)
+			return
+		}
+		// Persist the intermediate `retrying` state (§4.14) then
+		// sleep with exp-backoff + jitter. A ctx cancel mid-backoff
+		// is a terminal failure (record retained per §4.14).
+		d.Status = DeliveryRetrying
+		m.saveFinal(ctx, sub, d)
+		if serr := ctxSleep(ctx, jitteredBackoff(m.Retry, attempt-1, m.Jitterer)); serr != nil {
+			d.Status = DeliveryFailed
+			d.Error = serr.Error()
+			m.saveFinal(ctx, sub, d)
+			return
+		}
+	}
+}
+
+// saveFinal persists the current state of d and warns on store
+// errors — Manager never returns these (the audit record is
+// best-effort once the dispatch decision is made).
+func (m *Manager) saveFinal(ctx context.Context, sub *Subscription, d *DeliveryRecord) {
+	if err := m.Store.SaveDelivery(ctx, d); err != nil {
+		m.Logger.Warn("outbound manager save delivery",
 			slog.String("subscription", sub.ID),
 			slog.String("delivery", d.ID),
-			slog.String("error", serr.Error()))
+			slog.String("status", string(d.Status)),
+			slog.String("error", err.Error()))
 	}
 }
