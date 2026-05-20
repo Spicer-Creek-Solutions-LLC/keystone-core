@@ -896,6 +896,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v1.x — post-v1.0 feature additions
 
+#### Backup destinations: Backblaze B2 smoke test + SFTP + GCS + Azure Blob + advanced S3 auth
+
+- **Priority**: v1.x
+- **What**: (a) Document Backblaze B2 as a first-class S3-compatible destination — works today via `s3://` + `Endpoint: s3.<region>.backblazeb2.com` (no code change needed); add an integration smoke test once an account is provisioned. (b) Three NEW destination backends behind the Epic-18 task 5 `Destination` seam: SFTP (golang.org/x/crypto/ssh + go-sftp), Google Cloud Storage, Azure Blob. (c) Advanced S3 auth flavors not wired in v1.0 (IRSA, instance profiles, assumed roles, web identity) — reachable through minio-go's IAM credentials provider but not exposed via `Config` until needed.
+- **Why deferred**: v1.0 ships local filesystem + S3-compatible (AWS / MinIO / B2 / Wasabi / R2 / DigitalOcean Spaces via the same `s3://` scheme + endpoint). Backblaze B2 is the next-priority compatible service per operator direction. SFTP / GCS / Azure each need a new SDK + auth surface; bundling them now would balloon v1.0's dep graph. Epic 18 Scope § lists "SFTP, GCS, Azure for v1.5".
+- **Acceptance**: B2 documented in `internal/backup/dest/dest.go` package comment + README; `kscore-backup create --dest sftp://host/path/foo.tar` succeeds; same for `gs://` and `azblob://`; `AWS_WEB_IDENTITY_TOKEN_FILE` produces a valid S3 client on EKS.
+- **References**: Epic 18 Scope § (lines 26-28); `internal/backup/dest/`.
+
 #### Backup encryption: AWS KMS + Vault key providers
 
 - **Priority**: v1.x
