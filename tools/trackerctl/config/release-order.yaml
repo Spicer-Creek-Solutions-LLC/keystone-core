@@ -39,6 +39,7 @@ gate-v1.0:
   - "HA E2E multi-process / iptables-partition form"
   - "GitOps webhook receiver boot registration (kscore-server)"
   - "K8s rollout-undo client-go adapter + GitOps rollback boot wiring"
+  - "Outbound webhook Manager boot wiring (kscore-server)"
   - "Pre-rotation signing-CA retention in the bootstrap trust bundle"
   - "Agent-side cancel propagation (SIGTERM to in-flight commands)"
   - "Unified single + batch dispatch persistence"

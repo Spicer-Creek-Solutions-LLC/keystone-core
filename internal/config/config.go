@@ -52,6 +52,7 @@ type Config struct {
 	Events   EventsConfig   `koanf:"events"`
 	Cluster  ClusterConfig  `koanf:"cluster"`
 	GitOps   GitOpsConfig   `koanf:"gitops"`
+	Webhook  WebhookConfig  `koanf:"webhook"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.
@@ -142,6 +143,7 @@ func defaultConfig() *Config {
 	applyEventsDefaults(&c.Events)
 	applyClusterDefaults(&c.Cluster)
 	applyGitOpsDefaults(&c.GitOps)
+	applyWebhookDefaults(&c.Webhook)
 	return c
 }
 
@@ -217,6 +219,9 @@ func (c *Config) Validate() error {
 		return err
 	}
 	if err := c.GitOps.Validate(); err != nil {
+		return err
+	}
+	if err := c.Webhook.Validate(); err != nil {
 		return err
 	}
 	return nil
