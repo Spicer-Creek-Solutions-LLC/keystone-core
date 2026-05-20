@@ -1,0 +1,13 @@
+mode: development
+cluster_name: dev-cluster
+node_role: seed
+storage:
+  driver: sqlite
+  dsn: ./data/keystone.db
+nats:
+  mode: embedded
+  endpoints: []
+tls_strategy: self-signed
+blueprints:
+  - base-system
+  - hardening

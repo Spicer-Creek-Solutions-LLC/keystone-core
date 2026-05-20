@@ -1,0 +1,9 @@
+mode: staging
+cluster_name: dev-cluster
+node_role: seed
+storage:
+  driver: sqlite
+  dsn: ./data/keystone.db
+nats:
+  mode: embedded
+tls_strategy: self-signed

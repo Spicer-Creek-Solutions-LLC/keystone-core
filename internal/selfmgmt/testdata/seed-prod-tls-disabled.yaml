@@ -1,0 +1,11 @@
+mode: production
+cluster_name: prod-cluster
+node_role: seed
+storage:
+  driver: postgres
+  dsn: postgres://kscore@db.internal:5432/kscore
+nats:
+  mode: external
+  endpoints:
+    - nats://nats-1.internal:4222
+tls_strategy: disabled
