@@ -154,4 +154,6 @@ v1.x:
 
 v2.x+:
   - "Embedded NATS / hybrid mode / leaf node / endpoint advertiser / supercluster / WebSocket"
+  - "Adaptive sampling tied to error metrics"
+  - "Zipkin exporter replacement — Zipkin module upstream-deprecated"
 
