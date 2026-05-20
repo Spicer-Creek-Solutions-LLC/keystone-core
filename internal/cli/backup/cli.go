@@ -1,7 +1,9 @@
 // Package backup implements the kscore-backup CLI (Epic 18 task 7).
 // The root command exposes shared S3 + log-level flags and registers
-// the verify + list subcommands shipped in task 7a. The create +
-// restore subcommands land in task 7b.
+// the four subcommands: create, list, verify, restore. Task 7a
+// landed the read-only subcommands (verify, list); task 7b added
+// create + restore + the filesystem ConfigCollector/ConfigRestore
+// adapters.
 package backup
 
 import (
@@ -87,8 +89,10 @@ task 7b.`,
 	pf.BoolVar(&g.s3SSL, "s3-ssl", true, "Use HTTPS for the S3 endpoint")
 	pf.StringVar(&g.logLevel, "log-level", "info", "Log level: debug, info, warn, error")
 
+	root.AddCommand(createCmd(g))
 	root.AddCommand(verifyCmd(g))
 	root.AddCommand(listCmd(g))
+	root.AddCommand(restoreCmd(g))
 	return root
 }
 
