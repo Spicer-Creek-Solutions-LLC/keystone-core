@@ -10,6 +10,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/events"
+	"go.keystone-core.io/keystone-core/internal/metrics"
 	"go.keystone-core.io/keystone-core/internal/policy"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 	"go.keystone-core.io/keystone-core/internal/state"
@@ -134,6 +135,12 @@ type Options struct {
 	// (PROJECT-DETAILS §4.4 step 21) pushes Counts into it every
 	// StatusTickerInterval. Optional; nil disables emission.
 	ControlPlaneMetrics *controlplane.Metrics
+
+	// MetricsRegistry is the Epic 17 task 3 Prometheus registry the
+	// server exposes at cfg.Metrics.Path (default /metrics). Optional;
+	// nil suppresses the handler. Production wiring builds the same
+	// Registry that Task 2 emitters register against.
+	MetricsRegistry *metrics.Registry
 }
 
 // validate returns an error if required fields are missing or

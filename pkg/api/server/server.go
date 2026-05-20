@@ -17,6 +17,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/events"
+	metricspkg "go.keystone-core.io/keystone-core/internal/metrics"
 	"go.keystone-core.io/keystone-core/internal/policy"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 	"go.keystone-core.io/keystone-core/internal/audit"
@@ -96,6 +97,7 @@ type Server struct {
 
 	metrics             *Metrics
 	controlPlaneMetrics *controlplane.Metrics
+	metricsRegistry     *metricspkg.Registry
 
 	connMgr          *controlplane.ConnectionManager
 	cmdDispatcher    *controlplane.CommandDispatcher
@@ -180,6 +182,7 @@ func New(opts Options) (*Server, error) {
 		policyAuditor:        opts.PolicyAuditor,
 		metrics:              opts.Metrics,
 		controlPlaneMetrics:  opts.ControlPlaneMetrics,
+		metricsRegistry:      opts.MetricsRegistry,
 		stopCh:               make(chan struct{}),
 		stopped:              make(chan struct{}),
 	}

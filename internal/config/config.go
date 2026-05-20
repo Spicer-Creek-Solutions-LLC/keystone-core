@@ -53,6 +53,7 @@ type Config struct {
 	Cluster  ClusterConfig  `koanf:"cluster"`
 	GitOps   GitOpsConfig   `koanf:"gitops"`
 	Webhook  WebhookConfig  `koanf:"webhook"`
+	Metrics  MetricsConfig  `koanf:"metrics"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.
@@ -139,6 +140,10 @@ func defaultConfig() *Config {
 			StoragePath: "./data/identity",
 			KeyType:     "ecdsa-p256",
 		},
+		Metrics: MetricsConfig{
+			Enabled: true,
+			Path:    "/metrics",
+		},
 	}
 	applyEventsDefaults(&c.Events)
 	applyClusterDefaults(&c.Cluster)
@@ -223,6 +228,9 @@ func (c *Config) Validate() error {
 	}
 	if err := c.Webhook.Validate(); err != nil {
 		return err
+	}
+	if err := c.Metrics.Validate(); err != nil {
+		return fmt.Errorf("metrics: %w", err)
 	}
 	return nil
 }

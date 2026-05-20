@@ -276,6 +276,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		TLSConfig:           tlsConfig,
 		Metrics:             srvMetrics,
 		ControlPlaneMetrics: cpMetrics,
+		MetricsRegistry:     metricsRegistry,
 	}
 	// Compose the command-terminal hook from (a) the audit emitter and
 	// (b) the controlplane metrics recorder. Either may be nil.

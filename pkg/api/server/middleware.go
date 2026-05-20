@@ -21,6 +21,7 @@ import (
 func (s *Server) buildHTTPHandler() (http.Handler, error) {
 	publicMux := http.NewServeMux()
 	s.registerHealthEndpoints(publicMux)
+	s.registerMetricsEndpoint(publicMux)
 
 	apiMux := http.NewServeMux()
 	apiMux.HandleFunc("GET /api/status", s.handleAPIStatus)
@@ -37,6 +38,13 @@ func (s *Server) buildHTTPHandler() (http.Handler, error) {
 
 	router := http.NewServeMux()
 	router.Handle("/health/", publicMux)
+	// Epic 17 task 3 — /metrics on the same listener, same auth posture
+	// as /health/* (none, per Prom-scrape convention). Skipped when the
+	// MetricsConfig is disabled or no Registry was supplied — the route
+	// then falls through to apiHandler and returns 404.
+	if s.cfg.Metrics.Enabled && s.metricsRegistry != nil {
+		router.Handle(s.cfg.Metrics.Path, publicMux)
+	}
 	router.Handle("/", apiHandler)
 
 	var handler http.Handler = router

@@ -103,7 +103,7 @@ See `PROJECT-DETAILS.md §4.16`.
 
 ## Acceptance criteria
 
-- [ ] `/metrics` exposes all v1.0 metrics in Prometheus exposition format.
+- [x] `/metrics` exposes all v1.0 metrics in Prometheus exposition format. _(Task 3: `promhttp.HandlerFor(metricsRegistry.Gatherer(), …)` mounted on `publicMux` at `cfg.Metrics.Path` (default `/metrics`); same HTTP listener as `/health/*`, no auth, no new port. Disabled via `metrics.enabled=false`; 404s when Registry not supplied.)_
 - [x] Cardinality limiter drops metrics above threshold; logs warning with metric name. _(Task 1: `internal/metrics/cardinality.Limiter` enforces a per-metric cap with Drop (default) or Aggregate (`"_overflow"` sentinel) mode; drops emit `kscore_metrics_cardinality_total{metric,outcome}`; first-drop warn log is throttled per metric.)_
 - [ ] OTel traces export to OTLP receiver (test with otelcol or stdout exporter).
 - [ ] `/health/live` always 200; `/health/ready` returns 503 during startup grace period.

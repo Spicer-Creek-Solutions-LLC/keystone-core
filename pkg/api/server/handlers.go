@@ -2,9 +2,12 @@ package server
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"runtime"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"go.keystone-core.io/keystone-core/pkg/api/agents"
 	"go.keystone-core.io/keystone-core/pkg/api/apikeys"
@@ -37,6 +40,52 @@ func (s *Server) registerHealthEndpoints(mux *http.ServeMux) {
 	})
 	mux.HandleFunc("GET /health/ready", s.handleHealthReady)
 	mux.HandleFunc("GET /health/status", s.handleHealthStatus)
+}
+
+// registerMetricsEndpoint mounts the Prom exposition handler on mux at
+// cfg.Metrics.Path. Same auth posture as /health/* (none) per Prom
+// convention; same listener as the rest of HTTP so no new port is
+// required. Skipped when metrics are disabled or no registry was
+// supplied to Options.
+func (s *Server) registerMetricsEndpoint(mux *http.ServeMux) {
+	if !s.cfg.Metrics.Enabled || s.metricsRegistry == nil {
+		return
+	}
+	h := promhttp.HandlerFor(s.metricsRegistry.Gatherer(), promhttp.HandlerOpts{
+		ErrorLog:      promErrorLog{logger: s.logger},
+		ErrorHandling: promhttp.ContinueOnError,
+	})
+	mux.Handle("GET "+s.cfg.Metrics.Path, h)
+}
+
+// promErrorLog adapts *slog.Logger to promhttp.Logger so scrape-time
+// gather errors land in the structured log stream instead of stderr.
+type promErrorLog struct{ logger *slog.Logger }
+
+// Println implements promhttp.Logger.
+func (p promErrorLog) Println(v ...any) {
+	if p.logger == nil {
+		return
+	}
+	msg := ""
+	for i, a := range v {
+		if i > 0 {
+			msg += " "
+		}
+		msg += fmtAny(a)
+	}
+	p.logger.Warn("server: /metrics gather error", "err", msg)
+}
+
+func fmtAny(v any) string {
+	switch x := v.(type) {
+	case string:
+		return x
+	case error:
+		return x.Error()
+	default:
+		return ""
+	}
 }
 
 // handleHealthReady runs the configured checks and returns 200 only
