@@ -193,6 +193,13 @@ func NewRestoreManager(opts ...RestoreOption) (*RestoreManager, error) {
 // the end of the tar (Task 3 invariant) and integrity verification
 // re-hashes every entry. v1.0 expects backups under a few GB;
 // larger sizes are a v1.x concern (streaming-verify mode).
+//
+// Verify-only mode — passing an empty [RestoreOptions.Selection] (the
+// zero value) runs every step EXCEPT handler dispatch: the manifest
+// is parsed, the schema is checked, every component is re-hashed
+// against its manifest entry, and the populated-cluster guard runs.
+// No handler is invoked because no Selection flag is set. This is
+// the contract kscore-backup verify relies on.
 func (m *RestoreManager) Restore(ctx context.Context, r io.Reader, opts RestoreOptions) (*Manifest, error) {
 	if r == nil {
 		return nil, errors.New("backup: Restore: reader must not be nil")

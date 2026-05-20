@@ -2,12 +2,10 @@ package dest
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 
 	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
 )
 
 // S3Destination writes the artifact to an S3-compatible object
@@ -59,25 +57,10 @@ func (s *S3Destination) Open(ctx context.Context) (io.WriteCloser, error) {
 	return &s3Writer{pw: pw, errCh: errCh}, nil
 }
 
-// newClient builds the minio-go client from Config. Endpoint may be
-// "" for AWS default; UseSSL must match the endpoint scheme.
+// newClient delegates to [newS3Client] so the destination, source,
+// and lister share a single construction path.
 func (s *S3Destination) newClient() (*minio.Client, error) {
-	endpoint := s.Config.Endpoint
-	if endpoint == "" {
-		endpoint = "s3.amazonaws.com"
-	}
-	if s.Config.AccessKey == "" || s.Config.SecretKey == "" {
-		return nil, errors.New("dest: S3 access key + secret key are required")
-	}
-	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(s.Config.AccessKey, s.Config.SecretKey, ""),
-		Secure: s.Config.UseSSL,
-		Region: s.Config.Region,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("dest: minio.New: %w", err)
-	}
-	return client, nil
+	return newS3Client(s.Config)
 }
 
 // s3Writer is the io.WriteCloser returned from S3Destination.Open.

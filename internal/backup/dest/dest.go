@@ -30,7 +30,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/url"
 	"strings"
 )
 
@@ -68,47 +67,20 @@ type Config struct {
 // Any other scheme returns an error. The URI is structural only;
 // directory existence / bucket validity is checked at Open time.
 func Resolve(uri string, cfg Config) (Destination, error) {
-	if uri == "" {
-		return nil, fmt.Errorf("dest: empty URI")
-	}
-
-	// Plain path with no scheme — treat as local.
-	if !strings.Contains(uri, "://") {
-		return &LocalDestination{Path: uri}, nil
-	}
-
-	u, err := url.Parse(uri)
+	scheme, host, path, err := parseURI(uri)
 	if err != nil {
-		return nil, fmt.Errorf("dest: parse %q: %w", uri, err)
+		return nil, err
 	}
-
-	switch u.Scheme {
+	switch scheme {
 	case "file":
-		// file:// uses the Path (Host should be empty or "localhost").
-		if u.Host != "" && u.Host != "localhost" {
-			return nil, fmt.Errorf("dest: file:// host must be empty or localhost, got %q", u.Host)
-		}
-		if u.Path == "" {
-			return nil, fmt.Errorf("dest: file:// path must not be empty")
-		}
-		return &LocalDestination{Path: u.Path}, nil
-
+		return &LocalDestination{Path: path}, nil
 	case "s3":
-		bucket := u.Host
-		if bucket == "" {
-			return nil, fmt.Errorf("dest: s3:// bucket must not be empty")
-		}
-		key := strings.TrimPrefix(u.Path, "/")
+		key := strings.TrimPrefix(path, "/")
 		if key == "" {
 			return nil, fmt.Errorf("dest: s3:// key must not be empty")
 		}
-		return &S3Destination{
-			Bucket:   bucket,
-			Key:      key,
-			Config:   cfg,
-		}, nil
-
+		return &S3Destination{Bucket: host, Key: key, Config: cfg}, nil
 	default:
-		return nil, fmt.Errorf("dest: unsupported scheme %q (want file or s3)", u.Scheme)
+		return nil, fmt.Errorf("dest: unsupported scheme %q (want file or s3)", scheme)
 	}
 }
