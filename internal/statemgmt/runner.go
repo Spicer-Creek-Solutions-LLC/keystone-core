@@ -26,6 +26,7 @@ type Runner struct {
 	Registry    *Registry
 	Observer    RunObserver
 	DeclTimeout time.Duration // 0 → no per-decl timeout; parent ctx still applies
+	Metrics     *Metrics      // optional; nil disables emission
 }
 
 // NewRunner returns a Runner. Pass nil for reg to fall back to
@@ -211,13 +212,22 @@ func (r *Runner) execute(ctx context.Context, decls []*Declaration, mode RunMode
 		switch result.Outcome {
 		case OutcomeChanged:
 			report.Changed++
+			if mode == ModeApply {
+				r.Metrics.RecordApply(ApplyResultSuccess)
+			}
 		case OutcomeUnchanged, OutcomeNoOp:
 			report.Unchanged++
+			if mode == ModeApply {
+				r.Metrics.RecordApply(ApplyResultNoChange)
+			}
 		case OutcomeDriftDetected:
 			report.Drifted++
 		case OutcomeFailed:
 			report.Failed++
 			runErr = result.Error
+			if mode == ModeApply {
+				r.Metrics.RecordApply(ApplyResultFailed)
+			}
 		case OutcomeSkipped:
 			report.Skipped++
 		}

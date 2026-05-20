@@ -94,6 +94,9 @@ type Server struct {
 	policyAuditLog audit.AuditStore
 	policyAuditor  audit.Auditor
 
+	metrics             *Metrics
+	controlPlaneMetrics *controlplane.Metrics
+
 	connMgr          *controlplane.ConnectionManager
 	cmdDispatcher    *controlplane.CommandDispatcher
 	batchDispatcher  *controlplane.BatchDispatcher
@@ -175,6 +178,8 @@ func New(opts Options) (*Server, error) {
 		policyReports:        opts.PolicyReports,
 		policyAuditLog:       opts.PolicyAuditLog,
 		policyAuditor:        opts.PolicyAuditor,
+		metrics:              opts.Metrics,
+		controlPlaneMetrics:  opts.ControlPlaneMetrics,
 		stopCh:               make(chan struct{}),
 		stopped:              make(chan struct{}),
 	}
@@ -351,6 +356,18 @@ func (s *Server) initSteps9to13() error {
 	// HTTP/2; browser clients use grpc-web through a separate gateway
 	// in v2.x). When AuthInterceptor is nil, the server runs with no
 	// auth — appropriate for dev, surfaced in the banner.
+	//
+	// Metrics interceptors (Epic 17 task 2) sit *outermost* so they
+	// observe the auth-rejected path too — operators want to alert on
+	// 401/403 spikes via the same histogram. Chain order:
+	//
+	//	metrics → auth (rate-limit → auth → authorize) → handler
+	var unaryChain []grpc.UnaryServerInterceptor
+	var streamChain []grpc.StreamServerInterceptor
+	if s.metrics != nil {
+		unaryChain = append(unaryChain, s.metrics.UnaryServerInterceptor())
+		streamChain = append(streamChain, s.metrics.StreamServerInterceptor())
+	}
 	if s.authInterceptor != nil {
 		unary, err := s.authInterceptor.UnaryServerInterceptor()
 		if err != nil {
@@ -360,10 +377,14 @@ func (s *Server) initSteps9to13() error {
 		if err != nil {
 			return fmt.Errorf("server: gRPC stream interceptor: %w", err)
 		}
-		grpcOpts = append(grpcOpts,
-			grpc.UnaryInterceptor(unary),
-			grpc.StreamInterceptor(stream),
-		)
+		unaryChain = append(unaryChain, unary)
+		streamChain = append(streamChain, stream)
+	}
+	if len(unaryChain) > 0 {
+		grpcOpts = append(grpcOpts, grpc.ChainUnaryInterceptor(unaryChain...))
+	}
+	if len(streamChain) > 0 {
+		grpcOpts = append(grpcOpts, grpc.ChainStreamInterceptor(streamChain...))
 	}
 	s.grpcServer = grpc.NewServer(grpcOpts...)
 	// step 12: register gRPC services (none yet — nil-guarded).
@@ -505,6 +526,7 @@ func (s *Server) runStatusTicker() {
 			return
 		case <-t.C:
 			counts := s.connMgr.Counts()
+			s.controlPlaneMetrics.SetAgentCounts(s.cfg.NATS.ClusterName, counts)
 			s.logger.Info("server: status",
 				"agents_total", counts.Total,
 				"agents_connected", counts.Connected,

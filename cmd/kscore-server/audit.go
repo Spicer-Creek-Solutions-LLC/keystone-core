@@ -51,7 +51,7 @@ type auditRuntime struct {
 // Both branches share the same [audit.AuditEntry]; the events bus
 // emission lives separately on each subsystem (Epic 11 task 10's
 // bridge + secrets-side path).
-func startAudit(ctx context.Context, st state.Store, log *slog.Logger) (*auditRuntime, error) {
+func startAudit(ctx context.Context, st state.Store, am *audit.Metrics, log *slog.Logger) (*auditRuntime, error) {
 	if st == nil {
 		log.LogAttrs(ctx, slog.LevelInfo, "audit: state store is nil; skipping")
 		return nil, nil
@@ -64,7 +64,11 @@ func startAudit(ctx context.Context, st state.Store, log *slog.Logger) (*auditRu
 		return nil, err
 	}
 
-	fanOut := audit.NewMultiAuditor(storeAud, buf)
+	// MeasuringAuditor wraps the fan-out so every emission across
+	// every subsystem records kscore_audit_entries_total{policy,allowed}.
+	// nil-metrics is the no-op pass-through.
+	var fanOut audit.Auditor = audit.NewMultiAuditor(storeAud, buf)
+	fanOut = audit.NewMeasuringAuditor(fanOut, am)
 	return &auditRuntime{
 		Store:        store,
 		StoreAuditor: storeAud,

@@ -66,7 +66,7 @@ func (r *secretsRuntime) stop(ctx context.Context, log *slog.Logger) {
 // [secrets.SamplingAuditor] chain so every [secrets.SecretAccessEvent]
 // is also published as an [events.Event] on the bus. Boot wiring in
 // main.go constructs this from the events runtime's AuditEmitter.
-func startSecrets(ctx context.Context, cfg config.SecretsConfig, store state.Store, eventsAuditor, auditStoreAuditor secrets.Auditor, log *slog.Logger) (*secretsRuntime, error) {
+func startSecrets(ctx context.Context, cfg config.SecretsConfig, store state.Store, eventsAuditor, auditStoreAuditor secrets.Auditor, sm *secrets.Metrics, log *slog.Logger) (*secretsRuntime, error) {
 	if !cfg.Enabled {
 		log.LogAttrs(ctx, slog.LevelInfo, "secrets: disabled in config; skipping")
 		return nil, nil
@@ -176,6 +176,7 @@ func startSecrets(ctx context.Context, cfg config.SecretsConfig, store state.Sto
 		LeaseDirectory:   lm,
 		ExtractPrincipal: extractSecretsPrincipal,
 		Logger:           log,
+		Metrics:          sm,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("secrets: broker: %w", err)

@@ -17,8 +17,9 @@ import (
 func newTestRegistry(t *testing.T) *Registry {
 	t.Helper()
 	return NewRegistry(Options{
-		Logger:                slog.New(slog.NewTextHandler(io.Discard, nil)),
-		DefaultMaxCardinality: 1000,
+		Logger:                   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		DefaultMaxCardinality:    1000,
+		DisableRuntimeCollectors: true,
 	})
 }
 
@@ -59,6 +60,41 @@ outer:
 		return m
 	}
 	return nil
+}
+
+func TestRegistry_AutoRegistersRuntimeCollectors(t *testing.T) {
+	r := NewRegistry(Options{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	mfs, err := r.Gatherer().Gather()
+	if err != nil {
+		t.Fatalf("gather: %v", err)
+	}
+	want := map[string]bool{"go_goroutines": false, "process_start_time_seconds": false}
+	for _, mf := range mfs {
+		if _, ok := want[mf.GetName()]; ok {
+			want[mf.GetName()] = true
+		}
+	}
+	for name, found := range want {
+		if !found {
+			t.Errorf("runtime collector %q not auto-registered", name)
+		}
+	}
+}
+
+func TestRegistry_DisableRuntimeCollectors_SuppressesThem(t *testing.T) {
+	r := NewRegistry(Options{
+		Logger:                   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		DisableRuntimeCollectors: true,
+	})
+	mfs, err := r.Gatherer().Gather()
+	if err != nil {
+		t.Fatalf("gather: %v", err)
+	}
+	for _, mf := range mfs {
+		if mf.GetName() == "go_goroutines" || mf.GetName() == "process_start_time_seconds" {
+			t.Errorf("runtime collector %q leaked despite DisableRuntimeCollectors=true", mf.GetName())
+		}
+	}
 }
 
 func TestRegistry_PreRegistersCardinalityCounter(t *testing.T) {
@@ -374,8 +410,9 @@ func TestStartTimer_WallClock(t *testing.T) {
 
 func TestCardinalityLimiter_DropMode_BlocksObservation(t *testing.T) {
 	r := NewRegistry(Options{
-		Logger:                slog.New(slog.NewTextHandler(io.Discard, nil)),
-		DefaultMaxCardinality: 2,
+		Logger:                   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		DefaultMaxCardinality:    2,
+		DisableRuntimeCollectors: true,
 	})
 	c, err := r.NewCounter(MetricDef{
 		Name: "kscore_lim_total", Help: "h", Labels: []string{"k"},
@@ -405,9 +442,10 @@ func TestCardinalityLimiter_DropMode_BlocksObservation(t *testing.T) {
 
 func TestCardinalityLimiter_AggregateMode_FoldsToOverflow(t *testing.T) {
 	r := NewRegistry(Options{
-		Logger:                slog.New(slog.NewTextHandler(io.Discard, nil)),
-		DefaultMaxCardinality: 1,
-		CardinalityMode:       cardinality.Aggregate,
+		Logger:                   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		DefaultMaxCardinality:    1,
+		CardinalityMode:          cardinality.Aggregate,
+		DisableRuntimeCollectors: true,
 	})
 	c, err := r.NewCounter(MetricDef{
 		Name: "kscore_agg_total", Help: "h", Labels: []string{"k"},

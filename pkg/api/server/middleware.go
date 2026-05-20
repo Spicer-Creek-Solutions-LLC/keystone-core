@@ -39,8 +39,15 @@ func (s *Server) buildHTTPHandler() (http.Handler, error) {
 	router.Handle("/health/", publicMux)
 	router.Handle("/", apiHandler)
 
-	if s.cfg.Server.CORS.Enabled {
-		return corsMiddleware(s.cfg.Server.CORS)(router), nil
+	var handler http.Handler = router
+	if s.metrics != nil {
+		// Metrics middleware sits outside auth so health probes count
+		// too, but inside CORS so OPTIONS preflight isn't recorded as
+		// a domain request.
+		handler = s.metrics.HTTPMiddleware(nil)(handler)
 	}
-	return router, nil
+	if s.cfg.Server.CORS.Enabled {
+		return corsMiddleware(s.cfg.Server.CORS)(handler), nil
+	}
+	return handler, nil
 }

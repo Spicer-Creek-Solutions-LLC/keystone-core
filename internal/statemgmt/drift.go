@@ -26,6 +26,7 @@ type Detector struct {
 	Observer         RunObserver
 	SeverityResolver SeverityResolver
 	DeclTimeout      time.Duration
+	Metrics          *Metrics // optional; nil disables emission
 }
 
 // NewDetector returns a Detector. Pass nil for reg to fall back to
@@ -258,6 +259,9 @@ func (d *Detector) Detect(ctx context.Context, decls []*Declaration) (*DriftRepo
 	}
 
 	report.TotalChecked = len(report.Statuses)
+	if report.Drifted > 0 {
+		d.Metrics.RecordDrift(report.AggregateSeverity.String())
+	}
 	return report, runErr
 }
 

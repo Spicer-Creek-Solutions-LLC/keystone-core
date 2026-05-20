@@ -84,6 +84,7 @@ type publisherConfig struct {
 	flushTimeout time.Duration
 	asyncOnError AsyncErrorCallback
 	logger       *slog.Logger
+	metrics      *Metrics
 }
 
 // defaultPublisherConfig returns the zero-options baseline. Centralised
@@ -151,6 +152,12 @@ func WithLogger(l *slog.Logger) PublisherOption {
 			c.logger = l
 		}
 	}
+}
+
+// WithMetrics wires the events-package metric emitter. Nil is allowed
+// and disables emission.
+func WithMetrics(m *Metrics) PublisherOption {
+	return func(c *publisherConfig) { c.metrics = m }
 }
 
 // NoopPublisher is the disabled-mode shim — every method returns nil

@@ -258,6 +258,7 @@ func (p *JetStreamPublisher) publishOne(ctx context.Context, e Event) error {
 	}, nats.Context(ctx)); err != nil {
 		return fmt.Errorf("events: jetstream publish: %w", err)
 	}
+	p.cfg.metrics.RecordEmit(e.Type, e.Severity)
 	return nil
 }
 

@@ -72,7 +72,7 @@ func (r *eventsRuntime) stop(ctx context.Context, log *slog.Logger) {
 // ensures NATS+JetStream is enabled when events is enabled, so this
 // function reports a hard error if the manager refuses to hand back
 // a JetStream context.
-func startEvents(ctx context.Context, cfg config.EventsConfig, natsCfg config.NATSConfig, store state.Store, nm *natsmgr.Manager, log *slog.Logger) (*eventsRuntime, error) {
+func startEvents(ctx context.Context, cfg config.EventsConfig, natsCfg config.NATSConfig, store state.Store, nm *natsmgr.Manager, em *events.Metrics, log *slog.Logger) (*eventsRuntime, error) {
 	if !cfg.Enabled {
 		log.LogAttrs(ctx, slog.LevelInfo, "events: disabled in config; skipping")
 		return nil, nil
@@ -104,6 +104,7 @@ func startEvents(ctx context.Context, cfg config.EventsConfig, natsCfg config.NA
 			events.WithBufferSize(cfg.Publisher.BufferSize),
 			events.WithFlushTimeout(cfg.Publisher.FlushTimeout),
 			events.WithLogger(log),
+			events.WithMetrics(em),
 		}
 		if cfg.Publisher.StoreFirst {
 			pubOpts = append(pubOpts, events.WithStore(rt.Store))

@@ -121,6 +121,19 @@ type Options struct {
 	PolicyReports  *policy.ReportGenerator
 	PolicyAuditLog audit.AuditStore
 	PolicyAuditor  audit.Auditor
+
+	// Metrics is the Epic 17 task 2 emitter for HTTP + gRPC request
+	// duration. Optional — nil disables emission. When set, the HTTP
+	// middleware chain inserts the metrics middleware just outside the
+	// auth chain, and the gRPC interceptor chain prepends the metrics
+	// interceptors.
+	Metrics *Metrics
+
+	// ControlPlaneMetrics is the Epic 17 task 2 emitter for the
+	// kscore_agents_total gauge. The server's existing status ticker
+	// (PROJECT-DETAILS §4.4 step 21) pushes Counts into it every
+	// StatusTickerInterval. Optional; nil disables emission.
+	ControlPlaneMetrics *controlplane.Metrics
 }
 
 // validate returns an error if required fields are missing or

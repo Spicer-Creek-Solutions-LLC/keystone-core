@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 
 	"go.keystone-core.io/keystone-core/internal/metrics/cardinality"
 )
@@ -83,6 +84,12 @@ type Options struct {
 	// metrics in this Registry that do not set MetricDef.MaxCardinality.
 	// Zero means use the package default.
 	DefaultMaxCardinality int
+
+	// DisableRuntimeCollectors skips the auto-registration of
+	// prometheus/client_golang's Go-runtime and process collectors.
+	// Defaults to false (collectors are registered). Tests that scrape
+	// a deterministic metric set set this true.
+	DisableRuntimeCollectors bool
 }
 
 // NewRegistry constructs a Registry. It pre-registers the self-metric
@@ -126,6 +133,15 @@ func NewRegistry(opts Options) *Registry {
 	}
 	r.defs[CardinalityMetricName] = def
 	r.cardCounter = &counter{vec: vec, def: def, registry: nil} // nil registry => skip limiter
+
+	if !opts.DisableRuntimeCollectors {
+		// go_* and process_* metric families. These never participate
+		// in the cardinality limiter — they have no high-cardinality
+		// labels — so registering them with the underlying Prom
+		// registry directly is correct.
+		r.prom.MustRegister(collectors.NewGoCollector())
+		r.prom.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+	}
 
 	return r
 }

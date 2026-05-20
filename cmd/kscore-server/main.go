@@ -17,10 +17,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"go.keystone-core.io/keystone-core/internal/agent"
+	"go.keystone-core.io/keystone-core/internal/audit"
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
+	"go.keystone-core.io/keystone-core/internal/events"
 	"go.keystone-core.io/keystone-core/internal/identity"
+	"go.keystone-core.io/keystone-core/internal/metrics"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/internal/state"
@@ -35,6 +38,17 @@ import (
 // shutdownTimeout matches PROJECT-DETAILS §4.4 — 30s ceiling on graceful
 // shutdown. Task 8 may make this configurable.
 const shutdownTimeout = 30 * time.Second
+
+// auditCommandTerminalOrNil returns the audit-emitter command-terminal
+// hook, or nil when audit is unavailable. Kept inline (rather than
+// dropped into command_emitter.go) so the call site stays grep-able
+// alongside the metrics terminal hook.
+func auditCommandTerminalOrNil(rt *auditRuntime) controlplane.TerminalCommandFunc {
+	if rt == nil {
+		return nil
+	}
+	return newCommandTerminalEmitter(rt.FanOut)
+}
 
 func main() {
 	if err := newCommand().Execute(); err != nil {
@@ -51,6 +65,37 @@ func newCommand() *cobra.Command {
 }
 
 func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
+	// Epic 17 task 2 — construct the metrics registry first so every
+	// subsystem's NewXxx receives a live emitter. Runtime collectors
+	// (go_*, process_*) auto-register. Task 3 wires /metrics over the
+	// server's HTTP mux.
+	metricsRegistry := metrics.NewRegistry(metrics.Options{Logger: log})
+	srvMetrics, err := server.NewMetrics(metricsRegistry)
+	if err != nil {
+		return fmt.Errorf("metrics (server): %w", err)
+	}
+	cpMetrics, err := controlplane.NewMetrics(metricsRegistry)
+	if err != nil {
+		return fmt.Errorf("metrics (controlplane): %w", err)
+	}
+	eventsMetrics, err := events.NewMetrics(metricsRegistry)
+	if err != nil {
+		return fmt.Errorf("metrics (events): %w", err)
+	}
+	auditMetrics, err := audit.NewMetrics(metricsRegistry)
+	if err != nil {
+		return fmt.Errorf("metrics (audit): %w", err)
+	}
+	secretsMetrics, err := secrets.NewMetrics(metricsRegistry)
+	if err != nil {
+		return fmt.Errorf("metrics (secrets): %w", err)
+	}
+	stateMetrics, err := statemgmt.NewMetrics(metricsRegistry)
+	if err != nil {
+		return fmt.Errorf("metrics (statemgmt): %w", err)
+	}
+	_ = stateMetrics // wired into statemgmt.Runner where v0.1 boot constructs one (cmd/kscore-blueprint); kscore-server delegates state runs to that path.
+
 	stateCfg, err := cfg.Storage.ToStateConfig()
 	if err != nil {
 		return fmt.Errorf("storage config: %w", err)
@@ -144,7 +189,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	// Boot order: events BEFORE secrets per Epic 11 task 10 so the
 	// secrets audit pipeline can fan out through the events bus.
 	// Events depends only on state + NATS (no secrets dep).
-	eventsRT, err := startEvents(ctx, cfg.Events, cfg.NATS, store, natsManager, log)
+	eventsRT, err := startEvents(ctx, cfg.Events, cfg.NATS, store, natsManager, eventsMetrics, log)
 	if err != nil {
 		return fmt.Errorf("events: %w", err)
 	}
@@ -170,7 +215,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	// secrets / state apply / command exec) emit through auditRT
 	// .FanOut so every operation lands in the 90d forensic SQL
 	// audit log alongside the realtime/7d events bus.
-	auditRT, err := startAudit(ctx, store, log)
+	auditRT, err := startAudit(ctx, store, auditMetrics, log)
 	if err != nil {
 		return fmt.Errorf("audit: %w", err)
 	}
@@ -210,7 +255,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	// Epic 10 task 9 — start the secrets runtime when enabled.
 	// Returns nil + nil error when secrets.enabled is false; the
 	// SecretsService gRPC + REST surface then returns Unavailable.
-	secretsRT, err := startSecrets(ctx, cfg.Secrets, store, eventsAuditor, auditStoreAuditor, log)
+	secretsRT, err := startSecrets(ctx, cfg.Secrets, store, eventsAuditor, auditStoreAuditor, secretsMetrics, log)
 	if err != nil {
 		return fmt.Errorf("secrets: %w", err)
 	}
@@ -221,17 +266,24 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	}()
 
 	opts := server.Options{
-		Config:          cfg,
-		Logger:          log,
-		Store:           store,
-		NATSManager:     natsManager,
-		Subjects:        natsManager.Subjects(),
-		Signer:          commandSignerAdapter{enf: enforcer},
-		AuthInterceptor: authInterceptor,
-		TLSConfig:       tlsConfig,
+		Config:              cfg,
+		Logger:              log,
+		Store:               store,
+		NATSManager:         natsManager,
+		Subjects:            natsManager.Subjects(),
+		Signer:              commandSignerAdapter{enf: enforcer},
+		AuthInterceptor:     authInterceptor,
+		TLSConfig:           tlsConfig,
+		Metrics:             srvMetrics,
+		ControlPlaneMetrics: cpMetrics,
 	}
+	// Compose the command-terminal hook from (a) the audit emitter and
+	// (b) the controlplane metrics recorder. Either may be nil.
+	opts.CommandTerminalHook = controlplane.ChainTerminalCommandFuncs(
+		auditCommandTerminalOrNil(auditRT),
+		controlplane.MetricsTerminalCommandFunc(cpMetrics),
+	)
 	if auditRT != nil {
-		opts.CommandTerminalHook = newCommandTerminalEmitter(auditRT.FanOut)
 		opts.StateAuditor = auditRT.FanOut
 	}
 	// Epic 12 task 13 — policy REST surface backings. policyRT != nil

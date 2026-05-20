@@ -39,6 +39,7 @@ type BrokerConfig struct {
 	ExtractPrincipal func(ctx context.Context) Principal
 	Clock            func() time.Time
 	Logger           *slog.Logger
+	Metrics          *Metrics
 }
 
 // Broker is the single entry point higher layers (REST handlers,
@@ -73,6 +74,7 @@ type Broker struct {
 	extractPrincipal func(ctx context.Context) Principal
 	clock            func() time.Time
 	logger           *slog.Logger
+	metrics          *Metrics
 
 	mu      sync.Mutex
 	started bool
@@ -177,6 +179,7 @@ func NewBroker(cfg BrokerConfig) (*Broker, error) {
 		extractPrincipal: extract,
 		clock:            clock,
 		logger:           logger,
+		metrics:          cfg.Metrics,
 	}, nil
 }
 
@@ -292,10 +295,11 @@ func errorReason(err error) string {
 	return err.Error()
 }
 
-// emit fires one audit event. Centralised so every dispatch path
-// follows the same shape.
+// emit fires one audit event and records the equivalent metric.
+// Centralised so every dispatch path follows the same shape.
 func (b *Broker) emit(ctx context.Context, evt SecretAccessEvent) {
 	b.auditor.Emit(ctx, evt)
+	b.metrics.RecordAccess(evt.Backend, evt.Action, evt.Allowed)
 }
 
 // GetSecret reads the secret at req.Path. Cache is consulted first;
