@@ -1,0 +1,69 @@
+{
+  "title": "Keystone Core — State Management",
+  "uid": "kscore-state-management",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["kscore", "state"],
+  "timezone": "browser",
+  "time": {"from": "now-6h", "to": "now"},
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {"name": "datasource", "type": "datasource", "query": "prometheus"},
+      {"name": "env", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, env)", "includeAll": true, "allValue": ".+", "refresh": 1},
+      {"name": "datacenter", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, datacenter)", "includeAll": true, "allValue": ".+", "refresh": 1}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "State applies per minute",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (result) (rate(kscore_state_apply_total{env=~\"$env\",datacenter=~\"$datacenter\"}[1m])) * 60", "legendFormat": "{{result}}"}]
+    },
+    {
+      "id": 2,
+      "title": "Failure ratio (1h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(increase(kscore_state_apply_total{result=\"failed\",env=~\"$env\",datacenter=~\"$datacenter\"}[1h])) / clamp_min(sum(increase(kscore_state_apply_total{env=~\"$env\",datacenter=~\"$datacenter\"}[1h])), 1)"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 0.05, "color": "yellow"}, {"value": 0.2, "color": "red"}]}}}
+    },
+    {
+      "id": 3,
+      "title": "Change ratio (1h) — success vs no_change",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(increase(kscore_state_apply_total{result=\"success\",env=~\"$env\",datacenter=~\"$datacenter\"}[1h])) / clamp_min(sum(increase(kscore_state_apply_total{result=~\"success|no_change\",env=~\"$env\",datacenter=~\"$datacenter\"}[1h])), 1)"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit"}}
+    },
+    {
+      "id": 4,
+      "title": "Drift detections by severity",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (severity) (rate(kscore_state_drift_detected_total{env=~\"$env\",datacenter=~\"$datacenter\"}[5m]))", "legendFormat": "{{severity}}"}]
+    },
+    {
+      "id": 5,
+      "title": "Drift severity mix (24h)",
+      "type": "piechart",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (severity) (increase(kscore_state_drift_detected_total{env=~\"$env\",datacenter=~\"$datacenter\"}[24h]))", "legendFormat": "{{severity}}", "instant": true}]
+    },
+    {
+      "id": 6,
+      "title": "Top results (24h)",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "topk(10, sum by (result) (increase(kscore_state_apply_total{env=~\"$env\",datacenter=~\"$datacenter\"}[24h])))", "format": "table", "instant": true}]
+    }
+  ]
+}

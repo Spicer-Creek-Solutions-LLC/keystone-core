@@ -1,0 +1,53 @@
+{
+  "title": "Keystone Core — NATS Mesh",
+  "uid": "kscore-nats-mesh",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["kscore", "nats"],
+  "description": "NATS-mesh visibility from the control plane's perspective (event throughput, cluster quorum, cardinality safety). NATS-server-internal metrics (jetstream stream stats, slow consumers) come from a separately-scraped nats-server exporter — out of scope for the v1.0 kscore set.",
+  "timezone": "browser",
+  "time": {"from": "now-6h", "to": "now"},
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {"name": "datasource", "type": "datasource", "query": "prometheus"},
+      {"name": "env", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, env)", "includeAll": true, "allValue": ".+", "refresh": 1},
+      {"name": "datacenter", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, datacenter)", "includeAll": true, "allValue": ".+", "refresh": 1}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Cluster quorum",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "kscore_cluster_quorum{env=~\"$env\",datacenter=~\"$datacenter\"}"}],
+      "fieldConfig": {"defaults": {"mappings": [{"type": "value", "options": {"0": {"text": "LOST", "color": "red"}, "1": {"text": "HEALTHY", "color": "green"}}}]}}
+    },
+    {
+      "id": 2,
+      "title": "Event throughput (msgs/sec)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 18, "x": 6, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(rate(kscore_events_emitted_total{env=~\"$env\",datacenter=~\"$datacenter\"}[1m]))", "legendFormat": "events/sec"}]
+    },
+    {
+      "id": 3,
+      "title": "Cardinality limiter — outcomes",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (outcome) (rate(kscore_metrics_cardinality_total{env=~\"$env\",datacenter=~\"$datacenter\"}[5m]))", "legendFormat": "{{outcome}}"}]
+    },
+    {
+      "id": 4,
+      "title": "Cluster failovers (7d)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (outcome) (increase(kscore_cluster_failover_total{env=~\"$env\",datacenter=~\"$datacenter\"}[1h]))", "legendFormat": "{{outcome}}"}]
+    }
+  ]
+}

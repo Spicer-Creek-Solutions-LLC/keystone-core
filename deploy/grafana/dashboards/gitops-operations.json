@@ -1,0 +1,52 @@
+{
+  "title": "Keystone Core — GitOps Operations",
+  "uid": "kscore-gitops-ops",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["kscore", "gitops"],
+  "description": "GitOps activity inferred from kscore_events_emitted_total{type=~\"gitops.*\"}. Richer per-provider GitOps metrics (sync duration, drift count per Application) are deferred to v1.x; see ROADMAP.",
+  "timezone": "browser",
+  "time": {"from": "now-24h", "to": "now"},
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {"name": "datasource", "type": "datasource", "query": "prometheus"},
+      {"name": "env", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, env)", "includeAll": true, "allValue": ".+", "refresh": 1},
+      {"name": "datacenter", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, datacenter)", "includeAll": true, "allValue": ".+", "refresh": 1}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "GitOps events (24h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(increase(kscore_events_emitted_total{type=~\"gitops.*\",env=~\"$env\",datacenter=~\"$datacenter\"}[24h]))"}]
+    },
+    {
+      "id": 2,
+      "title": "GitOps events by type",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (type) (rate(kscore_events_emitted_total{type=~\"gitops.*\",env=~\"$env\",datacenter=~\"$datacenter\"}[5m]))", "legendFormat": "{{type}}"}]
+    },
+    {
+      "id": 3,
+      "title": "GitOps events by severity",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (severity) (rate(kscore_events_emitted_total{type=~\"gitops.*\",env=~\"$env\",datacenter=~\"$datacenter\"}[5m]))", "legendFormat": "{{severity}}"}]
+    },
+    {
+      "id": 4,
+      "title": "Top event types (24h)",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "topk(10, sum by (type) (increase(kscore_events_emitted_total{type=~\"gitops.*\",env=~\"$env\",datacenter=~\"$datacenter\"}[24h])))", "format": "table", "instant": true}]
+    }
+  ]
+}

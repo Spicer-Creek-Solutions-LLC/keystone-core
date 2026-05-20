@@ -1,0 +1,74 @@
+{
+  "title": "Keystone Core — Remote Execution",
+  "uid": "kscore-remote-execution",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["kscore", "exec"],
+  "timezone": "browser",
+  "time": {"from": "now-6h", "to": "now"},
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {"name": "datasource", "type": "datasource", "query": "prometheus"},
+      {"name": "env", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, env)", "includeAll": true, "allValue": ".+", "refresh": 1},
+      {"name": "datacenter", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, datacenter)", "includeAll": true, "allValue": ".+", "refresh": 1},
+      {"name": "agent", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(kscore_commands_executed_total, agent)", "includeAll": true, "allValue": ".+", "multi": true, "refresh": 1}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Commands executed (1h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(increase(kscore_commands_executed_total{agent=~\"$agent\",env=~\"$env\",datacenter=~\"$datacenter\"}[1h]))"}]
+    },
+    {
+      "id": 2,
+      "title": "Failure rate (1h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(increase(kscore_commands_executed_total{status=~\"failed|timeout\",agent=~\"$agent\",env=~\"$env\",datacenter=~\"$datacenter\"}[1h])) / clamp_min(sum(increase(kscore_commands_executed_total{agent=~\"$agent\",env=~\"$env\",datacenter=~\"$datacenter\"}[1h])), 1)"}],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 0.05, "color": "yellow"}, {"value": 0.2, "color": "red"}]}}}
+    },
+    {
+      "id": 3,
+      "title": "p99 latency (per command type)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "histogram_quantile(0.99, sum by (type, le) (rate(kscore_command_duration_seconds_bucket{env=~\"$env\",datacenter=~\"$datacenter\"}[5m])))", "legendFormat": "{{type}}"}],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 4,
+      "title": "Executions by status",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (status) (rate(kscore_commands_executed_total{agent=~\"$agent\",env=~\"$env\",datacenter=~\"$datacenter\"}[5m]))", "legendFormat": "{{status}}"}]
+    },
+    {
+      "id": 5,
+      "title": "Latency p50 / p99 (per type)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [
+        {"refId": "A", "expr": "histogram_quantile(0.5, sum by (type, le) (rate(kscore_command_duration_seconds_bucket{env=~\"$env\",datacenter=~\"$datacenter\"}[5m])))", "legendFormat": "p50 {{type}}"},
+        {"refId": "B", "expr": "histogram_quantile(0.99, sum by (type, le) (rate(kscore_command_duration_seconds_bucket{env=~\"$env\",datacenter=~\"$datacenter\"}[5m])))", "legendFormat": "p99 {{type}}"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 6,
+      "title": "Top agents by executions (24h)",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "topk(20, sum by (agent, status) (increase(kscore_commands_executed_total{agent=~\"$agent\",env=~\"$env\",datacenter=~\"$datacenter\"}[24h])))", "format": "table", "instant": true}]
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+# Source-of-truth list of every Prometheus metric the v1.0 Grafana
+# dashboards (deploy/grafana/dashboards/*.json) may reference. The
+# dashboards_test.go gate compares this file against:
+#
+#   - The kscore_* metrics defined in internal/metrics/metricdefs.go
+#     plus internal/metrics/cardinality (the self-metric).
+#   - Every kscore_* / go_* / process_* token extracted from the
+#     dashboard JSONs.
+#
+# Renaming a metric in metricdefs.go MUST update this file in the same
+# commit; otherwise dashboards_test.go fails. Adding a new metric MUST
+# update this file plus the dashboards that reference it.
+#
+# Lines starting with # and blank lines are ignored. One metric per
+# remaining line.
+
+# v1.0 kscore_* metrics (per epic 17 line 16-28).
+kscore_agents_total
+kscore_audit_entries_total
+kscore_cluster_failover_total
+kscore_cluster_members_total
+kscore_cluster_quorum
+kscore_command_duration_seconds
+kscore_commands_executed_total
+kscore_events_emitted_total
+kscore_grpc_request_duration_seconds
+kscore_http_request_duration_seconds
+kscore_metrics_cardinality_total
+kscore_secrets_access_total
+kscore_state_apply_total
+kscore_state_drift_detected_total
+
+# Go-runtime collectors auto-registered by internal/metrics.Registry.
+# Names are stable in prometheus/client_golang.
+go_goroutines
+process_cpu_seconds_total
+process_resident_memory_bytes

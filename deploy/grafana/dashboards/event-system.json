@@ -1,0 +1,70 @@
+{
+  "title": "Keystone Core — Event System",
+  "uid": "kscore-event-system",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["kscore", "events"],
+  "timezone": "browser",
+  "time": {"from": "now-6h", "to": "now"},
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {"name": "datasource", "type": "datasource", "query": "prometheus"},
+      {"name": "env", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, env)", "includeAll": true, "allValue": ".+", "refresh": 1},
+      {"name": "datacenter", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, datacenter)", "includeAll": true, "allValue": ".+", "refresh": 1},
+      {"name": "severity", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(kscore_events_emitted_total, severity)", "includeAll": true, "allValue": ".+", "multi": true, "refresh": 1}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Events emitted (1h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(increase(kscore_events_emitted_total{severity=~\"$severity\",env=~\"$env\",datacenter=~\"$datacenter\"}[1h]))"}]
+    },
+    {
+      "id": 2,
+      "title": "Error events (1h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(increase(kscore_events_emitted_total{severity=\"error\",env=~\"$env\",datacenter=~\"$datacenter\"}[1h]))"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 1, "color": "red"}]}}}
+    },
+    {
+      "id": 3,
+      "title": "Critical events (1h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(increase(kscore_events_emitted_total{severity=\"critical\",env=~\"$env\",datacenter=~\"$datacenter\"}[1h]))"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 1, "color": "red"}]}}}
+    },
+    {
+      "id": 4,
+      "title": "Events by type (rate)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (type) (rate(kscore_events_emitted_total{severity=~\"$severity\",env=~\"$env\",datacenter=~\"$datacenter\"}[5m]))", "legendFormat": "{{type}}"}]
+    },
+    {
+      "id": 5,
+      "title": "Events by severity (rate)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (severity) (rate(kscore_events_emitted_total{severity=~\"$severity\",env=~\"$env\",datacenter=~\"$datacenter\"}[5m]))", "legendFormat": "{{severity}}"}]
+    },
+    {
+      "id": 6,
+      "title": "Top event types (24h)",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "topk(15, sum by (type) (increase(kscore_events_emitted_total{severity=~\"$severity\",env=~\"$env\",datacenter=~\"$datacenter\"}[24h])))", "format": "table", "instant": true}]
+    }
+  ]
+}

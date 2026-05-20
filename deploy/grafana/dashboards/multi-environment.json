@@ -1,0 +1,60 @@
+{
+  "title": "Keystone Core — Multi-Environment",
+  "uid": "kscore-multi-environment",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["kscore", "multi-env"],
+  "description": "Cross-environment view. Requires the operator to configure Prometheus external_labels (env, datacenter) on each scraped kscore-server so the same metric series can be partitioned by deployment. See deploy/grafana/README.md.",
+  "timezone": "browser",
+  "time": {"from": "now-24h", "to": "now"},
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {"name": "datasource", "type": "datasource", "query": "prometheus"},
+      {"name": "env", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, env)", "includeAll": true, "allValue": ".+", "multi": true, "refresh": 1},
+      {"name": "datacenter", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, datacenter)", "includeAll": true, "allValue": ".+", "multi": true, "refresh": 1}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Agents by env",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (env) (kscore_agents_total{env=~\"$env\",datacenter=~\"$datacenter\"})", "legendFormat": "{{env}}"}]
+    },
+    {
+      "id": 2,
+      "title": "Agents by datacenter",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (datacenter) (kscore_agents_total{env=~\"$env\",datacenter=~\"$datacenter\"})", "legendFormat": "{{datacenter}}"}]
+    },
+    {
+      "id": 3,
+      "title": "Cluster quorum by env",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "min by (env) (kscore_cluster_quorum{env=~\"$env\",datacenter=~\"$datacenter\"})", "legendFormat": "{{env}}"}]
+    },
+    {
+      "id": 4,
+      "title": "HTTP error rate by env",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (env) (rate(kscore_http_request_duration_seconds_count{code=~\"5..\",env=~\"$env\",datacenter=~\"$datacenter\"}[5m]))", "legendFormat": "{{env}}"}]
+    },
+    {
+      "id": 5,
+      "title": "Command failures by env (24h)",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (env, status) (increase(kscore_commands_executed_total{status=~\"failed|timeout\",env=~\"$env\",datacenter=~\"$datacenter\"}[24h]))", "format": "table", "instant": true}]
+    }
+  ]
+}

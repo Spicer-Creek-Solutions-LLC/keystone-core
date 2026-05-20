@@ -1,0 +1,63 @@
+{
+  "title": "Keystone Core — Policy Compliance (audit-mode)",
+  "uid": "kscore-policy-compliance",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["kscore", "policy", "audit"],
+  "timezone": "browser",
+  "time": {"from": "now-24h", "to": "now"},
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {"name": "datasource", "type": "datasource", "query": "prometheus"},
+      {"name": "env", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, env)", "includeAll": true, "allValue": ".+", "refresh": 1},
+      {"name": "datacenter", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, datacenter)", "includeAll": true, "allValue": ".+", "refresh": 1},
+      {"name": "policy", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(kscore_audit_entries_total, policy)", "includeAll": true, "allValue": ".+", "multi": true, "refresh": 1}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Allow / Deny (24h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [
+        {"refId": "A", "expr": "sum(increase(kscore_audit_entries_total{allowed=\"true\",policy=~\"$policy\",env=~\"$env\",datacenter=~\"$datacenter\"}[24h]))", "legendFormat": "allowed"},
+        {"refId": "B", "expr": "sum(increase(kscore_audit_entries_total{allowed=\"false\",policy=~\"$policy\",env=~\"$env\",datacenter=~\"$datacenter\"}[24h]))", "legendFormat": "denied"}
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Deny rate per minute",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (policy) (rate(kscore_audit_entries_total{allowed=\"false\",policy=~\"$policy\",env=~\"$env\",datacenter=~\"$datacenter\"}[1m])) * 60", "legendFormat": "{{policy}}"}]
+    },
+    {
+      "id": 3,
+      "title": "Top denied policies (24h)",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "topk(10, sum by (policy) (increase(kscore_audit_entries_total{allowed=\"false\",policy=~\"$policy\",env=~\"$env\",datacenter=~\"$datacenter\"}[24h])))", "format": "table", "instant": true}]
+    },
+    {
+      "id": 4,
+      "title": "Top allowed policies (24h)",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "topk(10, sum by (policy) (increase(kscore_audit_entries_total{allowed=\"true\",policy=~\"$policy\",env=~\"$env\",datacenter=~\"$datacenter\"}[24h])))", "format": "table", "instant": true}]
+    },
+    {
+      "id": 5,
+      "title": "Audit throughput (entries/min)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(rate(kscore_audit_entries_total{policy=~\"$policy\",env=~\"$env\",datacenter=~\"$datacenter\"}[1m])) * 60", "legendFormat": "entries/min"}]
+    }
+  ]
+}

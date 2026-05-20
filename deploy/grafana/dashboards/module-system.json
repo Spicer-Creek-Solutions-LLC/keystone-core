@@ -1,0 +1,55 @@
+{
+  "title": "Keystone Core — Module System",
+  "uid": "kscore-module-system",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["kscore", "modules"],
+  "description": "Plugin/module activity inferred from kscore_events_emitted_total{type=~\"system.*\"} and audit entries scoped to module policies. Per-module Starlark execution metrics (load time, CPU/instruction count) are deferred to v1.x; see ROADMAP.",
+  "timezone": "browser",
+  "time": {"from": "now-24h", "to": "now"},
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {"name": "datasource", "type": "datasource", "query": "prometheus"},
+      {"name": "env", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, env)", "includeAll": true, "allValue": ".+", "refresh": 1},
+      {"name": "datacenter", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, datacenter)", "includeAll": true, "allValue": ".+", "refresh": 1}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "System events (24h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 12, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(increase(kscore_events_emitted_total{type=~\"system.*\",env=~\"$env\",datacenter=~\"$datacenter\"}[24h]))"}]
+    },
+    {
+      "id": 2,
+      "title": "Module-policy audit entries (24h)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 12, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(increase(kscore_audit_entries_total{policy=~\"module.*\",env=~\"$env\",datacenter=~\"$datacenter\"}[24h]))"}]
+    },
+    {
+      "id": 3,
+      "title": "System events by type",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (type) (rate(kscore_events_emitted_total{type=~\"system.*\",env=~\"$env\",datacenter=~\"$datacenter\"}[5m]))", "legendFormat": "{{type}}"}]
+    },
+    {
+      "id": 4,
+      "title": "Module audit allow/deny",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [
+        {"refId": "A", "expr": "sum(rate(kscore_audit_entries_total{policy=~\"module.*\",allowed=\"true\",env=~\"$env\",datacenter=~\"$datacenter\"}[1m])) * 60", "legendFormat": "allowed"},
+        {"refId": "B", "expr": "sum(rate(kscore_audit_entries_total{policy=~\"module.*\",allowed=\"false\",env=~\"$env\",datacenter=~\"$datacenter\"}[1m])) * 60", "legendFormat": "denied"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "title": "Keystone Core — Agent Fleet",
+  "uid": "kscore-agent-fleet",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["kscore", "agents"],
+  "timezone": "browser",
+  "time": {"from": "now-6h", "to": "now"},
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {"name": "datasource", "type": "datasource", "query": "prometheus"},
+      {"name": "env", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, env)", "includeAll": true, "allValue": ".+", "refresh": 1},
+      {"name": "datacenter", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(up, datacenter)", "includeAll": true, "allValue": ".+", "refresh": 1},
+      {"name": "cluster", "type": "query", "datasource": {"type": "prometheus", "uid": "$datasource"}, "query": "label_values(kscore_agents_total, cluster)", "includeAll": true, "allValue": ".+", "refresh": 1}
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total agents",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(kscore_agents_total{cluster=~\"$cluster\",env=~\"$env\",datacenter=~\"$datacenter\"})"}]
+    },
+    {
+      "id": 2,
+      "title": "Connected agents",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(kscore_agents_total{status=\"connected\",cluster=~\"$cluster\",env=~\"$env\",datacenter=~\"$datacenter\"})"}]
+    },
+    {
+      "id": 3,
+      "title": "Stale agents",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(kscore_agents_total{status=\"stale\",cluster=~\"$cluster\",env=~\"$env\",datacenter=~\"$datacenter\"})"}],
+      "fieldConfig": {"defaults": {"thresholds": {"mode": "absolute", "steps": [{"value": null, "color": "green"}, {"value": 1, "color": "red"}]}}}
+    },
+    {
+      "id": 4,
+      "title": "Disabled agents",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum(kscore_agents_total{status=\"disabled\",cluster=~\"$cluster\",env=~\"$env\",datacenter=~\"$datacenter\"})"}]
+    },
+    {
+      "id": 5,
+      "title": "Agents by status over time",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (status) (kscore_agents_total{cluster=~\"$cluster\",env=~\"$env\",datacenter=~\"$datacenter\"})", "legendFormat": "{{status}}"}]
+    },
+    {
+      "id": 6,
+      "title": "Agents by cluster",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (cluster) (kscore_agents_total{cluster=~\"$cluster\",env=~\"$env\",datacenter=~\"$datacenter\"})", "legendFormat": "{{cluster}}"}]
+    },
+    {
+      "id": 7,
+      "title": "Status mix (current)",
+      "type": "piechart",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "$datasource"},
+      "targets": [{"refId": "A", "expr": "sum by (status) (kscore_agents_total{cluster=~\"$cluster\",env=~\"$env\",datacenter=~\"$datacenter\"})", "legendFormat": "{{status}}", "instant": true}]
+    }
+  ]
+}
