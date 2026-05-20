@@ -112,6 +112,7 @@ v0.x:
   - "Migration journal: no per-table checkpoint resume"
 
 v1.x:
+  - "Backup encryption: AWS KMS + Vault key providers"
   - "Policy enforcement side-effects (Warn events + Enforce violation handlers)"
   - "kscore-secrets backends subcommand"
   - "kscore-secrets audit subcommand"

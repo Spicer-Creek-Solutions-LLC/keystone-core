@@ -3,6 +3,7 @@ module go.keystone-core.io/keystone-core
 go 1.26
 
 require (
+	filippo.io/age v1.3.1
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/charmbracelet/huh v1.0.0
 	github.com/expr-lang/expr v1.17.8
@@ -55,6 +56,7 @@ require (
 require (
 	cel.dev/expr v0.25.1 // indirect
 	dario.cat/mergo v1.0.0 // indirect
+	filippo.io/hpke v0.4.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect

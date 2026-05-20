@@ -896,6 +896,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v1.x — post-v1.0 feature additions
 
+#### Backup encryption: AWS KMS + Vault key providers
+
+- **Priority**: v1.x
+- **What**: KeyProvider adapters that wrap AWS KMS Encrypt/Decrypt and Vault Transit operations so `kscore-backup` can encrypt with cloud-managed keys instead of operator-managed age private keys. The age envelope stays as the on-disk format; KMS/Vault wrap the age recipient material (envelope-of-envelope).
+- **Why deferred**: v1.0 ships file-backed age keys only (`internal/backup/age.LoadIdentityFile` / `LoadRecipientsFile`). The KMS path needs the cloud-credential surface that arrives with the v1.x cloud-identity work; mixing the two now would force partial cloud-credential code into v1.0. Epic 18 Risks § names "v1.5 integrates KMS".
+- **Acceptance**: `kscore-backup create --key-provider=aws-kms:arn:...` writes an artifact whose age recipients are wrapped under the KMS key; restore unwraps via the same KMS. Same for `vault:transit:keystone-backup`.
+- **References**: Epic 18 Risks §; PROJECT-DETAILS §4.20 ("master key from env or KMS"); `internal/backup/age/`.
+
 #### Policy enforcement side-effects (Warn events + Enforce violation handlers)
 
 - **Priority**: v1.x
