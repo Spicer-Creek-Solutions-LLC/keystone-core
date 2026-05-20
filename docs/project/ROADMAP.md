@@ -498,6 +498,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `kscore-bootstrap --seed dev-seed.yaml` runs end-to-end on a fresh Linux host and lands at `StateVerified`; SIGKILL mid-Configuring then restart resumes at `StateConfiguring`.
 - **References**: Epic 18 task 2 (this commit); Epic 18 task 7; `internal/selfmgmt/bootstrap.go`.
 
+#### Backup component adapters (storage/JetStream/etcd/config/secrets/cluster)
+
+- **Priority**: gate-v1.0
+- **What**: Real adapter implementations behind the Epic-18 task 3 backup seams: SQLite online-backup + Postgres `pg_dump` for `StorageBackup`; per-stream `nats.go/jsm` snapshots for `JetStreamBackup`; `clientv3.Snapshot()` for `EtcdBackup`; filesystem `ConfigCollector` for operator YAMLs; encrypted-file backend `Copy` for `SecretsBackup`; MembershipManager+ShardStore-driven `ClusterMetadata`.
+- **Why deferred**: Each adapter is a non-trivial dep dance (`pg_dump` shell-out vs Go-native, NATS Manager threading, etcd client coupling, secrets backend internals). Epic 18 task 3 ships the orchestrator + six seams + manifest + tar artifact so adapters land independently and get wired by the `kscore-backup` CLI (Epic 18 task 7).
+- **Acceptance**: `kscore-backup create --dest /tmp/backup.tar` on a populated kscore-server writes a tar whose manifest references all six components with non-zero sizes; per-entry SHA-256s verify against the tar entries.
+- **References**: Epic 18 task 3 (this commit); Epic 18 task 7; `internal/backup/manager.go`.
+
 #### Policy CRUD via gRPC (`CreatePolicy`/`UpdatePolicy`/`DeletePolicy`/`activate`/`deactivate`/`remediate`/`monitor`)
 
 - **Priority**: gate-v1.0

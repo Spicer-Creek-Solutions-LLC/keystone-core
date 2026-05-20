@@ -62,6 +62,7 @@ gate-v1.0:
   - "File distribution: NATS Object Store + Git backends, mirror groups, conflict resolution"
   - "Backup orchestration features"
   - "Bootstrap phase handlers + durable checkpointer"
+  - "Backup component adapters (storage/JetStream/etcd/config/secrets/cluster)"
   - "Policy CRUD via gRPC (`CreatePolicy`/`UpdatePolicy`/`DeletePolicy`/`activate`/`deactivate`/`remediate`/`monitor`)"
   - "`kscore-agent service start|stop` subcommands"
   - "Batch dispatcher: no orphan-job recovery"
