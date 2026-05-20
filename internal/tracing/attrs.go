@@ -1,10 +1,13 @@
 package tracing
 
 import (
+	"context"
+
 	"go.opentelemetry.io/otel/attribute"
 
 	"go.keystone-core.io/keystone-core/internal/audit"
 	"go.keystone-core.io/keystone-core/internal/events"
+	"go.keystone-core.io/keystone-core/internal/logging"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
 )
@@ -48,6 +51,12 @@ const (
 	AttrEventSource   = "kscore.event.source"
 	AttrEventSubject  = "kscore.event.subject"
 	AttrEventCategory = "kscore.event.category"
+
+	// Cross-cutting: the request-scoped correlation ID flowed through
+	// context, HTTP / gRPC metadata, and NATS message headers. Lives
+	// outside the per-domain prefixes because every span at every
+	// layer can carry it.
+	AttrCorrelationID = "kscore.correlation_id"
 
 	// Policy / audit domain.
 	AttrPolicyID              = "kscore.policy.id"
@@ -136,6 +145,19 @@ func EventAttrs(e events.Event) []attribute.KeyValue {
 		return nil
 	}
 	return out
+}
+
+// CorrelationIDAttr returns the kscore.correlation_id attribute when
+// ctx carries one (via logging.CorrelationIDFromContext), or nil.
+// Callers pass the result to span.SetAttributes at span start so the
+// HTTP/gRPC/NATS request boundary identifier flows into every span
+// the request creates.
+func CorrelationIDAttr(ctx context.Context) []attribute.KeyValue {
+	id := logging.CorrelationIDFromContext(ctx)
+	if id == "" {
+		return nil
+	}
+	return []attribute.KeyValue{attribute.String(AttrCorrelationID, id)}
 }
 
 // PolicyAttrs builds span attributes for one audit entry. Allowed is

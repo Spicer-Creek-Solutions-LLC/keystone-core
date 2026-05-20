@@ -55,7 +55,10 @@ func (s *Server) buildHTTPHandler() (http.Handler, error) {
 		handler = s.metrics.HTTPMiddleware(nil)(handler)
 	}
 	if s.cfg.Server.CORS.Enabled {
-		return corsMiddleware(s.cfg.Server.CORS)(handler), nil
+		handler = corsMiddleware(s.cfg.Server.CORS)(handler)
 	}
-	return handler, nil
+	// Epic 17 task 10 — correlation ID sits OUTERMOST so every inbound
+	// request (health probes, OPTIONS preflight, 401-rejected calls)
+	// carries an ID into the log stream and back to the caller.
+	return HTTPCorrelationMiddleware(handler), nil
 }

@@ -1,6 +1,7 @@
 package tracing
 
 import (
+	"context"
 	"sort"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/audit"
 	"go.keystone-core.io/keystone-core/internal/events"
+	"go.keystone-core.io/keystone-core/internal/logging"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
 )
@@ -200,11 +202,32 @@ func TestAttributeKeyNamespace_AllKscorePrefix(t *testing.T) {
 		AttrStateDeclID, AttrStateModule, AttrStateName, AttrStateState,
 		AttrEventID, AttrEventType, AttrEventSeverity, AttrEventSource, AttrEventSubject, AttrEventCategory,
 		AttrPolicyID, AttrPolicyName, AttrPolicyAllowed, AttrPolicyAction, AttrPolicyEnforcementMode, AttrPolicyResourceType,
+		AttrCorrelationID,
 	}
 	for _, k := range all {
 		if len(k) < len("kscore.") || k[:len("kscore.")] != "kscore." {
 			t.Errorf("attribute key %q lacks kscore. prefix", k)
 		}
+	}
+}
+
+func TestCorrelationIDAttr_PresentInCtx(t *testing.T) {
+	ctx := logging.WithCorrelationID(context.Background(), "abc-123")
+	got := CorrelationIDAttr(ctx)
+	if len(got) != 1 {
+		t.Fatalf("attr count = %d, want 1", len(got))
+	}
+	if got[0].Key != AttrCorrelationID {
+		t.Errorf("key = %q, want %q", got[0].Key, AttrCorrelationID)
+	}
+	if got[0].Value.AsString() != "abc-123" {
+		t.Errorf("value = %q, want abc-123", got[0].Value.AsString())
+	}
+}
+
+func TestCorrelationIDAttr_EmptyCtx_ReturnsNil(t *testing.T) {
+	if got := CorrelationIDAttr(context.Background()); got != nil {
+		t.Errorf("attr = %v, want nil", got)
 	}
 }
 

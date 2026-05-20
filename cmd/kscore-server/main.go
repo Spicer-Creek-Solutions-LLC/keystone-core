@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/otel"
 
 	"go.keystone-core.io/keystone-core/internal/agent"
 	"go.keystone-core.io/keystone-core/internal/audit"
@@ -30,6 +31,7 @@ import (
 	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
+	"go.keystone-core.io/keystone-core/internal/tracing"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib"
 	"go.keystone-core.io/keystone-core/pkg/api/apikeys"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
@@ -112,6 +114,22 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
 		_ = profSrv.Stop(stopCtx)
+	}()
+
+	// Epic 17 task 4 + task 10 — construct the OTel TracerProvider and
+	// install it process-wide so internal/tracing.CorrelationIDAttr
+	// has a real provider to write into when callers create spans.
+	// Disabled by default; New returns a noop provider that Shutdown
+	// safely with nothing to flush.
+	traceProvider, err := tracing.New(cfg.Tracing, log)
+	if err != nil {
+		return fmt.Errorf("tracing: %w", err)
+	}
+	otel.SetTracerProvider(traceProvider.TracerProvider())
+	defer func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		_ = traceProvider.Shutdown(stopCtx)
 	}()
 
 	stateCfg, err := cfg.Storage.ToStateConfig()

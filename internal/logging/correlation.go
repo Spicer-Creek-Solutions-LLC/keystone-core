@@ -7,6 +7,20 @@ import (
 	"log/slog"
 )
 
+// HTTPHeader is the HTTP request/response header carrying the
+// correlation ID. The middleware in pkg/api/server consults this on
+// inbound requests and echoes it on responses; HTTP clients hand-rolling
+// requests should set the same name when they want their downstream
+// logs correlated with this caller's request.
+const HTTPHeader = "X-Correlation-ID"
+
+// GRPCMetadataKey is the gRPC metadata key carrying the correlation
+// ID. Lower-cased per gRPC's metadata convention (HTTP/2 header
+// canonicalisation requires lowercase). The interceptor in
+// pkg/api/server reads inbound metadata at this key and sets the
+// same key on outbound trailers.
+const GRPCMetadataKey = "x-correlation-id"
+
 type correlationKey struct{}
 
 // WithCorrelationID returns ctx annotated with the given correlation ID.

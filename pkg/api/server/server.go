@@ -372,8 +372,11 @@ func (s *Server) initSteps9to13() error {
 	// 401/403 spikes via the same histogram. Chain order:
 	//
 	//	metrics → auth (rate-limit → auth → authorize) → handler
-	var unaryChain []grpc.UnaryServerInterceptor
-	var streamChain []grpc.StreamServerInterceptor
+	// Epic 17 task 10 — correlation ID sits OUTERMOST so every RPC
+	// (including auth-rejected) carries an ID into the log stream and
+	// back to the caller via trailer.
+	unaryChain := []grpc.UnaryServerInterceptor{UnaryCorrelationInterceptor()}
+	streamChain := []grpc.StreamServerInterceptor{StreamCorrelationInterceptor()}
 	if s.metrics != nil {
 		unaryChain = append(unaryChain, s.metrics.UnaryServerInterceptor())
 		streamChain = append(streamChain, s.metrics.StreamServerInterceptor())
