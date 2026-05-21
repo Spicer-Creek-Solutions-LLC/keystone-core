@@ -244,6 +244,8 @@ func allKscoreMetricDefs() []string {
 		metrics.DefClusterFailoverTotal,
 		metrics.DefGRPCRequestDurationSeconds,
 		metrics.DefHTTPRequestDurationSeconds,
+		metrics.DefFilesCacheHitsTotal,
+		metrics.DefFilesCacheMissesTotal,
 	}
 	out := make([]string, 0, len(defs)+1)
 	for _, d := range defs {

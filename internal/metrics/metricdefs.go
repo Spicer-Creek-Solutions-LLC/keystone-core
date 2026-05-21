@@ -126,3 +126,23 @@ var DefHTTPRequestDurationSeconds = MetricDef{
 	Labels:  []string{"method", "code", "route"},
 	Buckets: []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10},
 }
+
+// DefFilesCacheHitsTotal — counter of proxy-cache hits for file
+// distribution Get calls. Emitted by internal/files/proxy.Cache.
+// Cardinality-bounded: no per-path label (would explode); single
+// counter so operators see hit ratio across the whole cache.
+var DefFilesCacheHitsTotal = MetricDef{
+	Name: "kscore_files_cache_hits_total",
+	Help: "File-distribution proxy cache hits (a Get satisfied from the cache).",
+}
+
+// DefFilesCacheMissesTotal — counter of proxy-cache misses for file
+// distribution Get calls. Combined with hits gives the hit ratio.
+// Bypassed reads (FromChunk > 0) are counted under reason="bypass"
+// so operators can distinguish "cold cache" from "cache deliberately
+// skipped for a partial-resume read".
+var DefFilesCacheMissesTotal = MetricDef{
+	Name:   "kscore_files_cache_misses_total",
+	Help:   "File-distribution proxy cache misses, by reason (miss, expired, bypass).",
+	Labels: []string{"reason"},
+}
