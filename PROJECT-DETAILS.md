@@ -1358,7 +1358,7 @@ modules:
 - CRDs: `RemoteExecution{Spec{Targets, Command, Schedule (cron)}, Status{Phase, AgentResults}}`, `StateConfig{Spec{State YAML, ReconcileInterval, AutoRemediate}, Status{DriftDetected, LastReconcile}}`.
 - Controllers: `RemoteExecutionController`, `StateConfigController` — work-queue + informers + periodic safety-net reconcile.
 - `ClientInterface` wraps `k8s.io/client-go`; pod exec with streaming output; pod selectors (labels/fields/names).
-- ClusterRole + ClusterRoleBinding for `keystonecore.io` resources.
+- ClusterRole + ClusterRoleBinding for `keystone-core.io` resources.
 - Embedded into `kscore-server` via config `operator.enabled=true` OR standalone operator binary.
 - Runs alongside cluster-mode CP; one-leader-runs-operator pattern.
 

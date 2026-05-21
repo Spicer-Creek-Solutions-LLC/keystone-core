@@ -131,7 +131,7 @@ This is performed once and whenever the root key must be regenerated.
    (e.g., [Tails](https://tails.net/)).
 3. Generate the root key pair:
    ```
-   gpg --quick-generate-key "Keystone Core Release Authority <release@keystonecore.io>" ed25519 cert never
+   gpg --quick-generate-key "Keystone Core Release Authority <release@keystone-core.io>" ed25519 cert never
    ```
 4. For each signer, generate a signing subkey:
    ```
@@ -751,7 +751,7 @@ Include these instructions (or a link to them) with every release.
 
 ```bash
 # 1. Import the Keystone Core release public key
-curl -sSL https://keys.keystonecore.io/release-pubkey.asc | gpg --import
+curl -sSL https://keys.keystone-core.io/release-pubkey.asc | gpg --import
 
 # 2. Download the release artifacts and checksums
 # (from the release page of your chosen platform)
