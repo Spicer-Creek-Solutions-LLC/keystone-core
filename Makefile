@@ -119,15 +119,20 @@ test-integration: ## Run integration tests (-tags=integration)
 	# and would otherwise race on TRUNCATE / seed / read.
 	CGO_ENABLED=1 go test -race -tags=integration -p=1 ./...
 
-slo: ## Verify Epic 13 §4.15 performance SLOs (-tags=slo, NO -race)
-	# Epic 13 task 18. Wall-clock SLO bounds (first leader <3s,
-	# failover <5s/10s, minority-block <1s, recovery <15s, …)
-	# measured against the real in-process cluster mechanisms.
-	# Deliberately NOT -race: race instrumentation inflates
-	# wall-clock 2–10×, which would make the asserted numbers
-	# meaningless. The functional in-`-race` smoke lives in the
-	# task-17 integration suite (`make test-integration`).
-	CGO_ENABLED=1 go test -tags=slo -count=1 -timeout=300s ./test/e2e/ha/...
+slo: ## Verify v1.0 performance SLOs (-tags=slo, NO -race)
+	# Two suites under one gate:
+	#   - test/e2e/ha/   Epic 13 task 18: cluster-formation SLOs
+	#                    (first leader <3s, failover <5s/10s,
+	#                    minority-block <1s, recovery <15s, ...).
+	#   - test/e2e/perf/ Epic 19 task 3: command/event/batch SLOs
+	#                    (single-agent command latency <100ms,
+	#                    event throughput >10k/s, 10-agent batch
+	#                    exec <2s).
+	# Both run NOT -race: race instrumentation inflates wall-clock
+	# 2-10x, which would make the asserted numbers meaningless. The
+	# functional in--race smoke lives in the per-domain integration
+	# tests (make test-integration).
+	CGO_ENABLED=1 go test -tags=slo -count=1 -timeout=300s ./test/e2e/ha/... ./test/e2e/perf/...
 
 test-cross-distro: ## Run state stdlib smoke across the v0.5 distro matrix (docker-compose; gated)
 	# Layer C of Epic 08 task 13 — exercises the modules that touch
