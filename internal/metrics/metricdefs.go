@@ -146,3 +146,13 @@ var DefFilesCacheMissesTotal = MetricDef{
 	Help:   "File-distribution proxy cache misses, by reason (miss, expired, bypass).",
 	Labels: []string{"reason"},
 }
+
+// DefRatelimitRejectedTotal — counter of requests rejected by the
+// rate-limit middleware. v1.0 emits a single reason label value
+// "limit_exceeded"; the label is reserved so v1.x can add
+// quota_exceeded / circuit_open / etc. without a wire break.
+var DefRatelimitRejectedTotal = MetricDef{
+	Name:   "kscore_ratelimit_rejected_total",
+	Help:   "Requests rejected by the rate-limit middleware, by reason.",
+	Labels: []string{"reason"},
+}

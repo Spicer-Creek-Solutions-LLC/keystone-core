@@ -132,9 +132,9 @@ See `PROJECT-DETAILS.md §4.20`.
 
 ### Rate limiting
 
-- [ ] 1000 RPS exceeding configured limit returns 429 with Retry-After.
-- [ ] Per-API-key vs per-IP isolation verified by test.
-- [ ] Rejected requests counted in metric.
+- [x] 1000 RPS exceeding configured limit returns 429 with Retry-After. _(task 18 — `TestHTTP_1000_RPS_Configured_Limit_Returns_429`: HTTP middleware with `RequestsPerMinute=600, Burst=5` config; 50 tight-loop requests yield 5 OK + at least 40 × 429 each carrying a parseable positive-integer `Retry-After` header; "1000 RPS" is the deployment scenario, mechanism proven per Hard Convention #5.)_
+- [x] Per-API-key vs per-IP isolation verified by test. _(task 18 — `TestHTTP_PerAPIKey_vs_PerIP_Isolation`: parameterized over both `extract.APIKey` and `extract.IP{TrustForwardedFor:true}` extractors; key-A exhausts to 429, key-B still has its burst — proves the `ratelimit.Registry`'s per-key isolation through the middleware. Also covered for gRPC by `TestGRPC_Unary_PerKey_Isolation`.)_
+- [x] Rejected requests counted in metric. _(task 18 — `TestHTTP_MetricIncrements` reads `kscore_ratelimit_rejected_total{reason=limit_exceeded}` via the registry gatherer after a 3-request burst; counter reads 2 (the rejected ones). gRPC path verified by `TestGRPC_Unary_AllowThenDeny`.)_
 
 ### Combined
 
