@@ -17,7 +17,10 @@ run_quick() {
     go build ./...
 
     log "sqlite pragmas (pkg/dbutil)"
-    go test -count=1 -timeout 10s \
+    # Epic 19 task 5 — -race matches the project default (every go
+    # test invocation race-instrumented unless explicitly opted out
+    # for wall-clock SLOs).
+    CGO_ENABLED=1 go test -race -count=1 -timeout 30s \
         -run 'TestOpenSQLite_(OpensSuccessfully|PragmaJournalMode|PragmaForeignKeys|PragmaBusyTimeout)' \
         ./pkg/dbutil/...
 

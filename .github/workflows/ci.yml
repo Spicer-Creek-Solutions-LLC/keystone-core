@@ -41,6 +41,12 @@ jobs:
       # than the targeted Go version" error from prebuilt binaries.
       - run: make install-tools
       - run: make lint
+      # Epic 19 task 5 — race-detector policy lint. Every `go test`
+      # in the Makefile + scripts/smoke-test.sh must include -race
+      # unless its target is on the allowList in tools/racegate/
+      # main.go (currently only `slo`, for wall-clock SLO accuracy).
+      # Per docs/project/TEST-POLICY.md.
+      - run: make race-policy
 
   test:
     runs-on: ubuntu-latest

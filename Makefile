@@ -38,7 +38,7 @@ export CGO_ENABLED := 0
 
 .PHONY: help \
         build build-all-platforms clean deps install-tools \
-        test test-verbose test-coverage coverage-gate test-integration slo test-cross-distro check \
+        test test-verbose test-coverage coverage-gate race-policy test-integration slo test-cross-distro check \
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
         openapi-lint \
@@ -115,6 +115,9 @@ test-coverage: ## Run tests with coverage profile and per-function output
 
 coverage-gate: ## Enforce per-package coverage gates (critical >=70%, CLI >=40%)
 	go run ./tools/covgate --profile=coverage.out
+
+race-policy: ## Enforce -race on every `go test` (docs/project/TEST-POLICY.md)
+	go run ./tools/racegate
 
 test-integration: ## Run integration tests (-tags=integration)
 	# -p=1 forces test binaries to run sequentially. Integration tests
@@ -256,7 +259,12 @@ e2e-logs: ## Follow logs from the single-topology E2E
 
 e2e-test: ## Full cycle: build, up, run e2e tests, down (cleanup on failure)
 	$(E2E_COMPOSE) up -d --wait --build
-	KSCORE_E2E_NO_COMPOSE=1 CGO_ENABLED=1 go test -tags=e2e -count=1 -timeout=300s ./test/e2e/single/... ; \
+	# Epic 19 task 5 — -race on the Go-side test code (the docker
+	# container processes are out of scope; race detector doesn't
+	# cross process boundaries). Race instrumentation adds modest
+	# wall-clock to the in-process scenario helpers; still well
+	# inside the 300s timeout.
+	KSCORE_E2E_NO_COMPOSE=1 CGO_ENABLED=1 go test -race -tags=e2e -count=1 -timeout=300s ./test/e2e/single/... ; \
 	rc=$$? ; \
 	$(E2E_COMPOSE) down -v ; \
 	exit $$rc
