@@ -38,7 +38,7 @@ export CGO_ENABLED := 0
 
 .PHONY: help \
         build build-all-platforms clean deps install-tools \
-        test test-verbose test-coverage test-integration slo test-cross-distro check \
+        test test-verbose test-coverage coverage-gate test-integration slo test-cross-distro check \
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
         openapi-lint \
@@ -112,6 +112,9 @@ test-verbose: ## Run unit tests with -race -v
 test-coverage: ## Run tests with coverage profile and per-function output
 	CGO_ENABLED=1 go test -race -coverprofile=coverage.out ./...
 	@go tool cover -func=coverage.out
+
+coverage-gate: ## Enforce per-package coverage gates (critical >=70%, CLI >=40%)
+	go run ./tools/covgate --profile=coverage.out
 
 test-integration: ## Run integration tests (-tags=integration)
 	# -p=1 forces test binaries to run sequentially. Integration tests

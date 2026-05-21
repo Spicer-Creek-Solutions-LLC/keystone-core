@@ -112,8 +112,8 @@ v0.x:
   - "Migration journal: no per-table checkpoint resume"
 
 v1.x:
-  - "Rate-limit: Retry-After HTTP-date format alternative"
-  - "Rate-limit: configurable gRPC retry-after-ms trailer key"
+  - "Rate-limit: `Retry-After` HTTP-date format alternative"
+  - "Rate-limit: configurable gRPC `retry-after-ms` trailer key"
   - "Rate-limit: Auditor hook for rejections"
   - "File distribution: PUT-side resume"
   - "Backup destinations: Backblaze B2 smoke test + SFTP + GCS + Azure Blob + advanced S3 auth"

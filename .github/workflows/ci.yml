@@ -52,6 +52,11 @@ jobs:
           cache: true
       - name: test (race + coverage)
         run: make test-coverage
+      # Epic 19 task 4 — per-package coverage gate. Critical >=70%,
+      # CLI >=40%. Allowlist exceptions documented in tools/covgate/
+      # config.go with per-entry GRADUATE-BY notes.
+      - name: coverage gate
+        run: make coverage-gate
 
   # Epic 13 task 18 performance-SLO gate. Separate from `integration`
   # (which runs -race, inflating wall-clock 2–10×); `make slo` runs
