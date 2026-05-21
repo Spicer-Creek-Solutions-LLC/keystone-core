@@ -67,6 +67,12 @@ func TestSubjectBuilder_Patterns(t *testing.T) {
 		{b.Discovery(), "kscore.prod.discovery"},
 		{b.BootstrapRegisterPattern(), "kscore.prod.bootstrap.*.register"},
 		{b.AgentResponsePattern(), "kscore.prod.agent.*.response"},
+		{b.FilesRequest("put"), "kscore.prod.files.request.put"},
+		{b.FilesRequest("get"), "kscore.prod.files.request.get"},
+		{b.FilesRequestPattern(), "kscore.prod.files.request.*"},
+		{b.FilesResponse("req-7"), "kscore.prod.files.response.req-7"},
+		{b.FilesChunk("transfer-uuid-1"), "kscore.prod.files.chunk.transfer-uuid-1"},
+		{b.FilesMetadata(), "kscore.prod.files.metadata"},
 	}
 	for _, tt := range tests {
 		if tt.got != tt.want {
@@ -141,6 +147,10 @@ func TestSubjectBuilder_AllPatternsValidate(t *testing.T) {
 		b.BootstrapRegister("a1"),
 		b.BootstrapResponse("a1"),
 		b.Discovery(),
+		b.FilesRequest("put"),
+		b.FilesResponse("req-1"),
+		b.FilesChunk("transfer-1"),
+		b.FilesMetadata(),
 	}
 	for _, s := range produced {
 		if err := b.Validate(s); err != nil {
