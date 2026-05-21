@@ -92,6 +92,16 @@ services:
     ports:
       - "127.0.0.1:9090:9090"
       - "127.0.0.1:8080:8080"
+      # Epic 19 task 2c — GitOps inbound webhook receiver on its own
+      # listener (see config server.yaml: gitops.webhook.addr).
+      - "127.0.0.1:8081:8081"
+    # Epic 19 task 2c — let the server reach the host (the outbound
+    # webhook scenario binds an httptest receiver on 0.0.0.0 and the
+    # server POSTs back to host.docker.internal:<port>). The Linux
+    # host-gateway alias is the docker-compose-native way to enable
+    # this without relying on a hard-coded host IP.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - kscore
 

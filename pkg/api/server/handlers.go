@@ -169,14 +169,14 @@ func (s *Server) registerDomainHandlers(mux *http.ServeMux) {
 	cluster.NewHandler(cluster.ClusterProviders{}).Register(mux)
 	events.NewHandler(s.eventStore, s.eventPublisher).Register(mux)
 	execution.NewHandler().Register(mux)
-	gitops.NewHandler(gitops.Providers{}).Register(mux)
+	gitops.NewHandler(s.gitopsProviders).Register(mux)
 	maintenance.NewHandler().Register(mux)
 	policy.NewHandler(s.policyEngine, s.policyReports, s.policyAuditLog, s.policyAuditor).Register(mux)
 	runbook.NewHandler(runbook.Providers{}).Register(mux)
 	schedule.NewHandler().Register(mux)
 	secrets.NewHandler(s.secretsBroker, s.secretsTransit, s.secretsLeases).Register(mux)
 	stateapi.NewHandler().Register(mux)
-	webhooks.NewHandler(webhooks.Providers{}).Register(mux)
+	webhooks.NewHandler(s.webhookProviders).Register(mux)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

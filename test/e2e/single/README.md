@@ -13,8 +13,8 @@ here right now:
 |-------|-----------|--------|
 | **Task 1** | Infrastructure health (server, postgres, nats, schema) | landed |
 | **Task 2a** | 1. agent registration · 2. command exec · 3. state apply | landed |
-| **Task 2b** | 4. blueprint apply · 5. module stdlib execute · 6. secrets KV round-trip | landed (this PR) |
-| **Task 2c** | 7. audit query · 8. outbound webhook · 9. GitOps webhook+rollback · CI required | pending |
+| **Task 2b** | 4. blueprint apply · 5. module stdlib execute · 6. secrets KV round-trip | landed |
+| **Task 2c** | 7. audit query · 8. outbound webhook · 9. GitOps webhook+rollback · CI required | landed (this PR) |
 
 ### Task 2b scenario notes
 
@@ -48,6 +48,36 @@ here right now:
   `internal/secrets/transit.go:13`). A Vault-backed compose service
   + scenario extension lands in v1.x when the Vault-backed deployment
   story is exercised.
+
+### Task 2c scenario notes
+
+- **Scenario 7 (AuditLogQuery)** exercises `PolicyService.GetAuditLog`
+  + `GetComplianceReport`. Earlier scenarios (registration, command
+  exec, blueprint apply, secrets write) populate the audit store
+  asynchronously; the test polls until entries land.
+
+- **Scenario 8 (OutboundWebhook)** stands up a host-side
+  `httptest.Server` bound on `0.0.0.0`, registers a subscription via
+  the kscore-server REST surface (`POST /api/v1/webhooks/subscriptions`),
+  fires the synthetic test ping (`POST .../test`), and asserts the
+  receiver got the POST. The server reaches the host via
+  `host.docker.internal` (Linux: enabled by the compose's
+  `extra_hosts: host-gateway` directive).
+
+- **Scenario 9 (GitOpsWebhookIngest)** POSTs an HMAC-signed GitHub
+  push payload to the GitOps inbound receiver on `:8081/webhooks`
+  with the configured secret. Asserts a 202 acceptance.
+
+- **Scenario 9 (GitOpsRollback)** exercises the rollback engine FSM
+  via REST: `POST /api/v1/gitops/rollback` with `require_approval:
+  true` → `POST .../reject` → `GET .../{id}` and asserts the final
+  state is `Rejected`. Proves the engine + SQLite store + REST
+  handler + FSM transitions. **Real Git executor coverage** (clone
+  → revert → push against a working git server) is deferred to v1.x
+  — requires an in-compose git server (e.g. gitea or alpine/git
+  sidecar) which isn't worth the infrastructure for a v1.0 baseline.
+  ArgoCD + K8s rollout-undo executors stay gate-v1.0 ROADMAP items
+  (ArgoCD needs a real server; K8s pulls `k8s.io/client-go`).
 
 What the harness asserts at infrastructure level (Task 1):
 
@@ -84,8 +114,9 @@ What the harness asserts at infrastructure level (Task 1):
 
 External port bindings (loopback only):
 
-- `127.0.0.1:8080` → server HTTP (`/health/*`, `/metrics`)
+- `127.0.0.1:8080` → server HTTP (`/health/*`, `/metrics`, REST APIs)
 - `127.0.0.1:9090` → server gRPC
+- `127.0.0.1:8081` → server GitOps inbound webhook receiver
 - `127.0.0.1:5432` → Postgres
 - `127.0.0.1:8222` → NATS monitoring
 

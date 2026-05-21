@@ -246,6 +246,33 @@ func dialBlueprintService(t testing.TB, apiKey string) (v1.BlueprintServiceClien
 	return v1.NewBlueprintServiceClient(conn), conn
 }
 
+// dialPolicyService returns a PolicyServiceClient. Used by scenario 7
+// (audit log query + compliance report).
+func dialPolicyService(t testing.TB, apiKey string) (v1.PolicyServiceClient, io.Closer) {
+	t.Helper()
+	conn, err := grpc.NewClient(serverGRPCAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		t.Fatalf("grpc dial %s: %v", serverGRPCAddr, err)
+	}
+	return v1.NewPolicyServiceClient(conn), conn
+}
+
+// adminHTTPRequest builds an HTTP request against the kscore-server
+// REST surface with the admin API key attached as Bearer auth.
+// Used by REST-only scenarios (8, 9).
+func adminHTTPRequest(ctx context.Context, t testing.TB, apiKey, method, path string, body io.Reader) *http.Request {
+	t.Helper()
+	req, err := http.NewRequestWithContext(ctx, method, serverHTTPAddr+path, body)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	return req
+}
+
 // dialSecretsService returns a SecretsServiceClient. Used by scenario 6.
 func dialSecretsService(t testing.TB, apiKey string) (v1.SecretsServiceClient, io.Closer) {
 	t.Helper()

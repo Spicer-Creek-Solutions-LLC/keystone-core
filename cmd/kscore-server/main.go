@@ -310,6 +310,42 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		secretsRT.stop(stopCtx, log)
 	}()
 
+	// Epic 19 task 2c — outbound webhook subsystem. Subscribes to the
+	// events firehose; routes /api/v1/webhooks/* go from 503 to 200
+	// when enabled in config.
+	var webhookOutboundRT *webhookOutboundRuntime
+	if eventsRT != nil && eventsRT.Subscriber != nil {
+		webhookOutboundRT, err = startOutboundWebhook(ctx, cfg.Webhook.Outbound, cfg.NATS.ClusterName, eventsRT.Subscriber, log)
+		if err != nil {
+			return fmt.Errorf("outbound webhook: %w", err)
+		}
+		defer func() {
+			stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+			defer cancel()
+			webhookOutboundRT.stop(stopCtx, log)
+		}()
+	}
+
+	// Epic 19 task 2c — GitOps rollback engine + inbound webhook
+	// receiver. Rollback engine is always constructed (admin-gated);
+	// webhook receiver only starts when cfg.GitOps.Webhook.Enabled.
+	var gitOpsRT *gitOpsRuntime
+	{
+		var publisher events.EventPublisher
+		if eventsRT != nil {
+			publisher = eventsRT.Publisher
+		}
+		gitOpsRT, err = startGitOps(ctx, cfg.GitOps, publisher, log)
+		if err != nil {
+			return fmt.Errorf("gitops: %w", err)
+		}
+		defer func() {
+			stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+			defer cancel()
+			gitOpsRT.stop(stopCtx, log)
+		}()
+	}
+
 	// Epic 17 task 6 — JetStream component for /health/ready. Manager
 	// exposes JetStream() (jsCtx, error); the health package wants
 	// "ctx → error", so we adapt with JetStreamPingerFunc.
@@ -331,6 +367,8 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		ControlPlaneMetrics: cpMetrics,
 		MetricsRegistry:     metricsRegistry,
 		JetStreamPinger:     jetStreamPinger,
+		WebhookProviders:    webhookOutboundRT.providersFrom(),
+		GitOpsProviders:     gitOpsRT.providersFrom(),
 	}
 	// Compose the command-terminal hook from (a) the audit emitter and
 	// (b) the controlplane metrics recorder. Either may be nil.

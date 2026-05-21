@@ -58,7 +58,7 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 - **Goreleaser snapshot** (multi-arch tarballs). Source: `.goreleaser.yaml`. _Reasoning: distribution baseline._
 - **Pre-commit hooks** (gofmt, golangci-lint, smoke). Source: `.pre-commit-config.yaml`. _Reasoning: quality gate._
 - **Baseline lint set** (errcheck, govet, staticcheck, gosec, bodyclose). Source: `.golangci.yml`. _Reasoning: catches real bugs without slowing dev._
-- **Single-topology E2E** (all-in-one docker-compose). Source: `test/e2e/`, Makefile. _Reasoning: smoke test for releases._
+- **Single-topology E2E** (all-in-one docker-compose). Source: `test/e2e/single/`, Makefile, required CI gate. _Reasoning: smoke test for releases. **Landed via epic-19 task 2 (2a/2b/2c)**: 11 `TestE2E_*` scenarios over server + 2× agent + Postgres + NATS — infrastructure health, agent registration via PSK bootstrap + heartbeats, command exec, state apply, blueprint apply (server-local Applier), multi-stdlib module execution, secrets KV round-trip, audit log query + compliance report, outbound webhook delivery, GitOps inbound webhook ingest, GitOps rollback FSM. Several gate-v1.0 ROADMAP items remain open (remote-fleet blueprint apply, module system boot wiring, K8s/ArgoCD rollback executors, Vault transit + leases) but the v1.0 baseline is in place._
 
 ### v1.x (deferred)
 

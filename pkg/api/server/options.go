@@ -16,6 +16,8 @@ import (
 	"go.keystone-core.io/keystone-core/internal/secrets"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
+	"go.keystone-core.io/keystone-core/pkg/api/gitops"
+	"go.keystone-core.io/keystone-core/pkg/api/webhooks"
 )
 
 // Options is the constructor input for New. Required fields: Config,
@@ -155,6 +157,17 @@ type Options struct {
 	// shows up as its own component key in /health/ready and
 	// /health/status. Optional.
 	HealthCheckers []health.Checker
+
+	// WebhookProviders backs /api/v1/webhooks/* — outbound webhook
+	// subscription CRUD + test delivery. Epic 19 task 2c boot-wiring;
+	// when zero the routes return 503 (the package's documented
+	// not-yet-wired posture).
+	WebhookProviders webhooks.Providers
+
+	// GitOpsProviders backs /api/v1/gitops/* — rollback CRUD + FSM
+	// transitions + verification history. Epic 19 task 2c boot-wiring;
+	// when zero the routes return 503.
+	GitOpsProviders gitops.Providers
 }
 
 // validate returns an error if required fields are missing or

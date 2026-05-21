@@ -107,14 +107,16 @@ jobs:
           cache: true
       - run: make smoke
 
-  # Epic 19 task 2a — single-topology E2E. Brings up the docker-
-  # compose harness (server + 2x agent + Postgres + NATS), runs the
-  # v1.0 baseline scenarios (registration, command exec, state apply),
-  # and tears down. continue-on-error: true while we collect flake
-  # signal — task 2c flips it to a required gate.
+  # Epic 19 task 2a (introduced) / 2c (made required).
+  # Single-topology E2E: docker-compose with the v1.0 binary set runs
+  # the 11 TestE2E_* scenarios covering infrastructure health, agent
+  # registration, command exec, state apply, blueprint apply, module
+  # stdlib execute, secrets KV, audit log query, outbound webhook,
+  # GitOps inbound webhook, and GitOps rollback FSM. Required gate
+  # for v1.0; flake recovery is "revert to continue-on-error: true
+  # in a follow-up PR" if green-rate drops below acceptable.
   e2e:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

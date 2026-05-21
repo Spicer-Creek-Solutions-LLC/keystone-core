@@ -73,3 +73,31 @@ blueprints:
 metrics:
   enabled: true
   path: /metrics
+
+# Epic 19 task 2c — outbound webhook subsystem. Subscribes to the
+# events bus and POSTs each matching event to configured subscriptions.
+webhook:
+  outbound:
+    enabled: true
+    max_retries: 3
+    retry_backoff: 100ms
+    timeout: 5s
+    max_payload_size: 1048576
+    delivery_retention: 1h
+    max_concurrent_deliveries: 8
+    refresh_interval: 30s
+
+# Epic 19 task 2c — GitOps inbound webhook receiver (own :8081
+# listener) + rollback engine. Both light up under webhook.enabled.
+# Real K8s rollout-undo executor + ArgoCD-server-backed executor stay
+# deferred (see ROADMAP gate-v1.0 entries). Git-revert is registered.
+gitops:
+  webhook:
+    enabled: true
+    addr: ":8081"
+    path: /webhooks
+    max_body_bytes: 1048576
+    sources:
+      github:
+        method: hmac
+        secret: "epic-19-task-2c-github-hmac-secret"
