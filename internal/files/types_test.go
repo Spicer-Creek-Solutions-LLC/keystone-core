@@ -195,6 +195,25 @@ func TestHashOf(t *testing.T) {
 	}
 }
 
+func TestNamespace(t *testing.T) {
+	cases := []struct {
+		path string
+		want string
+	}{
+		{"configs/app/main.yaml", "configs"},
+		{"blueprints/web.yaml", "blueprints"},
+		{"single", "single"},
+		{"", ""},
+		{"a/b", "a"},
+		{"long-namespace/x/y/z", "long-namespace"},
+	}
+	for _, tc := range cases {
+		if got := Namespace(tc.path); got != tc.want {
+			t.Errorf("Namespace(%q) = %q, want %q", tc.path, got, tc.want)
+		}
+	}
+}
+
 // TestChunkSize_Constant guards against an accidental change to the
 // PROJECT-DETAILS §4.20-fixed 1 MiB chunk size.
 func TestChunkSize_Constant(t *testing.T) {

@@ -13,32 +13,52 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"go.keystone-core.io/keystone-core/internal/files"
+	"go.keystone-core.io/keystone-core/pkg/api/auth"
 )
 
 // Client is the client-side file-transport handle. Method semantics
 // mirror [backend.Store] so callers see a remote-store-shaped API.
 type Client struct {
-	conn     *nats.Conn
-	subjects files.Subjects
+	conn      *nats.Conn
+	subjects  files.Subjects
+	principal *auth.Principal
 
 	// Timeout is the wait budget for each request's complete-
 	// response cycle. Zero means use the package default.
 	Timeout time.Duration
 }
 
+// ClientOption configures a [Client] at construction.
+type ClientOption func(*Client)
+
+// WithPrincipal sets the default principal the client attaches to
+// every outbound request (via Kscore-Principal-Id and -Role
+// headers). The server-side ACL gates the request against this
+// identity. A nil principal — or omitting the option — sends
+// requests with no identity headers; the ACL sees a nil principal
+// and applies its default policy.
+func WithPrincipal(p *auth.Principal) ClientOption {
+	return func(c *Client) { c.principal = p }
+}
+
 // defaultClientTimeout is the per-call wait budget for the client's
 // response subject. Operators tune via [Client.Timeout].
 const defaultClientTimeout = 60 * time.Second
 
-// NewClient returns a Client bound to conn + subjects.
-func NewClient(conn *nats.Conn, subjects files.Subjects) (*Client, error) {
+// NewClient returns a Client bound to conn + subjects. Optional
+// [ClientOption] values configure the default principal etc.
+func NewClient(conn *nats.Conn, subjects files.Subjects, opts ...ClientOption) (*Client, error) {
 	if conn == nil {
 		return nil, errors.New("transport: nats conn must not be nil")
 	}
 	if subjects == nil {
 		return nil, errors.New("transport: subjects must not be nil")
 	}
-	return &Client{conn: conn, subjects: subjects}, nil
+	c := &Client{conn: conn, subjects: subjects}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c, nil
 }
 
 // GetOptions controls a [Client.Get] call.
@@ -278,6 +298,12 @@ func (c *Client) publishRequest(reqID, transferID string, req files.FileRequest)
 	msg.Header.Set(HeaderRequestID, reqID)
 	if transferID != "" {
 		msg.Header.Set(HeaderTransferID, transferID)
+	}
+	if c.principal != nil {
+		if c.principal.ID != "" {
+			msg.Header.Set(HeaderPrincipalID, c.principal.ID)
+		}
+		msg.Header.Set(HeaderPrincipalRole, c.principal.Role.String())
 	}
 	return c.conn.PublishMsg(msg)
 }

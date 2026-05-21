@@ -7,8 +7,10 @@ import (
 // Header names carried on NATS messages. NATS headers are
 // case-insensitive on the wire; we standardise on Title-Case here.
 const (
-	HeaderRequestID  = "Kscore-Request-Id"
-	HeaderTransferID = "Kscore-Transfer-Id"
+	HeaderRequestID     = "Kscore-Request-Id"
+	HeaderTransferID    = "Kscore-Transfer-Id"
+	HeaderPrincipalID   = "Kscore-Principal-Id"
+	HeaderPrincipalRole = "Kscore-Principal-Role"
 )
 
 // ResponseStatus enumerates the lifecycle stages a FileResponse

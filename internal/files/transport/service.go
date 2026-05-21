@@ -14,7 +14,9 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"go.keystone-core.io/keystone-core/internal/files"
+	"go.keystone-core.io/keystone-core/internal/files/acl"
 	"go.keystone-core.io/keystone-core/internal/files/backend"
+	"go.keystone-core.io/keystone-core/pkg/api/auth"
 )
 
 // Service is the server-side file-transport handler. It subscribes
@@ -25,6 +27,8 @@ type Service struct {
 	subjects files.Subjects
 	store    backend.Store
 	logger   *slog.Logger
+	acl      acl.ACL
+	auditor  Auditor
 
 	// PutTimeout bounds how long the service waits for all chunks
 	// to arrive after a put-ready reply. Zero means use the
@@ -38,6 +42,30 @@ type Service struct {
 	}
 }
 
+// Auditor is the optional hook the Service calls when an ACL
+// denial occurs. Wire it from boot to bridge into Epic 12's audit
+// store; v1.0 ships no in-package implementation so the audit
+// trail is up to the operator. A nil Auditor disables the hook.
+type Auditor func(principal *auth.Principal, op files.FileOperation, path string, reason error)
+
+// ServiceOption configures a [Service] at construction time.
+type ServiceOption func(*Service)
+
+// WithACL attaches an ACL to gate every inbound request. A nil
+// ACL is allowed and equivalent to omitting the option (no
+// gating) — kept that way so existing callers stay green when
+// they have not wired identity yet.
+func WithACL(a acl.ACL) ServiceOption {
+	return func(s *Service) { s.acl = a }
+}
+
+// WithAuditor attaches a deny-audit callback. Called synchronously
+// inside the request handler, so the operator-supplied function
+// should be fast (write-and-return; offload heavy work).
+func WithAuditor(a Auditor) ServiceOption {
+	return func(s *Service) { s.auditor = a }
+}
+
 // defaultPutTimeout is the per-transfer wait budget for inbound
 // chunks after the service has acknowledged the put. It defaults
 // generously — operator-tuned values land in Task 14 / 15 config.
@@ -45,7 +73,8 @@ const defaultPutTimeout = 60 * time.Second
 
 // NewService returns a Service that will dispatch requests against
 // store using subjects. A nil logger maps to [slog.Default].
-func NewService(conn *nats.Conn, subjects files.Subjects, store backend.Store, logger *slog.Logger) (*Service, error) {
+// Optional [ServiceOption] values wire an ACL and / or an Auditor.
+func NewService(conn *nats.Conn, subjects files.Subjects, store backend.Store, logger *slog.Logger, opts ...ServiceOption) (*Service, error) {
 	if conn == nil {
 		return nil, errors.New("transport: nats conn must not be nil")
 	}
@@ -58,12 +87,16 @@ func NewService(conn *nats.Conn, subjects files.Subjects, store backend.Store, l
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Service{
+	s := &Service{
 		conn:     conn,
 		subjects: subjects,
 		store:    store,
 		logger:   logger,
-	}, nil
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s, nil
 }
 
 // Start registers subscriptions for every file operation. It is
@@ -129,13 +162,16 @@ func (s *Service) Stop() error {
 // --- request handlers --------------------------------------------------------
 
 func (s *Service) handleGet(ctx context.Context, m *nats.Msg) {
-	req, reqID, transferID, ok := s.decodeRequest(m, files.FileOpGet)
+	d, ok := s.decodeRequest(m, files.FileOpGet)
 	if !ok {
 		return
 	}
-	respSubj := s.subjects.FilesResponse(reqID)
+	if !s.authorize(ctx, d, d.req.Path) {
+		return
+	}
+	respSubj := s.subjects.FilesResponse(d.reqID)
 
-	meta, body, err := s.store.Get(ctx, req.Path)
+	meta, body, err := s.store.Get(ctx, d.req.Path)
 	if err != nil {
 		s.publishError(respSubj, err)
 		return
@@ -153,30 +189,33 @@ func (s *Service) handleGet(ctx context.Context, m *nats.Msg) {
 		return
 	}
 
-	chunkSubj := s.subjects.FilesChunk(transferID)
-	if err := s.streamChunks(ctx, body, meta, total, req.FromChunk, chunkSubj); err != nil {
-		s.logger.Warn("transport: stream chunks failed", "err", err, "path", req.Path)
+	chunkSubj := s.subjects.FilesChunk(d.transferID)
+	if err := s.streamChunks(ctx, body, meta, total, d.req.FromChunk, chunkSubj); err != nil {
+		s.logger.Warn("transport: stream chunks failed", "err", err, "path", d.req.Path)
 	}
 }
 
 func (s *Service) handlePut(ctx context.Context, m *nats.Msg) {
-	req, reqID, transferID, ok := s.decodeRequest(m, files.FileOpPut)
+	d, ok := s.decodeRequest(m, files.FileOpPut)
 	if !ok {
 		return
 	}
-	respSubj := s.subjects.FilesResponse(reqID)
+	if !s.authorize(ctx, d, d.req.Path) {
+		return
+	}
+	respSubj := s.subjects.FilesResponse(d.reqID)
 
-	if req.Metadata == nil {
+	if d.req.Metadata == nil {
 		s.publishError(respSubj, errors.New("put: metadata required"))
 		return
 	}
-	if req.Metadata.Size <= 0 {
+	if d.req.Metadata.Size <= 0 {
 		s.publishError(respSubj, errors.New("put: metadata.size required and must be > 0"))
 		return
 	}
 
-	total := chunkCount(req.Metadata.Size)
-	chunkSubj := s.subjects.FilesChunk(transferID)
+	total := chunkCount(d.req.Metadata.Size)
+	chunkSubj := s.subjects.FilesChunk(d.transferID)
 
 	// Subscribe to the chunk subject BEFORE replying ready so the
 	// client's chunks land on the registered subscription.
@@ -190,7 +229,7 @@ func (s *Service) handlePut(ctx context.Context, m *nats.Msg) {
 		select {
 		case chunks <- &c:
 		default:
-			s.logger.Warn("transport: chunk channel full", "transfer_id", transferID)
+			s.logger.Warn("transport: chunk channel full", "transfer_id", d.transferID)
 		}
 	})
 	if err != nil {
@@ -208,13 +247,13 @@ func (s *Service) handlePut(ctx context.Context, m *nats.Msg) {
 		return
 	}
 
-	body, err := s.collectChunks(ctx, chunks, total, req.Path)
+	body, err := s.collectChunks(ctx, chunks, total, d.req.Path)
 	if err != nil {
 		s.publishError(respSubj, err)
 		return
 	}
 
-	final, err := s.store.Put(ctx, *req.Metadata, body)
+	final, err := s.store.Put(ctx, *d.req.Metadata, body)
 	if err != nil {
 		s.publishError(respSubj, fmt.Errorf("backend put: %w", err))
 		return
@@ -226,13 +265,16 @@ func (s *Service) handlePut(ctx context.Context, m *nats.Msg) {
 }
 
 func (s *Service) handleList(ctx context.Context, m *nats.Msg) {
-	req, reqID, _, ok := s.decodeRequest(m, files.FileOpList)
+	d, ok := s.decodeRequest(m, files.FileOpList)
 	if !ok {
 		return
 	}
-	respSubj := s.subjects.FilesResponse(reqID)
+	if !s.authorize(ctx, d, d.req.Path) {
+		return
+	}
+	respSubj := s.subjects.FilesResponse(d.reqID)
 
-	list, err := s.store.List(ctx, req.Path)
+	list, err := s.store.List(ctx, d.req.Path)
 	if err != nil {
 		s.publishError(respSubj, err)
 		return
@@ -244,13 +286,16 @@ func (s *Service) handleList(ctx context.Context, m *nats.Msg) {
 }
 
 func (s *Service) handleDelete(ctx context.Context, m *nats.Msg) {
-	req, reqID, _, ok := s.decodeRequest(m, files.FileOpDelete)
+	d, ok := s.decodeRequest(m, files.FileOpDelete)
 	if !ok {
 		return
 	}
-	respSubj := s.subjects.FilesResponse(reqID)
+	if !s.authorize(ctx, d, d.req.Path) {
+		return
+	}
+	respSubj := s.subjects.FilesResponse(d.reqID)
 
-	if err := s.store.Delete(ctx, req.Path); err != nil {
+	if err := s.store.Delete(ctx, d.req.Path); err != nil {
 		s.publishError(respSubj, err)
 		return
 	}
@@ -259,41 +304,84 @@ func (s *Service) handleDelete(ctx context.Context, m *nats.Msg) {
 
 // --- helpers -----------------------------------------------------------------
 
+// decoded carries the per-request state every handler needs after
+// header + payload parsing.
+type decoded struct {
+	req        files.FileRequest
+	reqID      string
+	transferID string
+	principal  *auth.Principal
+}
+
 // decodeRequest parses the inbound message + headers; on any
 // validation failure it publishes an error on the response subject
 // (if reqID is known) and returns ok=false. The caller short-
 // circuits when ok=false.
-func (s *Service) decodeRequest(m *nats.Msg, want files.FileOperation) (req files.FileRequest, reqID, transferID string, ok bool) {
-	reqID = m.Header.Get(HeaderRequestID)
-	transferID = m.Header.Get(HeaderTransferID)
+func (s *Service) decodeRequest(m *nats.Msg, want files.FileOperation) (d decoded, ok bool) {
+	d.reqID = m.Header.Get(HeaderRequestID)
+	d.transferID = m.Header.Get(HeaderTransferID)
+	d.principal = principalFromHeaders(m)
 
-	if err := json.Unmarshal(m.Data, &req); err != nil {
-		if reqID != "" {
-			s.publishError(s.subjects.FilesResponse(reqID), fmt.Errorf("unmarshal request: %w", err))
+	if err := json.Unmarshal(m.Data, &d.req); err != nil {
+		if d.reqID != "" {
+			s.publishError(s.subjects.FilesResponse(d.reqID), fmt.Errorf("unmarshal request: %w", err))
 		} else {
 			s.logger.Warn("transport: unmarshal request + no reqID header", "err", err)
 		}
-		return req, reqID, transferID, false
+		return d, false
 	}
-	if err := req.Validate(); err != nil {
-		s.publishError(s.subjects.FilesResponse(reqID), err)
-		return req, reqID, transferID, false
+	if err := d.req.Validate(); err != nil {
+		s.publishError(s.subjects.FilesResponse(d.reqID), err)
+		return d, false
 	}
-	if req.Operation != want {
-		s.publishError(s.subjects.FilesResponse(reqID),
-			fmt.Errorf("operation mismatch: want %q, got %q", want, req.Operation))
-		return req, reqID, transferID, false
+	if d.req.Operation != want {
+		s.publishError(s.subjects.FilesResponse(d.reqID),
+			fmt.Errorf("operation mismatch: want %q, got %q", want, d.req.Operation))
+		return d, false
 	}
-	if reqID == "" {
+	if d.reqID == "" {
 		s.logger.Warn("transport: missing request-id header", "operation", want)
-		return req, reqID, transferID, false
+		return d, false
 	}
 	// transferID is only required for chunked ops.
-	if (want == files.FileOpGet || want == files.FileOpPut) && transferID == "" {
-		s.publishError(s.subjects.FilesResponse(reqID), errors.New("missing transfer-id header"))
-		return req, reqID, transferID, false
+	if (want == files.FileOpGet || want == files.FileOpPut) && d.transferID == "" {
+		s.publishError(s.subjects.FilesResponse(d.reqID), errors.New("missing transfer-id header"))
+		return d, false
 	}
-	return req, reqID, transferID, true
+	return d, true
+}
+
+// authorize runs the configured ACL against the request. Returns
+// true on allow / no-ACL; false (after publishing the deny + audit
+// hook) on deny.
+func (s *Service) authorize(ctx context.Context, d decoded, path string) bool {
+	if s.acl == nil {
+		return true
+	}
+	ns := files.Namespace(path)
+	if err := s.acl.Authorize(ctx, d.principal, d.req.Operation, ns); err != nil {
+		if s.auditor != nil {
+			s.auditor(d.principal, d.req.Operation, path, err)
+		}
+		s.publishError(s.subjects.FilesResponse(d.reqID), err)
+		return false
+	}
+	return true
+}
+
+// principalFromHeaders reconstructs a [*auth.Principal] from the
+// two header fields the transport client sets. An empty role
+// header maps to RoleNone (per [auth.ParseRole]); unrecognised
+// roles are silently coerced to RoleNone — the ACL decides what
+// that means (typically: deny).
+func principalFromHeaders(m *nats.Msg) *auth.Principal {
+	id := m.Header.Get(HeaderPrincipalID)
+	roleStr := m.Header.Get(HeaderPrincipalRole)
+	if id == "" && roleStr == "" {
+		return nil
+	}
+	role, _ := auth.ParseRole(roleStr)
+	return &auth.Principal{ID: id, Role: role}
 }
 
 func (s *Service) publishResponse(subj string, resp FileResponse) error {

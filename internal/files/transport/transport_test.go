@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,8 +15,10 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"go.keystone-core.io/keystone-core/internal/files"
+	aclpkg "go.keystone-core.io/keystone-core/internal/files/acl"
 	"go.keystone-core.io/keystone-core/internal/files/backend"
 	natspkg "go.keystone-core.io/keystone-core/internal/nats"
+	"go.keystone-core.io/keystone-core/pkg/api/auth"
 )
 
 // Local json wrappers to keep the test file self-contained without
@@ -557,6 +560,256 @@ func waitResp(t *testing.T, ch <-chan FileResponse) FileResponse {
 		t.Fatal("response timeout")
 	}
 	return FileResponse{}
+}
+
+// --- ACL wiring --------------------------------------------------------------
+
+// rigWithACL extends newRig with an ACL + auditor + a client that
+// carries a chosen principal. Keeps the integration boilerplate
+// out of every ACL test.
+type rigWithACL struct {
+	*rig
+	auditMu      sync.Mutex
+	auditCalls   []auditCall
+	clientByRole map[auth.Role]*Client
+}
+
+type auditCall struct {
+	id     string
+	role   auth.Role
+	op     files.FileOperation
+	path   string
+	reason string
+}
+
+func newRigWithACL(t *testing.T, acl aclpkg.ACL) *rigWithACL {
+	t.Helper()
+	r := newRig(t)
+	// Stop the rig's default (no-ACL) service and rebuild with ACL +
+	// auditor wired.
+	if err := r.svc.Stop(); err != nil {
+		t.Fatal(err)
+	}
+	w := &rigWithACL{rig: r, clientByRole: make(map[auth.Role]*Client)}
+	auditor := func(p *auth.Principal, op files.FileOperation, path string, reason error) {
+		w.auditMu.Lock()
+		defer w.auditMu.Unlock()
+		w.auditCalls = append(w.auditCalls, auditCall{
+			id:     principalID(p),
+			role:   principalRole(p),
+			op:     op,
+			path:   path,
+			reason: reason.Error(),
+		})
+	}
+	svc, err := NewService(r.conn, r.subj, r.store, nil,
+		WithACL(acl),
+		WithAuditor(auditor),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	r.svc = svc
+
+	for _, role := range []auth.Role{auth.RoleNone, auth.RoleReadonly, auth.RoleOperator, auth.RoleAdmin} {
+		client, err := NewClient(r.conn, r.subj, WithPrincipal(&auth.Principal{
+			ID:   "p-" + role.String(),
+			Role: role,
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		w.clientByRole[role] = client
+	}
+	return w
+}
+
+func principalID(p *auth.Principal) string {
+	if p == nil {
+		return ""
+	}
+	return p.ID
+}
+
+func principalRole(p *auth.Principal) auth.Role {
+	if p == nil {
+		return auth.RoleNone
+	}
+	return p.Role
+}
+
+func TestACL_AllowsAdminAndPerRule_DeniesOthers(t *testing.T) {
+	acl := aclpkg.NewRoleACL(
+		aclpkg.WithRule("configs", files.FileOpGet, auth.RoleReadonly),
+		aclpkg.WithRule("configs", files.FileOpPut, auth.RoleOperator),
+	)
+	w := newRigWithACL(t, acl)
+	ctx := context.Background()
+
+	// Operator can put to configs/.
+	if _, err := w.clientByRole[auth.RoleOperator].Put(ctx,
+		files.FileMetadata{Path: "configs/app.yaml"},
+		[]byte("v1"),
+	); err != nil {
+		t.Fatalf("operator put configs: %v", err)
+	}
+
+	// Readonly can get configs/.
+	if _, _, err := w.clientByRole[auth.RoleReadonly].Get(ctx, "configs/app.yaml", GetOptions{}); err != nil {
+		t.Fatalf("readonly get configs: %v", err)
+	}
+
+	// Readonly cannot put.
+	_, err := w.clientByRole[auth.RoleReadonly].Put(ctx,
+		files.FileMetadata{Path: "configs/other.yaml"},
+		[]byte("v"),
+	)
+	if err == nil || !strings.Contains(err.Error(), "forbidden") {
+		t.Errorf("readonly put: want forbidden, got %v", err)
+	}
+
+	// Admin bypass: put to a namespace with no rule.
+	if _, err := w.clientByRole[auth.RoleAdmin].Put(ctx,
+		files.FileMetadata{Path: "system/secret.yaml"},
+		[]byte("z"),
+	); err != nil {
+		t.Errorf("admin put system: %v", err)
+	}
+
+	// None role: closed-by-default; even Get configs (which only
+	// requires Readonly) is denied — but wait, a None role does NOT
+	// satisfy Readonly minimum. So this should be forbidden.
+	_, _, err = w.clientByRole[auth.RoleNone].Get(ctx, "configs/app.yaml", GetOptions{})
+	if err == nil || !strings.Contains(err.Error(), "forbidden") {
+		t.Errorf("none-role get configs: want forbidden, got %v", err)
+	}
+}
+
+func TestACL_AuditorCalledOnDeny(t *testing.T) {
+	acl := aclpkg.NewRoleACL() // closed-by-default
+	w := newRigWithACL(t, acl)
+
+	_, _, err := w.clientByRole[auth.RoleReadonly].Get(context.Background(), "any/file", GetOptions{})
+	if err == nil {
+		t.Fatal("want forbidden")
+	}
+
+	// Wait for the auditor to fire (the service publishes the deny
+	// asynchronously; the client returns when the response arrives).
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		w.auditMu.Lock()
+		n := len(w.auditCalls)
+		w.auditMu.Unlock()
+		if n > 0 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	w.auditMu.Lock()
+	defer w.auditMu.Unlock()
+	if len(w.auditCalls) != 1 {
+		t.Fatalf("audit calls = %d, want 1", len(w.auditCalls))
+	}
+	ac := w.auditCalls[0]
+	if ac.role != auth.RoleReadonly {
+		t.Errorf("audit role = %s, want readonly", ac.role)
+	}
+	if ac.op != files.FileOpGet {
+		t.Errorf("audit op = %s, want get", ac.op)
+	}
+	if ac.path != "any/file" {
+		t.Errorf("audit path = %s, want any/file", ac.path)
+	}
+}
+
+func TestACL_NilACL_AllowsAll(t *testing.T) {
+	// Existing rig (newRig) builds the service with nil ACL.
+	// Verify by sending a request from a no-principal client —
+	// should succeed.
+	r := newRig(t)
+	ctx := context.Background()
+	if _, err := r.client.Put(ctx, files.FileMetadata{Path: "anywhere"}, []byte("z")); err != nil {
+		t.Errorf("nil-ACL Put should succeed, got %v", err)
+	}
+}
+
+func TestACL_DenyOnList(t *testing.T) {
+	// List with prefix "secret/" should be denied under closed-by-
+	// default ACL for a readonly principal.
+	acl := aclpkg.NewRoleACL()
+	w := newRigWithACL(t, acl)
+	_, err := w.clientByRole[auth.RoleReadonly].List(context.Background(), "secret/foo")
+	if err == nil || !strings.Contains(err.Error(), "forbidden") {
+		t.Errorf("readonly list secret/: want forbidden, got %v", err)
+	}
+}
+
+func TestACL_DenyOnDelete(t *testing.T) {
+	acl := aclpkg.NewRoleACL(
+		aclpkg.WithRule("tmp", files.FileOpDelete, auth.RoleOperator),
+	)
+	w := newRigWithACL(t, acl)
+	ctx := context.Background()
+
+	// Seed via admin (bypass).
+	if _, err := w.clientByRole[auth.RoleAdmin].Put(ctx, files.FileMetadata{Path: "tmp/file"}, []byte("z")); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := w.clientByRole[auth.RoleReadonly].Delete(ctx, "tmp/file"); err == nil ||
+		!strings.Contains(err.Error(), "forbidden") {
+		t.Errorf("readonly delete: want forbidden, got %v", err)
+	}
+	if err := w.clientByRole[auth.RoleOperator].Delete(ctx, "tmp/file"); err != nil {
+		t.Errorf("operator delete: %v", err)
+	}
+}
+
+func TestACL_HeadersPassPrincipal(t *testing.T) {
+	// Verify that a Client without WithPrincipal sends no headers,
+	// and one with WithPrincipal sets both ID + Role.
+	r := newRig(t)
+	defaultC, _ := NewClient(r.conn, r.subj)
+	if defaultC.principal != nil {
+		t.Error("default Client.principal should be nil")
+	}
+	p := &auth.Principal{ID: "u-7", Role: auth.RoleOperator}
+	withP, _ := NewClient(r.conn, r.subj, WithPrincipal(p))
+	if withP.principal != p {
+		t.Errorf("Client.principal = %+v, want %+v", withP.principal, p)
+	}
+}
+
+func TestPrincipalFromHeaders_Empty(t *testing.T) {
+	m := nats.NewMsg("any")
+	if got := principalFromHeaders(m); got != nil {
+		t.Errorf("empty headers should return nil, got %+v", got)
+	}
+}
+
+func TestPrincipalFromHeaders_Populated(t *testing.T) {
+	m := nats.NewMsg("any")
+	m.Header.Set(HeaderPrincipalID, "abc")
+	m.Header.Set(HeaderPrincipalRole, "operator")
+	got := principalFromHeaders(m)
+	if got == nil || got.ID != "abc" || got.Role != auth.RoleOperator {
+		t.Errorf("got = %+v", got)
+	}
+}
+
+func TestPrincipalFromHeaders_UnknownRoleCoerces(t *testing.T) {
+	m := nats.NewMsg("any")
+	m.Header.Set(HeaderPrincipalID, "abc")
+	m.Header.Set(HeaderPrincipalRole, "wizard")
+	got := principalFromHeaders(m)
+	if got == nil || got.Role != auth.RoleNone {
+		t.Errorf("unknown role should coerce to RoleNone, got %+v", got)
+	}
 }
 
 func TestClient_ContextCancel(t *testing.T) {

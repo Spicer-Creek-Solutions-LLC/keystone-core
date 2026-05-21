@@ -196,6 +196,39 @@ func HashOf(b []byte) string {
 	return hex.EncodeToString(h[:])
 }
 
+// Namespace returns the leading path segment of p — the
+// access-control unit used by [internal/files/acl]. The path
+// "configs/app/main.yaml" lives in namespace "configs"; a path
+// with no slash is itself the namespace ("dev" → "dev"); an
+// empty path returns an empty namespace (the caller's ACL must
+// decide whether the empty case is allowed).
+//
+// Behavior is undefined on paths that have not passed
+// [validateFilePath]. The function does not re-validate — callers
+// inside the transport layer have already run Validate on the
+// containing FileRequest.
+func Namespace(p string) string {
+	if p == "" {
+		return ""
+	}
+	if i := indexByte(p, '/'); i >= 0 {
+		return p[:i]
+	}
+	return p
+}
+
+// indexByte is inlined to keep [Namespace] dependency-free
+// (avoiding strings) and to make the hot-path single-allocation
+// at zero cost.
+func indexByte(s string, c byte) int {
+	for i := 0; i < len(s); i++ {
+		if s[i] == c {
+			return i
+		}
+	}
+	return -1
+}
+
 // validateFilePrefix is the looser sibling of [validateFilePath]
 // used by [FileRequest.Validate] for the list operation. A list
 // prefix may end in "/" (matches anything under that directory) so
