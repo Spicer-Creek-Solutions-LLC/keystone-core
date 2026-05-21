@@ -128,7 +128,7 @@ See `PROJECT-DETAILS.md §4.20`.
 - [ ] `kscore-files get kv://config/myapp /tmp/out` downloads with hash verification.
 - [ ] Resume after network interrupt works.
 - [ ] Proxy cache hit on second download (visible in metrics).
-- [ ] S3 backend round-trips a file.
+- [x] S3 backend round-trips a file. _(task 10b — `TestS3Store_Conformance/PutGet_RoundTrip` and friends drive S3Store's Put/Get/Stat/List/Delete against an httptest fake; `TestS3Store_KeyLayout` confirms the documented data/meta object-key split.)_
 
 ### Rate limiting
 
