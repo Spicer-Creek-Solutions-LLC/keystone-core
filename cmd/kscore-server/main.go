@@ -183,6 +183,15 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("nats: %w", err)
 	}
+	// startEvents (and audit/secrets bridges built on top of it) call
+	// natsManager.JetStream() during construction. server.Start later
+	// invokes natsManager.Start() inside initSteps3to4, but that's too
+	// late for the events bridge — JetStream() returns "manager not
+	// started" until Start runs. Start is idempotent (manager.go:86),
+	// so calling here is safe; server.Start's later call is a no-op.
+	if err := natsManager.Start(ctx); err != nil {
+		return fmt.Errorf("nats start: %w", err)
+	}
 
 	enforcer, err := agent.NewSecurityEnforcer(securityPolicyFromConfig(cfg.Security), log)
 	if err != nil {

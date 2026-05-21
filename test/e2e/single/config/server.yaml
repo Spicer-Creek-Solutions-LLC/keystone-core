@@ -1,0 +1,43 @@
+# Epic 19 task 1 — kscore-server config for the single-topology E2E.
+#
+# Scope: dev-mode boot against external Postgres + external NATS, no
+# TLS / no identity. Just enough to bring the server up cleanly so
+# task 1 can assert /health/ready. Task 2 layers in the agent
+# bootstrap chain (join-token + SVID) and lights up the 9 scenarios.
+
+mode: development
+
+server:
+  host: 0.0.0.0
+  grpcport: 9090
+  httpport: 8080
+  tls:
+    enabled: false
+
+logging:
+  level: info
+  format: json
+
+storage:
+  driver: postgres
+  dsn: postgres://kscore:kscore@postgres:5432/kscore?sslmode=disable
+
+health:
+  startupgraceperiod: 30s
+  checktimeout: 2s
+
+nats:
+  mode: external
+  urls: ["nats://nats:4222"]
+  jetstream:
+    enabled: true
+    storedir: /data/jetstream
+  bootstrap:
+    enabled: false
+
+identity:
+  enabled: false
+
+metrics:
+  enabled: true
+  path: /metrics

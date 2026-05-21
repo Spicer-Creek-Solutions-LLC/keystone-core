@@ -1,0 +1,33 @@
+# Epic 19 task 1 — kscore-agent config for agent-1.
+#
+# External NATS only (v1.0 agents never embed) per cmd/kscore-agent/
+# main.go:67. Storage is local sqlite for agent-side bookkeeping.
+
+mode: development
+
+logging:
+  level: info
+  format: json
+
+storage:
+  driver: sqlite
+  dsn: /data/agent.db
+
+agent:
+  id: agent-1
+  heartbeatinterval: 5s
+  metadatainterval: 30s
+  commandtimeout: 30s
+  labels:
+    topology: single
+    role: agent
+
+nats:
+  mode: external
+  urls: ["nats://nats:4222"]
+
+identity:
+  enabled: false
+
+security:
+  defaultpolicy: allow

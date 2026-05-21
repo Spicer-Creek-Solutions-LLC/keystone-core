@@ -44,6 +44,7 @@ export CGO_ENABLED := 0
         openapi-lint \
         docs-lint docs-lint-fix docs-lint-container \
         dev dev-server dev-agent \
+        e2e-build e2e-up e2e-down e2e-logs e2e-test \
         release-snapshot release-dry-run \
         security-secrets security-vulns security-sast
 
@@ -225,6 +226,33 @@ dev-server: ## Run kscore-server against testdata/dev.yaml
 dev-agent: ## Run kscore-agent against testdata/dev.yaml
 	go run ./cmd/kscore-agent --config testdata/dev.yaml
 
+# ---- E2E (single-topology) ------------------------------------------------
+
+# Epic 19 task 1 — single-topology E2E harness. 1× kscore-server +
+# 2× kscore-agent + Postgres + NATS via docker-compose. Task 1 ships
+# the harness; task 2 wires the 9 feature scenarios on top.
+
+E2E_COMPOSE := docker compose -f test/e2e/single/docker-compose.yml
+
+e2e-build: ## Build kscore-server + kscore-agent images for the single-topology E2E
+	$(E2E_COMPOSE) build
+
+e2e-up: ## Bring the single-topology E2E up + wait for healthy
+	$(E2E_COMPOSE) up -d --wait
+
+e2e-down: ## Tear down the single-topology E2E (removes volumes)
+	$(E2E_COMPOSE) down -v
+
+e2e-logs: ## Follow logs from the single-topology E2E
+	$(E2E_COMPOSE) logs -f
+
+e2e-test: ## Full cycle: build, up, run e2e tests, down (cleanup on failure)
+	$(E2E_COMPOSE) up -d --wait --build
+	KSCORE_E2E_NO_COMPOSE=1 CGO_ENABLED=1 go test -tags=e2e -count=1 -timeout=300s ./test/e2e/single/... ; \
+	rc=$$? ; \
+	$(E2E_COMPOSE) down -v ; \
+	exit $$rc
+
 # ---- Release --------------------------------------------------------------
 
 release-snapshot: ## Build multi-arch snapshot tarballs to dist/
@@ -248,6 +276,5 @@ security-sast: ## Static analysis (gosec)
 # Targets added by later tasks/epics — intentionally NOT stubbed here so
 # `make help` reflects only what currently works.
 #
-#   e2e-build, e2e-test, e2e-up, e2e-down,
-#     e2e-logs                                 -> Epic 19 (release / E2E hardening)
+#   (none currently deferred)
 # ---------------------------------------------------------------------------

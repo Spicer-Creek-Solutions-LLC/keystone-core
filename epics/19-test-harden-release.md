@@ -82,7 +82,7 @@ Take v1.0 from "all features done individually" to "production-ready release art
 
 ## Tasks
 
-1. **Single-topology E2E** docker-compose + test harness.
+1. **Single-topology E2E** docker-compose + test harness. _(landed — `test/e2e/single/`: docker-compose with 1× kscore-server + 2× kscore-agent + Postgres + NATS; multi-stage `Dockerfile.kscore` with `BIN` build-arg; `e2e-{build,up,down,logs,test}` Make targets; `harness_test.go` (`//go:build e2e`) asserts server `/health/live`+`/health/ready`, NATS `/healthz`, and Postgres schema applied. Feature scenarios are task 2.)_
 2. **All v1.0 E2E scenarios** wired into CI.
 3. **Performance SLO verification** scripts in `test/e2e/perf/`.
 4. **Coverage gating** in CI.

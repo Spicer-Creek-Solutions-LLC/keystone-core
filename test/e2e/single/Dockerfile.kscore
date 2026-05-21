@@ -1,0 +1,56 @@
+# Epic 19 task 1 — single-topology E2E image.
+#
+# One multi-stage Dockerfile builds whichever cmd/* the BIN build-arg
+# selects, so server + agent share the same builder layer and the same
+# minimal distroless runtime. Build with:
+#
+#   docker build -t kscore-server -f Dockerfile.kscore --build-arg BIN=kscore-server ../../..
+#   docker build -t kscore-agent  -f Dockerfile.kscore --build-arg BIN=kscore-agent  ../../..
+#
+# Context is the repo root (three levels up from this file). The
+# compose file at test/e2e/single/docker-compose.yml sets that context
+# for us.
+#
+# CGO disabled per PROJECT-DETAILS §5.4 — pure-Go SQLite and lib/pq
+# mean we ship a static binary into distroless/static-debian12 with
+# no libc dependency.
+
+ARG GO_VERSION=1.26
+
+FROM golang:${GO_VERSION}-bookworm AS builder
+ARG BIN
+ARG VERSION=e2e-dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+
+WORKDIR /src
+
+# Cache go.mod / go.sum so source-only changes don't bust the module
+# download layer.
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+ENV CGO_ENABLED=0
+
+RUN test -n "${BIN}" || (echo "BIN build-arg is required (e.g. kscore-server)" && exit 1)
+RUN test -d "cmd/${BIN}" || (echo "cmd/${BIN} does not exist" && exit 1)
+
+RUN go build \
+    -ldflags "-X go.keystone-core.io/keystone-core/pkg/version.Version=${VERSION} \
+              -X go.keystone-core.io/keystone-core/pkg/version.GitCommit=${GIT_COMMIT} \
+              -X go.keystone-core.io/keystone-core/pkg/version.BuildDate=${BUILD_DATE}" \
+    -o /out/binary \
+    ./cmd/${BIN}
+
+# Materialize a writable /data directory owned by the distroless
+# nonroot UID/GID (65532) — distroless has no shell to mkdir at
+# runtime, so the directory must come from the builder layer.
+RUN mkdir -p /out/data && chown -R 65532:65532 /out/data
+
+FROM gcr.io/distroless/static-debian12:nonroot
+COPY --from=builder /out/binary /usr/local/bin/kscore
+COPY --from=builder --chown=nonroot:nonroot /out/data /data
+USER nonroot:nonroot
+ENTRYPOINT ["/usr/local/bin/kscore"]

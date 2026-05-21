@@ -1,0 +1,31 @@
+# Epic 19 task 1 — kscore-agent config for agent-2.
+# Identical to agent-1 except for agent.id.
+
+mode: development
+
+logging:
+  level: info
+  format: json
+
+storage:
+  driver: sqlite
+  dsn: /data/agent.db
+
+agent:
+  id: agent-2
+  heartbeatinterval: 5s
+  metadatainterval: 30s
+  commandtimeout: 30s
+  labels:
+    topology: single
+    role: agent
+
+nats:
+  mode: external
+  urls: ["nats://nats:4222"]
+
+identity:
+  enabled: false
+
+security:
+  defaultpolicy: allow

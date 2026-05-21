@@ -1,0 +1,135 @@
+# Epic 19 task 1 — single-topology E2E harness.
+#
+# 1× kscore-server + 2× kscore-agent + Postgres + NATS, per epic 19
+# §Scope and PROJECT-DETAILS §5.3. Task 1 ships the harness only;
+# task 2 wires the 9 feature scenarios (agent registration, command
+# exec, state apply, blueprint, module, secrets, audit, webhook,
+# GitOps) on top of this topology.
+#
+# Build context for the kscore images is the repo root (../../..),
+# selected via the BIN build-arg on a shared multi-stage Dockerfile.
+#
+# Usage (from repo root):
+#   make e2e-build           # build all images
+#   make e2e-up              # bring services up + wait for healthy
+#   make e2e-test            # full cycle: up → go test -tags=e2e → down
+#   make e2e-down            # tear down + remove volumes
+#   make e2e-logs            # follow logs
+
+name: kscore-e2e-single
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kscore-e2e-postgres
+    environment:
+      POSTGRES_USER: kscore
+      POSTGRES_PASSWORD: kscore
+      POSTGRES_DB: kscore
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kscore -d kscore"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    networks:
+      - kscore
+
+  nats:
+    image: nats:2.10-alpine
+    container_name: kscore-e2e-nats
+    command:
+      - "-js"
+      - "-sd=/data"
+      - "-m=8222"
+    ports:
+      - "127.0.0.1:4222:4222"
+      - "127.0.0.1:8222:8222"
+    healthcheck:
+      # /healthz on the monitoring port (8222) returns 200 when the
+      # server is ready; JetStream readiness is implicit because we
+      # start with -js.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8222/healthz"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    volumes:
+      - nats-data:/data
+    networks:
+      - kscore
+
+  kscore-server:
+    image: kscore-server:e2e
+    container_name: kscore-e2e-server
+    build:
+      context: ../../..
+      dockerfile: test/e2e/single/Dockerfile.kscore
+      args:
+        BIN: kscore-server
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_healthy
+    command: ["--config=/etc/kscore/server.yaml"]
+    # Distroless runtime has no shell / curl / wget, so docker-level
+    # healthchecks have nothing to probe with. The Go harness test
+    # polls http://127.0.0.1:8080/health/ready directly via the
+    # published port; service_started is sufficient to wait for the
+    # downstream agents.
+    volumes:
+      - ./config/server.yaml:/etc/kscore/server.yaml:ro
+    ports:
+      - "127.0.0.1:9090:9090"
+      - "127.0.0.1:8080:8080"
+    networks:
+      - kscore
+
+  kscore-agent-1:
+    image: kscore-agent:e2e
+    container_name: kscore-e2e-agent-1
+    build:
+      context: ../../..
+      dockerfile: test/e2e/single/Dockerfile.kscore
+      args:
+        BIN: kscore-agent
+    depends_on:
+      kscore-server:
+        condition: service_started
+      nats:
+        condition: service_healthy
+    command: ["--config=/etc/kscore/agent.yaml"]
+    volumes:
+      - ./config/agent-1.yaml:/etc/kscore/agent.yaml:ro
+    networks:
+      - kscore
+
+  kscore-agent-2:
+    image: kscore-agent:e2e
+    container_name: kscore-e2e-agent-2
+    build:
+      context: ../../..
+      dockerfile: test/e2e/single/Dockerfile.kscore
+      args:
+        BIN: kscore-agent
+    depends_on:
+      kscore-server:
+        condition: service_started
+      nats:
+        condition: service_healthy
+    command: ["--config=/etc/kscore/agent.yaml"]
+    volumes:
+      - ./config/agent-2.yaml:/etc/kscore/agent.yaml:ro
+    networks:
+      - kscore
+
+networks:
+  kscore:
+    name: kscore-e2e
+
+volumes:
+  postgres-data:
+  nats-data:
