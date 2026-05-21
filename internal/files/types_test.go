@@ -83,7 +83,10 @@ func TestFileRequest_Validate(t *testing.T) {
 		{name: "get ok", req: FileRequest{Operation: FileOpGet, Path: "a/b.yaml"}},
 		{name: "delete ok", req: FileRequest{Operation: FileOpDelete, Path: "a/b.yaml"}},
 		{name: "list empty path ok", req: FileRequest{Operation: FileOpList}},
-		{name: "list with path ok", req: FileRequest{Operation: FileOpList, Path: "a/"}, wantSub: "must not end"},
+		{name: "list with prefix slash ok", req: FileRequest{Operation: FileOpList, Path: "a/"}},
+		{name: "list with prefix ok", req: FileRequest{Operation: FileOpList, Path: "a/b"}},
+		{name: "list with traversal", req: FileRequest{Operation: FileOpList, Path: "../etc"}, wantSub: "'..'"},
+		{name: "list with wildcard", req: FileRequest{Operation: FileOpList, Path: "a/*"}, wantSub: "wildcard"},
 		{name: "list with metadata", req: FileRequest{Operation: FileOpList, Metadata: &FileMetadata{Path: "x"}}, wantSub: "metadata"},
 		{name: "list with body", req: FileRequest{Operation: FileOpList, Body: []byte("x")}, wantSub: "body"},
 		{name: "invalid op", req: FileRequest{Operation: "create", Path: "x"}, wantSub: "invalid"},
@@ -92,6 +95,12 @@ func TestFileRequest_Validate(t *testing.T) {
 			Operation: FileOpPut, Path: "a",
 			Metadata: &FileMetadata{Path: "/bad"}, // leading slash
 		}, wantSub: "metadata"},
+		{name: "get with from_chunk ok", req: FileRequest{Operation: FileOpGet, Path: "a", FromChunk: 5}},
+		{name: "get with from_chunk zero ok", req: FileRequest{Operation: FileOpGet, Path: "a", FromChunk: 0}},
+		{name: "from_chunk negative", req: FileRequest{Operation: FileOpGet, Path: "a", FromChunk: -1}, wantSub: "from_chunk"},
+		{name: "from_chunk on put", req: FileRequest{Operation: FileOpPut, Path: "a", FromChunk: 1}, wantSub: "from_chunk"},
+		{name: "from_chunk on list", req: FileRequest{Operation: FileOpList, FromChunk: 1}, wantSub: "from_chunk"},
+		{name: "from_chunk on delete", req: FileRequest{Operation: FileOpDelete, Path: "a", FromChunk: 1}, wantSub: "from_chunk"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

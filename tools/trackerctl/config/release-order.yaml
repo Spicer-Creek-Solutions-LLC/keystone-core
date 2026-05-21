@@ -112,6 +112,7 @@ v0.x:
   - "Migration journal: no per-table checkpoint resume"
 
 v1.x:
+  - "File distribution: PUT-side resume"
   - "Backup destinations: Backblaze B2 smoke test + SFTP + GCS + Azure Blob + advanced S3 auth"
   - "Backup encryption: AWS KMS + Vault key providers"
   - "Policy enforcement side-effects (Warn events + Enforce violation handlers)"

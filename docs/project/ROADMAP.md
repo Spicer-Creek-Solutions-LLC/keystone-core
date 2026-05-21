@@ -896,6 +896,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v1.x — post-v1.0 feature additions
 
+#### File distribution: PUT-side resume
+
+- **Priority**: v1.x
+- **What**: Resume a chunked PUT after a network interrupt — client retries with the same transfer-id, server picks up at the last received chunk. v1.0 ships GET-side resume only (`internal/files/transport.GetOptions.FromChunk`); a partial PUT today must restart from chunk 0.
+- **Why deferred**: PUT resume needs durable server-side scratch state — the service must remember which chunks of which in-flight transfer it has received across crashes. v1.0's `internal/files/transport.Service` keeps in-flight state in memory only; the durable layer (JetStream-backed chunk inbox, or a SQLite scratch table) is meaningful design surface. GET resume is mechanically simple (re-read from the backend at the requested chunk offset) and satisfies Epic 18's "Resume after network interrupt works" acceptance line for the common direction.
+- **Acceptance**: A PUT interrupted at chunk K resumed by the client with `FromChunk=K` completes without re-uploading chunks 0..K-1; server-side scratch state survives restart; per-transfer scratch is reaped on a configurable TTL.
+- **References**: `internal/files/transport/service.go::handlePut`; `internal/files/transport/doc.go` (Resume §); Epic 18 task 11.
+
 #### Backup destinations: Backblaze B2 smoke test + SFTP + GCS + Azure Blob + advanced S3 auth
 
 - **Priority**: v1.x

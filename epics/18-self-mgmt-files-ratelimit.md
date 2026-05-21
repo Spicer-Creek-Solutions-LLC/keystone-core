@@ -126,7 +126,7 @@ See `PROJECT-DETAILS.md §4.20`.
 
 - [ ] `kscore-files put /path/to/local/file kv://config/myapp` uploads via NATS chunks.
 - [ ] `kscore-files get kv://config/myapp /tmp/out` downloads with hash verification.
-- [ ] Resume after network interrupt works.
+- [x] Resume after network interrupt works. _(task 11 — `TestGet_Resume_FromMidChunk`: GET-side resume via `transport.GetOptions.FromChunk=K` reads the trailing chunks from the backend at offset K; PUT-side resume defers under v1.x ROADMAP entry "File distribution: PUT-side resume" — operator-facing kscore-files CLI surface lands at task 15.)_
 - [ ] Proxy cache hit on second download (visible in metrics).
 - [x] S3 backend round-trips a file. _(task 10b — `TestS3Store_Conformance/PutGet_RoundTrip` and friends drive S3Store's Put/Get/Stat/List/Delete against an httptest fake; `TestS3Store_KeyLayout` confirms the documented data/meta object-key split.)_
 

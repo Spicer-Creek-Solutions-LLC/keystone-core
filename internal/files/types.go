@@ -78,12 +78,15 @@ func (m *FileMetadata) Validate() error {
 // FileRequest is the operation-agnostic envelope the bus carries for
 // put / get / list / delete. Body is the small-file fast path —
 // transfers larger than [ChunkSize] use the [FileChunk] streaming
-// path instead.
+// path instead. FromChunk is the get-side resume hint: when > 0 the
+// service starts streaming chunks at that index instead of 0. v1.0
+// implements resume only for get; put-side resume defers to v1.x.
 type FileRequest struct {
 	Operation FileOperation `json:"operation"`
 	Path      string        `json:"path,omitempty"`
 	Metadata  *FileMetadata `json:"metadata,omitempty"`
 	Body      []byte        `json:"body,omitempty"`
+	FromChunk int           `json:"from_chunk,omitempty"`
 }
 
 // Validate enforces per-operation rules:
@@ -92,13 +95,23 @@ type FileRequest struct {
 //	        if supplied must Validate; Body and the chunked path are
 //	        the two valid bodies — Validate does not enforce
 //	        Body-or-chunks here (it is the transport's job).
-//	get     Path required.
+//	get     Path required; FromChunk may be >= 0 (0 = full transfer).
 //	delete  Path required.
 //	list    Path optional — empty means "list all files in scope";
 //	        Metadata + Body must be empty.
+//
+// FromChunk is rejected for any operation other than get — using it
+// on put / list / delete is a sign of a misuse the transport should
+// catch early.
 func (r *FileRequest) Validate() error {
 	if !r.Operation.Valid() {
 		return fmt.Errorf("request.operation: invalid %q (want put|get|list|delete)", r.Operation)
+	}
+	if r.FromChunk < 0 {
+		return fmt.Errorf("request.from_chunk: must not be negative, got %d", r.FromChunk)
+	}
+	if r.FromChunk > 0 && r.Operation != FileOpGet {
+		return fmt.Errorf("request.from_chunk: only valid on get, got %q", r.Operation)
 	}
 
 	switch r.Operation {
@@ -108,7 +121,7 @@ func (r *FileRequest) Validate() error {
 		}
 	case FileOpList:
 		if r.Path != "" {
-			if err := validateFilePath(r.Path); err != nil {
+			if err := validateFilePrefix(r.Path); err != nil {
 				return fmt.Errorf("request.path: %w", err)
 			}
 		}
@@ -181,6 +194,32 @@ func (c *FileChunk) Validate() error {
 func HashOf(b []byte) string {
 	h := sha256.Sum256(b)
 	return hex.EncodeToString(h[:])
+}
+
+// validateFilePrefix is the looser sibling of [validateFilePath]
+// used by [FileRequest.Validate] for the list operation. A list
+// prefix may end in "/" (matches anything under that directory) so
+// the trailing-slash and empty-segment checks are skipped; the
+// path-traversal and NATS-wildcard guards still apply.
+func validateFilePrefix(p string) error {
+	if p == "" {
+		return nil
+	}
+	if strings.HasPrefix(p, "/") {
+		return fmt.Errorf("must not start with %q", "/")
+	}
+	for _, tok := range strings.Split(strings.TrimSuffix(p, "/"), "/") {
+		if tok == ".." {
+			return errors.New("must not contain '..' segments")
+		}
+		if strings.ContainsAny(tok, " \t\r\n") {
+			return fmt.Errorf("must not contain whitespace in segment %q", tok)
+		}
+		if strings.ContainsAny(tok, ">*") {
+			return fmt.Errorf("must not contain NATS wildcards in segment %q", tok)
+		}
+	}
+	return nil
 }
 
 // validateFilePath enforces the path invariants documented at the
