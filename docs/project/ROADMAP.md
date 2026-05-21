@@ -896,6 +896,30 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v1.x — post-v1.0 feature additions
 
+#### Rate-limit: `Retry-After` HTTP-date format alternative
+
+- **Priority**: v1.x
+- **What**: RFC 7231 allows `Retry-After` to carry either a delta-seconds integer or an HTTP-date. v1.0 ships delta-seconds only (`internal/ratelimit/middleware/http.go::writeRejected429`). v1.x adds an opt-in HTTP-date variant for proxies / caches that prefer the absolute form.
+- **Why deferred**: Delta-seconds is the more widely-supported shape and satisfies the v1.0 acceptance line. HTTP-date is operator preference; no concrete demand yet.
+- **Acceptance**: An operator flag selects between formats; tests cover both round-trips through a representative client.
+- **References**: `internal/ratelimit/middleware/http.go`; RFC 7231 §7.1.3.
+
+#### Rate-limit: configurable gRPC `retry-after-ms` trailer key
+
+- **Priority**: v1.x
+- **What**: The gRPC interceptor emits a `retry-after-ms` trailer with the suggested retry delay (`internal/ratelimit/middleware/grpc.go::setRetryAfterTrailer`). The key name is hard-coded; some operator environments use different conventions (e.g. `grpc-retry-pushback-ms`). v1.x exposes the trailer key as a constructor option.
+- **Why deferred**: There is no formal gRPC standard for retry-after; the v1.0 key is the convention this codebase ships. Renaming is mechanical when an operator needs it.
+- **Acceptance**: Interceptor constructor accepts a trailer-key option; default is unchanged; tests cover override.
+- **References**: `internal/ratelimit/middleware/grpc.go`.
+
+#### Rate-limit: Auditor hook for rejections
+
+- **Priority**: v1.x
+- **What**: The file-distribution transport.Service has an optional `Auditor func(principal, op, path, reason error)` callback that fires on ACL denials (`internal/files/transport/service.go`). The rate-limit middleware has no analogous hook today; rejections are countable via metrics but not auditable. v1.x adds a symmetric `Auditor` seam so Epic 12's audit store can record rate-limit denials with the inbound key + the configured limit.
+- **Why deferred**: The metric (`kscore_ratelimit_rejected_total`) already gives operators rejection visibility for v1.0 dashboards. Auditing rejections is a compliance-shop ask; bundle it with the post-v1.0 rate-limit expansion (per-namespace quotas, per-route rules).
+- **Acceptance**: New `WithAuditor(fn)` option on the HTTP middleware + gRPC interceptor; auditor fires synchronously on each deny carrying key + reason + observed RPS.
+- **References**: `internal/ratelimit/middleware/http.go`; `internal/files/transport/service.go::Auditor` (the symmetry target).
+
 #### File distribution: PUT-side resume
 
 - **Priority**: v1.x

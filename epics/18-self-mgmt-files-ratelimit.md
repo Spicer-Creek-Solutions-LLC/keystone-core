@@ -138,7 +138,7 @@ See `PROJECT-DETAILS.md §4.20`.
 
 ### Combined
 
-- [ ] Coverage >75% on each new package. _(File-distribution packages all clear: `internal/files` 95.6%, `internal/files/acl` 100%, `internal/files/backend` 82.9%, `internal/files/proxy` 95.6%, `internal/files/transport` 81.7%, `pkg/api/files` 89.9%, `internal/cli/files` 87.3%. Self-management packages clear at their landing commits. **Ratelimit packages (tasks 16-19) pending — line ticks on full Epic-18 closeout.**)_
+- [x] Coverage >75% on each new package. _(All 17 Epic-18 packages clear ≥75% (lowest 81.7% at `internal/files/transport`). File-distribution: `internal/files` 95.6%, `internal/files/acl` 100%, `internal/files/backend` 82.9%, `internal/files/proxy` 95.6%, `internal/files/transport` 81.7%, `pkg/api/files` 89.9%, `internal/cli/files` 87.3%. Self-management: `internal/selfmgmt` 92.5%, `internal/backup` 88.7%, `internal/backup/age` 89.4%, `internal/backup/dest` 92.8%, `internal/cli/backup` 87.7%, `internal/cli/bootstrap` 84.1%, `internal/s3client` 100%. Rate-limiting: `internal/ratelimit` 96.4%, `internal/ratelimit/extract` 92.8%, `internal/ratelimit/middleware` 96.2%.)_
 
 ## Risks
 
@@ -152,3 +152,30 @@ See `PROJECT-DETAILS.md §4.20`.
 ## References
 
 - PROJECT-DETAILS §4.20.
+
+## Closeout — Epic 18: CLOSED
+
+- **Tasks**: 19/19 landed.
+- **Acceptance**: 10/10 ticked (5 self-management + 5 file-distribution + 3 rate-limiting + combined coverage; the 3 rate-limiting lines tick at T18 because T19's Retry-After mechanism shipped one commit early as part of the natural middleware deny path).
+- **Closing commits** (chronological): T1 `13e9d3ae` SeedConfig types, T2 `e368888c` BootstrapManager FSM, T3 `f36a3fe6` BackupManager + tar, T4 `13a6b20e` age encryption, T5 `9e27435e` destination backends, T6 `63f06ff0` RestoreManager, T7a `11fa7282` kscore-backup read side, T7b `f73bbecd` kscore-backup write side + bootstrap binary, T8 `cf06e16d` self-mgmt e2e, T9 `d6694ea0` file-distribution wire types + subjects, **T10 precursor `02b54c18` s3client extraction**, T10a `099afaab` BackendStore Memory+Filesystem, T10b `6afc4e14` BackendStore S3, T11 `2ef3ea34` transport.Service+Client, T12 `cd512240` proxy.Cache, T13 `d48ac2c0` ACL, T14 `3bed2234` REST handlers, T15 `ffe6b72a` kscore-files CLI, T16 `8352dd77` token bucket, T17 `271f5788` key extractors, T18 `fed4436f` rate-limit middleware, **T19 (this commit)** closeout.
+- **New dependencies added** by Epic 18: `go.yaml.in/yaml/v3` (T1 strict YAML), `filippo.io/age` v1.3.1 (T4 envelope encryption), `github.com/minio/minio-go/v7` v7.1.0 (T5 S3 destination). `golang.org/x/time/rate` (T16 token bucket) was already in go.mod via Epic 17 tracing samplers.
+- **New subcommand binaries** by Epic 18: `cmd/kscore-bootstrap` (T7b), `cmd/kscore-backup` (T7a/T7b), `cmd/kscore-files` (T15).
+- **New REST surface** by Epic 18: `/api/v1/files` (T14).
+- **New metrics** by Epic 18: `kscore_files_cache_hits_total`, `kscore_files_cache_misses_total{reason}` (T12), `kscore_ratelimit_rejected_total{reason}` (T18) — triple-lockstep updates applied to `internal/metrics/metricdefs.go` + `deploy/grafana/expected_metrics.txt` + `deploy/grafana/dashboards_test.go::allKscoreMetricDefs`.
+- **Boot wiring deferrals** (carried as gate-v1.0 ROADMAP entries — none blocked Epic-18 closure):
+  - "Bootstrap phase handlers + durable checkpointer" (T2).
+  - "Backup + restore component adapters (storage/JetStream/etcd/config/secrets/cluster) + ClusterDetector" (T3/T6).
+  - "REST/gRPC dark-until-boot" (T14 file-distribution REST + T18 rate-limit middleware fall under this existing Epic-15 entry).
+- **v1.x ROADMAP entries added** by Epic 18 (mirrored in `tools/trackerctl/config/release-order.yaml`):
+  - "Backup encryption: AWS KMS + Vault key providers" (T4).
+  - "Backup destinations: Backblaze B2 smoke test + SFTP + GCS + Azure Blob + advanced S3 auth" (T5).
+  - "File distribution: PUT-side resume" (T11).
+  - "Rate-limit: Retry-After HTTP-date format alternative" (T19).
+  - "Rate-limit: configurable gRPC retry-after-ms trailer key" (T19).
+  - "Rate-limit: Auditor hook for rejections" (T19).
+- **Coverage on Epic-18-touched packages** (all ≥75%, lowest 81.7%):
+  - File-distribution: `internal/files` 95.6%, `internal/files/acl` 100%, `internal/files/backend` 82.9%, `internal/files/proxy` 95.6%, `internal/files/transport` 81.7%, `pkg/api/files` 89.9%, `internal/cli/files` 87.3%.
+  - Self-management: `internal/selfmgmt` 92.5%, `internal/backup` 88.7%, `internal/backup/age` 89.4%, `internal/backup/dest` 92.8%, `internal/cli/backup` 87.7%, `internal/cli/bootstrap` 84.1%, `internal/s3client` 100%.
+  - Rate-limiting: `internal/ratelimit` 96.4%, `internal/ratelimit/extract` 92.8%, `internal/ratelimit/middleware` 96.2%.
+- **End-to-end coverage**: build-tagged `test/e2e/selfmgmt/` (T8 integration suite under `make test-integration`) exercises bootstrap FSM + backup round-trip + restore + populated-cluster guard + tamper detection.
+- **T19 is a no-code closeout commit** — the Retry-After HTTP header and gRPC `retry-after-ms` trailer shipped in T18 as natural parts of the middleware deny path (verified by `TestHTTP_AllowThenDeny` + `TestHTTP_1000_RPS_Configured_Limit_Returns_429`); T19 documents the v1.x polish ROADMAP entries the spec leaves implicit and seals the epic.
