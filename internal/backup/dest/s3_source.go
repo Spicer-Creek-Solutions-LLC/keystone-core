@@ -2,12 +2,12 @@ package dest
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 
 	"github.com/minio/minio-go/v7"
-	"github.com/minio/minio-go/v7/pkg/credentials"
+
+	"go.keystone-core.io/keystone-core/internal/s3client"
 )
 
 // S3Source reads an artifact from an S3-compatible object store.
@@ -23,7 +23,7 @@ type S3Source struct {
 // simpler than the write side because the API is already
 // reader-shaped).
 func (s *S3Source) Open(ctx context.Context) (io.ReadCloser, error) {
-	client, err := newS3Client(s.Config)
+	client, err := s3client.NewClient(s.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ type S3Lister struct {
 // an operator ever has six-digit object counts a paginated CLI is a
 // v1.x concern.
 func (l *S3Lister) List(ctx context.Context) ([]Entry, error) {
-	client, err := newS3Client(l.Config)
+	client, err := s3client.NewClient(l.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -69,26 +69,3 @@ func (l *S3Lister) List(ctx context.Context) ([]Entry, error) {
 	return out, nil
 }
 
-// newS3Client is the shared minio-go constructor used by both
-// [S3Source] and [S3Lister]. It mirrors the access-key + endpoint
-// behavior baked into [S3Destination.newClient]; sharing it via a
-// package-level helper avoids per-struct method duplication now that
-// three types use the same construction.
-func newS3Client(cfg Config) (*minio.Client, error) {
-	endpoint := cfg.Endpoint
-	if endpoint == "" {
-		endpoint = "s3.amazonaws.com"
-	}
-	if cfg.AccessKey == "" || cfg.SecretKey == "" {
-		return nil, errors.New("dest: S3 access key + secret key are required")
-	}
-	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.AccessKey, cfg.SecretKey, ""),
-		Secure: cfg.UseSSL,
-		Region: cfg.Region,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("dest: minio.New: %w", err)
-	}
-	return client, nil
-}

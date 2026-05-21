@@ -31,6 +31,8 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	"go.keystone-core.io/keystone-core/internal/s3client"
 )
 
 // Destination is the single seam this package exposes. Concrete
@@ -46,15 +48,11 @@ type Destination interface {
 
 // Config is the operator-supplied connection state shared across
 // resolved destinations. Fields for backends other than the resolved
-// one are ignored.
-type Config struct {
-	// S3 settings.
-	AccessKey string
-	SecretKey string
-	Region    string
-	Endpoint  string // empty = AWS default endpoint; non-empty = MinIO/B2/etc.
-	UseSSL    bool
-}
+// one are ignored. The shape lives in [s3client.Config]; this alias
+// keeps the dest.Config name in callers' struct literals while the
+// minio-go client construction is shared with
+// internal/files/backend/s3.
+type Config = s3client.Config
 
 // Resolve dispatches a destination URI to the matching backend.
 // Supported forms:

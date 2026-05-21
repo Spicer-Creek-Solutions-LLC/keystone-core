@@ -6,6 +6,8 @@ import (
 	"io"
 
 	"github.com/minio/minio-go/v7"
+
+	"go.keystone-core.io/keystone-core/internal/s3client"
 )
 
 // S3Destination writes the artifact to an S3-compatible object
@@ -57,10 +59,10 @@ func (s *S3Destination) Open(ctx context.Context) (io.WriteCloser, error) {
 	return &s3Writer{pw: pw, errCh: errCh}, nil
 }
 
-// newClient delegates to [newS3Client] so the destination, source,
-// and lister share a single construction path.
+// newClient delegates to [s3client.NewClient] so the destination,
+// source, and lister share a single construction path.
 func (s *S3Destination) newClient() (*minio.Client, error) {
-	return newS3Client(s.Config)
+	return s3client.NewClient(s.Config)
 }
 
 // s3Writer is the io.WriteCloser returned from S3Destination.Open.
