@@ -52,5 +52,12 @@ RUN mkdir -p /out/data && chown -R 65532:65532 /out/data
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=builder /out/binary /usr/local/bin/kscore
 COPY --from=builder --chown=nonroot:nonroot /out/data /data
+# Epic 19 task 2b — the modules/ catalog (blueprints + example modules)
+# is .dockerignored out of the build context to keep image size lean
+# for non-E2E builds. The E2E topology mounts it via docker-compose's
+# volume directive instead (test/e2e/single/docker-compose.yml).
+# Until the gate-v1.0 "Remote / distributed blueprint apply wiring"
+# lands, blueprints apply server-side against the server's stdlib
+# StateRunner; agents do not participate.
 USER nonroot:nonroot
 ENTRYPOINT ["/usr/local/bin/kscore"]

@@ -491,6 +491,19 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		srv.RegisterService(&v1.PolicyService_ServiceDesc, policyGRPC)
 	}
 
+	// Epic 19 task 2b — BlueprintService. Wires a filesystem catalog
+	// from cfg.Blueprints.CatalogPath + a server-local Applier using
+	// the stdlib StateRunner. Skipped when CatalogPath is empty;
+	// remote-fleet dispatch is the gate-v1.0 ROADMAP item "Remote /
+	// distributed blueprint apply wiring".
+	blueprintGRPC, err := maybeWireBlueprintService(cfg.Blueprints, log)
+	if err != nil {
+		return fmt.Errorf("blueprint service: %w", err)
+	}
+	if blueprintGRPC != nil {
+		srv.RegisterService(&v1.BlueprintService_ServiceDesc, blueprintGRPC)
+	}
+
 	if err := srv.Start(ctx); err != nil {
 		return fmt.Errorf("server start: %w", err)
 	}

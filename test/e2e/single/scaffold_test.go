@@ -233,6 +233,31 @@ func dialStateService(t testing.TB, apiKey string) (v1.StateServiceClient, io.Cl
 	return v1.NewStateServiceClient(conn), conn
 }
 
+// dialBlueprintService returns a BlueprintServiceClient. Used by
+// scenario 4.
+func dialBlueprintService(t testing.TB, apiKey string) (v1.BlueprintServiceClient, io.Closer) {
+	t.Helper()
+	conn, err := grpc.NewClient(serverGRPCAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		t.Fatalf("grpc dial %s: %v", serverGRPCAddr, err)
+	}
+	return v1.NewBlueprintServiceClient(conn), conn
+}
+
+// dialSecretsService returns a SecretsServiceClient. Used by scenario 6.
+func dialSecretsService(t testing.TB, apiKey string) (v1.SecretsServiceClient, io.Closer) {
+	t.Helper()
+	conn, err := grpc.NewClient(serverGRPCAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	if err != nil {
+		t.Fatalf("grpc dial %s: %v", serverGRPCAddr, err)
+	}
+	return v1.NewSecretsServiceClient(conn), conn
+}
+
 // authContext attaches the admin API key as `authorization: Bearer
 // …` on outbound gRPC metadata. Matches pkg/api/auth.APIKey
 // Authenticator's extractor.

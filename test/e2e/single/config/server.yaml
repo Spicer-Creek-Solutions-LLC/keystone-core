@@ -49,6 +49,27 @@ security:
   hmacsecret: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
   defaultpolicy: allow
 
+# Epic 19 task 2b — enable the encrypted-file secrets backend so the
+# E2E scenario 6 can exercise KV round-trips. Lease + transit are
+# Vault-only (see internal/secrets/file/backend.go:370+, transit.go:13)
+# and stay deferred to a v1.x Vault-backed E2E.
+secrets:
+  enabled: true
+  default_backend: file
+  backends:
+    - name: file
+      type: encrypted_file
+      file:
+        path: /data/secrets
+        master_key: "inline:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+
+# Epic 19 task 2b — point BlueprintService at the e2e blueprint
+# catalog (mounted from test/e2e/single/blueprints/). Server-side
+# apply only; remote-fleet dispatch is the gate-v1.0 ROADMAP item
+# "Remote / distributed blueprint apply wiring".
+blueprints:
+  catalogpath: /blueprints
+
 metrics:
   enabled: true
   path: /metrics

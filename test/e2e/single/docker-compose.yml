@@ -82,6 +82,13 @@ services:
     # downstream agents.
     volumes:
       - ./config/server.yaml:/etc/kscore/server.yaml:ro
+      # Epic 19 task 2b — mount the test-only blueprint catalog
+      # read-only so BlueprintService.ListBlueprints + ApplyBlueprint
+      # find a distroless-compatible fixture. The production
+      # modules/examples/blueprints/ catalog assumes package/service
+      # convergence which can't run inside the nonroot distroless
+      # kscore-server container.
+      - ./blueprints:/blueprints:ro
     ports:
       - "127.0.0.1:9090:9090"
       - "127.0.0.1:8080:8080"

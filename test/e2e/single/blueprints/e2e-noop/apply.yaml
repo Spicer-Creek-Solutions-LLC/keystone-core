@@ -1,0 +1,9 @@
+metadata:
+  name: e2e-noop-apply
+  version: "1.0"
+
+file:
+  /tmp/keystone-e2e-blueprint:
+    state: present
+    content: "task-2b blueprint apply\n"
+    mode: "0644"

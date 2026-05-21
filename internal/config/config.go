@@ -55,7 +55,8 @@ type Config struct {
 	Webhook  WebhookConfig  `koanf:"webhook"`
 	Metrics   MetricsConfig   `koanf:"metrics"`
 	Tracing   TracingConfig   `koanf:"tracing"`
-	Profiling ProfilingConfig `koanf:"profiling"`
+	Profiling  ProfilingConfig  `koanf:"profiling"`
+	Blueprints BlueprintsConfig `koanf:"blueprints"`
 }
 
 // defaultConfig returns the built-in defaults applied before YAML/env overlays.

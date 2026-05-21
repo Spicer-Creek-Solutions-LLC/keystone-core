@@ -1,23 +1,55 @@
 # Single-topology E2E harness
 
-Epic 19 task 1 — `test/e2e/single/`. The baseline v1.0 E2E topology:
+Epic 19 task 1/2 — `test/e2e/single/`. The baseline v1.0 E2E topology:
 **1× kscore-server + 2× kscore-agent + Postgres + NATS** via
-docker-compose.
+docker-compose, plus per-task scenario coverage on top.
 
-## Scope: task 1 vs task 2
+## Scope by sub-task
 
-Epic 19 splits the v1.0 E2E surface into two tasks:
+Epic 19 task 2 ships in three slices (2a, 2b, 2c). What's landed
+here right now:
 
-| Task | Scope |
-|------|-------|
-| **Task 1 (this file)** | Topology, build pipeline, harness validation — *infrastructure* only. |
-| **Task 2** | Wires the **9 feature scenarios** (agent registration, command exec, state apply, blueprint apply, module install/exec, secrets, audit, outbound webhook, GitOps webhook+rollback) on top of this topology. |
+| Slice | Scenarios | Status |
+|-------|-----------|--------|
+| **Task 1** | Infrastructure health (server, postgres, nats, schema) | landed |
+| **Task 2a** | 1. agent registration · 2. command exec · 3. state apply | landed |
+| **Task 2b** | 4. blueprint apply · 5. module stdlib execute · 6. secrets KV round-trip | landed (this PR) |
+| **Task 2c** | 7. audit query · 8. outbound webhook · 9. GitOps webhook+rollback · CI required | pending |
 
-This task 1 harness deliberately does **not** assert agent
-registration, command dispatch, or any user-visible behavior. Those
-are scenario 1+ of task 2.
+### Task 2b scenario notes
 
-What task 1 *does* assert (see `harness_test.go`):
+- **Scenario 4 (BlueprintApply)** exercises the BlueprintService gRPC
+  surface (`ListBlueprints` + `ApplyBlueprint`) against a
+  **distroless-compatible test catalog** at `blueprints/e2e-noop/`.
+  The production `modules/examples/blueprints/demo` blueprint installs
+  packages + manages services and cannot run inside the nonroot
+  distroless kscore-server container. Server-side apply only — remote-
+  agent dispatch is the gate-v1.0 ROADMAP item *"Remote / distributed
+  blueprint apply wiring"*.
+
+- **Scenario 5 (ModuleStdlibExecution)** is the *Option A* fallback
+  per epic-19 task-2b. It uses a multi-stdlib state YAML
+  (file + cmd with a requires dependency) over `ApplyState` to prove
+  the loader → runner → resolver chain. **Target form**: the full
+  *Option B* registry path — stand up `kscore-registry`, publish a
+  signed Starlark module, `kscore-module install`, then ApplyState
+  against the installed module. **Blocked on**: the gate-v1.0
+  ROADMAP item *"Module system boot wiring (loader PolicyChecker /
+  Hosts / trust-policy + runtime registration)"* — until that lands,
+  `cmd/kscore-{server,agent}` cannot load + execute a published
+  Starlark module end-to-end. Once it does, scenario 5 graduates
+  to Option B and this note can be removed.
+
+- **Scenario 6 (SecretsRoundTrip)** covers KV operations only
+  (`WriteSecret` → `GetSecret` → `ListSecrets` → `DeleteSecret`)
+  against the encrypted-file backend. **Deferred**: lease lifecycle
+  + transit (Encrypt/Decrypt/Sign/Verify) — both are Vault-only in
+  v1.0 (`internal/secrets/file/backend.go:370+` and
+  `internal/secrets/transit.go:13`). A Vault-backed compose service
+  + scenario extension lands in v1.x when the Vault-backed deployment
+  story is exercised.
+
+What the harness asserts at infrastructure level (Task 1):
 
 1. `kscore-server` HTTP `/health/live` returns 200 (process alive).
 2. `kscore-server` HTTP `/health/ready` returns 200 within budget
@@ -25,9 +57,6 @@ What task 1 *does* assert (see `harness_test.go`):
 3. NATS monitoring `/healthz` returns 200 (broker is healthy).
 4. Postgres has `state.applySchema` results — the `agents` table
    exists — proving the server's `state.NewStore` succeeded.
-
-If those four pass, the harness is sound and task 2 can build
-scenarios on top.
 
 ## Topology
 
@@ -91,10 +120,13 @@ test/e2e/single/
 ├── docker-compose.yml    # the 5-service topology
 ├── Dockerfile.kscore     # multi-stage; BIN build-arg selects server|agent
 ├── config/
-│   ├── server.yaml       # kscore-server config (postgres + external nats)
-│   ├── agent-1.yaml      # kscore-agent config (id=agent-1)
-│   └── agent-2.yaml      # kscore-agent config (id=agent-2)
-└── harness_test.go       # //go:build e2e — task 1 smoke test
+│   ├── server.yaml       # kscore-server config (postgres + external nats + secrets + blueprints)
+│   ├── agent-1.yaml      # kscore-agent config (id=agent-1, PSK bootstrap)
+│   └── agent-2.yaml      # kscore-agent config (id=agent-2, PSK bootstrap)
+├── blueprints/
+│   └── e2e-noop/         # distroless-compatible blueprint fixture (task 2b)
+├── scaffold_test.go      # //go:build e2e — TestMain + helpers
+└── scenarios_test.go     # //go:build e2e — TestE2E_* scenarios
 ```
 
 ## Build-tag

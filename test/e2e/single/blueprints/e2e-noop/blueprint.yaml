@@ -1,0 +1,17 @@
+# Epic 19 task 2b — distroless-compatible blueprint fixture for the
+# BlueprintApply scenario. Avoids package/service declarations so the
+# server-local apply works inside the kscore-server's nonroot
+# distroless container.
+
+metadata:
+  name: e2e-noop
+  version: 1.0.0
+  description: Distroless-friendly blueprint for the single-topology E2E. File-only declarations.
+
+compatibility:
+  min_keystone_version: 0.1.0
+  platforms:
+    - linux
+
+entrypoints:
+  default: apply.yaml
