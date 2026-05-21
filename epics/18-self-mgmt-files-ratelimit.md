@@ -124,8 +124,8 @@ See `PROJECT-DETAILS.md §4.20`.
 
 ### File distribution
 
-- [ ] `kscore-files put /path/to/local/file kv://config/myapp` uploads via NATS chunks.
-- [ ] `kscore-files get kv://config/myapp /tmp/out` downloads with hash verification.
+- [x] `kscore-files put /path/to/local/file kv://config/myapp` uploads via NATS chunks. _(task 15 — `TestCLI_PutGetRoundTrip_OverNATS`: embedded-NATS rig + `transport.Service` + `MemoryStore`; CLI uploads via `transport.Client.Put` over chunked NATS; output confirms hash + version.)_
+- [x] `kscore-files get kv://config/myapp /tmp/out` downloads with hash verification. _(task 15 — same test asserts downloaded body byte-equal to source; `transport.Client.Get` already verifies per-chunk SHA-256 + assembled-body hash against `Metadata.Hash` per task 11.)_
 - [x] Resume after network interrupt works. _(task 11 — `TestGet_Resume_FromMidChunk`: GET-side resume via `transport.GetOptions.FromChunk=K` reads the trailing chunks from the backend at offset K; PUT-side resume defers under v1.x ROADMAP entry "File distribution: PUT-side resume" — operator-facing kscore-files CLI surface lands at task 15.)_
 - [x] Proxy cache hit on second download (visible in metrics). _(task 12 — `TestCache_RoundTrip_OverNATS_IncrementsHitMetric`: end-to-end MemoryStore → transport.Service → NATS → transport.Client → proxy.Cache rig; second Get is a hit; `kscore_files_cache_hits_total` and `kscore_files_cache_misses_total{reason=miss}` both read as 1 via the registry gatherer.)_
 - [x] S3 backend round-trips a file. _(task 10b — `TestS3Store_Conformance/PutGet_RoundTrip` and friends drive S3Store's Put/Get/Stat/List/Delete against an httptest fake; `TestS3Store_KeyLayout` confirms the documented data/meta object-key split.)_
@@ -138,7 +138,7 @@ See `PROJECT-DETAILS.md §4.20`.
 
 ### Combined
 
-- [ ] Coverage >75% on each new package.
+- [ ] Coverage >75% on each new package. _(File-distribution packages all clear: `internal/files` 95.6%, `internal/files/acl` 100%, `internal/files/backend` 82.9%, `internal/files/proxy` 95.6%, `internal/files/transport` 81.7%, `pkg/api/files` 89.9%, `internal/cli/files` 87.3%. Self-management packages clear at their landing commits. **Ratelimit packages (tasks 16-19) pending — line ticks on full Epic-18 closeout.**)_
 
 ## Risks
 
