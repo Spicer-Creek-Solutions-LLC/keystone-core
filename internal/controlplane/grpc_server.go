@@ -68,6 +68,98 @@ func NewGRPCServer(cfg GRPCServerConfig) (*GRPCServer, error) {
 	}, nil
 }
 
+// ListAgents returns the agents the store has on file, optionally
+// filtered by status. Epic 19 task 2 implementation — the v1.0 E2E
+// suite needs the operator-facing read path to verify registration.
+// Pagination + label filters are stubbed to v1.x.
+func (s *GRPCServer) ListAgents(ctx context.Context, req *v1.ListAgentsRequest) (*v1.ListAgentsResponse, error) {
+	filter := state.AgentFilter{}
+	if req.GetStatus() != v1.AgentStatus_AGENT_STATUS_UNSPECIFIED {
+		filter.Status = agentStatusFromProto(req.GetStatus())
+	}
+	records, err := s.store.ListAgents(ctx, filter)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "list agents: %v", err)
+	}
+	out := &v1.ListAgentsResponse{
+		Agents:     make([]*v1.Agent, 0, len(records)),
+		TotalCount: int32(len(records)),
+	}
+	for _, r := range records {
+		out.Agents = append(out.Agents, agentRecordToProto(r))
+	}
+	return out, nil
+}
+
+// GetAgent returns a single agent by ID, or NotFound.
+func (s *GRPCServer) GetAgent(ctx context.Context, req *v1.GetAgentRequest) (*v1.GetAgentResponse, error) {
+	if req.GetAgentId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "agent_id is required")
+	}
+	rec, err := s.store.GetAgent(ctx, req.GetAgentId())
+	if err != nil {
+		if errors.Is(err, state.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "agent %q not found", req.GetAgentId())
+		}
+		return nil, status.Errorf(codes.Internal, "get agent: %v", err)
+	}
+	return &v1.GetAgentResponse{Agent: agentRecordToProto(rec)}, nil
+}
+
+// agentRecordToProto projects state.AgentRecord onto the v1.Agent
+// wire shape. Used by ListAgents + GetAgent.
+func agentRecordToProto(r *state.AgentRecord) *v1.Agent {
+	if r == nil {
+		return nil
+	}
+	out := &v1.Agent{
+		Id:              r.ID,
+		Hostname:        r.Hostname,
+		Os:              r.OS,
+		Architecture:    r.Architecture,
+		PlatformVersion: r.PlatformVersion,
+		AgentVersion:    r.AgentVersion,
+		Labels:          r.Labels,
+		Status:          agentStatusToProto(r.Status),
+		IpAddresses:     r.IPAddresses,
+	}
+	if !r.RegisteredAt.IsZero() {
+		out.RegisteredAt = timestamppb.New(r.RegisteredAt)
+	}
+	if !r.LastHeartbeatAt.IsZero() {
+		out.LastHeartbeatAt = timestamppb.New(r.LastHeartbeatAt)
+	}
+	return out
+}
+
+func agentStatusToProto(s state.AgentStatus) v1.AgentStatus {
+	switch s {
+	case state.AgentStatusPending:
+		return v1.AgentStatus_AGENT_STATUS_PENDING
+	case state.AgentStatusConnected:
+		return v1.AgentStatus_AGENT_STATUS_CONNECTED
+	case state.AgentStatusStale:
+		return v1.AgentStatus_AGENT_STATUS_STALE
+	case state.AgentStatusDisabled:
+		return v1.AgentStatus_AGENT_STATUS_DISABLED
+	}
+	return v1.AgentStatus_AGENT_STATUS_UNSPECIFIED
+}
+
+func agentStatusFromProto(s v1.AgentStatus) state.AgentStatus {
+	switch s {
+	case v1.AgentStatus_AGENT_STATUS_PENDING:
+		return state.AgentStatusPending
+	case v1.AgentStatus_AGENT_STATUS_CONNECTED:
+		return state.AgentStatusConnected
+	case v1.AgentStatus_AGENT_STATUS_STALE:
+		return state.AgentStatusStale
+	case v1.AgentStatus_AGENT_STATUS_DISABLED:
+		return state.AgentStatusDisabled
+	}
+	return ""
+}
+
 // ExecuteCommand dispatches a single command to one agent as a batch-
 // of-one. Emits {command_id} → {completion}. Output chunks are
 // reserved for task 10/12 once the agent's CommandResponse bridges

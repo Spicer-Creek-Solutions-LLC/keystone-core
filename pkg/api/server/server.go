@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -14,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"go.keystone-core.io/keystone-core/internal/agent"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/events"
@@ -104,6 +106,7 @@ type Server struct {
 	cmdDispatcher    *controlplane.CommandDispatcher
 	batchDispatcher  *controlplane.BatchDispatcher
 	bootstrapHandler *controlplane.BootstrapHandler
+	heartbeatSub     controlplane.Subscription
 
 	grpcServer    *grpc.Server
 	grpcListeners []net.Listener
@@ -209,6 +212,10 @@ func New(opts Options) (*Server, error) {
 		s.unwindFromStep7(initCtx)
 		return nil, fmt.Errorf("server: bootstrap handler: %w", err)
 	}
+	if err := s.initStep7c(initCtx); err != nil {
+		s.unwindFromStep7(initCtx)
+		return nil, fmt.Errorf("server: heartbeat subscriber: %w", err)
+	}
 	if err := s.initStep8(); err != nil {
 		s.unwindFromStep7(initCtx)
 		return nil, fmt.Errorf("server: batch dispatcher: %w", err)
@@ -308,6 +315,14 @@ func (s *Server) initStep7b(ctx context.Context) error {
 		Issuer:     s.credentialIssuer,
 		Logger:     s.logger,
 		Clock:      s.now,
+		// Epic 19 task 2 — wire bootstrap registration into the in-
+		// memory ConnectionManager cache. Without this, heartbeats
+		// from the newly-registered agent return ErrNotRegistered
+		// until the next server restart (which re-hydrates from
+		// store.ListAgents).
+		OnAgentRegistered: func(ctx context.Context, rec *state.AgentRecord) error {
+			return s.connMgr.Register(ctx, rec)
+		},
 	})
 	if err != nil {
 		return err
@@ -316,6 +331,51 @@ func (s *Server) initStep7b(ctx context.Context) error {
 		return err
 	}
 	s.bootstrapHandler = h
+	return nil
+}
+
+// initStep7c: AgentHeartbeat subscriber. Routes every inbound
+// heartbeat envelope to ConnectionManager.Heartbeat, which refreshes
+// LastHeartbeatAt and transitions stale → connected. Drops heartbeats
+// for unregistered agents (ErrNotRegistered) with a debug log — they
+// arrive during the brief bootstrap → register window and self-heal
+// on the next heartbeat tick.
+//
+// Skipped when no Subscriber is wired (Options.Subscriber == nil) —
+// the same posture as initStep7b's bootstrap handler. Test fixtures
+// without a NATS Subscriber rely on this to keep the boot path
+// compileable.
+func (s *Server) initStep7c(ctx context.Context) error {
+	if s.subscriber == nil {
+		return nil
+	}
+	subject := s.subjects.AgentHeartbeat()
+	sub, err := s.subscriber.Subscribe(subject, func(hbCtx context.Context, _ string, env envelope.Envelope) error {
+		var hb agent.HeartbeatMetrics
+		if err := json.Unmarshal(env.Payload, &hb); err != nil {
+			s.logger.WarnContext(hbCtx, "server: heartbeat unmarshal", "err", err)
+			return nil
+		}
+		if hb.AgentID == "" {
+			s.logger.WarnContext(hbCtx, "server: heartbeat missing agent_id")
+			return nil
+		}
+		if err := s.connMgr.Heartbeat(hbCtx, hb.AgentID); err != nil {
+			if errors.Is(err, controlplane.ErrNotRegistered) {
+				s.logger.DebugContext(hbCtx, "server: heartbeat from unregistered agent",
+					"agent_id", hb.AgentID)
+				return nil
+			}
+			s.logger.WarnContext(hbCtx, "server: heartbeat update",
+				"agent_id", hb.AgentID, "err", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("server: heartbeat subscribe: %w", err)
+	}
+	s.heartbeatSub = sub
+	_ = ctx
 	return nil
 }
 
@@ -506,6 +566,7 @@ func (s *Server) Stop(ctx context.Context) error {
 		s.logger.Info("server: shutdown begin")
 
 		stopErr = firstErr(stopErr, s.stopGRPC(ctx))
+		stopErr = firstErr(stopErr, s.stopHeartbeatSub())
 		stopErr = firstErr(stopErr, s.stopBootstrap(ctx))
 		stopErr = firstErr(stopErr, s.stopCmdDispatcher(ctx))
 		stopErr = firstErr(stopErr, s.stopConnMgr(ctx))
@@ -638,6 +699,18 @@ func (s *Server) stopCmdDispatcher(ctx context.Context) error {
 	return nil
 }
 
+func (s *Server) stopHeartbeatSub() error {
+	if s.heartbeatSub == nil {
+		return nil
+	}
+	if err := s.heartbeatSub.Unsubscribe(); err != nil {
+		s.logger.Warn("server: heartbeat unsubscribe", "err", err)
+		return err
+	}
+	s.heartbeatSub = nil
+	return nil
+}
+
 func (s *Server) stopBootstrap(ctx context.Context) error {
 	if s.bootstrapHandler == nil {
 		return nil
@@ -739,6 +812,10 @@ func (s *Server) unwindFromStep6(ctx context.Context) {
 }
 
 func (s *Server) unwindFromStep7(ctx context.Context) {
+	if s.heartbeatSub != nil {
+		_ = s.heartbeatSub.Unsubscribe()
+		s.heartbeatSub = nil
+	}
 	if s.bootstrapHandler != nil {
 		_ = s.bootstrapHandler.Stop(ctx)
 	}

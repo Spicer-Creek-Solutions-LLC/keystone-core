@@ -33,10 +33,21 @@ nats:
     enabled: true
     storedir: /data/jetstream
   bootstrap:
-    enabled: false
+    enabled: true
+    psks:
+      - agentid: agent-1
+        secret: "11111111111111111111111111111111"
+        expiresat: 2099-01-01T00:00:00Z
+      - agentid: agent-2
+        secret: "22222222222222222222222222222222"
+        expiresat: 2099-01-01T00:00:00Z
 
 identity:
   enabled: false
+
+security:
+  hmacsecret: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+  defaultpolicy: allow
 
 metrics:
   enabled: true

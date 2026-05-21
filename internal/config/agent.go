@@ -21,6 +21,15 @@ type AgentConfig struct {
 	MetadataInterval  time.Duration     `koanf:"metadatainterval"`
 	CommandTimeout    time.Duration     `koanf:"commandtimeout"`
 	Labels            map[string]string `koanf:"labels"`
+
+	// BootstrapPSK is the hex-encoded pre-shared key this agent
+	// presents at boot to register with the control plane. When
+	// non-empty, the agent publishes a bootstrap.register envelope
+	// at Start before the heartbeat loop begins. The server-side
+	// PSK list lives at nats.bootstrap.psks. Leave empty for v0.1-
+	// style deployments where the operator pre-provisions agent
+	// rows out-of-band.
+	BootstrapPSK string `koanf:"bootstrappsk"` //nolint:gosec // PSK hex string — flagged false-positive on field-name pattern
 }
 
 // Validate enforces non-zero intervals and a non-empty AgentID. Zero

@@ -102,6 +102,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		MetadataInterval:  cfg.Agent.MetadataInterval,
 		CommandTimeout:    cfg.Agent.CommandTimeout,
 		Labels:            cfg.Agent.Labels,
+		BootstrapPSK:      cfg.Agent.BootstrapPSK,
 	}, natsAdapter{m: natsManager}, natsManager.Subjects(), agent.NewGopsutilCollector(log), executor, enforcer, log)
 	if err != nil {
 		return fmt.Errorf("agent: %w", err)

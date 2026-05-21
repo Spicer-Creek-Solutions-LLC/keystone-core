@@ -27,6 +27,10 @@ func (f fakeSubjects) AgentCommand(agentID string) string {
 	return "kscore." + f.cluster + ".agent." + agentID + ".command"
 }
 
+func (f fakeSubjects) AgentHeartbeat() string {
+	return "kscore." + f.cluster + ".agent.heartbeat"
+}
+
 func (f fakeSubjects) AgentResponsePattern() string {
 	return "kscore." + f.cluster + ".agent.*.response"
 }

@@ -129,6 +129,15 @@ type BootstrapHandlerConfig struct {
 	Issuer     CredentialIssuer
 	Logger     *slog.Logger
 	Clock      func() time.Time
+
+	// OnAgentRegistered, when non-nil, runs synchronously after
+	// store.CreateAgent succeeds and before the response envelope is
+	// published. The server boot wires this to ConnectionManager.
+	// Register so the newly-registered agent lands in the in-memory
+	// cache that the heartbeat path checks. Errors are logged and
+	// continue — the agent row already exists in the store; cache
+	// hydration repairs on the next server restart.
+	OnAgentRegistered func(ctx context.Context, rec *state.AgentRecord) error
 }
 
 // BootstrapHandler is the server-side implementation of the v1.0
@@ -143,14 +152,15 @@ type BootstrapHandlerConfig struct {
 // embedded server has no auth layer, and external deployments rely
 // on operator-controlled cluster access until Epic 09 lands.
 type BootstrapHandler struct {
-	subjects   Subjects
-	subscriber Subscriber
-	publisher  NATSPublisher
-	store      state.AgentStore
-	validator  BootstrapValidator
-	issuer     CredentialIssuer
-	logger     *slog.Logger
-	now        func() time.Time
+	subjects     Subjects
+	subscriber   Subscriber
+	publisher    NATSPublisher
+	store        state.AgentStore
+	validator    BootstrapValidator
+	issuer       CredentialIssuer
+	logger       *slog.Logger
+	now          func() time.Time
+	onRegistered func(ctx context.Context, rec *state.AgentRecord) error
 
 	mu        sync.Mutex
 	started   bool
@@ -185,14 +195,15 @@ func NewBootstrapHandler(cfg BootstrapHandlerConfig) (*BootstrapHandler, error) 
 		cfg.Clock = time.Now
 	}
 	return &BootstrapHandler{
-		subjects:   cfg.Subjects,
-		subscriber: cfg.Subscriber,
-		publisher:  cfg.Publisher,
-		store:      cfg.Store,
-		validator:  cfg.Validator,
-		issuer:     cfg.Issuer,
-		logger:     cfg.Logger,
-		now:        cfg.Clock,
+		subjects:     cfg.Subjects,
+		subscriber:   cfg.Subscriber,
+		publisher:    cfg.Publisher,
+		store:        cfg.Store,
+		validator:    cfg.Validator,
+		issuer:       cfg.Issuer,
+		logger:       cfg.Logger,
+		now:          cfg.Clock,
+		onRegistered: cfg.OnAgentRegistered,
 	}, nil
 }
 
@@ -298,6 +309,12 @@ func (h *BootstrapHandler) handle(ctx context.Context, subject string, env envel
 		h.logger.Error("controlplane: bootstrap: CreateAgent failed (api key leaked)",
 			"agent_id", req.AgentID, "err", err)
 		return err
+	}
+	if h.onRegistered != nil {
+		if err := h.onRegistered(ctx, rec); err != nil {
+			h.logger.Warn("controlplane: bootstrap: OnAgentRegistered hook returned error",
+				"agent_id", req.AgentID, "err", err)
+		}
 	}
 
 	respPayload, err := json.Marshal(creds) //nolint:gosec // marshaling AgentCredentials.APIKey to the bootstrap response is the load-bearing point of the protocol — agent gets the cleartext exactly once

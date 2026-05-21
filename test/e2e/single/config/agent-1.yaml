@@ -18,6 +18,7 @@ agent:
   heartbeatinterval: 5s
   metadatainterval: 30s
   commandtimeout: 30s
+  bootstrappsk: "11111111111111111111111111111111"
   labels:
     topology: single
     role: agent
@@ -30,4 +31,5 @@ identity:
   enabled: false
 
 security:
+  hmacsecret: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
   defaultpolicy: allow

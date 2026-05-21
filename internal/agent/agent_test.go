@@ -33,6 +33,9 @@ func (f fakeSubjects) AgentResponse(id string) string {
 func (f fakeSubjects) AgentState(id string) string {
 	return "kscore." + f.cluster + ".agent." + id + ".state"
 }
+func (f fakeSubjects) BootstrapRegister(id string) string {
+	return "kscore." + f.cluster + ".bootstrap." + id + ".register"
+}
 func (f fakeSubjects) Cluster() string { return f.cluster }
 func (f fakeSubjects) Prefix() string  { return "kscore." + f.cluster }
 

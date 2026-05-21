@@ -41,6 +41,7 @@ type Subjects interface {
 	AgentCommand(agentID string) string
 	AgentResponse(agentID string) string
 	AgentState(agentID string) string
+	BootstrapRegister(agentID string) string
 	Cluster() string
 	Prefix() string
 }
@@ -54,6 +55,13 @@ type Config struct {
 	MetadataInterval  time.Duration
 	CommandTimeout    time.Duration
 	Labels            map[string]string
+
+	// BootstrapPSK is the hex-encoded pre-shared key the agent
+	// presents on the bootstrap-register subject at Start. Empty
+	// disables the bootstrap publish — the agent falls back to
+	// heartbeats-only, which only register the agent if a prior
+	// boot already inserted the row (operator-pre-provisioned).
+	BootstrapPSK string //nolint:gosec // PSK hex string — flagged false-positive on field-name pattern
 }
 
 const (
@@ -164,6 +172,18 @@ func (a *Agent) Start(_ context.Context) error {
 	// child processes. PROJECT-DETAILS §4.6 graceful shutdown.
 	a.commandCtx = loopCtx
 
+	// Epic 19 task 2 — when a PSK is configured, fire-and-forget a
+	// bootstrap-register envelope so the server can insert the
+	// agent row before the first heartbeat lands. Failure to
+	// publish is non-fatal: heartbeats arrive on the same NATS
+	// connection and the operator can see the agent log line.
+	if a.cfg.BootstrapPSK != "" {
+		if err := a.publishBootstrapRegister(loopCtx); err != nil {
+			a.log.Warn("agent: bootstrap register publish",
+				"agent_id", a.cfg.AgentID, "err", err)
+		}
+	}
+
 	a.wg.Add(2)
 	go a.runHeartbeatLoop(loopCtx)
 	go a.runMetadataLoop(loopCtx)
@@ -260,6 +280,39 @@ func (a *Agent) runHeartbeatLoop(ctx context.Context) {
 			a.publishHeartbeat(ctx)
 		}
 	}
+}
+
+// publishBootstrapRegister fires a single bootstrap-register envelope
+// carrying the PSK proof. Best-effort — the heartbeat loop is the
+// retry path. The server's BootstrapHandler upserts the agent row,
+// so duplicate publishes from agent restarts are safe (rejected by
+// the consumed-PSK check until operator rotates).
+func (a *Agent) publishBootstrapRegister(ctx context.Context) error {
+	req := struct {
+		AgentID string `json:"agent_id"`
+		Proof   string `json:"proof"`
+		Agent   struct {
+			Labels map[string]string `json:"labels,omitempty"`
+		} `json:"agent,omitempty"`
+	}{
+		AgentID: a.cfg.AgentID,
+		Proof:   a.cfg.BootstrapPSK,
+	}
+	req.Agent.Labels = a.cfg.Labels
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("agent: bootstrap marshal: %w", err)
+	}
+	env := envelope.New(payload, a.subjects.Prefix(),
+		envelope.WithPriority(envelope.PriorityNormal),
+	)
+	subject := a.subjects.BootstrapRegister(a.cfg.AgentID)
+	if err := a.nats.PublishEnvelope(ctx, subject, env); err != nil {
+		return fmt.Errorf("agent: bootstrap publish %q: %w", subject, err)
+	}
+	a.log.Info("agent: bootstrap register published",
+		"agent_id", a.cfg.AgentID, "subject", subject)
+	return nil
 }
 
 func (a *Agent) publishHeartbeat(ctx context.Context) {

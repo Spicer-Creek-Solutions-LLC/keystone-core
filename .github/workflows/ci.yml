@@ -107,6 +107,22 @@ jobs:
           cache: true
       - run: make smoke
 
+  # Epic 19 task 2a — single-topology E2E. Brings up the docker-
+  # compose harness (server + 2x agent + Postgres + NATS), runs the
+  # v1.0 baseline scenarios (registration, command exec, state apply),
+  # and tears down. continue-on-error: true while we collect flake
+  # signal — task 2c flips it to a required gate.
+  e2e:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make e2e-test
+
   openapi:
     runs-on: ubuntu-latest
     steps:

@@ -83,7 +83,7 @@ Take v1.0 from "all features done individually" to "production-ready release art
 ## Tasks
 
 1. **Single-topology E2E** docker-compose + test harness. _(landed — `test/e2e/single/`: docker-compose with 1× kscore-server + 2× kscore-agent + Postgres + NATS; multi-stage `Dockerfile.kscore` with `BIN` build-arg; `e2e-{build,up,down,logs,test}` Make targets; `harness_test.go` (`//go:build e2e`) asserts server `/health/live`+`/health/ready`, NATS `/healthz`, and Postgres schema applied. Feature scenarios are task 2.)_
-2. **All v1.0 E2E scenarios** wired into CI.
+2. **All v1.0 E2E scenarios** wired into CI. _(2a landed — scenarios 1–3 over the single-topology harness from task 1: agent registration (PSK bootstrap + heartbeats reaching `connected`), single command exec via `ExecuteCommand`, and `ApplyState` round-trip. CI gains a non-blocking `e2e` job (`continue-on-error: true`) that runs `make e2e-test`. Required v1.0 wiring delivered as part of 2a: agent-side bootstrap-register publish on `Start`, server-side `AgentHeartbeat` subscriber routing to `ConnectionManager.Heartbeat`, bootstrap handler `OnAgentRegistered` callback feeding the conn-mgr cache, and `ListAgents`/`GetAgent` gRPC implementations. **Pending**: 2b — scenarios 4–6 (blueprint apply, module install/exec, secrets); 2c — scenarios 7–9 (audit query, outbound webhook, GitOps webhook+rollback) + flipping the CI job to required.)_
 3. **Performance SLO verification** scripts in `test/e2e/perf/`.
 4. **Coverage gating** in CI.
 5. **Race detector** on every test run.
