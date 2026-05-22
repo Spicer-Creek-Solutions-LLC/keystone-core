@@ -18,18 +18,23 @@ the integrity of what we ship as seriously as the code itself.
 
 The playbook documents the **multi-party signing target** for the
 project. Not every release line runs the full multi-party ceremony —
-the project doesn't have enough independent signers yet. Today's
-matrix:
+the project doesn't have enough independent signers yet. The release
+ladder + signing model:
 
 | Release line | Signing model | Status |
 |--------------|---------------|--------|
-| `v1.0.x` | **Single-signer** — one maintainer plays Release Manager + Signer + Witness. | Active |
-| `v1.1.x` | **Single-signer** — same posture as v1.0; pre-graduation. | Planned |
+| `v0.x.y` (`v0.1` → `v0.9`) | **Single-signer** — same posture as v1.0/v1.1; this is what the first public release (v0.1.0) ships under. Breaking changes between minor versions allowed per [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md). | Active |
+| `v1.0.x` | **Single-signer** — one maintainer plays Release Manager + Signer + Witness. SemVer stability begins. | Planned (cuts when all 19 epics complete) |
+| `v1.1.x` | **Single-signer** — same posture as v0.x and v1.0; pre-graduation. | Planned |
 | `v1.2.x` and later | **Multi-party** — ≥3 independent signers, threshold-2 quorum on all signing operations. | Target |
 
 Every phase below documents the multi-party (v1.2+) procedure as
 the canonical form. Each phase carries a **v1.0 simplification**
-callout where the single-signer flow differs.
+callout where the single-signer flow differs. **The v1.0
+simplification applies to every single-signer release line —
+v0.x, v1.0.x, and v1.1.x.** It's labeled "v1.0" because the
+multi-party graduation target is v1.2, but the procedure is
+identical across v0.x and v1.1.x.
 
 ### v1.0 simplified ceremony in one paragraph
 
@@ -56,17 +61,24 @@ The v1.2 graduation criteria — what makes a release line eligible
 to graduate from single-signer to multi-party — live at the end of
 this document under **v1.2 graduation checklist**.
 
-### Why single-signer for v1.0
+### Why single-signer for v0.x → v1.1
 
 Multi-party signing is the right long-term posture. Bootstrapping
 it before the project has additional maintainers would require
 inventing co-signers (or treating one person across multiple roles
 as multi-party, which is theater). The cost of waiting is bounded:
-the v1.0 single-signer key is rotatable; releases shipped under it
-are individually verifiable; the graduation path to v1.2 is
-documented and concrete. The cost of pretending we have a quorum
-when we don't would be a false integrity signal — worse than the
-honest single-signer posture.
+the single-signer key is rotatable; releases shipped under it are
+individually verifiable; the graduation path to v1.2 is documented
+and concrete. The cost of pretending we have a quorum when we
+don't would be a false integrity signal — worse than the honest
+single-signer posture.
+
+For v0.x specifically, single-signer also matches the audience:
+the v0.x line is "genuinely try-able by curious operators and
+early adopters" (per [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md))
+— not yet a production-fleet dependency. The single-signer
+verification flow gives those adopters a real integrity check
+without the operational overhead of a multi-party ceremony.
 
 ## Standards and References
 
@@ -953,7 +965,7 @@ Include these instructions (or a link to them) with every release.
 Two flows below — the exact signature filenames depend on which
 [release line](#release-lines-at-a-glance) the version belongs to.
 
-### v1.0 / v1.1 (single-signer)
+### v0.x / v1.0 / v1.1 (single-signer)
 
 ```bash
 # 1. Import the Keystone Core release public key
