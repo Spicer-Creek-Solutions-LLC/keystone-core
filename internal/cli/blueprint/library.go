@@ -90,7 +90,9 @@ func copyTree(src, dst string) error {
 		if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
 			return err
 		}
-		in, err := os.Open(path) //nolint:gosec // walking a caller-provided blueprint dir
+		// #nosec G122 G304 -- author-CLI walking a caller-provided
+		// blueprint library dir; symlink TOCTOU isn't a threat model here.
+		in, err := os.Open(path) //nolint:gosec
 		if err != nil {
 			return err
 		}

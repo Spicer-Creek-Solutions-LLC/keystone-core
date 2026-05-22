@@ -46,7 +46,7 @@ export CGO_ENABLED := 0
         dev dev-server dev-agent \
         e2e-build e2e-up e2e-down e2e-logs e2e-test \
         release-snapshot release-dry-run \
-        security-secrets security-vulns security-sast
+        security-secrets security-vulns security-sast security-licenses
 
 # ---- Help (default) -------------------------------------------------------
 
@@ -91,7 +91,7 @@ deps: ## Download and verify Go module dependencies
 	go mod download
 	go mod verify
 
-install-tools: ## Install Go-installable dev tools (golangci-lint, gosec, govulncheck, buf, protoc-gen-go*, goreleaser, gitleaks)
+install-tools: ## Install Go-installable dev tools (golangci-lint, gosec, govulncheck, buf, protoc-gen-go*, goreleaser, gitleaks, go-licenses)
 	@command -v golangci-lint >/dev/null || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	@command -v gosec >/dev/null || go install github.com/securego/gosec/v2/cmd/gosec@latest
 	@command -v govulncheck >/dev/null || go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -100,6 +100,7 @@ install-tools: ## Install Go-installable dev tools (golangci-lint, gosec, govuln
 	@command -v protoc-gen-go-grpc >/dev/null || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 	@command -v goreleaser >/dev/null || go install github.com/goreleaser/goreleaser/v2@latest
 	@command -v gitleaks >/dev/null || go install github.com/zricethezav/gitleaks/v8@latest
+	@command -v go-licenses >/dev/null || go install github.com/google/go-licenses@latest
 
 # ---- Test -----------------------------------------------------------------
 
@@ -288,8 +289,27 @@ security-secrets: ## Scan for committed secrets (gitleaks)
 security-vulns: ## Scan deps for known CVEs (govulncheck)
 	govulncheck ./...
 
-security-sast: ## Static analysis (gosec)
-	gosec -exclude-dir=.cache ./...
+security-sast: ## Static analysis (gosec) — G115 globally excluded, HIGH+ severity gate; see docs/project/SECURITY-GOVERNANCE.md
+	# Two posture choices documented in SECURITY-GOVERNANCE.md:
+	#   - G115 (integer overflow conversion) is excluded project-wide
+	#     — standard Go-project posture for noisy bounded conversions
+	#     at proto<->Go and parser boundaries.
+	#   - `-severity=high` per the epic-19 acceptance ("no high/
+	#     critical findings"). MEDIUM + LOW are reported in the
+	#     verbose run via `make security-sast-verbose` (v1.x).
+	gosec -exclude-dir=.cache -exclude=G115 -severity=high ./...
+
+security-licenses: ## Verify dep licenses are Apache-2.0 / MIT / BSD-compatible
+	# Strict per epic 19 acceptance: forbidden, restricted (LGPL),
+	# and unknown all fail. Each --ignore entry needs a comment
+	# below naming why the dep is safe.
+	# modernc.org/mathutil — BSD-3-Clause (confirmed in the LICENSE
+	# file); go-licenses can't auto-classify because the file lacks
+	# a SPDX header.
+	go-licenses check \
+		--disallowed_types=forbidden,restricted,unknown \
+		--ignore=modernc.org/mathutil \
+		./...
 
 # ---------------------------------------------------------------------------
 # Targets added by later tasks/epics — intentionally NOT stubbed here so

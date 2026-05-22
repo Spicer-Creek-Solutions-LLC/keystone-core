@@ -513,6 +513,8 @@ const migrateInsertBatchAgentResultSQL = `INSERT INTO batch_agent_results (
 
 // gosec G101 false-positive: SQL fragment, not a credential.
 //
+// #nosec G101 -- SQL INSERT, not a credential.
+//
 //nolint:gosec
 const migrateInsertAPIKeySQL = `INSERT INTO apikeys (
     id, name, key_hash, role, created_at, expires_at, last_used

@@ -84,7 +84,9 @@ func writeBundle(srcDir, outPath string) (err error) {
 		if info.IsDir() {
 			return nil
 		}
-		in, err := os.Open(path) //nolint:gosec // walking the validated blueprint dir
+		// #nosec G122 G304 -- author-CLI bundling a validated
+		// blueprint dir; symlink TOCTOU isn't a threat model here.
+		in, err := os.Open(path) //nolint:gosec
 		if err != nil {
 			return err
 		}

@@ -81,7 +81,8 @@ func NewConnectionManager(cfg config.NATSConfig, log *slog.Logger) (*ConnectionM
 		now:       time.Now,
 		// math/rand/v2 is correct here — backoff jitter doesn't need
 		// cryptographic entropy. crypto/rand would be wasteful.
-		rng: rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0xDEADBEEF)), //nolint:gosec // G404: jitter, not security
+		// #nosec G404 -- backoff jitter, not cryptographic.
+		rng: rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0xDEADBEEF)), //nolint:gosec // G404
 		states:    make(map[string]*EndpointState, len(endpoints)),
 		breakers:  make(map[string]Breaker, len(endpoints)),
 	}

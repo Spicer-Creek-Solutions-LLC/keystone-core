@@ -10,6 +10,8 @@ import (
 
 // gosec G101 false-positive: SQL fragment, not a credential.
 //
+// #nosec G101 -- SQL column list, not a credential.
+//
 //nolint:gosec
 const apiKeySelectPg = `SELECT
     id, name, key_hash, role,

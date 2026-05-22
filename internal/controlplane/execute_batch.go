@@ -94,8 +94,14 @@ func (d *BatchDispatcher) ExecuteBatch(
 	d.cancels[id] = cancel
 	d.mu.Unlock()
 
+	// Detaching from the request ctx is the intent: a batch
+	// orchestration outlives the gRPC handler that returned the
+	// batch ID; runCtx uses context.WithoutCancel of the caller
+	// ctx so inherited values (logger, correlation ID) survive
+	// cancellation of the upstream caller.
 	d.wg.Add(1)
-	go d.runBatch(runCtx, cancel, id, req, agentIDs, exec, progress) //nolint:gosec // G118: detaching from request ctx is the intent — orchestration outlives the gRPC handler that returned the batch ID
+	//nolint:gosec // intentional ctx detachment; see comment above
+	go d.runBatch(runCtx, cancel, id, req, agentIDs, exec, progress) // #nosec G118
 	return id, nil
 }
 

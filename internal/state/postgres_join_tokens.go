@@ -10,6 +10,8 @@ import (
 
 // gosec G101 false-positive: column list, not a credential.
 //
+// #nosec G101 -- SQL column list, not a credential.
+//
 //nolint:gosec
 const postgresJoinTokenSelect = `SELECT
     id, hash, salt, prefix, agent_id,

@@ -199,6 +199,75 @@ Security governance ensures that security considerations are systematically inte
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### Security Baseline Pipeline (Epic 19 task 7)
+
+Four scans gate every PR via CI's `security` job. The same scans are
+runnable locally as `make security-secrets`, `make security-vulns`,
+`make security-sast`, `make security-licenses`.
+
+| Scan | Tool | Threshold | Notes |
+|------|------|-----------|-------|
+| Secrets in git history | gitleaks | zero findings | scans full history (`fetch-depth: 0` in CI) |
+| Known CVEs in deps | govulncheck | zero **called** vulnerabilities | Go toolchain pinned to `go 1.26.3` in `go.mod`; `golang.org/x/crypto` ≥ v0.52.0 |
+| Static analysis (SAST) | gosec | zero **HIGH+** findings | G115 globally excluded (see below); `-severity=high` |
+| Dependency licenses | go-licenses | no `forbidden`, `restricted`, or `unknown` | Apache-2.0 / MIT / BSD-compatible per epic 19 §Scope |
+
+#### G115 (integer overflow) is globally excluded
+
+`gosec`'s G115 rule flags every `int → int32` / `uint64 → int64`
+conversion as a potential overflow. In this codebase those
+conversions sit at well-validated boundaries — proto ↔ Go field
+widths (where the protobuf int32/int64 width is the contract),
+parser-checked archive headers, range-validated config. Per-site
+`//nosec` annotation noise outweighs the signal.
+
+This matches the standard Go-project posture (kubernetes, prometheus,
+etcd, etc. all exclude G115 globally). Re-enabling G115 + a per-site
+audit is tracked under the v1.x ROADMAP entry *"Security baseline
+expansion"* as a sub-bullet.
+
+#### gosec annotation convention
+
+For findings that are real false positives (or where the security
+posture is intentional), annotate with a `// #nosec` comment on
+or just before the offending line:
+
+```go
+// #nosec G404 -- jitter is anti-thundering-herd timing, not security-sensitive
+offset := (rand.Float64()*2 - 1) * jitterRange
+```
+
+Every `// #nosec` annotation MUST carry a short rationale after the
+`--`. `make security-sast` reads `// #nosec` in two forms: trailing
+the statement (`stmt() // #nosec G404`) or on the line above.
+
+`// #nosec` is the gosec syntax — `//nolint:gosec` only suppresses
+golangci-lint's gosec linter, not standalone gosec. Most existing
+annotations carry **both** so each tool sees its own marker.
+
+#### License-check ignore convention
+
+`make security-licenses` carries one ignore today:
+
+- `modernc.org/mathutil` — BSD-3-Clause (confirmed in its LICENSE
+  file), but go-licenses can't auto-classify because the file lacks
+  an SPDX header. The `--ignore` is documented inline in the Makefile.
+
+Any new ignore needs the same shape — a comment naming the actual
+license + why go-licenses can't classify it.
+
+#### Deferred to v1.x
+
+Tracked as sub-bullets under the ROADMAP entry *"Security baseline
+expansion"*:
+
+- Re-enable G115 + audit every site (currently ~84 findings,
+  almost all at bounded conversions).
+- Add semgrep for cross-language SAST.
+- Add trivy / grype for container-image and lockfile scanning.
+- Add syft for SBOM generation.
+- Add hadolint for Dockerfile linting.
+
 ### Security PR Review Process
 
 All PRs are automatically labeled by CI based on files changed. PRs with security-relevant changes require additional review.

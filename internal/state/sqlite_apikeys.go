@@ -12,6 +12,8 @@ import (
 // const name contains "Key" + the literal mentions key_hash; neither
 // is a credential.
 //
+// #nosec G101 -- SQL column list, not a credential.
+//
 //nolint:gosec
 const apiKeySelect = `SELECT
     id, name, key_hash, role,

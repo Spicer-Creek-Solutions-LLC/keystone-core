@@ -216,7 +216,9 @@ func loadModule(dir string) (*manifest.Manifest, []byte, error) {
 	if err := m.Validate(); err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", ErrManifest, err)
 	}
-	src, err := os.ReadFile(filepath.Join(dir, m.Entrypoint)) //nolint:gosec // G304: manifest-declared entrypoint under the module dir
+	// #nosec G304 G703 -- manifest-declared entrypoint joined under the
+	// caller-supplied module dir; this is the module loader's contract.
+	src, err := os.ReadFile(filepath.Join(dir, m.Entrypoint)) //nolint:gosec
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %v", ErrEntrypoint, err)
 	}

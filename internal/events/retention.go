@@ -324,7 +324,7 @@ func (e *RetentionEnforcer) nextWait() time.Duration {
 		return e.interval
 	}
 	jitterRange := float64(e.interval) * e.jitter // total ± range
-	//nolint:gosec // jitter is anti-thundering-herd timing, not security-sensitive
+	// #nosec G404 -- jitter is anti-thundering-herd timing, not security-sensitive
 	offset := (rand.Float64()*2 - 1) * jitterRange
 	d := time.Duration(float64(e.interval) + offset)
 	if d <= 0 {

@@ -896,6 +896,20 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v1.x — post-v1.0 feature additions
 
+#### Security baseline expansion
+
+- **Priority**: v1.x
+- **What**: Epic 19 task 7 shipped the v1.0 baseline pipeline: `make security-{secrets,vulns,sast,licenses}` running gitleaks, govulncheck, gosec (HIGH-only, G115 excluded), go-licenses (strict). v1.x expands the scan set + tightens the configuration:
+  - **Re-enable G115 + per-site audit**. Currently ~84 G115 (integer-overflow conversion) findings sit at proto<->Go field-width boundaries, parser-checked archive headers, and range-validated config. Re-enabling the rule requires a per-site audit + `//#nosec G115` annotations (or, where the conversion is genuinely unbounded, a `range check + return error` fix).
+  - **semgrep** — cross-language SAST; catches patterns gosec doesn't (SSRF, template injection, regexp DoS).
+  - **trivy** / **grype** — container-image + lockfile scanning; lands with the v1.0 release-image build.
+  - **syft** — SBOM generation; lands with epic 19's release-artifact work.
+  - **hadolint** — Dockerfile linting (`test/e2e/single/Dockerfile.kscore` + the prod release Dockerfile when it lands).
+  - **gosec MEDIUM gate** — current baseline gates HIGH only per epic 19 acceptance. v1.x graduates MEDIUM to a required floor after a one-time triage pass.
+- **Why deferred**: The v1.0 baseline ships the four scans the epic explicitly names. Expanding to the broader suite is post-v1.0 release-prep, not a v1.0 blocker. The G115 re-enablement specifically would require a large triage PR with little signal-to-noise improvement for the v1.0 codebase.
+- **Acceptance**: Each sub-bullet adds its own Make target + CI step + brief docs entry under `docs/project/SECURITY-GOVERNANCE.md` "Security Baseline Pipeline." `make security` (or equivalent umbrella) runs all.
+- **References**: epic 19 task 7 `_(landed)_`; `Makefile` `security-*` targets; `docs/project/SECURITY-GOVERNANCE.md` "Security Baseline Pipeline" section.
+
 #### Rate-limit: `Retry-After` HTTP-date format alternative
 
 - **Priority**: v1.x

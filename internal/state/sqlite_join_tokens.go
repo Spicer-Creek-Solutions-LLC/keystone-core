@@ -12,6 +12,8 @@ import (
 // gosec G101 false-positive: the name contains "token" but the
 // literal is a column list, not a credential.
 //
+// #nosec G101 -- SQL column list, not a credential.
+//
 //nolint:gosec
 const joinTokenSelect = `SELECT
     id, hash, salt, prefix, agent_id,

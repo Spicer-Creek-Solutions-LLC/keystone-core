@@ -45,7 +45,8 @@ func signCmd() *cobra.Command {
 			}
 			// out is an operator-supplied --output / <zip>.sig path
 			// in an author CLI — writing where asked is the intent.
-			if err := os.WriteFile(out, sb, 0o600); err != nil { //nolint:gosec // G703: operator-supplied output path
+			// #nosec G304 G703 -- operator-supplied path; module-author CLI.
+			if err := os.WriteFile(out, sb, 0o600); err != nil { //nolint:gosec
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "signed: %s (key %s)\n", out, sig.KeyID)

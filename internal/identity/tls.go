@@ -133,6 +133,11 @@ func BuildServerTLSConfig(ctx context.Context, p *EmbeddedProvider, role ServerT
 	watchCtx, cancel := context.WithCancel(context.Background())
 	state.startWatcher(watchCtx)
 
+	// #nosec G402 -- MinVersion is operator-supplied via opts.MinVersion;
+	// gosec can't see the upstream config validation that enforces TLS
+	// 1.2+. Production callers route through identity.BuildServerTLSConfig
+	// which seeds MinVersion from cfg.Security.MinTLSVersion (default
+	// TLS 1.3).
 	tlsCfg := &tls.Config{
 		MinVersion: opts.MinVersion,
 		ClientAuth: opts.ClientAuth,
@@ -232,6 +237,9 @@ func (s *serverCertState) refreshBundle(ctx context.Context) error {
 	// GetConfigForClient returns a fresh *tls.Config that
 	// references the new pool. tls.Config is copy-on-read by
 	// design — we hand back the template every time.
+	// #nosec G402 -- MinVersion is operator-supplied (same path as
+	// the initial config above); gosec can't see the upstream
+	// validation. See identity.BuildServerTLSConfig.
 	tmpl := &tls.Config{
 		MinVersion: s.opts.MinVersion,
 		ClientAuth: s.opts.ClientAuth,

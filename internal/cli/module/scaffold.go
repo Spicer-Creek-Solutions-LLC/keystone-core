@@ -150,7 +150,9 @@ func zipDir(dir, out string) error {
 		if err != nil {
 			return err
 		}
-		src, err := os.Open(p) //nolint:gosec // walking the operator-supplied module dir
+		// #nosec G122 G304 -- author-CLI walking an operator-supplied
+		// module dir; symlink TOCTOU isn't a threat model here.
+		src, err := os.Open(p) //nolint:gosec
 		if err != nil {
 			return err
 		}
