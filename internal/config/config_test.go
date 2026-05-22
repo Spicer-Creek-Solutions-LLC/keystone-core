@@ -279,3 +279,58 @@ func TestProductionWarnings_AllSafe(t *testing.T) {
 		t.Errorf("warnings = %v, want none in fully safe prod", w)
 	}
 }
+
+// Epic 19 task 8 hardening pass — verify the three new dev-mode
+// knob warnings fire in production.
+
+func TestProductionWarnings_HMACSecretSet(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Mode = ModeProduction
+	cfg.Server.TLS.Enabled = true
+	cfg.Server.TLS.CertFile = "/c"
+	cfg.Server.TLS.KeyFile = "/k"
+	cfg.Storage.Driver = "postgres"
+	cfg.Storage.DSN = "postgres://x"
+	cfg.Server.CORS = safeCORS()
+	cfg.Security.HMACSecret = "deadbeef"
+	w := cfg.ProductionWarnings()
+	if !containsSubstr(w, "security.hmacsecret") {
+		t.Errorf("want HMAC-secret warning, got %v", w)
+	}
+}
+
+func TestProductionWarnings_SecretsInlineMasterKey(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Mode = ModeProduction
+	cfg.Server.TLS.Enabled = true
+	cfg.Server.TLS.CertFile = "/c"
+	cfg.Server.TLS.KeyFile = "/k"
+	cfg.Storage.Driver = "postgres"
+	cfg.Storage.DSN = "postgres://x"
+	cfg.Server.CORS = safeCORS()
+	cfg.Secrets.Enabled = true
+	cfg.Secrets.Backends = []SecretsBackendConfig{{
+		Name: "file", Type: SecretsBackendTypeFile,
+		File: &SecretsFileBackendConfig{Path: "/var/lib/kscore/secrets", MasterKey: "inline:deadbeef"},
+	}}
+	w := cfg.ProductionWarnings()
+	if !containsSubstr(w, "inline:") {
+		t.Errorf("want inline master_key warning, got %v", w)
+	}
+}
+
+func TestProductionWarnings_BootstrapPSKInProd(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Mode = ModeProduction
+	cfg.Server.TLS.Enabled = true
+	cfg.Server.TLS.CertFile = "/c"
+	cfg.Server.TLS.KeyFile = "/k"
+	cfg.Storage.Driver = "postgres"
+	cfg.Storage.DSN = "postgres://x"
+	cfg.Server.CORS = safeCORS()
+	cfg.NATS.Bootstrap.Enabled = true
+	w := cfg.ProductionWarnings()
+	if !containsSubstr(w, "nats.bootstrap.enabled") {
+		t.Errorf("want bootstrap-PSK warning, got %v", w)
+	}
+}

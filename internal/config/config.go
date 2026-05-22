@@ -297,5 +297,21 @@ func (c *Config) ProductionWarnings() []string {
 		sort.Strings(open)
 		w = append(w, fmt.Sprintf("gitops webhook receiver enabled with unauthenticated sources %v in production (set gitops.webhook.sources.<provider>.method to hmac or bearer)", open))
 	}
+	// Epic 19 task 8 — surface dev-mode-only credential knobs that
+	// silently work but should never ship.
+	if c.Security.HMACSecret != "" {
+		w = append(w, "security.hmacsecret is set to a static value (rotate via an out-of-band secret manager in production; in v1.x this graduates to KMS-backed rotation)")
+	}
+	if c.Secrets.Enabled {
+		for _, b := range c.Secrets.Backends {
+			if b.Type == SecretsBackendTypeFile && b.File != nil &&
+				strings.HasPrefix(b.File.MasterKey, "inline:") {
+				w = append(w, fmt.Sprintf("secrets.backends[%q].file.master_key uses inline:hex in production (use env: or file: to keep the key out of the config file)", b.Name))
+			}
+		}
+	}
+	if c.NATS.Bootstrap.Enabled {
+		w = append(w, "nats.bootstrap.enabled uses static PSK material in production (graduate to identity-issued join tokens via identity.enabled: true)")
+	}
 	return w
 }

@@ -43,6 +43,11 @@ var allowList = map[string]string{
 	// asserted SLO numbers meaningless. See
 	// docs/project/TEST-POLICY.md "Documented exceptions".
 	"slo": "wall-clock SLO measurement",
+	// `make profile` runs pprof against the same wall-clock-
+	// sensitive workload as `make slo`; -race instrumentation
+	// would distort the CPU/allocation baseline beyond usefulness.
+	// See docs/project/PROFILING-BASELINE.md.
+	"profile": "wall-clock-sensitive profiling workload",
 }
 
 // goTestPattern matches a `go test` command on a line. Allows for

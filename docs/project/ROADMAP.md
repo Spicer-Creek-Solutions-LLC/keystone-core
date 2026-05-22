@@ -896,6 +896,38 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v1.x — post-v1.0 feature additions
 
+#### Soak-test infrastructure for fd / connection / goroutine leaks
+
+- **Priority**: v1.x
+- **What**: Epic 19 §Acceptance line 109 asks for "no goroutine / connection / fd leaks in 1-hour soak test." Task 6 (goleak in integration tests) and task 8 (hardening pass — per-component lifecycle audit in `docs/project/HARDENING-BASELINE.md`) shipped the v1.0 mechanisms; the 1-hour soak harness itself ships post-v1.0. v1.x adds: a soak target (`make soak` or similar) that runs the topology under representative load for N hours, captures `lsof` baselines + diffs, snapshots goroutine count via `runtime.NumGoroutine`, and asserts each is bounded.
+- **Why deferred**: The mechanism is in place (goleak under integration, lifecycle table for connections). Building the soak orchestration — load generator, time-boxed runner, lsof differ, goroutine snapshotter, CI integration with a long-running job — is dedicated scope.
+- **Acceptance**: `make soak` runs the docker-compose topology under sustained load for ≥1 hour, asserts: (a) `runtime.NumGoroutine` flat ±5%; (b) per-process `lsof` count flat ±5%; (c) per-process RSS flat ±10%. CI runs it nightly.
+- **References**: epic 19 task 6 `_(landed)_`; epic 19 task 8 `_(landed)_`; `docs/project/HARDENING-BASELINE.md`.
+
+#### Sustained-load profiling baseline
+
+- **Priority**: v1.x
+- **What**: Epic 19 task 8 captured a CPU + allocation baseline against the perf SLO workload (`make profile`; `docs/project/PROFILING-BASELINE.md`). That workload is ~250 ms total — useful for catching obvious hot spots, insufficient for production-shape profiling. v1.x adds a sustained-load harness (10-minute-ish runs against a multi-agent topology with steady command + event + state-apply load) and a per-domain profile breakdown (state engine, blueprint, secrets, audit).
+- **Why deferred**: The v1.0 baseline catches the bar the epic asked for (>5% CPU / >50 MB alloc). Production-shape profiling is operations-tuning work, not a v1.0 release blocker.
+- **Acceptance**: `make profile-sustained` (or equivalent) runs the harness; per-domain profile files land next to `docs/project/PROFILING-BASELINE.md`'s baseline numbers; the doc gains a per-domain section.
+- **References**: epic 19 task 8 `_(landed)_`; `docs/project/PROFILING-BASELINE.md`.
+
+#### Error-message docs URLs (post Hugo site)
+
+- **Priority**: v1.x
+- **What**: Many error messages would benefit from a docs URL (`See https://keystone-core.io/docs/errors/<slug>` style). Epic 19 §Hardening calls this out; epic 19 task 8 deferred it because the Hugo docs site is post-v1.0. v1.x adds the URLs once the docs site is live + has the per-error slug pages.
+- **Why deferred**: URLs to a non-existent docs site would rot.
+- **Acceptance**: A `pkg/api/apierror` (or similar) helper produces "<message>. See <docs-url>" strings; the docs site has the matching slug pages; key user-facing errors (config validation, secrets read, command exec failures) carry the URLs.
+- **References**: epic 19 task 8 `_(landed)_`; the Hugo docs ROADMAP entry (post-v1.0).
+
+#### Logging: context-aware threading of deep helpers
+
+- **Priority**: v1.x
+- **What**: 122 `slog.Info/Warn/Error/Debug` (non-context) calls live in deep helpers (collectors, init paths, shutdown helpers) that don't have `ctx` in scope. They drop the correlation ID that the request-scoped path threads via `logging.WithCorrelationID`. v1.x graduates each site to `slog.*Context` by threading `ctx` through the relevant call chains (or accepting a logger that carries the correlation ID).
+- **Why deferred**: Each site is small but the threading is cross-cutting; bundling it into task 8's hardening pass would balloon scope. Request-scoped logging already carries the correlation ID — the gap is only in deep helpers.
+- **Acceptance**: `tools/logaudit` (or `grep` audit) reports zero non-context `slog.*` calls outside an explicit allowList; allowList entries each name why the site can't take a ctx (e.g., process-wide init).
+- **References**: epic 19 task 8 `_(landed)_`; `docs/project/HARDENING-BASELINE.md` "Logging audit" section.
+
 #### Security baseline expansion
 
 - **Priority**: v1.x

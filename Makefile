@@ -38,7 +38,7 @@ export CGO_ENABLED := 0
 
 .PHONY: help \
         build build-all-platforms clean deps install-tools \
-        test test-verbose test-coverage coverage-gate race-policy goleak-policy test-integration slo test-cross-distro check \
+        test test-verbose test-coverage coverage-gate race-policy goleak-policy test-integration slo profile test-cross-distro check \
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
         openapi-lint \
@@ -143,6 +143,24 @@ slo: ## Verify v1.0 performance SLOs (-tags=slo, NO -race)
 	# functional in--race smoke lives in the per-domain integration
 	# tests (make test-integration).
 	CGO_ENABLED=1 go test -tags=slo -count=1 -timeout=300s ./test/e2e/ha/... ./test/e2e/perf/...
+
+profile: ## pprof against the perf SLO workload — captures CPU + heap, reports top 20 each (docs/project/PROFILING-BASELINE.md)
+	# Epic 19 task 8 hardening pass. The perf SLO tests are the
+	# repeatable, representative workload — command latency, event
+	# throughput, batch fan-out. Profiles land at /tmp so they don't
+	# pollute the workspace; rerun + analyse via `go tool pprof`.
+	CGO_ENABLED=1 go test -tags=slo -count=1 -timeout=300s \
+		-cpuprofile=/tmp/kscore-profile.cpu \
+		-memprofile=/tmp/kscore-profile.mem \
+		./test/e2e/perf/...
+	@echo ""
+	@echo "Top 20 cumulative CPU consumers:"
+	@go tool pprof -top -cum /tmp/kscore-profile.cpu 2>/dev/null | head -25
+	@echo ""
+	@echo "Top 20 allocation sites:"
+	@go tool pprof -top -alloc_space /tmp/kscore-profile.mem 2>/dev/null | head -25
+	@echo ""
+	@echo "Interactive: go tool pprof /tmp/kscore-profile.{cpu,mem}"
 
 test-cross-distro: ## Run state stdlib smoke across the v0.5 distro matrix (docker-compose; gated)
 	# Layer C of Epic 08 task 13 — exercises the modules that touch

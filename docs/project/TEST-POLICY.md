@@ -43,6 +43,7 @@ test runs are a footgun.
 | `make test-coverage` | (none) | yes | Same as `test`, with `-coverprofile`. CI's primary test job. |
 | `make test-integration` | `integration` | yes | Integration tests requiring side-channels (Postgres, embedded NATS). `-p=1` because they share `KSCORE_TEST_POSTGRES_DSN`. |
 | `make slo` | `slo` | no | Wall-clock SLO assertions — `test/e2e/{ha,perf}/...`. |
+| `make profile` | `slo` | no | Runs the perf SLO workload under `-cpuprofile`/`-memprofile` for pprof. Race would distort wall-clock; the workload is the same as `make slo`. See `docs/project/PROFILING-BASELINE.md`. |
 | `make e2e-test` | `e2e` | yes | Single-topology docker-compose E2E (`test/e2e/single/`). The container-side processes run un-instrumented (race doesn't cross process boundaries); the Go-side test code is race-instrumented. |
 | `make smoke` | (none) | yes | Fast compile + sqlite-pragma gate. Pre-commit. |
 | `make test-cross-distro` | n/a | n/a | Docker-compose cross-distro state-stdlib smoke. Not Go tests. |
