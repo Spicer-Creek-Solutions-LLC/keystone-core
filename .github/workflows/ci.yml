@@ -52,6 +52,13 @@ jobs:
       # goleakhelper.VerifyTestMain. Allowlist exceptions documented
       # inline in tools/goleakgate/main.go with GRADUATE-BY notes.
       - run: make goleak-policy
+      # Epic 19 task 9 — auto-generated reference docs sync check.
+      # The CLI / configuration / API reference docs are regenerated
+      # from sources (cmd/*/--help, internal/config/*.go,
+      # api/proto/*.proto + api/openapi/openapi-spec.yaml) by
+      # `make docs-sync`. CI fails if a PR landed a source change
+      # without re-running the generator.
+      - run: make docs-sync-check
 
   test:
     runs-on: ubuntu-latest

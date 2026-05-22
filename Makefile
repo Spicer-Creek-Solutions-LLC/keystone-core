@@ -38,7 +38,7 @@ export CGO_ENABLED := 0
 
 .PHONY: help \
         build build-all-platforms clean deps install-tools \
-        test test-verbose test-coverage coverage-gate race-policy goleak-policy test-integration slo profile test-cross-distro check \
+        test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check test-integration slo profile test-cross-distro check \
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
         openapi-lint \
@@ -122,6 +122,25 @@ race-policy: ## Enforce -race on every `go test` (docs/project/TEST-POLICY.md)
 
 goleak-policy: ## Enforce TestMain-with-goleak in every integration test package (docs/project/TEST-POLICY.md)
 	go run ./tools/goleakgate
+
+docs-sync: ## Regenerate auto-generated reference docs (CLI / config / API)
+	# Sources of truth: cmd/kscore-* --help, internal/config/*.go,
+	# api/proto/keystone/core/v1/*.proto + api/openapi/openapi-spec.yaml.
+	# Run after touching any of those; CI fails if the checked-in
+	# output drifts from the regenerated version.
+	go run ./tools/gendocs/cli    > docs/project/CLI-REFERENCE.md
+	go run ./tools/gendocs/config > docs/project/CONFIGURATION-REFERENCE.md
+	go run ./tools/gendocs/api    > docs/project/API-REFERENCE.md
+
+docs-sync-check: ## Assert auto-generated reference docs are in sync with the generators
+	@tmpdir=$$(mktemp -d) && \
+		go run ./tools/gendocs/cli    > $$tmpdir/CLI.md && \
+		go run ./tools/gendocs/config > $$tmpdir/CONFIGURATION.md && \
+		go run ./tools/gendocs/api    > $$tmpdir/API.md && \
+		diff -q docs/project/CLI-REFERENCE.md           $$tmpdir/CLI.md && \
+		diff -q docs/project/CONFIGURATION-REFERENCE.md $$tmpdir/CONFIGURATION.md && \
+		diff -q docs/project/API-REFERENCE.md           $$tmpdir/API.md && \
+		echo "docs-sync-check: ok"
 
 test-integration: ## Run integration tests (-tags=integration)
 	# -p=1 forces test binaries to run sequentially. Integration tests

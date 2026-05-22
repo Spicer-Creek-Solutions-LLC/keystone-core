@@ -4,9 +4,12 @@ This document outlines security practices, assumptions, and procedures for Keyst
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.x.x   | :white_check_mark: |
+| Version | Supported |
+|---------|-----------|
+| `v1.x` (latest minor) | yes |
+| `v0.x` (pre-1.0) | best-effort during reconstruction; no SemVer stability guarantee |
+
+`v0.x` is the active reconstruction line — see [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md) for the v0.1 → v0.5 → v1.0 ladder. Once `v1.0` ships, the previous minor (`v1.<N-1>`) also receives security fixes until the next minor + 30 days.
 
 ## Reporting a Vulnerability
 
@@ -31,11 +34,10 @@ We aim to respond within 48 hours and will work with you to understand and addre
 
 ### Authentication & Authorization
 
-- **SNMPv3**: Supports USM (User-based Security Model) with authentication and privacy
-  - Recommended: SHA-256+ for authentication, AES-128+ for encryption
-  - Deprecated: MD5 and DES (warnings logged when used)
-- **API access**: Token-based authentication with configurable expiration
-- **Credentials**: Stored encrypted at rest with proper key management
+- **Operator API**: API-key (`Authorization: Bearer …`) or mTLS (`identity.enabled: true`). RBAC roles: admin / operator / readonly (`pkg/api/auth/authorizer.go`).
+- **Agent bootstrap**: PSK (`nats.bootstrap.psks`) or identity-issued join token + SVID (`identity.enabled: true` — see [`docs/project/SECURITY-DESIGN.md`](docs/project/SECURITY-DESIGN.md)). Identity is the v1.0 production path; PSK is documented for v0.x trials.
+- **Command signing**: HMAC-SHA-256 between server and agent (`security.hmacsecret`). Operators must rotate via an out-of-band secret manager; the `ProductionWarnings()` machinery surfaces a warning when a static HMAC ships to production.
+- **Credentials at rest**: API keys hashed via SHA-256 in the store; secret values encrypted via the encrypted-file backend (`internal/secrets/file`) or delegated to Vault (`internal/secrets/vault`).
 
 ### HTTP Server Security
 
@@ -84,26 +86,21 @@ threat model, is documented in [RELEASE-PLAYBOOK.md](RELEASE-PLAYBOOK.md).
 
 ## Security Scanning
 
-### CI Pipeline
+The v1.0 baseline pipeline runs four scans on every PR via CI's
+`security` job. Full policy + annotation conventions live in
+[`docs/project/SECURITY-GOVERNANCE.md`](docs/project/SECURITY-GOVERNANCE.md)
+"Security Baseline Pipeline."
 
-The following security tools run on every PR:
+| Scan | Tool | Local |
+|------|------|-------|
+| Secrets in git history | gitleaks | `make security-secrets` |
+| Known CVEs in deps | govulncheck | `make security-vulns` |
+| Static analysis (SAST) | gosec, HIGH-only, G115 excluded | `make security-sast` |
+| Dependency licenses | go-licenses (strict) | `make security-licenses` |
 
-1. **gosec**: Static analysis for Go security issues
-   - Configuration: `.gosec.yaml`
-   - All findings are blocking by default
-
-2. **govulncheck**: Dependency vulnerability scanning
-   - Checks for known vulnerabilities in dependencies
-
-### Running Locally
-
-```bash
-# Run gosec
-gosec -conf .gosec.yaml -exclude-dir=test -exclude-dir=modules ./...
-
-# Run govulncheck
-govulncheck ./...
-```
+v1.x expansion (semgrep, trivy, syft SBOM, hadolint, gosec MEDIUM
+gate, G115 re-enablement) is tracked under the ROADMAP entry
+*"Security baseline expansion."*
 
 ## Security Assumptions
 

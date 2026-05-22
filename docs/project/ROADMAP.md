@@ -896,6 +896,30 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v1.x — post-v1.0 feature additions
 
+#### Hugo docs site
+
+- **Priority**: v1.x
+- **What**: The v1.0 reference docs live as Markdown under `docs/project/` (per AGENTS.md §5: "Until the Hugo site lands (post-v1.0), the canonical doc surfaces are README.md, epics/NN-*.md, docs/project/*.md"). v1.x migrates them into a Hugo + Docsy site under `docs/content/en/docs/...` with the layout the epic-19 §Documentation block originally called for (reference/, getting-started/, operations/).
+- **Why deferred**: Hugo setup + Docsy theming + per-page front-matter + CI build pipeline is its own scope. The v1.0 Markdown docs are complete and discoverable — graduating them to a rendered site is a polish task, not a release blocker.
+- **Acceptance**: `docs/` builds a Hugo site under `docs/public/`; auto-generated CLI / config / API references regenerate via `make docs-sync` into the Hugo content tree; the published site mirrors the structure of `docs/project/` with per-page navigation.
+- **References**: epic 19 task 9 `_(landed)_`; `docs/project/{CLI,CONFIGURATION,API}-REFERENCE.md` + `GETTING-STARTED.md`.
+
+#### Expanded getting-started guides (per-domain tutorials)
+
+- **Priority**: v1.x
+- **What**: Epic 19 §Documentation listed five getting-started guides (install, first cluster, first command, first state apply, first blueprint, first module). v1.0 ships one consolidated 30-minute walkthrough at `docs/project/GETTING-STARTED.md` that covers install + topology + command + state. v1.x expands to per-domain tutorials covering blueprint authoring, module authoring + publishing, secrets, GitOps integration, audit/policy queries, HA cluster topology.
+- **Why deferred**: One thorough walkthrough satisfies the epic-19 acceptance line ("Quick-start guide can be followed end-to-end on a fresh Ubuntu VM in <30 minutes"). The longer-form per-domain content is Hugo-era editorial work.
+- **Acceptance**: Six guides under `docs/content/en/docs/getting-started/` (or equivalent post-Hugo); each is runnable end-to-end on a fresh Ubuntu VM; each is link-checked.
+- **References**: epic 19 task 9 `_(landed)_`; `docs/project/GETTING-STARTED.md`.
+
+#### Operations runbooks v1.x sweep
+
+- **Priority**: v1.x
+- **What**: `docs/runbooks/` carries pre-v1.0 operational content (`bootstrap-new-cluster.md`, `backup-restore.md`, `capacity-scaling.md`, `security-incident.md`). v1.x sweeps them for accuracy against the v1.0 release — current binary names, current CLI flags, current config keys, current REST/gRPC endpoints — and graduates them into the Hugo `docs/content/en/docs/operations/` tree.
+- **Why deferred**: The runbooks are correct in shape (procedures, decision trees, recovery steps) but contain references to interfaces that have since shifted during reconstruction. A sweep against the now-frozen v1.0 contracts is post-release work.
+- **Acceptance**: Each runbook step is verified against a fresh `make e2e-up` topology; commands run as documented; outputs match.
+- **References**: epic 19 task 9 `_(landed)_`; `docs/runbooks/*`.
+
 #### Soak-test infrastructure for fd / connection / goroutine leaks
 
 - **Priority**: v1.x
