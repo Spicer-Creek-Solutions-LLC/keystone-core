@@ -60,19 +60,25 @@ is a deliberate choice to minimize the attack surface of the release process.
 
 Every release ships with:
 
-- **Signed checksums** — `checksums.txt` signed by multiple release signers (GPG detached signatures)
-- **SBOMs** — CycloneDX and SPDX format, signed
-- **Release record** — A full audit log of the ceremony, signed by all participants
-- **Container image signatures** — Cosign key-based signatures (not keyless)
+- **Signed checksums** — `checksums.txt` signed by one or more release signers (GPG detached signatures). v1.0 / v1.1 ship with a single signature; v1.2+ ships with a quorum of signatures (see [RELEASE-PLAYBOOK.md "Release lines at a glance"](RELEASE-PLAYBOOK.md#release-lines-at-a-glance)).
+- **SBOMs** — CycloneDX and SPDX format, signed.
+- **Release record** — A full audit log of the ceremony, signed by every participant.
+- **Container image signatures** — Cosign key-based signatures (not keyless).
 
 ### Verifying Release Artifacts
 
+Full step-by-step verification — including the per-release-line
+signature filename layout — lives in
+[RELEASE-PLAYBOOK.md Appendix A](RELEASE-PLAYBOOK.md#appendix-a-verification-instructions-for-users).
+
+The single-signer v1.0 / v1.1 short form:
+
 ```bash
 # Import the release public key
-gpg --import keys/release-pubkey.asc
+curl -sSL https://keys.keystone-core.io/release-pubkey.asc | gpg --import
 
-# Verify checksums signature (check all signers)
-gpg --verify checksums.txt.sig.A checksums.txt
+# Verify the checksum signature (single .sig file)
+gpg --verify checksums.txt.sig checksums.txt
 
 # Verify artifact integrity
 sha256sum -c checksums.txt
@@ -81,8 +87,11 @@ sha256sum -c checksums.txt
 cosign verify --key release-cosign.pub ghcr.io/kscore/kscore-server:<VERSION>
 ```
 
-The complete release process, including key hierarchy, quorum rules, and
-threat model, is documented in [RELEASE-PLAYBOOK.md](RELEASE-PLAYBOOK.md).
+The complete release process — including key hierarchy, quorum
+rules (v1.2+), and threat model — is documented in
+[RELEASE-PLAYBOOK.md](RELEASE-PLAYBOOK.md); the v1.0 → v1.2
+graduation criteria live in
+[RELEASE-PLAYBOOK.md "v1.2 graduation checklist"](RELEASE-PLAYBOOK.md#v12-graduation-checklist).
 
 ## Security Scanning
 
