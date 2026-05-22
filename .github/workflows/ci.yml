@@ -47,6 +47,11 @@ jobs:
       # main.go (currently only `slo`, for wall-clock SLO accuracy).
       # Per docs/project/TEST-POLICY.md.
       - run: make race-policy
+      # Epic 19 task 6 — goleak policy lint. Every package with a
+      # //go:build integration test file must have a TestMain wrapping
+      # goleakhelper.VerifyTestMain. Allowlist exceptions documented
+      # inline in tools/goleakgate/main.go with GRADUATE-BY notes.
+      - run: make goleak-policy
 
   test:
     runs-on: ubuntu-latest

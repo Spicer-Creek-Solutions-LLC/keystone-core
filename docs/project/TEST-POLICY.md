@@ -64,6 +64,50 @@ It does **not** catch:
   / kscore-agent docker images don't build with `-race`; see "Deferred"
   below).
 
+## Goroutine leaks
+
+**Default**: every package containing a `//go:build integration` test
+file ships a TestMain that wraps `goleakhelper.VerifyTestMain`. The
+TestMain runs after every test in the binary and fails the test
+run if any non-allowlisted goroutine is still alive.
+
+**Enforced by**: `make goleak-policy` (CI's `lint` job runs it). The
+linter is `tools/goleakgate/main.go` — walks the source tree,
+finds every package with a `//go:build integration` file, and
+asserts each has a TestMain that mentions `goleakhelper.VerifyTestMain`.
+
+**Helper**: `test/goleak/goleak.go` exports `VerifyTestMain(m,
+extra...)` and `VerifyNoneOptions(extra...)`. The shared base
+ignore set lives there — adding a signature requires a comment
+naming why the goroutine is safe to ignore.
+
+### Shared ignore signatures
+
+| Signature | Why ignored |
+|-----------|-------------|
+| `modernc.org/sqlite.(*conn).run` | Per-conn driver goroutine, no Close() hook |
+| `github.com/nats-io/nats.go.(*Conn).flusher` | Per-Conn background flush loop |
+| `github.com/nats-io/nats.go.(*Conn).readLoop` | Per-Conn read loop |
+| `github.com/nats-io/nats.go.(*Conn).waitForMsgs` | Per-subscription delivery loop |
+
+### Adding a new ignore
+
+Edit `test/goleak/goleak.go`'s `baseIgnores()` function. Each new
+signature needs a code comment naming the third-party driver and
+why the goroutine is safe to ignore (i.e. it exists for the lifetime
+of the test binary and can't be cleanly Close()'d).
+
+### Allowlisting a non-conformant package
+
+If a future integration-test addition surfaces real leaks that
+won't be fixed in the same PR, add the package to
+`tools/goleakgate/main.go`'s `allowList` with a GRADUATE-BY
+comment naming the follow-up. The gate will fail when the package
+becomes conformant — at that point remove the entry.
+
+As of task 6 the allowList is empty: every integration-tagged
+package wires goleak and passes.
+
 ## Deferred
 
 - **Race-instrumented container images** for `make e2e-test`. Building
@@ -72,5 +116,12 @@ It does **not** catch:
   are 2x memory + 2x CPU; for a v1.0 baseline E2E that's overkill.
   Tracked as a v1.x ROADMAP item: "Race-instrumented e2e images for
   race-sensitive scenarios."
-- **goleak in unit tests**: leaked goroutines aren't a race issue but
-  are a sibling correctness concern. Tracked as epic 19 task 6.
+- **goleak in unit tests** (no `integration` tag). Many unit tests
+  deliberately spawn goroutines the test code doesn't Wait on; the
+  noise-vs-signal ratio for project-wide unit-test goleak is poor.
+  Tracked as a v1.x ROADMAP item.
+- **1-hour soak goleak**. Epic 19 §Acceptance line 109 asks for no
+  goroutine/connection/fd leaks in a 1-hour soak test. The
+  per-integration-test goleak shipped in task 6 is the mechanism the
+  soak run will use; the soak orchestration is a separate v1.x
+  release-prep deliverable.

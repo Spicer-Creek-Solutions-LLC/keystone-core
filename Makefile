@@ -38,7 +38,7 @@ export CGO_ENABLED := 0
 
 .PHONY: help \
         build build-all-platforms clean deps install-tools \
-        test test-verbose test-coverage coverage-gate race-policy test-integration slo test-cross-distro check \
+        test test-verbose test-coverage coverage-gate race-policy goleak-policy test-integration slo test-cross-distro check \
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
         openapi-lint \
@@ -118,6 +118,9 @@ coverage-gate: ## Enforce per-package coverage gates (critical >=70%, CLI >=40%)
 
 race-policy: ## Enforce -race on every `go test` (docs/project/TEST-POLICY.md)
 	go run ./tools/racegate
+
+goleak-policy: ## Enforce TestMain-with-goleak in every integration test package (docs/project/TEST-POLICY.md)
+	go run ./tools/goleakgate
 
 test-integration: ## Run integration tests (-tags=integration)
 	# -p=1 forces test binaries to run sequentially. Integration tests
