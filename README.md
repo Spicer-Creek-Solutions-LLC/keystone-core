@@ -66,6 +66,12 @@ For a complete 30-minute walkthrough from a fresh Ubuntu VM (install Go + Docker
 - [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md) — ranked backlog (gate-v0.5 / gate-v1.0 / v1.x / v2.x+).
 - [`epics/`](epics/) — the 19 reconstruction epics, in dependency order.
 
+### Releases
+
+- [`CHANGELOG.md`](CHANGELOG.md) — release notes, breaking changes, feature-by-epic mapping. Current line: `v0.x`.
+- [`RELEASE-PLAYBOOK.md`](RELEASE-PLAYBOOK.md) — end-to-end build / sign / publish ceremony; single-signer for v0.x / v1.0 / v1.1; multi-party from v1.2.
+- [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md) — the v0.1 → v0.5 → v0.9 → v1.0 ladder + gate checklists.
+
 ### Governance + security
 
 - [`docs/project/GOVERNANCE.md`](docs/project/GOVERNANCE.md) — BDFL + maintainer model + RFC process.
