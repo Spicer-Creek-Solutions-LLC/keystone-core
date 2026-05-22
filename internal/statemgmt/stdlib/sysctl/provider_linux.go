@@ -122,13 +122,6 @@ func persistFilePath(key string) string {
 	return filepath.Join(sysctlConfDir, "99-keystone-"+normalizeKey(key)+".conf")
 }
 
-// normalizeValue trims and collapses whitespace so multi-field
-// values ("4096   16384   4194304") compare equal regardless of the
-// exact spacing the kernel or the operator used.
-func normalizeValue(s string) string {
-	return strings.Join(strings.Fields(s), " ")
-}
-
 // mkdirAll creates dir with the conventional 0755 perms used by
 // /etc/sysctl.d and /etc/modules-load.d. gosec flags 0755 on
 // MkdirAll; here it's a no-op when the dir already exists (the

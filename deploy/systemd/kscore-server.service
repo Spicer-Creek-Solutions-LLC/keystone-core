@@ -1,0 +1,38 @@
+[Unit]
+Description=Keystone Core control-plane server
+Documentation=https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kscore
+Group=kscore
+ExecStart=/usr/local/bin/kscore-server --config /etc/kscore/server.yaml
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=30s
+
+# Hardening — Keystone Core runs as an unprivileged user;
+# the dirs it needs to write to are explicit.
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/kscore /var/log/kscore /run/kscore
+
+# Resource limits — generous defaults; tune for your fleet size.
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,34 @@
+[Unit]
+Description=Keystone Core managed-host agent
+Documentation=https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Agent typically runs as root because it executes operator-issued
+# commands + applies state to the host. Override at install time if
+# your fleet uses a non-root agent identity.
+User=root
+Group=root
+ExecStart=/usr/local/bin/kscore-agent --config /etc/kscore/agent.yaml
+Restart=on-failure
+RestartSec=5s
+# Agent drains in-flight commands on SIGTERM (epic 06); give it room.
+TimeoutStopSec=60s
+KillSignal=SIGTERM
+SendSIGKILL=yes
+
+# Hardening — narrower than typical because the agent legitimately
+# needs to write the system state files it manages (network /
+# firewall / packages / etc.). ReadWritePaths intentionally omitted
+# (root has full filesystem access via the executor).
+NoNewPrivileges=false
+PrivateTmp=true
+
+# Resource limits.
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

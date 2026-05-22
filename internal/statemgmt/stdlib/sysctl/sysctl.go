@@ -29,6 +29,16 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
 )
 
+// normalizeValue trims and collapses whitespace so multi-field
+// values ("4096   16384   4194304") compare equal regardless of the
+// exact spacing the kernel or the operator used. Lives in
+// sysctl.go (not provider_linux.go) because the diff/check path
+// needs it on every build target, even though the persistence-side
+// provider is Linux-only.
+func normalizeValue(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
+
 type Module struct {
 	provider Provider
 }

@@ -1,18 +1,25 @@
-# GoReleaser configuration — v1.0 baseline (snapshot only).
+# GoReleaser configuration — v0.1.0 release baseline.
 # https://goreleaser.com
 #
-# Scope: builds the three v1.0 hello-world binaries (kscore-server,
-# kscore-agent, kscorectl) for the v1.0 platform matrix and packages
-# them into per-platform tar.gz / zip archives with a checksums file.
+# Scope (epic 19 task 12):
+#   - 20 binaries (every cmd/kscore-*).
+#   - 5 archives: linux/darwin × amd64/arm64 + windows amd64.
+#     (windows arm64 dropped — uncommon in the operator audience.)
+#   - 3 nfpm package families (server, agent, cli) × deb + rpm × amd64 + arm64.
+#   - checksums.txt covering everything.
 #
-# Out of scope until later epics:
-#   - nfpm (deb/rpm) packaging          -> epic 19 release-hardening
-#   - Docker images                     -> epic 19
-#   - Code signing / SBOM               -> v1.2 signing ceremony
-#                                          (RELEASE-PLAYBOOK.md)
-#   - Publishing to forge / homebrew    -> v1.0 is snapshot-only;
-#                                          v1.2 brings the offline
-#                                          multi-party ceremony.
+# Deferred to later epic-19 tasks:
+#   - Docker images                     -> task 13 (Dockerfile.release).
+#   - GPG / cosign signing              -> task 14 (v0.1.0-rc1 ceremony).
+#   - Publishing to forge / homebrew    -> task 14+ (manual per playbook).
+#   - SBOM generation                   -> separate make security-sbom path
+#                                          (CycloneDX + SPDX); not bundled
+#                                          into goreleaser.
+#
+# See RELEASE-PLAYBOOK.md §Phase 4 "Build" for the operator
+# procedure that drives this file. See `make release-snapshot`
+# (no tag required) and `make release` (skip-publish, signs +
+# uploads manually) for the entrypoints.
 
 version: 2
 
@@ -24,7 +31,7 @@ before:
 
 # Shared build settings. -s/-w strip debug + symbol tables; -X entries
 # inject build metadata into pkg/version (same path as the Makefile).
-# -trimpath in flags: required by RELEASE-PLAYBOOK.md §Build Environment.
+# -trimpath is required by RELEASE-PLAYBOOK.md §Build Environment.
 # Anchors live on the first build because goreleaser rejects unknown
 # top-level keys.
 builds:
@@ -35,6 +42,11 @@ builds:
     flags: &flags [-trimpath]
     goos: &goos [linux, darwin, windows]
     goarch: &goarch [amd64, arm64]
+    ignore: &ignore
+      # windows arm64 isn't in the operator audience for v0.x — drop
+      # it from every build (overrides the goarch list above).
+      - goos: windows
+        goarch: arm64
     ldflags: &ldflags
       - -s -w
       - -X go.keystone-core.io/keystone-core/pkg/version.Version={{.Version}}
@@ -48,6 +60,7 @@ builds:
     flags: *flags
     goos: *goos
     goarch: *goarch
+    ignore: *ignore
     ldflags: *ldflags
 
   - id: kscorectl
@@ -57,11 +70,182 @@ builds:
     flags: *flags
     goos: *goos
     goarch: *goarch
+    ignore: *ignore
     ldflags: *ldflags
 
-# One archive per (goos, goarch) bundling all three binaries plus the
-# project-level legal/text files. Archive name matches the convention
-# in RELEASE-PLAYBOOK.md §Build Steps.
+  - id: kscore-audit
+    binary: kscore-audit
+    main: ./cmd/kscore-audit
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-backup
+    binary: kscore-backup
+    main: ./cmd/kscore-backup
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-blueprint
+    binary: kscore-blueprint
+    main: ./cmd/kscore-blueprint
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-bootstrap
+    binary: kscore-bootstrap
+    main: ./cmd/kscore-bootstrap
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-cluster
+    binary: kscore-cluster
+    main: ./cmd/kscore-cluster
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-cluster-backup
+    binary: kscore-cluster-backup
+    main: ./cmd/kscore-cluster-backup
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-events
+    binary: kscore-events
+    main: ./cmd/kscore-events
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-files
+    binary: kscore-files
+    main: ./cmd/kscore-files
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-gitops
+    binary: kscore-gitops
+    main: ./cmd/kscore-gitops
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-identity
+    binary: kscore-identity
+    main: ./cmd/kscore-identity
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-migrate
+    binary: kscore-migrate
+    main: ./cmd/kscore-migrate
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-module
+    binary: kscore-module
+    main: ./cmd/kscore-module
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-policy
+    binary: kscore-policy
+    main: ./cmd/kscore-policy
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-registry
+    binary: kscore-registry
+    main: ./cmd/kscore-registry
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-runbook
+    binary: kscore-runbook
+    main: ./cmd/kscore-runbook
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-secrets
+    binary: kscore-secrets
+    main: ./cmd/kscore-secrets
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+  - id: kscore-webhook
+    binary: kscore-webhook
+    main: ./cmd/kscore-webhook
+    env: *env
+    flags: *flags
+    goos: *goos
+    goarch: *goarch
+    ignore: *ignore
+    ldflags: *ldflags
+
+# One archive per (goos, goarch) bundling ALL 20 binaries plus the
+# project-level legal/text files. Archive name matches the
+# convention in RELEASE-PLAYBOOK.md §Phase 7 Package Construction.
 archives:
   - id: default
     name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}_{{.Arch}}"
@@ -73,6 +257,107 @@ archives:
       - LICENSE
       - NOTICE
       - README.md
+      - CHANGELOG.md
+
+# Linux native packages. Three families per RELEASE-PLAYBOOK.md
+# Phase 7 file inventory:
+#   - kscore-server: server binary + systemd unit.
+#   - kscore-agent:  agent binary + systemd unit.
+#   - kscore-cli:    kscorectl + every kscore-* sub-binary it
+#                    dispatches to (the README plugin pattern).
+nfpms:
+  - id: kscore-server
+    package_name: kscore-server
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    vendor: "Spicer Creek Solutions LLC"
+    homepage: "https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core"
+    maintainer: "Keystone Core <keystone-core@shawnbutts.com>"
+    description: |
+      Keystone Core control-plane server — gRPC + REST + GitOps
+      webhook listeners; coordinates the agent fleet via NATS and
+      durable state via Postgres or SQLite.
+    license: "Apache-2.0"
+    formats: [deb, rpm]
+    ids: [kscore-server]
+    bindir: /usr/local/bin
+    contents:
+      - src: ./deploy/systemd/kscore-server.service
+        dst: /lib/systemd/system/kscore-server.service
+      - src: ./LICENSE
+        dst: /usr/share/doc/kscore-server/LICENSE
+      - src: ./README.md
+        dst: /usr/share/doc/kscore-server/README.md
+        file_info:
+          mode: 0644
+
+  - id: kscore-agent
+    package_name: kscore-agent
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    vendor: "Spicer Creek Solutions LLC"
+    homepage: "https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core"
+    maintainer: "Keystone Core <keystone-core@shawnbutts.com>"
+    description: |
+      Keystone Core managed-host agent — runs on every managed
+      host; receives commands + applies state from the control
+      plane over NATS.
+    license: "Apache-2.0"
+    formats: [deb, rpm]
+    ids: [kscore-agent]
+    bindir: /usr/local/bin
+    contents:
+      - src: ./deploy/systemd/kscore-agent.service
+        dst: /lib/systemd/system/kscore-agent.service
+      - src: ./LICENSE
+        dst: /usr/share/doc/kscore-agent/LICENSE
+      - src: ./README.md
+        dst: /usr/share/doc/kscore-agent/README.md
+        file_info:
+          mode: 0644
+
+  - id: kscore-cli
+    package_name: kscore-cli
+    file_name_template: "{{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    vendor: "Spicer Creek Solutions LLC"
+    homepage: "https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core"
+    maintainer: "Keystone Core <keystone-core@shawnbutts.com>"
+    description: |
+      Keystone Core operator CLI — kscorectl + the dispatched
+      kscore-* sub-binaries (audit, backup, blueprint, bootstrap,
+      cluster, cluster-backup, events, files, gitops, identity,
+      migrate, module, policy, registry, runbook, secrets,
+      webhook).
+    license: "Apache-2.0"
+    formats: [deb, rpm]
+    # All operator CLIs that kscorectl dispatches to live in this
+    # package so a single `apt install kscore-cli` puts every
+    # subcommand on PATH.
+    ids:
+      - kscorectl
+      - kscore-audit
+      - kscore-backup
+      - kscore-blueprint
+      - kscore-bootstrap
+      - kscore-cluster
+      - kscore-cluster-backup
+      - kscore-events
+      - kscore-files
+      - kscore-gitops
+      - kscore-identity
+      - kscore-migrate
+      - kscore-module
+      - kscore-policy
+      - kscore-registry
+      - kscore-runbook
+      - kscore-secrets
+      - kscore-webhook
+    bindir: /usr/local/bin
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/doc/kscore-cli/LICENSE
+      - src: ./README.md
+        dst: /usr/share/doc/kscore-cli/README.md
+        file_info:
+          mode: 0644
 
 checksum:
   name_template: 'checksums.txt'
@@ -81,10 +366,11 @@ checksum:
 snapshot:
   version_template: "{{ incpatch .Version }}-snapshot-{{ .ShortCommit }}"
 
-# v1.0 ships snapshot tarballs only. The signing ceremony + multi-party
-# publish process lands in v1.2 per RELEASE-PLAYBOOK.md. Disable so an
-# accidental `goreleaser release` (without --snapshot) doesn't try to
-# push anywhere.
+# Releases are NOT published automatically. The signing + upload
+# flow lives in RELEASE-PLAYBOOK.md (phases 6–9) and runs by hand
+# on the offline workstation. `make release` calls goreleaser with
+# --skip=publish so the artifacts land in dist/ but never reach a
+# forge.
 release:
   disable: true
 

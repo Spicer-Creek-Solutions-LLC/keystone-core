@@ -11,7 +11,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
-	"syscall"
 )
 
 // fileType classifies a stat result for compare against the
@@ -90,21 +89,9 @@ func readMeta(path string) (*meta, error) {
 		m.Type = typeOther
 	}
 
-	// uid/gid via syscall.Stat_t — Linux/Unix only. Windows is
-	// out of scope for v1.0 (V1X-tracked elsewhere).
-	if sys, ok := info.Sys().(*syscall.Stat_t); ok {
-		m.UID = int(sys.Uid)
-		m.GID = int(sys.Gid)
-		if u, err := user.LookupId(strconv.Itoa(m.UID)); err == nil {
-			m.OwnerName = u.Username
-		}
-		if g, err := user.LookupGroupId(strconv.Itoa(m.GID)); err == nil {
-			m.GroupName = g.Name
-		}
-	} else {
-		m.UID = -1
-		m.GID = -1
-	}
+	// uid/gid via syscall.Stat_t lives in fs_unix.go (Linux + Darwin
+	// + BSD). The Windows shim (fs_windows.go) sets UID/GID = -1.
+	fillOwnership(m, info)
 	return m, nil
 }
 

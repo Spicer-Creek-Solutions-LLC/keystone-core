@@ -45,7 +45,7 @@ export CGO_ENABLED := 0
         docs-lint docs-lint-fix docs-lint-container \
         dev dev-server dev-agent \
         e2e-build e2e-up e2e-down e2e-logs e2e-test \
-        release-snapshot release-dry-run \
+        release-snapshot release release-dry-run \
         security-secrets security-vulns security-sast security-licenses
 
 # ---- Help (default) -------------------------------------------------------
@@ -312,11 +312,19 @@ e2e-test: ## Full cycle: build, up, run e2e tests, down (cleanup on failure)
 
 # ---- Release --------------------------------------------------------------
 
-release-snapshot: ## Build multi-arch snapshot tarballs to dist/
+release-snapshot: ## Build multi-arch snapshot tarballs to dist/ (no tag required)
 	goreleaser release --snapshot --clean
 
 release-dry-run: ## Validate the goreleaser config without building
 	goreleaser check
+
+release: ## Build the full release artifact set into dist/ WITHOUT publishing.
+	# Used by the offline-workstation step of RELEASE-PLAYBOOK.md
+	# §Phase 4. Requires a v0.x.y / v1.x.y tag on HEAD. The
+	# --skip=publish flag keeps goreleaser from touching any forge;
+	# the playbook's manual signing + upload steps take it from
+	# here.
+	goreleaser release --skip=publish --clean
 
 # ---- Security -------------------------------------------------------------
 
