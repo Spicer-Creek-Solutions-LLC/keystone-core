@@ -1,20 +1,27 @@
 //go:build e2e
 
 // Package single — Epic 19 task 2a shared scaffold for the
-// single-topology E2E scenarios. TestMain brings the docker-compose
-// topology up once before any test runs and tears it down at the end,
-// so each TestE2E_* file only contains scenario logic.
+// single-topology E2E scenarios. TestMain brings the topology up once
+// before any test runs and tears it down at the end, so each
+// TestE2E_* file only contains scenario logic.
 //
-// Configuration:
-//   - KSCORE_E2E_NO_COMPOSE=1 skips the compose lifecycle (compose is
-//     expected to already be up). `make e2e-test` sets this because
-//     the make target manages the lifecycle itself.
+// Two lifecycle modes, selected by env var:
+//   - native (default): builds the kscore binaries, embeds NATS, uses
+//     the Postgres pointed to by KSCORE_TEST_POSTGRES_DSN, and runs
+//     the binaries as host subprocesses. No docker required.
+//   - docker (KSCORE_E2E_USE_DOCKER=1): brings docker-compose.yml up
+//     and exercises the production-shaped Dockerfile.kscore images.
+//     For local dev that wants container-image coverage.
+//   - external (KSCORE_E2E_NO_COMPOSE=1): assumes the topology is
+//     already running (back-compat with the legacy make target that
+//     managed compose externally).
 //
 // Helpers exported to scenario files (package-internal):
-//   - serverHTTPAddr / serverGRPCAddr / postgresDSN / natsMonAddr: pinned
-//     loopback ports matching docker-compose.yml.
-//   - extractAdminAPIKey(t): scrapes `docker logs kscore-e2e-server`
-//     for the dev-default API key the server logs at boot.
+//   - serverHTTPAddr / serverGRPCAddr: pinned ports (same in both modes).
+//   - postgresDSN / natsMonAddr: set at startup by TestMain (native
+//     uses KSCORE_TEST_POSTGRES_DSN + the embedded NATS monitor port).
+//   - extractAdminAPIKey(t): reads the dev-default API key the server
+//     logs at boot (docker mode: docker logs; native mode: captured stdout).
 //   - dialControlPlane(t, apiKey): authenticated gRPC client.
 //   - waitForHTTP / waitForCondition: polling utilities used by every
 //     scenario.
@@ -43,12 +50,41 @@ import (
 const (
 	serverHTTPAddr = "http://127.0.0.1:8080"
 	serverGRPCAddr = "127.0.0.1:9090"
-	natsMonAddr    = "http://127.0.0.1:8222"
-	postgresDSN    = "postgres://kscore:kscore@127.0.0.1:5432/kscore?sslmode=disable"
 
 	composeReadyBudget = 90 * time.Second
 	scenarioBudget     = 60 * time.Second
 	pollInterval       = 1 * time.Second
+)
+
+// postgresDSN and natsMonAddr are populated by TestMain depending on
+// the active lifecycle mode. Scenario code reads them as if they were
+// pinned constants.
+var (
+	postgresDSN string
+	natsMonAddr string
+)
+
+// serverLogReader returns the kscore-server's structured-JSON log
+// stream. Populated by TestMain for the active mode (docker mode reads
+// `docker logs kscore-e2e-server`; native mode reads the captured
+// subprocess stdout/stderr buffer).
+var serverLogReader func() (string, error)
+
+// Per-mode command + host vars. Set by TestMain. Docker mode targets
+// the distroless container layout (/usr/local/bin/kscore) and uses the
+// docker host-gateway alias; native mode runs on the host so any
+// universal command works and the receiver lives on loopback.
+var (
+	// commandExecBin + commandExecArgs are what TestE2E_CommandExec
+	// asks the agent to execute. The test only cares about exit-0.
+	commandExecBin  string
+	commandExecArgs []string
+
+	// webhookReceiverHost is the hostname/IP the outbound-webhook
+	// scenario tells the kscore-server to POST back to. In docker the
+	// server reaches the host via host-gateway; in native the server
+	// IS on the host.
+	webhookReceiverHost string
 )
 
 // composeFile resolves the absolute path to docker-compose.yml so the
@@ -69,25 +105,63 @@ func runCompose(t testing.TB, args ...string) ([]byte, error) {
 }
 
 func TestMain(m *testing.M) {
+	// External-driver mode: caller already brought the topology up.
+	// Defaults to docker-mode addresses for back-compat with the legacy
+	// `make e2e-test` workflow that managed compose externally.
 	if os.Getenv("KSCORE_E2E_NO_COMPOSE") != "" {
+		setDockerModeAddresses()
+		serverLogReader = readDockerServerLogs
 		os.Exit(m.Run())
 	}
 
-	// External-driver mode: the make target sets KSCORE_E2E_NO_COMPOSE.
-	// In every other case the test owns the lifecycle.
-	t := &lifecycleT{}
-	defer func() {
-		out, err := runCompose(t, "down", "-v")
+	if os.Getenv("KSCORE_E2E_USE_DOCKER") != "" {
+		setDockerModeAddresses()
+		serverLogReader = readDockerServerLogs
+		t := &lifecycleT{}
+		defer func() {
+			out, err := runCompose(t, "down", "-v")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "compose down failed: %v\n%s\n", err, out)
+			}
+		}()
+		out, err := runCompose(t, "up", "-d", "--wait")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "compose down failed: %v\n%s\n", err, out)
+			fmt.Fprintf(os.Stderr, "compose up failed: %v\n%s\n", err, out)
+			os.Exit(1)
 		}
-	}()
-	out, err := runCompose(t, "up", "-d", "--wait")
+		os.Exit(m.Run())
+	}
+
+	// Default: native-process mode. No docker required.
+	cleanup, err := startNativeStack()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "compose up failed: %v\n%s\n", err, out)
+		fmt.Fprintf(os.Stderr, "native stack startup failed: %v\n", err)
+		if cleanup != nil {
+			cleanup()
+		}
 		os.Exit(1)
 	}
-	os.Exit(m.Run())
+	code := m.Run()
+	cleanup()
+	os.Exit(code)
+}
+
+// setDockerModeAddresses pins the addresses + per-mode command/host
+// values for docker-compose mode. Mirrors the previous package-const
+// values.
+func setDockerModeAddresses() {
+	postgresDSN = "postgres://kscore:kscore@127.0.0.1:5432/kscore?sslmode=disable"
+	natsMonAddr = "http://127.0.0.1:8222"
+	commandExecBin = "/usr/local/bin/kscore"
+	commandExecArgs = []string{"--version"}
+	webhookReceiverHost = "host.docker.internal"
+}
+
+// readDockerServerLogs is the docker-mode serverLogReader: it shells
+// out to `docker logs` on the named server container.
+func readDockerServerLogs() (string, error) {
+	out, err := exec.Command("docker", "logs", "kscore-e2e-server").CombinedOutput()
+	return string(out), err
 }
 
 // lifecycleT implements testing.TB just enough for the compose helpers
@@ -154,15 +228,20 @@ func waitForCondition(ctx context.Context, what string, fn func() error) error {
 	}
 }
 
-// extractAdminAPIKey scrapes `docker logs kscore-e2e-server` for the
+// extractAdminAPIKey reads the kscore-server's log stream for the
 // dev-default WARN line and pulls the cleartext API key out of it.
 // The server emits this once at boot per pkg/api/apikeys.EnsureDevKey;
-// it cannot be recovered any other way.
+// it cannot be recovered any other way. The log-source indirection
+// lives in serverLogReader so docker-mode (docker logs) and
+// native-mode (captured subprocess stdout) share this helper.
 //
 // Polls until a key is found or the budget expires — the line may not
 // appear instantly if the server is still booting.
 func extractAdminAPIKey(ctx context.Context, t testing.TB) string {
 	t.Helper()
+	if serverLogReader == nil {
+		t.Fatalf("extractAdminAPIKey: serverLogReader not initialized (TestMain bug)")
+	}
 	const target = "DEV API KEY GENERATED"
 	var lastErr error
 	for {
@@ -171,13 +250,13 @@ func extractAdminAPIKey(ctx context.Context, t testing.TB) string {
 			t.Fatalf("extractAdminAPIKey: timed out (last err=%v)", lastErr)
 		default:
 		}
-		out, err := exec.Command("docker", "logs", "kscore-e2e-server").CombinedOutput()
+		logs, err := serverLogReader()
 		if err != nil {
-			lastErr = fmt.Errorf("docker logs: %v: %s", err, out)
+			lastErr = fmt.Errorf("read server logs: %v", err)
 			time.Sleep(pollInterval)
 			continue
 		}
-		key := parseDevKey(string(out), target)
+		key := parseDevKey(logs, target)
 		if key != "" {
 			return key
 		}

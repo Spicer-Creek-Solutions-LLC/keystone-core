@@ -44,7 +44,7 @@ export CGO_ENABLED := 0
         openapi-lint \
         docs-lint docs-lint-fix docs-lint-container docs-links docs-links-online \
         dev dev-server dev-agent \
-        e2e-build e2e-up e2e-down e2e-logs e2e-test \
+        e2e-build e2e-up e2e-down e2e-logs e2e-test e2e-test-docker \
         release-snapshot release release-dry-run release-config-check release-smoke \
         security-secrets security-vulns security-sast security-licenses
 
@@ -406,32 +406,48 @@ dev-agent: ## Run kscore-agent against testdata/dev.yaml
 
 # ---- E2E (single-topology) ------------------------------------------------
 
-# Epic 19 task 1 — single-topology E2E harness. 1× kscore-server +
-# 2× kscore-agent + Postgres + NATS via docker-compose. Task 1 ships
-# the harness; task 2 wires the 9 feature scenarios on top.
+# Epic 19 task 1 — single-topology E2E. 1× kscore-server + 2× kscore-agent
+# + Postgres + NATS. Two execution modes:
+#
+#   e2e-test         — native: builds binaries, embeds NATS, uses
+#                      $KSCORE_TEST_POSTGRES_DSN. No docker required.
+#                      Used by CI; the default for most local dev.
+#   e2e-test-docker  — docker-compose: builds Dockerfile.kscore + brings
+#                      up the production-shaped image stack. For when
+#                      you want container-image coverage.
+#
+# The compose-driven e2e-up / e2e-down / e2e-logs / e2e-build helpers
+# stay docker-only.
 
 E2E_COMPOSE := docker compose -f test/e2e/single/docker-compose.yml
 
-e2e-build: ## Build kscore-server + kscore-agent images for the single-topology E2E
+e2e-build: ## Build kscore-server + kscore-agent images for the single-topology E2E (docker)
 	$(E2E_COMPOSE) build
 
-e2e-up: ## Bring the single-topology E2E up + wait for healthy
+e2e-up: ## Bring the single-topology E2E up + wait for healthy (docker)
 	$(E2E_COMPOSE) up -d --wait
 
-e2e-down: ## Tear down the single-topology E2E (removes volumes)
+e2e-down: ## Tear down the single-topology E2E (docker; removes volumes)
 	$(E2E_COMPOSE) down -v
 
-e2e-logs: ## Follow logs from the single-topology E2E
+e2e-logs: ## Follow logs from the single-topology E2E (docker)
 	$(E2E_COMPOSE) logs -f
 
-e2e-test: ## Full cycle: build, up, run e2e tests, down (cleanup on failure)
+e2e-test: ## Native single-topology E2E (no docker; needs KSCORE_TEST_POSTGRES_DSN)
+	# Native scaffold builds the binaries, embeds nats-server, and
+	# uses the postgres pointed to by KSCORE_TEST_POSTGRES_DSN. Race
+	# instrumentation on the Go-side test code per TEST-POLICY.md;
+	# host subprocesses are out of scope for the race detector.
+	# 600s budget: race overhead + binary build + 11 scenarios.
+	CGO_ENABLED=1 go test -race -tags=e2e -count=1 -timeout=600s ./test/e2e/single/...
+
+e2e-test-docker: ## Full cycle docker-compose E2E: build, up, run e2e tests, down
 	$(E2E_COMPOSE) up -d --wait --build
-	# Epic 19 task 5 — -race on the Go-side test code (the docker
-	# container processes are out of scope; race detector doesn't
-	# cross process boundaries). Race instrumentation adds modest
-	# wall-clock to the in-process scenario helpers; still well
-	# inside the 300s timeout.
-	KSCORE_E2E_NO_COMPOSE=1 CGO_ENABLED=1 go test -race -tags=e2e -count=1 -timeout=300s ./test/e2e/single/... ; \
+	# KSCORE_E2E_USE_DOCKER tells the scaffold to pin docker-mode
+	# addresses; KSCORE_E2E_NO_COMPOSE tells it not to re-up compose
+	# (this target owns the lifecycle).
+	KSCORE_E2E_USE_DOCKER=1 KSCORE_E2E_NO_COMPOSE=1 CGO_ENABLED=1 \
+		go test -race -tags=e2e -count=1 -timeout=600s ./test/e2e/single/... ; \
 	rc=$$? ; \
 	$(E2E_COMPOSE) down -v ; \
 	exit $$rc

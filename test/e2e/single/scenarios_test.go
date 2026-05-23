@@ -119,13 +119,14 @@ func TestE2E_CommandExec(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Distroless agent image ships only /usr/local/bin/kscore — use
-	// its own --version so we have a real binary to exec with a
-	// deterministic exit-0 path.
+	// Command + args vary by mode: docker mode targets the distroless
+	// agent image (which ships only /usr/local/bin/kscore), native
+	// mode runs the agent on the host so any /bin/* command works.
+	// The test only cares about a deterministic exit-0 path.
 	stream, err := cp.ExecuteCommand(authContext(ctx, apiKey), &v1.ExecuteCommandRequest{
 		AgentId:        "agent-1",
-		Command:        "/usr/local/bin/kscore",
-		Args:           []string{"--version"},
+		Command:        commandExecBin,
+		Args:           commandExecArgs,
 		TimeoutSeconds: 10,
 	})
 	if err != nil {
@@ -523,10 +524,10 @@ func TestE2E_OutboundWebhook(t *testing.T) {
 	apiKey := extractAdminAPIKey(ctx, t)
 	hc := &http.Client{Timeout: 5 * time.Second}
 
-	// Receiver runs on the host; the server (in a container) reaches
-	// it via host.docker.internal — Docker on Linux makes this
-	// resolvable when extra_hosts: host-gateway is set (added in the
-	// compose file).
+	// Receiver runs on the host. In docker mode the server (in a
+	// container) reaches the host via host.docker.internal; in native
+	// mode the server IS on the host so loopback works. The
+	// webhookReceiverHost var captures that difference.
 	gotPing := make(chan []byte, 1)
 	receiver := newHTTPRecorder(gotPing)
 	defer receiver.Close()
@@ -535,7 +536,7 @@ func TestE2E_OutboundWebhook(t *testing.T) {
 	// host-side receiver.
 	subPayload := map[string]any{
 		"name":        "epic-19-task-2c-receiver",
-		"url":         fmt.Sprintf("http://host.docker.internal:%d/hook", receiver.port()),
+		"url":         fmt.Sprintf("http://%s:%d/hook", webhookReceiverHost, receiver.port()),
 		"events":      []string{"*"},
 		"enabled":     true,
 		"max_retries": 1,

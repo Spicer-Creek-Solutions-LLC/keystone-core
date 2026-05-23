@@ -188,15 +188,35 @@ jobs:
       - run: make security-licenses
 
   # Epic 19 task 2a (introduced) / 2c (made required).
-  # Single-topology E2E: docker-compose with the v1.0 binary set runs
-  # the 11 TestE2E_* scenarios covering infrastructure health, agent
-  # registration, command exec, state apply, blueprint apply, module
-  # stdlib execute, secrets KV, audit log query, outbound webhook,
-  # GitOps inbound webhook, and GitOps rollback FSM. Required gate
-  # for v1.0; flake recovery is "revert to continue-on-error: true
-  # in a follow-up PR" if green-rate drops below acceptable.
+  # Single-topology E2E: 1× kscore-server + 2× kscore-agent against
+  # Postgres (Forgejo service) + embedded NATS. The 11 TestE2E_*
+  # scenarios cover infrastructure health, agent registration, command
+  # exec, state apply, blueprint apply, module stdlib execute, secrets
+  # KV, audit log query, outbound webhook, GitOps inbound webhook, and
+  # GitOps rollback FSM. Required gate for v1.0; flake recovery is
+  # "revert to continue-on-error: true in a follow-up PR" if green-rate
+  # drops below acceptable.
+  #
+  # `make e2e-test` runs in native mode (no docker required) — see the
+  # Makefile and test/e2e/single/README.md. Local devs who want to
+  # exercise the production Dockerfile.kscore image run
+  # `make e2e-test-docker` instead.
   e2e:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: kscore
+          POSTGRES_PASSWORD: kscore
+          POSTGRES_DB: kscore_test
+        options: >-
+          --health-cmd "pg_isready -U kscore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      KSCORE_TEST_POSTGRES_DSN: postgres://kscore:kscore@postgres:5432/kscore_test?sslmode=disable
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

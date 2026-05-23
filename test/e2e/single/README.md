@@ -1,8 +1,21 @@
 # Single-topology E2E harness
 
 Epic 19 task 1/2 — `test/e2e/single/`. The baseline v1.0 E2E topology:
-**1× kscore-server + 2× kscore-agent + Postgres + NATS** via
-docker-compose, plus per-task scenario coverage on top.
+**1× kscore-server + 2× kscore-agent + Postgres + NATS**, plus
+per-task scenario coverage on top.
+
+The topology runs in one of two modes (selected via env var by
+`TestMain`):
+
+| Mode | Trigger | What it exercises | When to use |
+|---|---|---|---|
+| **Native** (default) | nothing — it's the default | Host subprocesses for server + agents, embedded NATS, postgres pointed to by `KSCORE_TEST_POSTGRES_DSN`. No docker required. | CI, most local development. |
+| **Docker** | `KSCORE_E2E_USE_DOCKER=1` | `docker-compose.yml` + `Dockerfile.kscore` — the production-shaped distroless image stack with every service in its own container. | Locally when you want to validate that the actual container image is correct (entrypoint, distroless, nonroot UID, mounted blueprints volume, etc.). |
+
+Both modes run the same 11 `TestE2E_*` scenarios; the only
+mode-dependent values are the command path used by `TestE2E_CommandExec`
+(host `/bin/echo` vs. distroless `/usr/local/bin/kscore`) and the
+webhook receiver host (`127.0.0.1` vs. `host.docker.internal`).
 
 ## Scope by sub-task
 
@@ -124,23 +137,43 @@ External port bindings (loopback only):
 
 From the repo root:
 
+### Native mode (default — CI entry point)
+
 ```bash
-make e2e-build    # Build images (first run: 60–90s; cached after)
-make e2e-up       # Bring up the topology, wait for healthchecks
-make e2e-test     # Full cycle: build, up, run smoke test, down (cleanup on failure)
-make e2e-down     # Tear down + remove volumes
-make e2e-logs     # Follow logs from all services
+# Provide a reachable postgres (the kscore-server's tables are dropped
+# and recreated at startup). The integration job's service is reused
+# for free in CI; locally set the DSN to your own postgres.
+export KSCORE_TEST_POSTGRES_DSN="postgres://kscore:kscore@127.0.0.1:5432/kscore?sslmode=disable"
+make e2e-test
 ```
 
-`make e2e-test` is the CI entry point. It sets
-`KSCORE_E2E_NO_COMPOSE=1` so the Go test doesn't double-manage
-compose lifecycle.
+This builds the `kscore-server` + `kscore-agent` binaries, embeds
+`nats-server` in-process, and runs the binaries as host subprocesses.
+No docker required.
 
-The Go test can also be run *without* the make wrapper — it will
-manage compose itself if `KSCORE_E2E_NO_COMPOSE` is unset:
+### Docker mode (production-image coverage)
 
 ```bash
+make e2e-build         # Build images (first run: 60–90s; cached after)
+make e2e-up            # Bring up the topology, wait for healthchecks
+make e2e-test-docker   # Full cycle: build, up, run tests, down (cleanup on failure)
+make e2e-down          # Tear down + remove volumes
+make e2e-logs          # Follow logs from all services
+```
+
+Use this when you want to exercise the `Dockerfile.kscore` image —
+distroless runtime, nonroot UID, volume mounts, entrypoint, etc.
+Not run in CI.
+
+### Direct `go test`
+
+```bash
+# Native (needs KSCORE_TEST_POSTGRES_DSN):
 CGO_ENABLED=1 go test -tags=e2e -count=1 -timeout=300s ./test/e2e/single/...
+
+# Docker (TestMain manages compose lifecycle):
+KSCORE_E2E_USE_DOCKER=1 CGO_ENABLED=1 \
+  go test -tags=e2e -count=1 -timeout=300s ./test/e2e/single/...
 ```
 
 ## Files
@@ -156,8 +189,9 @@ test/e2e/single/
 │   └── agent-2.yaml      # kscore-agent config (id=agent-2, PSK bootstrap)
 ├── blueprints/
 │   └── e2e-noop/         # distroless-compatible blueprint fixture (task 2b)
-├── scaffold_test.go      # //go:build e2e — TestMain + helpers
-└── scenarios_test.go     # //go:build e2e — TestE2E_* scenarios
+├── scaffold_test.go         # //go:build e2e — TestMain + shared helpers
+├── scaffold_native_test.go  # //go:build e2e — native-mode subprocess lifecycle
+└── scenarios_test.go        # //go:build e2e — TestE2E_* scenarios
 ```
 
 ## Build-tag
