@@ -24,32 +24,32 @@ moment of public exposure.
       `make docs-sync-check`; the **prose** docs are not.
       *Watch for*: renamed functions/files; behavior scoped down "later";
       deferred items still phrased in the present tense; examples that no
-      longer compile. _(landed: 5 drift items fixed in commit `524757a0`.)_
+      longer compile. *(landed: 5 drift items fixed in commit `524757a0`.)*
 
 - [x] **A2. Docs-vs-code sync.** Inverse audit: every exported package /
       cobra subcommand / public RPC has a docs anchor a curious reader
       would actually find. Catches "shipped but undocumented" gaps.
-      _(landed: 7 discoverability gaps fixed in commit `79fb46d8` —
+      *(landed: 7 discoverability gaps fixed in commit `79fb46d8` —
       Project Concepts glossary, modules/README.md, deploy/README.md,
       README Operations section + kscorectl dispatch note,
-      DEVELOPMENT.md lint-fix + code-org snippet rewrite.)_
+      DEVELOPMENT.md lint-fix + code-org snippet rewrite.)*
 
 - [x] **A3. Markdown link health.** Run `lychee` against every `.md` file
       using the existing `.lychee.toml`. Add `make docs-links` if missing
       and wire it into the `lint` CI job. Fix every dead anchor, broken
-      cross-reference, dead external URL. _(landed: commit `7613a0ea` —
+      cross-reference, dead external URL. *(landed: commit `7613a0ea` —
       `make docs-links` + `make docs-links-online` Make targets, CI lint
       job gates `docs-links`, 11 local + 2 external broken links fixed,
-      pre-launch placeholder domains excluded with launch-time TODO.)_
+      pre-launch placeholder domains excluded with launch-time TODO.)*
 
 - [x] **A4. Epic acceptance criteria audit.** Walk every
       `epics/NN-*.md` "Acceptance criteria" block and confirm each line is
       checked, or has an explicit `_(landed)_` / `_(deferred per ROADMAP)_`
       note. Surfaces half-landed work whose own scoreboard wasn't updated.
-      _(landed: commit `49234100` — 19 boxes ticked with evidence notes
+      *(landed: commit `49234100` — 19 boxes ticked with evidence notes
       across epics 00, 01, 06; 1 box annotated as Phase D-gated manual
       test; previously-annotated open items in epics 02/04/05/07/08/13/15
-      already audit-clean; epic 19 WIP boxes intentionally skipped.)_
+      already audit-clean; epic 19 WIP boxes intentionally skipped.)*
 
 **Exit gate for Phase A**: every doc file accurately reflects the code at
 HEAD; no broken links; every epic's scoreboard is consistent with reality.
