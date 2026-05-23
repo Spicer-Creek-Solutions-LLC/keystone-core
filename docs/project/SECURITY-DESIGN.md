@@ -47,7 +47,7 @@ This document defines the security design principles, architectural guardrails, 
 **Implementation Guidelines**:
 
 - Authentication failures result in denial, never default access
-- Policy evaluation errors deny the action (fail closed)
+- Policy evaluation errors deny the action (fail closed) — **see the audit-mode caveat in [Current Security Posture](#current-security-posture-v0x--v10)**: through v1.0, *successful* policy evaluations that produce a deny verdict still let the operation proceed (audit-mode); only *evaluator errors* fail closed
 - Missing or invalid certificates reject the connection
 - Database connection failures prevent operations rather than using cached/stale data
 - Rate limit exhaustion returns 429/503, not success
@@ -147,6 +147,104 @@ This document defines the security design principles, architectural guardrails, 
 - [ ] What trust boundaries does this data cross?
 - [ ] Is the data validated at each boundary?
 - [ ] Can an attacker influence data after validation?
+
+---
+
+## Current Security Posture (v0.x → v1.0)
+
+The principles above describe Keystone Core's *target* security model.
+This section documents which pieces are **fully enforced today** vs.
+which graduate at later milestones. A public security reviewer
+auditing v0.x should read this section first.
+
+### Policy engine — audit-mode only
+
+Through v1.0, the policy engine **evaluates and audits but never
+blocks**. A policy that produces a deny verdict generates an audit
+record; the operation proceeds. Enforcement (deny-on-violation)
+graduates in a `v1.x` release; the migration story is documented in
+[`POLICY-AUDIT.md`](POLICY-AUDIT.md) under *"Enabling enforcement"*.
+
+What this means for a security review:
+
+- **Authorization decisions** that route through the policy engine are
+  observable + auditable but not gating. The CLI and gRPC surfaces
+  carry the audit shape; operators who need hard blocks should run a
+  fronting reverse-proxy with its own ACL until v1.x ships
+  enforcement.
+- **Authentication** is *not* in audit-mode — failed auth genuinely
+  fails closed at the auth-middleware layer, before the policy engine
+  sees the request.
+- The Fail-Secure principle (§3) applies to **policy-evaluation
+  errors** (evaluator crash, missing policy, OPA compile failure) —
+  those still fail closed in v0.x.
+
+### Production-knob warnings (dev-mode boundaries)
+
+Three configuration knobs are accepted but emit a startup `WARN` line
+because they're safe for development but unsuitable for production
+deployments:
+
+| Knob | Where | Warning |
+|------|-------|---------|
+| Static `security.hmacsecret` | `internal/config/security.go` | Production rotates HMAC secrets; static values appear in goreleaser snapshots / config-in-git workflows. |
+| `nats.bootstrap.enabled` with literal PSKs | `internal/config/nats.go` | Production PSKs are single-use, short-lived, issued by `kscore-identity`; persistent PSKs in config indicate manual operator bootstrap that bypasses the identity provider. |
+| `secrets.backends[].file.master_key: inline:` | `internal/config/secrets.go` | Inline master keys end up in operator config-management systems; production wraps them via `env:` or a KMS / Vault reference. |
+
+The warning text + rationale + the operator-side fix are in
+[`HARDENING-BASELINE.md`](HARDENING-BASELINE.md) "Production-warn
+paths".
+
+### Release model — single-signer through v1.1
+
+`v0.x` → `v1.0` → `v1.1` release artifacts are signed by a single
+signer (the Release Manager, who also acts as Signer + Witness).
+Multi-party signing with ≥ 3 independent signers + threshold-2
+quorum is the **target** posture and graduates at `v1.2`. The
+full process — single-signer ceremony, dual-machine reproducibility
+check, signing-key handling — is in [`RELEASE-PLAYBOOK.md`](../../RELEASE-PLAYBOOK.md)
+"Release lines at a glance" and the per-phase `**v1.0
+simplification**` callouts. The graduation checklist (what must
+land before multi-party is feasible) is in the same doc's *"v1.2
+graduation checklist"* section.
+
+What this means for a security review:
+
+- A compromised Release Manager is the dominant supply-chain threat
+  for v0.x – v1.1 releases. Mitigations (offline workstation,
+  hardware-token signing key, post-release verification re-run on a
+  third machine) are documented in the playbook.
+- The signing key is rotatable; releases under it carry the same
+  verification surface (signed `checksums.txt` + signed release
+  record) as the eventual multi-party form will.
+
+### Runtime hardening
+
+Goroutine, connection, and file-descriptor lifecycle hygiene is
+audited and gated by tests:
+
+- **Goroutine leaks** — every `//go:build integration` package wraps
+  `TestMain` with `goleakhelper.VerifyTestMain` (epic 19 task 6);
+  `make goleak-policy` (CI lint job) enforces this.
+- **Connection lifecycle** — NATS, etcd, Postgres, gRPC, HTTP, and
+  SQLite stores each register `Stop()` / `Close()` with documented
+  ordering. Audit table in [`HARDENING-BASELINE.md`](HARDENING-BASELINE.md)
+  "Connection lifecycle".
+- **No fd-leak soak** ships in v0.x (a long-running agent + `lsof`
+  delta gate is tracked in the v1.x ROADMAP entry *"Soak-test
+  infrastructure for fd / connection / goroutine leaks"*).
+- **Race detector** runs on every test invocation (`make race-policy`
+  enforces — see [`TEST-POLICY.md`](TEST-POLICY.md)).
+
+### Pre-launch placeholder addresses
+
+Several documents reference `*@keystone-core.io` mailto addresses
+(security@, releases@, comms@, etc.). The `keystone-core.io` domain
+is not yet registered; these are aspirational placeholders that
+become real channels at launch ([`PUBLIC-LAUNCH-CHECKLIST.md`](PUBLIC-LAUNCH-CHECKLIST.md)
+Phase B6 + F-phase). A security reviewer attempting disclosure
+during v0.x pre-launch should reach the maintainer via the contact
+shown in [`OWNERSHIP.md`](../../OWNERSHIP.md) / [`SECURITY.md`](../../SECURITY.md).
 
 ---
 
