@@ -159,6 +159,17 @@ v1.x:
   - "Policy enforcement (Enforce + Warn modes)"
   - "Cloud workload identity (AWS IRSA, GCP WI, Azure MI)"
   - "gRPC-gateway annotation-driven REST + OpenAPI auto-gen"
+  # Added by epic 19 task 8 (hardening) and task 13 (release dry-run):
+  - "Soak-test infrastructure for fd / connection / goroutine leaks"
+  - "Sustained-load profiling baseline"
+  - "Logging: context-aware threading of deep helpers"
+  - "Security baseline expansion"
+  - "Release dry-run expansion"
+  # Added by epic 19 task 9 (docs pass) and Phase G launch-checklist entry:
+  - "Hugo docs site"
+  - "Expanded getting-started guides (per-domain tutorials)"
+  - "Error-message docs URLs (post Hugo site)"
+  - "Operations runbooks v1.x sweep"
 
 v2.x+:
   - "Embedded NATS / hybrid mode / leaf node / endpoint advertiser / supercluster / WebSocket"
