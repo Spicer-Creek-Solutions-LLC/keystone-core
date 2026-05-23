@@ -302,9 +302,9 @@ func TestCoordinationClient_HeartbeatLivenessTracking(t *testing.T) {
 		ok, _, _ := cc.PeerLiveness("p1")
 		return !ok
 	}, "peer marked unreachable")
-	if !rec.sawFalse() {
-		t.Fatal("observer never saw reachable=false")
-	}
+	// Observer notification fires from a separate goroutine after the
+	// state flip; poll for it instead of asserting synchronously.
+	ccWaitFor(t, rec.sawFalse, "observer saw reachable=false")
 	if len(cc.ReachablePeers()) != 0 {
 		t.Fatalf("ReachablePeers should be empty when down")
 	}

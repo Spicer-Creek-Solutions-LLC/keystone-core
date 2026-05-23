@@ -136,6 +136,17 @@ func (s *Service) Start(ctx context.Context) error {
 		}
 		s.subs = append(s.subs, sub)
 	}
+	// Flush queued SUB protocol messages to the server before declaring
+	// the service ready; the nats client buffers subscriptions and an
+	// immediate request after Start can otherwise reach the server before
+	// the SUB is processed, producing a "no responders" timeout.
+	if err := s.conn.Flush(); err != nil {
+		for _, existing := range s.subs {
+			_ = existing.Unsubscribe()
+		}
+		s.subs = nil
+		return fmt.Errorf("transport: flush subscriptions: %w", err)
+	}
 	s.state.started = true
 	return nil
 }
