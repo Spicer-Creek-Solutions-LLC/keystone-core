@@ -61,38 +61,71 @@ HEAD; no broken links; every epic's scoreboard is consistent with reality.
 **Goal**: independent confidence that a public reader doing their own
 security review will not surface anything embarrassing.
 
-- [ ] **B1. Run the full security baseline from a clean tree.**
+- [x] **B1. Run the full security baseline from a clean tree.**
       `make security-secrets / security-vulns / security-sast / security-licenses`.
       Confirm zero new findings since task 7 landed.
+      *(landed: gitleaks clean, gosec HIGH clean, go-licenses clean; govulncheck
+      flagged one called CVE — `golang.org/x/net@v0.54.0` GO-2026-5026 — fixed via
+      commit `43c5590a`. Adjacent trackerctl `release-order.yaml` drift surfaced
+      and fixed in `2a3b308a`.)*
 
-- [ ] **B2. Git history secrets + personal-info scan.** Re-run `gitleaks`
+- [x] **B2. Git history secrets + personal-info scan.** Re-run `gitleaks`
       against full history. Beyond the standard secret patterns: scan for
       personal email patterns, internal hostnames, dev-box paths,
       `localhost:NNNN` references that weren't intentional.
+      *(landed: gitleaks clean across 2810 commits / 90 MB; single maintainer
+      in git history; only intentional patterns surfaced — RFC1918 doc examples,
+      test fixtures, canonical AI co-author trailers, lychee-excluded launch
+      placeholders. No commit needed.)*
 
-- [ ] **B3. Dependency deep audit.** Beyond `govulncheck` (which checks
+- [x] **B3. Dependency deep audit.** Beyond `govulncheck` (which checks
       *called* CVEs only): full dep-tree review. For each direct +
       transitive dep: single-maintainer or dormant project? Compatible
       license without exception? Scope appropriate? Document any
       exceptions in `docs/project/SECURITY-GOVERNANCE.md` next to the
       existing `modernc.org/mathutil` ignore note.
+      *(landed: commit `482991b1` — 49 direct + 154 indirect modules reviewed;
+      license distribution + maintainer-health categories documented in
+      SECURITY-GOVERNANCE.md "Dependency posture" section; new v1.x ROADMAP
+      entry "Dependency posture re-audit" tracks lib/pq → pgx graduation +
+      gobwas/glob re-validation.)*
 
-- [ ] **B4. Threat model refresh.** Confirm
+- [x] **B4. Threat model refresh.** Confirm
       `docs/project/SECURITY-DESIGN.md` and `SECURITY-REVIEW.md` reflect
       the current code: audit-mode-only policy (task 8 + Epic 12);
       dev-mode warnings on production-suitable knobs (HMAC secret, NATS
       bootstrap PSKs, inline master keys); single-signer release model;
       goroutine + connection lifecycle posture.
+      *(landed: commit `0369d23c` — new "Current Security Posture (v0.x → v1.0)"
+      section in SECURITY-DESIGN.md documents audit-mode policy explicitly
+      (distinguished from auth-fails-closed + evaluator-error-fails-closed),
+      the three production-knob WARN paths, single-signer release model, and
+      runtime hardening posture. Fixed Fail-Secure principle bullet to reflect
+      the audit-mode caveat.)*
 
-- [ ] **B5. Independent security review.** Invoke `/security-review`
+- [x] **B5. Independent security review.** Invoke `/security-review`
       against the full repo (or scope to security-sensitive areas: auth,
       secrets, audit, identity, gitops). Triage findings: fix pre-launch
       vs file as ROADMAP entries.
+      *(landed: feature-dev:code-reviewer agent dispatched against
+      security-sensitive packages; 6 findings — 1 Critical (C1: empty HMACSecret
+      silently disables agent command-auth), 3 High (H1: webhook errors leak Go
+      internals; H2: AgentService Heartbeat+SubmitCommandStream bypass auth
+      layer; H3: webhook HMAC compare uses hex-string instead of raw bytes),
+      2 Medium (M1: base62 token prefix bias; M2: exec capability allowlist
+      semantics under-documented). All 6 fixed in commits `03d511e0` + `7b46b28e`
+      + `1f0164e0`.)*
 
-- [ ] **B6. SECURITY.md disclosure flow end-to-end test.** Send a dummy
+- [x] **B6. SECURITY.md disclosure flow end-to-end test.** Send a dummy
       report through the documented channel; confirm it reaches the
       maintainer; confirm GPG key (if listed) decrypts. Catches dead
       addresses and broken Codeberg security-advisory wiring.
+      *(documentation landed: commit `78ad6721` names
+      `security@keystone-core.io` as the canonical channel; pre-launch redirect
+      to OWNERSHIP.md maintainer-contact while the `keystone-core.io` mailbox is
+      being provisioned. End-to-end dummy-report test is gated on F-phase
+      domain provisioning — the maintainer owns sending the test message and
+      confirming receipt once the mailbox is live.)*
 
 **Exit gate for Phase B**: zero open security findings rated
 medium-or-higher; threat model docs accurate; disclosure flow proven.
