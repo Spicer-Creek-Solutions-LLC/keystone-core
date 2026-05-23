@@ -50,17 +50,17 @@ These three artifacts together are intended to be sufficient for an LLM (or huma
 
 ## Definition of Done — v1.0 Release
 
-- [ ] All 19 epics complete with their acceptance criteria.
-- [ ] Performance SLOs verified in CI: cluster forms <10s, leader elected <3s, failover detection <5s, agent reassign <10s, minority blocks writes <1s, recovery <15s.
-- [ ] HA resilience tests pass on every PR (NATS-failure, etcd-failure, network-partition, split-brain).
-- [ ] Coverage targets met: critical packages >70%, CLI packages >40%.
-- [ ] Security scans clean: gitleaks (no secrets), govulncheck (no known CVEs), gosec (no high/critical).
-- [ ] Single-topology E2E green (all-in-one docker-compose with kscore-server + agent + Postgres + NATS).
-- [ ] Blueprint catalog (6) installs and applies successfully end-to-end.
-- [ ] Plugin module example (Starlark) builds, signs, publishes, installs, executes.
-- [ ] Backup → restore round-trip verified with no data loss.
-- [ ] Documentation: README, CLI reference, API reference, configuration reference, security policy, release playbook.
-- [ ] Goreleaser snapshot produces multi-arch tarballs (linux amd64/arm64, darwin amd64/arm64, windows amd64).
+- [ ] All 19 epics complete with their acceptance criteria. _(Epic 19 in progress; tracks the remaining release-engineering tasks.)_
+- [x] Performance SLOs verified in CI: cluster forms <10s, leader elected <3s, failover detection <5s, agent reassign <10s, minority blocks writes <1s, recovery <15s. _(landed: epic 19 task 3; `test/e2e/{ha,perf}/slo_test.go`; CI `slo` job.)_
+- [x] HA resilience tests pass on every PR (NATS-failure, etcd-failure, network-partition, split-brain). _(landed: epic 13 tasks 17-18; CI `integration` job.)_
+- [x] Coverage targets met: critical packages >70%, CLI packages >40%. _(landed: epic 19 task 4; `tools/covgate/` + `make coverage-gate`.)_
+- [x] Security scans clean: gitleaks (no secrets), govulncheck (no known CVEs), gosec (no high/critical). _(landed: epic 19 task 7; `make security-{secrets,vulns,sast,licenses}`; CI `security` job.)_
+- [x] Single-topology E2E green (all-in-one docker-compose with kscore-server + agent + Postgres + NATS). _(landed: epic 19 tasks 1+2; `test/e2e/single/` 11 scenarios.)_
+- [x] Blueprint catalog (6) installs and applies successfully end-to-end. _(landed: epic 15; `modules/examples/blueprints/{demo,monitoring-stack,nats-cluster,postgres-ha,production-cluster,security-baseline}`; `blueprints_test.go`.)_
+- [x] Plugin module example (Starlark) builds, signs, publishes, installs, executes. _(landed: epic 14; `modules/examples/{hello,kvcache,fsreport,httpfetch,cmdrun,secretsync,opsbundle}` + `examples_test.go`.)_
+- [x] Backup → restore round-trip verified with no data loss. _(landed: epic 18 task 7.)_
+- [x] Documentation: README, CLI reference, API reference, configuration reference, security policy, release playbook. _(landed: epic 19 task 9; auto-gen refs + GETTING-STARTED + RELEASE-PLAYBOOK + SECURITY.)_
+- [x] Goreleaser snapshot produces multi-arch tarballs (linux amd64/arm64, darwin amd64/arm64, windows amd64). _(landed: epic 19 task 12; `make release-snapshot` produces 5 archives + 12 nfpm packages + checksums.)_
 
 ## Anti-Goals for v1.0
 

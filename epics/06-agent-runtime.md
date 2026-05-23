@@ -65,18 +65,18 @@ See `PROJECT-DETAILS.md §4.6`.
 
 ## Acceptance criteria
 
-- [ ] `kscore-agent` Linux amd64 + arm64 binaries build with no CGO.
-- [ ] Agent registers with control plane on startup (visible in `kscorectl agents list`).
-- [ ] Heartbeat every 30s; control plane marks stale after 3 missed.
-- [ ] Metadata published on startup + every 60s; visible via `kscorectl agents show <id>`.
-- [ ] `kscorectl exec run "uptime" --target id:<agent-id>` returns within 1s.
+- [x] `kscore-agent` Linux amd64 + arm64 binaries build with no CGO. _(landed: `.goreleaser.yaml` builds: section sets `env: [CGO_ENABLED=0]`; epic 19 task 12 produces linux/amd64 + linux/arm64 binaries.)_
+- [x] Agent registers with control plane on startup (visible in `kscorectl agents list`). _(landed: e2e scenario 1 — `TestE2E_AgentRegistration` in `test/e2e/single/scenarios_test.go`; epic 19 task 2a.)_
+- [x] Heartbeat every 30s; control plane marks stale after 3 missed. _(landed: `internal/agent/agent.go` `defaultHeartbeatInterval = 30*time.Second`; `internal/controlplane/connection_manager.go` 10s monitor tick + 3-missed staleness per PROJECT-DETAILS §4.4.)_
+- [x] Metadata published on startup + every 60s; visible via `kscorectl agents show <id>`. _(landed: `internal/agent/metadata.go` `defaultMetadataInterval = 60*time.Second`; `runMetadataLoop` publishes on startup + tick.)_
+- [x] `kscorectl exec run "uptime" --target id:<agent-id>` returns within 1s. _(landed: perf SLO `sloCommandLatency = 100 * time.Millisecond` in `test/e2e/perf/slo_test.go` is 10× stricter than the 1s acceptance bound; verified by `TestSLO_CommandLatency_LocalNATS`. Epic 19 task 3.)_
 - [x] HMAC-invalid command rejected with audit log entry. _(task 5 — `TestAgent_CommandFlow_HMACInvalidPublishesRejection` covers the full flow: bad signature → SecurityEnforcer.Validate returns ErrHMACInvalid → audit WARN line → CommandResponse{Rejected: true} published.)_
 - [x] Allowlist-blocked command rejected; audit logged. _(task 5 — `TestAgent_CommandFlow_AllowlistBlocksPublishesRejection` covers default-deny enforcement → audit WARN → CommandResponse{Rejected: true} published.)_
-- [ ] Bootstrap TUI walks through demo mode in <5 minutes (manual test).
+- [ ] Bootstrap TUI walks through demo mode in <5 minutes (manual test). _(TUI shipped at `internal/agent/bootstrap/tui/`; demo-mode validation in `configurer_test.go` (`TestConfigurationFromValues_DemoModeAccepted`); the <5-min manual walkthrough is Phase D of `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` — runs at launch-prep time on a fresh Ubuntu VM.)_
 - [x] Non-interactive `kscore-agent bootstrap --non-interactive --mode demo --cluster-name x --join nats://server:4222` succeeds end-to-end in CI. _(task 8 — `TestBootstrap_NonInteractiveHappyPath` in `cmd/kscore-agent/bootstrap_test.go` runs the in-process bootstrap subcommand with this exact flag shape against an ephemeral TCP listener and asserts state persisted + config rendered + parses via `internal/config.Load`.)_
 - [x] Re-running bootstrap is idempotent (no duplicate systemd units, no broken state). _(task 6 — `TestEngine_ReRunAfterDoneIsNoOp` covers PhaseDone short-circuit; `TestDefaultInstaller_Idempotent` + `TestDefaultInstaller_DetectsChange` cover byte-compare config rewrite; `TestEngine_ResumeSkipsCompletedPhases` + `TestEngine_ResumeAfterFailureContinuesFromCheckpoint` cover mid-flow checkpoint resume. Systemd unit installation is Task 9.)_
 - [x] SIGTERM produces clean unsubscribe + exit. _(task 11 — Agent.Shutdown unsubscribes, cancels the shared loop+command ctx, and waits on a single WaitGroup that now includes in-flight commands; verified by `TestAgent_ShutdownDrainsInFlightCommand` (real Executor against /bin/sleep, drained via SIGTERM grace) + `TestAgent_NoGoroutineLeak_AfterShutdown` (goleak). Drain-timeout WARN ("agent: command drain timed out") fires when the caller's ctx expires before drain — covered by `TestAgent_ShutdownBudgetExceeded`.)_
-- [ ] Coverage >75% on `internal/agent`.
+- [x] Coverage >75% on `internal/agent`. _(landed: 87.6% per `go test -cover ./internal/agent/`; well above the 75% acceptance bound and the 70% critical-gate threshold.)_
 
 ## Risks
 

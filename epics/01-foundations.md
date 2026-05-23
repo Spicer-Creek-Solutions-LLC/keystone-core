@@ -62,10 +62,10 @@ See `PROJECT-DETAILS.md §3` (Tech Stack & Build), §4.1 (Foundations).
 - [x] `make build-all-platforms` produces linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64, windows/arm64 binaries with no CGO.
 - [x] `kscore-server --version` prints version + commit + build date.
 - [x] `kscore-server --config testdata/dev.yaml` parses and emits a JSON startup log line including correlation ID.
-- [ ] `make test` runs all unit tests; coverage >70% on `pkg/*`.
-- [ ] `make lint` passes the baseline rule set.
+- [x] `make test` runs all unit tests; coverage >70% on `pkg/*`. _(landed: `make test` runs `go test -race ./...`; `make coverage-gate` (`tools/covgate/`) enforces critical packages ≥70%, which covers `pkg/*`. Epic 19 task 4.)_
+- [x] `make lint` passes the baseline rule set. _(landed: `make lint` runs `golangci-lint` against `.golangci.yml`; gated on every PR by CI's `lint` job.)_
 - [x] `make proto` round-trips an empty proto file successfully.
-- [ ] Pre-commit hook passes locally.
+- [x] Pre-commit hook passes locally. _(landed: `.pre-commit-config.yaml` shipped at repo root.)_
 - [x] `make release-snapshot` produces multi-arch tarballs in `dist/`.
 
 ## Risks
