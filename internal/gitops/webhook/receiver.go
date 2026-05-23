@@ -150,14 +150,22 @@ func (r *Receiver) Stop(ctx context.Context) error {
 // and maps the outcome to an HTTP status. Event-bus emission lands in
 // task 4; for now a parsed event is acknowledged with 202.
 func (r *Receiver) handle(w http.ResponseWriter, req *http.Request) {
+	// Phase B5 finding H1: do not leak internal error strings to
+	// unauthenticated callers. The response body carries a generic
+	// message; the original error is logged server-side at WARN so
+	// operators retain diagnostic visibility.
 	provider, err := r.reg.Detect(req)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		r.logger.Warn("gitops webhook provider-detect failed",
+			slog.String("error", err.Error()))
+		http.Error(w, "provider detection failed", http.StatusBadRequest)
 		return
 	}
 	h, ok := r.reg.Lookup(provider)
 	if !ok {
-		http.Error(w, "no handler for provider "+provider.String(), http.StatusBadRequest)
+		r.logger.Warn("gitops webhook no handler for provider",
+			slog.String("provider", provider.String()))
+		http.Error(w, "unsupported provider", http.StatusBadRequest)
 		return
 	}
 
@@ -168,7 +176,10 @@ func (r *Receiver) handle(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
 			return
 		}
-		http.Error(w, "read body: "+err.Error(), http.StatusBadRequest)
+		r.logger.Warn("gitops webhook body read failed",
+			slog.String("provider", provider.String()),
+			slog.String("error", err.Error()))
+		http.Error(w, "failed to read request body", http.StatusBadRequest)
 		return
 	}
 
@@ -186,7 +197,7 @@ func (r *Receiver) handle(w http.ResponseWriter, req *http.Request) {
 		r.logger.Warn("gitops webhook parse failed",
 			slog.String("provider", provider.String()),
 			slog.String("error", err.Error()))
-		http.Error(w, "parse: "+err.Error(), http.StatusUnprocessableEntity)
+		http.Error(w, "failed to process webhook", http.StatusUnprocessableEntity)
 		return
 	}
 

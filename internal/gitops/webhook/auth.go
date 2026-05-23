@@ -71,18 +71,29 @@ type HMACAuthenticator struct {
 func (HMACAuthenticator) Method() AuthMethod { return AuthHMAC }
 
 // Authenticate implements [Authenticator]. The comparison is
-// constant-time ([hmac.Equal]); a missing/malformed header is
-// indistinguishable from a wrong signature in the returned error.
+// constant-time ([hmac.Equal]) over raw MAC bytes; the header value
+// is hex-decoded first. A missing/malformed/wrong signature all
+// return [ErrUnauthenticated] indistinguishably.
+//
+// Phase B5 finding H3: the original shape compared the raw header
+// string against hex.EncodeToString(mac) which (a) silently rejected
+// senders emitting valid uppercase hex (RFC-permitted; the
+// comparison was case-sensitive), and (b) applied the constant-time
+// guarantee at the wrong layer (the hex representation rather than
+// the MAC bytes themselves). Hex-decoding first fixes both.
 func (a HMACAuthenticator) Authenticate(r *http.Request, body []byte) error {
 	got := r.Header.Get(a.SignatureHeader)
 	if got == "" {
 		return ErrUnauthenticated
 	}
 	got = strings.TrimPrefix(got, a.Prefix)
+	gotBytes, err := hex.DecodeString(got)
+	if err != nil {
+		return ErrUnauthenticated
+	}
 	want := hmac.New(sha256.New, a.Secret)
 	want.Write(body)
-	wantHex := hex.EncodeToString(want.Sum(nil))
-	if !hmac.Equal([]byte(got), []byte(wantHex)) {
+	if !hmac.Equal(gotBytes, want.Sum(nil)) {
 		return ErrUnauthenticated
 	}
 	return nil

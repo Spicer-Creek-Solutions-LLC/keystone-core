@@ -12,16 +12,50 @@ import (
 func TestRBACAuthorizer_BypassMethods(t *testing.T) {
 	a := auth.NewRBACAuthorizer()
 
-	// Bypass methods succeed with no principal.
+	// Bypass methods succeed with no principal. Phase B5 finding
+	// H2 narrowed the bypass set: only AgentService/Register stays
+	// bypass-eligible (bootstrap PSK in payload is the
+	// authenticator; the agent has no mTLS cert yet). Heartbeat +
+	// SubmitCommandStream graduated to mTLS-required and now have
+	// their own test below.
 	for _, method := range []string{
 		"/keystone.core.v1.AgentService/Register",
-		"/keystone.core.v1.AgentService/Heartbeat",
-		"/keystone.core.v1.AgentService/SubmitCommandStream",
 		"/grpc.health.v1.Health/Check",
 	} {
 		t.Run(method, func(t *testing.T) {
 			if err := a.Authorize(context.Background(), nil, method); err != nil {
 				t.Errorf("bypass %q: %v", method, err)
+			}
+		})
+	}
+}
+
+// Phase B5 finding H2: Heartbeat + SubmitCommandStream are
+// post-bootstrap calls; the agent has its SPIFFE SVID by then, so
+// the auth layer enforces mTLS as defense-in-depth on top of the
+// gRPC transport's TLS config. Unauthenticated callers + callers
+// using API-key or JWT all fail; mTLS principals pass.
+func TestRBACAuthorizer_AgentPostBootstrapRequiresMTLS(t *testing.T) {
+	a := auth.NewRBACAuthorizer()
+	for _, method := range []string{
+		"/keystone.core.v1.AgentService/Heartbeat",
+		"/keystone.core.v1.AgentService/SubmitCommandStream",
+	} {
+		t.Run(method+"/nil principal denied", func(t *testing.T) {
+			if err := a.Authorize(context.Background(), nil, method); err == nil {
+				t.Errorf("expected mTLS-required error, got nil")
+			}
+		})
+		t.Run(method+"/API-key principal denied", func(t *testing.T) {
+			p := &auth.Principal{Role: auth.RoleAdmin, AuthMethod: auth.AuthMethodAPIKey}
+			if err := a.Authorize(context.Background(), p, method); err == nil {
+				t.Errorf("expected mTLS-required error, got nil")
+			}
+		})
+		t.Run(method+"/mTLS principal allowed", func(t *testing.T) {
+			p := &auth.Principal{Role: auth.RoleAdmin, AuthMethod: auth.AuthMethodMTLS}
+			if err := a.Authorize(context.Background(), p, method); err != nil {
+				t.Errorf("expected success for mTLS principal, got %v", err)
 			}
 		})
 	}

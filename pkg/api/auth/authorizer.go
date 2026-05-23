@@ -196,14 +196,20 @@ func defaultMethodRequirements() map[string]Role {
 }
 
 // defaultBypassMethods returns the v1.0 set of methods that require no
-// API-layer auth. Agents authenticate at the transport layer
-// (NATS-mTLS, epic 09) before issuing these calls.
+// API-layer auth. Phase B5 finding H2 narrowed this: AgentService
+// Heartbeat + SubmitCommandStream now require mTLS at the auth layer
+// (defense-in-depth on top of the gRPC server's TLS config); only
+// Register stays bypass-eligible because the bootstrap PSK in the
+// request payload is the authenticator at that stage (the agent has
+// no cert yet).
 func defaultBypassMethods() map[string]bool {
 	const agent = "/keystone.core.v1.AgentService/"
 	return map[string]bool{
-		agent + "Register":            true,
-		agent + "Heartbeat":           true,
-		agent + "SubmitCommandStream": true,
+		// Bootstrap: PSK in the request payload IS the authenticator;
+		// the agent has no mTLS cert yet. Once Register succeeds the
+		// server issues a SPIFFE SVID and subsequent calls flip to
+		// mTLS-required (see defaultMTLSRequiredMethods below).
+		agent + "Register": true,
 
 		// Standard gRPC health probes + reflection. Production wiring
 		// in epic 04 registers the canonical service names here.
@@ -215,10 +221,17 @@ func defaultBypassMethods() map[string]bool {
 
 // defaultMTLSRequiredMethods returns the v1.0 set of methods that
 // MUST be over mTLS — every CoordinationService method per
-// PROJECT-DETAILS §4.5. Auth-layer enforcement is defense-in-depth on
-// top of the server's TLS config.
+// PROJECT-DETAILS §4.5, plus the agent-after-bootstrap calls
+// (Heartbeat, SubmitCommandStream) per Phase B5 finding H2.
+// Auth-layer enforcement is defense-in-depth on top of the server's
+// TLS config: even on a deployment that mistakenly accepts non-mTLS
+// gRPC connections, these methods still reject unauthenticated
+// callers at the authorizer.
 func defaultMTLSRequiredMethods() map[string]bool {
-	const coord = "/keystone.core.v1.CoordinationService/"
+	const (
+		coord = "/keystone.core.v1.CoordinationService/"
+		agent = "/keystone.core.v1.AgentService/"
+	)
 	return map[string]bool{
 		coord + "ClusterHealth":      true,
 		coord + "LookupLeader":       true,
@@ -226,5 +239,12 @@ func defaultMTLSRequiredMethods() map[string]bool {
 		coord + "RecoveryCoordinate": true,
 		coord + "NodeHeartbeat":      true,
 		coord + "PropagateState":     true,
+
+		// Post-bootstrap agent calls: the agent has its SPIFFE SVID by
+		// now, so mTLS at the auth layer prevents a misconfigured
+		// transport (no client-cert verification) from accepting fake
+		// heartbeats or fake command-result submissions.
+		agent + "Heartbeat":           true,
+		agent + "SubmitCommandStream": true,
 	}
 }

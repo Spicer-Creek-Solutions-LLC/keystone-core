@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -53,9 +54,21 @@ func TestHMACAuthenticator(t *testing.T) {
 	}{
 		{"valid", map[string]string{"X-Hub-Signature-256": "sha256=" + good}, body, false},
 		{"valid no prefix in value still ok via TrimPrefix noop", map[string]string{"X-Hub-Signature-256": good}, body, false},
+		// Phase B5 finding H3: senders may emit uppercase hex per
+		// RFC; the pre-fix comparison was case-sensitive and
+		// silently rejected these. Now valid.
+		{"valid uppercase hex", map[string]string{"X-Hub-Signature-256": "sha256=" + strings.ToUpper(good)}, body, false},
+		// Phase B5 finding H3: a mixed-case hex value should still
+		// authenticate identically; the comparison is on raw MAC
+		// bytes after hex.DecodeString.
+		{"valid mixed-case hex", map[string]string{"X-Hub-Signature-256": "sha256=" + strings.ToUpper(good[:8]) + good[8:]}, body, false},
 		{"wrong signature", map[string]string{"X-Hub-Signature-256": "sha256=" + good}, body + "tampered", true},
 		{"missing header", nil, body, true},
 		{"garbage header", map[string]string{"X-Hub-Signature-256": "sha256=zzzz"}, body, true},
+		// Phase B5 finding H3: odd-length hex (cannot decode) maps
+		// to ErrUnauthenticated, indistinguishable from a wrong
+		// signature.
+		{"odd-length hex", map[string]string{"X-Hub-Signature-256": "sha256=abc"}, body, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
