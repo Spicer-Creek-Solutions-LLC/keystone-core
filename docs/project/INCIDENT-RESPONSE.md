@@ -564,5 +564,5 @@ Conduct semi-annual live drills:
 
 - [NIST SP 800-61](https://csrc.nist.gov/publications/detail/sp/800-61/rev-2/final) - Computer Security Incident Handling Guide
 - [SANS Incident Handler's Handbook](https://www.sans.org/white-papers/33901/)
-- [Threat Model](../docs/content/en/docs/concepts/threat-model.md) - System threat model
-- [Security Guide](../docs/content/en/docs/operations/security.md) - Security operations
+- [SECURITY-DESIGN.md](SECURITY-DESIGN.md) - System threat model + security design
+- [Security Incident Runbook](../runbooks/security-incident.md) - Operational response procedure

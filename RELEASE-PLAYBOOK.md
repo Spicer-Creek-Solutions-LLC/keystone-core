@@ -94,7 +94,7 @@ This process is informed by, and aims to comply with, the following:
 | [in-toto](https://in-toto.io/) | Supply chain layout and verification framework |
 | [OpenPGP (RFC 9580)](https://www.rfc-editor.org/rfc/rfc9580) | Cryptographic signature format |
 | [Reproducible Builds](https://reproducible-builds.org/) | Build reproducibility verification methodology |
-| [CISA Secure Software Development Attestation](https://www.cisa.gov/secure-software-development-attestation) | Federal supply chain security requirements |
+| [CISA Secure Software Development Attestation](https://www.cisa.gov/resources-tools/resources/secure-software-development-attestation-form) | Federal supply chain security requirements |
 
 ---
 
@@ -726,7 +726,7 @@ grype ghcr.io/kscore/kscore-server:<VERSION>
 
 ### 11c. Sign with Cosign (Key-Based, Not Keyless)
 
-Container image signing uses [Cosign](https://docs.sigstore.dev/cosign/overview/)
+Container image signing uses [Cosign](https://docs.sigstore.dev/cosign/signing/signing_with_blobs/)
 with a project-controlled key, not keyless/OIDC mode. The Cosign private
 key is stored on the same hardware token or offline media as the GPG
 signing subkey.

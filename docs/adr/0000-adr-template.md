@@ -5,8 +5,8 @@
 | **Status** | Proposed / Accepted / Deprecated / Superseded / Rejected |
 | **Date** | YYYY-MM-DD |
 | **Author(s)** | Name <email@example.com> |
-| **Supersedes** | [ADR-NNNN](link) (if applicable) |
-| **Superseded by** | [ADR-NNNN](link) (if applicable) |
+| **Supersedes** | `ADR-NNNN` (if applicable) |
+| **Superseded by** | `ADR-NNNN` (if applicable) |
 
 ## Context
 
@@ -162,8 +162,8 @@ How will we know this decision was successful?
 
 ## Related Decisions
 
-- [ADR-NNNN](link): Related decision 1
-- [ADR-NNNN](link): Related decision 2
+- `ADR-NNNN`: Related decision 1
+- `ADR-NNNN`: Related decision 2
 
 ## References
 

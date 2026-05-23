@@ -247,7 +247,6 @@ After merging security-related changes:
 
 ## References
 
-- [SECURITY-DESIGN.md](SECURITY-DESIGN.md) - Security design principles
-- [Threat Model](/docs/content/en/docs/concepts/threat-model.md) - System threat model
+- [SECURITY-DESIGN.md](SECURITY-DESIGN.md) - Security design + system threat model
 - [OWASP Code Review Guide](https://owasp.org/www-project-code-review-guide/)
 - [Go Security Best Practices](https://go.dev/doc/security/best-practices)

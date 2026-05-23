@@ -364,7 +364,7 @@ The following MAY be logged with appropriate masking:
 
 ### Before Writing Code
 
-1. **Understand the threat model**: Review [docs/concepts/threat-model.md](docs/content/en/docs/concepts/threat-model.md)
+1. **Understand the threat model**: Review this document (`SECURITY-DESIGN.md`) and [`SECURITY.md`](../../SECURITY.md)
 2. **Identify trust boundaries**: Know which boundaries your code crosses
 3. **Plan for failures**: Design for graceful degradation
 
@@ -430,7 +430,7 @@ PRs that touch these areas require explicit security review:
 
 ### Reporting Security Issues
 
-See [SECURITY.md](SECURITY.md) for vulnerability reporting procedures.
+See [SECURITY.md](../../SECURITY.md) for vulnerability reporting procedures.
 
 ---
 

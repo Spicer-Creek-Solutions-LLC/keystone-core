@@ -633,8 +633,6 @@ review_date: 2025-02-15
 - [SECURITY-DESIGN.md](SECURITY-DESIGN.md) - Security design principles
 - [SECURITY-REVIEW.md](SECURITY-REVIEW.md) - Security review process
 - [SECURITY-RELEASE.md](SECURITY-RELEASE.md) - Security release procedures
-- [Threat Model](/docs/concepts/threat-model/) - Security threats and mitigations
-- [Security Training](/docs/operations/security-training/) - Training curriculum
 
 ---
 

@@ -42,7 +42,7 @@ export CGO_ENABLED := 0
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
         openapi-lint \
-        docs-lint docs-lint-fix docs-lint-container \
+        docs-lint docs-lint-fix docs-lint-container docs-links docs-links-online \
         dev dev-server dev-agent \
         e2e-build e2e-up e2e-down e2e-logs e2e-test \
         release-snapshot release release-dry-run release-config-check release-smoke \
@@ -322,6 +322,36 @@ docs-lint-container: ## Lint Markdown docs in a node:22-alpine container (no loc
 		exit 1; \
 	fi; \
 	"$$cre" run --rm -v "$(CURDIR)":/repo:ro -w /repo node:22-alpine npx --yes markdownlint-cli2
+
+# Markdown link-health check (Epic 19 task 13 follow-up — Phase A3 of
+# the public-launch checklist). Runs lychee inside its official
+# container against every .md file using .lychee.toml. Offline mode
+# checks only local + relative refs (CI gate, deterministic).
+# docs-links-online additionally checks external URLs — slower, can
+# flake on rate limits, so it's not a CI gate; run manually.
+docs-links: ## Check internal/relative .md links via lychee (offline; CI gate)
+	@cre="$$(command -v docker || command -v podman)"; \
+	if [ -z "$$cre" ]; then \
+		echo "ERROR: docs-links needs docker or podman"; \
+		exit 1; \
+	fi; \
+	"$$cre" run --rm -v "$(CURDIR)":/workspace:ro \
+		lycheeverse/lychee:latest \
+		--config /workspace/.lychee.toml \
+		--no-progress --offline \
+		"/workspace/**/*.md"
+
+docs-links-online: ## Check internal + external .md links via lychee (slow; not a CI gate)
+	@cre="$$(command -v docker || command -v podman)"; \
+	if [ -z "$$cre" ]; then \
+		echo "ERROR: docs-links-online needs docker or podman"; \
+		exit 1; \
+	fi; \
+	"$$cre" run --rm -v "$(CURDIR)":/workspace:ro \
+		lycheeverse/lychee:latest \
+		--config /workspace/.lychee.toml \
+		--no-progress \
+		"/workspace/**/*.md"
 
 # ---- Dev run --------------------------------------------------------------
 

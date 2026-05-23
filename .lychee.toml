@@ -15,7 +15,18 @@ exclude = [
   "http://0.0.0.0",
   "https://0.0.0.0",
   "http://example.com",
-  "https://example.com"
+  "https://example.com",
+  # Pre-launch placeholders. These domains are aspirational and will
+  # be wired up (or replaced with real channels) during launch prep
+  # per docs/project/PUBLIC-LAUNCH-CHECKLIST.md Phase B6 + F-phase.
+  # Excluded so the CI link gate doesn't fail on absent infra.
+  "@keystone-core.io",
+  "@keystone.io",
+  "docs.keystone.io",
+  "keystone-community.slack.com",
+  # Documented config-example hostnames that intentionally do not
+  # resolve (operators substitute real internal endpoints).
+  "vault.internal"
 ]
 
 exclude_path = [

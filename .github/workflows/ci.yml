@@ -65,6 +65,11 @@ jobs:
       # else means the Makefile was bypassed.
       # See docs/project/DEVELOPMENT.md "Build artifact discipline".
       - run: make clean-check
+      # Markdown link-health check (Phase A3 of the public-launch
+      # checklist). lychee against every .md file in offline mode
+      # so the gate is deterministic; external URLs are checked
+      # via the separate `make docs-links-online` target (not in CI).
+      - run: make docs-links
 
   test:
     runs-on: ubuntu-latest
