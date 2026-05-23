@@ -172,8 +172,8 @@ LYCHEE_VERSION ?= lychee-v0.24.2
 install-lychee: ## Install pinned lychee binary into $(GOPATH)/bin
 	@goos="$$(go env GOOS)"; goarch="$$(go env GOARCH)"; \
 	case "$$goos-$$goarch" in \
-	  linux-amd64)  target="x86_64-unknown-linux-gnu" ;; \
-	  linux-arm64)  target="aarch64-unknown-linux-gnu" ;; \
+	  linux-amd64)  target="x86_64-unknown-linux-musl" ;; \
+	  linux-arm64)  target="aarch64-unknown-linux-musl" ;; \
 	  darwin-amd64) target="x86_64-apple-darwin" ;; \
 	  darwin-arm64) target="aarch64-apple-darwin" ;; \
 	  *) echo "lychee: unsupported $$goos-$$goarch (manual install required)"; exit 1 ;; \
