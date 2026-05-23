@@ -15,14 +15,24 @@ This document outlines security practices, assumptions, and procedures for Keyst
 
 If you discover a security vulnerability in Keystone Core, please report it responsibly:
 
-1. **Do not** open a public issue
-2. Email security concerns to the maintainers with:
+1. **Do not** open a public issue.
+2. Email <security@keystone-core.io> with:
    - Description of the vulnerability
    - Steps to reproduce
    - Potential impact
    - Any suggested fixes
 
 We aim to respond within 48 hours and will work with you to understand and address the issue.
+
+> **Pre-launch note (v0.x).** The `keystone-core.io` domain is being
+> provisioned ahead of the public release. Until the
+> `security@keystone-core.io` mailbox is live, contact the project
+> maintainer directly via the address in
+> [`OWNERSHIP.md`](OWNERSHIP.md). The aspirational
+> `security@keystone-core.io` address above is the long-term canonical
+> channel and will be the active path at the public-launch flip
+> ([`docs/project/PUBLIC-LAUNCH-CHECKLIST.md`](docs/project/PUBLIC-LAUNCH-CHECKLIST.md)
+> Phase B6 + F-phase).
 
 ## Security Architecture
 
