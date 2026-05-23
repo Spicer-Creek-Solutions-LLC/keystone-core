@@ -4,9 +4,9 @@ A one-time, sequential checklist for flipping the Keystone Core repository
 from private to public. Distinct from the per-release [`RELEASE-PLAYBOOK.md`](../../RELEASE-PLAYBOOK.md) — this is about repository readiness, not release ceremony.
 
 This checklist is **strictly sequential**: each phase finishes before the
-next begins. Phase B (security review) reads what Phase A produced; Phase D
-(VM tests) exercises what Phase C declared green; etc. Skipping forward
-defeats the gating.
+next begins (`A → B → C → D → E → F → G`). Phase B reads what Phase A
+produced; Phase D exercises what Phase C declared green; Phase G builds
+on the doc fixes from Phase A; etc. Skipping forward defeats the gating.
 
 When every box below is checked, the repository is ready to flip to public.
 
@@ -207,6 +207,53 @@ intended posture; first-impression scan of the root file list is clean.
 
 **Exit gate for Phase F**: every launch-day question has a documented
 answer. Repo is ready to flip.
+
+---
+
+## Phase G — Documentation site
+
+**Goal**: a slick, browseable documentation site that a curious operator
+or contributor can land on and immediately get oriented. Markdown in
+`docs/project/` is enough for GitHub-style rendering but not enough for
+the kind of project landing-page a serious project needs.
+
+Details are deferred until this phase starts — pick the right tool then,
+not now. Worth knowing going in:
+
+- The `archive/v0` branch has a prior Hugo-based doc-site attempt; review
+  it for content structure, theme choices, what worked, what didn't.
+- Hugo is the obvious default (referenced throughout `docs/project/`
+  ROADMAP entries as the post-v1.0 docs target), but if a better option
+  emerged since then (MkDocs Material, Docusaurus, mdBook, …), pick that.
+  The deciding factor is "what produces the slickest output for the time
+  invested," not loyalty to any one tool.
+- Publishing target is also TBD: Codeberg Pages is the natural fit
+  alongside the source repo; Cloudflare Pages / Netlify / self-hosted all
+  remain options.
+- Content scope: every doc currently under `docs/project/` should land
+  on the site, plus the auto-generated CLI / configuration / API
+  references and at least one curated landing page.
+
+- [ ] **G1. Survey + tool choice.** Read the `archive/v0` doc-site
+      attempt. Decide tool (Hugo / MkDocs / Docusaurus / mdBook / other).
+      Record the decision + rationale.
+
+- [ ] **G2. Content structure.** Lay out the site information
+      architecture: landing page, getting-started, architecture, CLI
+      reference, configuration reference, API reference, operations,
+      contributing, security, release notes.
+
+- [ ] **G3. Publishing pipeline.** Set up the build + deploy flow. Local
+      `make docs-site` to preview; CI job builds on PR; merge to `main`
+      deploys to production URL.
+
+- [ ] **G4. Live + linked.** Site is live at its production URL; README
+      and `docs/project/` README-equivalents link to it; auto-generated
+      references regenerate as part of the deploy (no drift from
+      `make docs-sync-check`).
+
+**Exit gate for Phase G**: a public reader landing on the project
+discovers a polished site, not a wall of GitHub-rendered markdown.
 
 ---
 
