@@ -198,6 +198,47 @@ func TestExec_Scope(t *testing.T) {
 	}
 }
 
+// Phase B5 finding M2: codify the allowlist semantics explicitly
+// (per the doc-comment on Exec.Run).
+//
+//   - bare allowlist entry ("apt-get") → matches anywhere-apt-get
+//   - absolute-path allowlist entry ("/usr/bin/apt-get") → matches
+//     only that exact path; DOES NOT match "/tmp/apt-get"
+//
+// Operators wanting strict path containment must use absolute
+// paths in the manifest.
+func TestExec_AllowlistSemantics(t *testing.T) {
+	t.Run("bare entry matches anywhere", func(t *testing.T) {
+		e, err := capability.NewExec(manifest.CapabilityConfig{
+			Commands: []string{"apt-get"},
+		}, &fakeExec{})
+		if err != nil {
+			t.Fatalf("NewExec: %v", err)
+		}
+		for _, name := range []string{"apt-get", "/usr/bin/apt-get", "/tmp/apt-get", "/home/anywhere/apt-get"} {
+			if _, _, err := e.Run(context.Background(), name, nil); err != nil {
+				t.Errorf("bare allowlist + name=%q: unexpected deny %v", name, err)
+			}
+		}
+	})
+	t.Run("absolute-path entry matches only exact path", func(t *testing.T) {
+		e, err := capability.NewExec(manifest.CapabilityConfig{
+			Commands: []string{"/usr/bin/apt-get"},
+		}, &fakeExec{})
+		if err != nil {
+			t.Fatalf("NewExec: %v", err)
+		}
+		if _, _, err := e.Run(context.Background(), "/usr/bin/apt-get", nil); err != nil {
+			t.Errorf("abs-path allowlist + exact-match: unexpected deny %v", err)
+		}
+		for _, name := range []string{"apt-get", "/tmp/apt-get", "/home/anywhere/apt-get", "/usr/local/bin/apt-get"} {
+			if _, _, err := e.Run(context.Background(), name, nil); !errors.Is(err, capability.ErrCommandDenied) {
+				t.Errorf("abs-path allowlist + name=%q: want ErrCommandDenied, got %v", name, err)
+			}
+		}
+	})
+}
+
 // ---- secrets.read / secrets.write --------------------------------------
 
 func TestSecrets_Scope(t *testing.T) {
