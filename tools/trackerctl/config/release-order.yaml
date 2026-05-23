@@ -170,6 +170,8 @@ v1.x:
   - "Expanded getting-started guides (per-domain tutorials)"
   - "Error-message docs URLs (post Hugo site)"
   - "Operations runbooks v1.x sweep"
+  # Added by Phase B3 dependency audit (2026-05-23):
+  - "Dependency posture re-audit"
 
 v2.x+:
   - "Embedded NATS / hybrid mode / leaf node / endpoint advertiser / supercluster / WebSocket"

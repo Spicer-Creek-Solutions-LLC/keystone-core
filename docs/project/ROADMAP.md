@@ -977,6 +977,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: Each sub-bullet adds its own check function in `scripts/release-smoke.sh` (or the container companion) and a row in `docs/project/SECURITY-GOVERNANCE.md` "Release Dry-Run Smoke."
 - **References**: epic 19 task 13 `_(landed)_`; `scripts/release-smoke.sh`; `docs/project/SECURITY-GOVERNANCE.md` "Release Dry-Run Smoke" section.
 
+#### Dependency posture re-audit
+
+- **Priority**: v1.x
+- **What**: A periodic deep-audit of the direct + indirect Go dependency tree. The v0.x baseline audit (2026-05-23, Phase B3 of [`PUBLIC-LAUNCH-CHECKLIST.md`](PUBLIC-LAUNCH-CHECKLIST.md)) flagged a small set of single-maintainer / lightly-maintained deps that are acceptable for v0.x but warrant explicit re-evaluation before v1.0 / v2.0. Specifically: (a) **`lib/pq` → `jackc/pgx` graduation** — lib/pq is in maintenance-only mode; pgx is the community-active Postgres driver; (b) **`gobwas/glob` re-audit** — minimal-scope glob matcher, feature-complete per maintainer, no known CVEs but worth re-validating; (c) **single-maintainer-but-active deps re-check** — `modernc.org/sqlite`, `santhosh-tekuri/jsonschema/v6`, `shirou/gopsutil/v4`.
+- **Why deferred**: No security signal warrants action at v0.x. The audit's purpose is to keep the dependency profile honest before SemVer stability kicks in at v1.0.
+- **Acceptance**: A timestamped re-audit lands in [`docs/project/SECURITY-GOVERNANCE.md`](SECURITY-GOVERNANCE.md) "Dependency posture" section with the new module count + license distribution + maintainer-health categorization. Any newly-introduced single-maintainer dep gets an explicit accept/replace decision.
+- **References**: `docs/project/SECURITY-GOVERNANCE.md` "Dependency posture" section (2026-05-23 baseline); `go.mod` direct + indirect blocks.
+
 #### Rate-limit: `Retry-After` HTTP-date format alternative
 
 - **Priority**: v1.x

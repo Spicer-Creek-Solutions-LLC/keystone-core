@@ -256,6 +256,67 @@ annotations carry **both** so each tool sees its own marker.
 Any new ignore needs the same shape — a comment naming the actual
 license + why go-licenses can't classify it.
 
+#### Dependency posture (Phase B3 audit, 2026-05-23)
+
+49 direct dependencies + 154 indirect = 203 Go modules. Reviewed
+during the public-launch [Phase B3](PUBLIC-LAUNCH-CHECKLIST.md#phase-b--security-review):
+
+**License distribution** (per `go-licenses` against the full tree):
+
+| License | Modules |
+|---------|---------|
+| MIT | 70 |
+| Apache-2.0 | 69 |
+| BSD-3-Clause | 36 |
+| MPL-2.0 | 14 |
+| BSD-2-Clause | 4 |
+| BSD-2-Clause-FreeBSD | 1 (`rcrowley/go-metrics`; same as BSD-2 plus a FreeBSD-specific patent-grant clause; OSI-compatible) |
+| Unknown | 1 (`modernc.org/mathutil`; ignored per above) |
+
+Every license in the tree is compatible with the project's
+Apache-2.0 license under standard combination rules. No GPL,
+LGPL, or restricted/forbidden licenses present.
+
+**Maintainer-health categories** (direct deps):
+
+- **Foundation- or org-backed** (~85% of direct deps): Go core
+  team (`golang.org/x/*`, `google.golang.org/*`), CNCF (OPA,
+  Prometheus, OpenTelemetry, etcd), major orgs (HashiCorp Vault
+  with `auth/{approle,kubernetes,ldap}`, MinIO, NATS, gRPC, SPIFFE,
+  Google CEL + Starlark). No concerns.
+- **Established multi-maintainer libraries**: cobra/pflag,
+  go-jose, golang-jwt, go-git, Masterminds/semver, charmbracelet/
+  huh, koanf/* parsers, age. No concerns.
+- **Single-maintainer but actively maintained**: `modernc.org/
+  sqlite` (Jan Mercl; pure-Go SQLite port; weekly commits),
+  `santhosh-tekuri/jsonschema/v6` (Santhosh Tekuri; bug-fixed
+  monthly), `shirou/gopsutil/v4` (Shirou; monthly commits with
+  community contributions). Acceptable risk for v0.x; flagged
+  here so future audits can re-evaluate.
+- **Lightly-maintained / feature-complete**: `gobwas/glob`
+  (minimal-scope glob matcher; ~3 commits/year; the maintainer
+  treats it as "essentially complete"; no known CVEs; scope is
+  small enough that a fork would be straightforward). Acceptable
+  for v0.x but tracked in the v1.x ROADMAP entry *"Dependency
+  posture re-audit"* alongside the lib/pq → pgx graduation
+  consideration.
+
+Where a dep would warrant replacement or an explicit decision, a
+v1.x ROADMAP entry tracks it (e.g., the lib/pq → jackc/pgx
+graduation, since lib/pq is in maintenance-only mode while pgx is
+the active community Postgres driver).
+
+**Automated enforcement**:
+
+- `make security-licenses` (in CI) fails on any new
+  forbidden/restricted/unknown license.
+- `make security-vulns` (in CI) fails on any *called* CVE in the
+  module tree (caught the `golang.org/x/net@v0.54.0` →
+  `v0.55.0` bump during Phase B1 — see commit `43c5590a`).
+
+**Re-audit cadence**: this section is timestamped; refresh
+during each pre-release security pass.
+
 #### Deferred to v1.x
 
 Tracked as sub-bullets under the ROADMAP entry *"Security baseline
