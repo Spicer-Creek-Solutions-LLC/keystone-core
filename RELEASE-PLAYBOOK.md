@@ -445,12 +445,36 @@ source.
    goreleaser --version
    ```
 
-3. Run the build:
+3. Run the dry-run (build + smoke):
    ```
-   make release-snapshot
+   RELEASE_SMOKE_CONTAINERS=1 make release-dry-run
    ```
-   This produces all binaries, archives, and packages in `dist/` without
-   publishing.
+   This validates the goreleaser config, builds every artifact into
+   `dist/` (5 archives, 12 nfpm packages, `checksums.txt`), then runs
+   `scripts/release-smoke.sh` which asserts:
+   - `checksums.txt` is well-formed and every listed file's SHA-256
+     verifies.
+   - Each of the 5 archives contains all 20 `kscore-*` binaries +
+     `LICENSE`/`NOTICE`/`README.md`/`CHANGELOG.md`.
+   - Every linux/amd64 binary responds to `--version` with a
+     semver-shaped line.
+   - Each of the 6 `.deb` and 6 `.rpm` packages contains the expected
+     `/usr/local/bin/` binaries + systemd units / doc files
+     (run inside `debian:12-slim`; the host needs no `rpm` / `dpkg-deb`
+     installation).
+   - `kscore-server.deb` installs cleanly via `dpkg -i` in a fresh
+     `debian:12-slim` and runs `--version`.
+   - `kscore-server.rpm` installs cleanly via `rpm -i` in a fresh
+     `rockylinux:9` and runs `--version`.
+
+   The smoke gate MUST pass before proceeding to signing. On
+   failure, `release-smoke.sh` prints the file + check that failed
+   and exits non-zero.
+
+   **v1.0 simplification.** The single signer runs the same command;
+   no separate dual-machine smoke is required because the smoke
+   only validates artifact shape (it does not replace the
+   reproducibility check below).
 
 4. Generate checksums of all artifacts:
    ```

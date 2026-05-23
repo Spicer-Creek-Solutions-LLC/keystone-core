@@ -45,7 +45,7 @@ export CGO_ENABLED := 0
         docs-lint docs-lint-fix docs-lint-container \
         dev dev-server dev-agent \
         e2e-build e2e-up e2e-down e2e-logs e2e-test \
-        release-snapshot release release-dry-run \
+        release-snapshot release release-dry-run release-config-check release-smoke \
         security-secrets security-vulns security-sast security-licenses
 
 # ---- Help (default) -------------------------------------------------------
@@ -375,8 +375,18 @@ e2e-test: ## Full cycle: build, up, run e2e tests, down (cleanup on failure)
 release-snapshot: ## Build multi-arch snapshot tarballs to dist/ (no tag required)
 	goreleaser release --snapshot --clean
 
-release-dry-run: ## Validate the goreleaser config without building
+release-config-check: ## Validate the goreleaser config without building
 	goreleaser check
+
+release-smoke: ## Run the artifact-shape smoke tests against dist/ (Epic 19 task 13)
+	# Set RELEASE_SMOKE_CONTAINERS=1 to also install one .deb in
+	# debian:12-slim and one .rpm in rockylinux:9. See
+	# scripts/release-smoke.sh for the full list of checks.
+	scripts/release-smoke.sh dist/
+
+release-dry-run: release-config-check release-snapshot release-smoke ## Full local release dry-run (config + build + smoke)
+	@echo ""
+	@echo "release-dry-run: ok"
 
 release: ## Build the full release artifact set into dist/ WITHOUT publishing.
 	# Used by the offline-workstation step of RELEASE-PLAYBOOK.md

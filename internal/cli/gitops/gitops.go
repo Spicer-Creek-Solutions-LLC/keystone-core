@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/gitops/rollback"
 	"go.keystone-core.io/keystone-core/internal/gitops/verification"
 )
@@ -34,5 +35,6 @@ func NewCommand(d Deps) *cobra.Command {
 	}
 	root.AddCommand(newVerifyCmd(d))
 	root.AddCommand(newRollbackCmd(d))
+	cli.AddVersion(root)
 	return root
 }

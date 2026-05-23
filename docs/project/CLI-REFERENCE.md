@@ -78,6 +78,7 @@ Flags:
   -h, --help             help for kscore-audit
   -o, --output string    output format: table | json (default "table")
       --server string    policy-service gRPC address (host:port) (default "localhost:9090")
+  -v, --version          version for kscore-audit
 
 Use "kscore-audit [command] --help" for more information about a command.
 ```
@@ -109,6 +110,7 @@ Flags:
       --s3-region string       S3 region (default $AWS_REGION)
       --s3-secret-key string   S3 secret key (default $AWS_SECRET_ACCESS_KEY)
       --s3-ssl                 Use HTTPS for the S3 endpoint (default true)
+  -v, --version                version for kscore-backup
 
 Use "kscore-backup [command] --help" for more information about a command.
 ```
@@ -137,7 +139,8 @@ Available Commands:
   validate    Load and structurally validate a blueprint manifest
 
 Flags:
-  -h, --help   help for kscore-blueprint
+  -h, --help      help for kscore-blueprint
+  -v, --version   version for kscore-blueprint
 
 Use "kscore-blueprint [command] --help" for more information about a command.
 ```
@@ -159,6 +162,7 @@ Flags:
   -h, --help               help for kscore-bootstrap
       --log-level string   Log level: debug, info, warn, error (default "info")
       --seed string        Path to the SeedConfig YAML
+  -v, --version            version for kscore-bootstrap
 ```
 
 ## kscore-cluster
@@ -189,6 +193,7 @@ Flags:
   -h, --help             help for kscore-cluster
   -o, --output string    output format: table | json (default "table")
       --server string    cluster-service gRPC address (host:port) (default "localhost:9090")
+  -v, --version          version for kscore-cluster
 
 Use "kscore-cluster [command] --help" for more information about a command.
 ```
@@ -216,6 +221,7 @@ Flags:
   -h, --help             help for kscore-cluster-backup
   -o, --output string    output format: table | json (default "table")
       --server string    cluster-service gRPC address (host:port) (default "localhost:9090")
+  -v, --version          version for kscore-cluster-backup
 
 Use "kscore-cluster-backup [command] --help" for more information about a command.
 ```
@@ -247,6 +253,7 @@ Flags:
   -h, --help             help for kscore-events
   -o, --output string    output format for non-streaming commands: table | json (default "table")
       --server string    events-service gRPC address (host:port) (default "localhost:9090")
+  -v, --version          version for kscore-events
 
 Use "kscore-events [command] --help" for more information about a command.
 ```
@@ -282,6 +289,7 @@ Flags:
       --principal-id string     Caller identity emitted in NATS headers (default $KSCORE_PRINCIPAL_ID)
       --principal-role string   Caller role: admin|operator|readonly (default $KSCORE_PRINCIPAL_ROLE)
       --timeout duration        Per-request response timeout (default 1m0s)
+  -v, --version                 version for kscore-files
 
 Use "kscore-files [command] --help" for more information about a command.
 ```
@@ -301,7 +309,8 @@ Available Commands:
   verify      Run a GitOps verification workflow
 
 Flags:
-  -h, --help   help for kscore-gitops
+  -h, --help      help for kscore-gitops
+  -v, --version   version for kscore-gitops
 
 Use "kscore-gitops [command] --help" for more information about a command.
 ```
@@ -328,6 +337,7 @@ Flags:
   -h, --help             help for kscore-identity
   -o, --output string    output format: table | json (default "table")
       --server string    identity-service gRPC address (host:port) (default "localhost:9090")
+  -v, --version          version for kscore-identity
 
 Use "kscore-identity [command] --help" for more information about a command.
 ```
@@ -379,7 +389,8 @@ Available Commands:
   verify      Verify a module ZIP against a trusted public key
 
 Flags:
-  -h, --help   help for kscore-module
+  -h, --help      help for kscore-module
+  -v, --version   version for kscore-module
 
 Use "kscore-module [command] --help" for more information about a command.
 ```
@@ -411,6 +422,7 @@ Flags:
   -h, --help             help for kscore-policy
   -o, --output string    output format: table | json (default "table")
       --server string    policy-service gRPC address (host:port) — used by remote subcommands (default "localhost:9090")
+  -v, --version          version for kscore-policy
 
 Use "kscore-policy [command] --help" for more information about a command.
 ```
@@ -455,7 +467,8 @@ Available Commands:
   test            Statically validate a runbook (load + validate + DAG cycle check)
 
 Flags:
-  -h, --help   help for kscore-runbook
+  -h, --help      help for kscore-runbook
+  -v, --version   version for kscore-runbook
 
 Use "kscore-runbook [command] --help" for more information about a command.
 ```
@@ -485,6 +498,7 @@ Flags:
   -h, --help             help for kscore-secrets
   -o, --output string    output format: table | json (default "table")
       --server string    secrets-service gRPC address (host:port) (default "localhost:9090")
+  -v, --version          version for kscore-secrets
 
 Use "kscore-secrets [command] --help" for more information about a command.
 ```
@@ -517,7 +531,8 @@ Available Commands:
   outbound    Manage outbound webhook subscriptions
 
 Flags:
-  -h, --help   help for kscore-webhook
+  -h, --help      help for kscore-webhook
+  -v, --version   version for kscore-webhook
 
 Use "kscore-webhook [command] --help" for more information about a command.
 ```

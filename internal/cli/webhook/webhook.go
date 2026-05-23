@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
+	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/webhook/outbound"
 )
 
@@ -37,5 +38,6 @@ func NewCommand(d Deps) *cobra.Command {
 		SilenceErrors: true,
 	}
 	root.AddCommand(newOutboundCmd(d))
+	cli.AddVersion(root)
 	return root
 }

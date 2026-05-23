@@ -25,6 +25,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"go.keystone-core.io/keystone-core/internal/cli"
 	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 )
 
@@ -84,6 +85,7 @@ func NewCommand(deps Deps) *cobra.Command {
 	cmd.AddCommand(replayCmd(g))
 	cmd.AddCommand(typesCmd(g))
 	cmd.AddCommand(statsCmd(g))
+	cli.AddVersion(cmd)
 
 	return cmd
 }

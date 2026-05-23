@@ -136,6 +136,29 @@ jobs:
           cache: true
       - run: make smoke
 
+  # Epic 19 task 13 — release dry-run. Builds the full goreleaser
+  # snapshot (5 archives, 12 nfpm packages, checksums.txt) and runs
+  # scripts/release-smoke.sh which asserts artifact shape + linux-side
+  # content via debian:12-slim + install smoke in debian:12-slim and
+  # rockylinux:9. The smoke uses Docker (preinstalled on ubuntu-latest
+  # runners) so no extra apt-install is needed.
+  release-dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # goreleaser needs full history to compute the snapshot version.
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make install-tools
+      - name: release dry-run (full smoke incl. container install)
+        env:
+          RELEASE_SMOKE_CONTAINERS: "1"
+        run: make release-dry-run
+
   # Epic 19 task 7 — security baseline. Four scans, one job:
   #   - gitleaks: no secrets in the full git history (fetch-depth: 0).
   #   - govulncheck: no known CVEs in deps / toolchain.

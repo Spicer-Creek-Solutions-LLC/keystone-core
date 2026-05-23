@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
 )
@@ -53,6 +55,27 @@ func TestRootCommand_VersionFlag(t *testing.T) {
 
 	got := out.String()
 	for _, want := range []string{"kscore-test", "commit:", "built:"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("--version output missing %q\nfull output:\n%s", want, got)
+		}
+	}
+}
+
+func TestAddVersion(t *testing.T) {
+	cmd := &cobra.Command{Use: "kscore-example"}
+	cli.AddVersion(cmd)
+
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"--version"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	got := out.String()
+	for _, want := range []string{"kscore-example", "commit:", "built:"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("--version output missing %q\nfull output:\n%s", want, got)
 		}

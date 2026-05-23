@@ -25,6 +25,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/pkg/module/manifest"
 	"go.keystone-core.io/keystone-core/pkg/module/registry"
 	"go.keystone-core.io/keystone-core/pkg/module/resolver"
@@ -100,6 +101,7 @@ func NewCommand(d Deps) *cobra.Command {
 		resolveCmd(d), publishCmd(d), installCmd(d), updateCmd(d), treeCmd(d),
 		testCmd(d), cleanCmd(),
 	)
+	cli.AddVersion(root)
 	return root
 }
 

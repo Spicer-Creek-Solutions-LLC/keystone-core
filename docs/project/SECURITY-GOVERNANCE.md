@@ -268,6 +268,67 @@ expansion"*:
 - Add syft for SBOM generation.
 - Add hadolint for Dockerfile linting.
 
+### Release Dry-Run Smoke (Epic 19 task 13)
+
+`make release-dry-run` builds the full goreleaser snapshot (5
+archives, 12 nfpm packages, `checksums.txt`) and runs
+`scripts/release-smoke.sh` to assert artifact shape + content +
+installability. CI's `release-dry-run` job runs the full smoke
+(including container install) on every PR; the offline release
+workstation runs the same command per
+[`RELEASE-PLAYBOOK.md`](../../RELEASE-PLAYBOOK.md) Phase 4.
+
+| Check | Where | What it proves |
+|-------|-------|----------------|
+| `checksums.txt` exists + every entry verifies | host (`sha256sum -c`) | goreleaser packaged what it claims; no in-flight corruption |
+| 5 archives × 20 binaries + 4 bundled doc files | host (`tar -tzf` / `unzip -Z1`) | every platform's archive ships the full binary set + LICENSE / NOTICE / README / CHANGELOG |
+| 20 binaries respond to `--version` with semver | container (`debian:12-slim`) | `pkg/version` is wired through every cobra root (catches the gap that surfaced 15 missing version-handlers during task 13 implementation) |
+| 6 `.deb` packages contain expected `/usr/local/bin/*` + systemd unit / doc paths | container (`debian:12-slim`, `dpkg-deb`) | nfpm config produced the expected layout for every `(family × arch)` pair |
+| 6 `.rpm` packages contain the same paths | container (`debian:12-slim`, `rpm`) | rpm payload matches deb payload (catches divergence between the two nfpm package emitters) |
+| `kscore-server.deb` installs cleanly via `dpkg -i` | container (`debian:12-slim`) | deb postinst hooks succeed; binary lands on PATH; systemd unit lands at `/lib/systemd/system/` |
+| `kscore-server.rpm` installs cleanly via `rpm -i` | container (`rockylinux:9`) | rpm scriptlets succeed; same path assertions |
+
+The host needs only `sha256sum`, `tar`, `unzip`, and `docker` —
+deliberately no `rpm` or `dpkg-deb` dependency. The linux-side
+checks run inside `debian:12-slim` (which has `dpkg-deb` natively
+and apt-installs `rpm` at container start) so a macOS dev box,
+RHEL host, or a stock Ubuntu CI runner all behave identically.
+
+The install smoke is gated by `RELEASE_SMOKE_CONTAINERS=1` (set
+by the CI job + the playbook). With it off, content checks still
+run (only the install step is skipped) — useful for fast
+iteration on the smoke script itself.
+
+#### Adding a check
+
+Each artifact category corresponds to one function in either
+`scripts/release-smoke.sh` (host-portable checks) or
+`scripts/release-smoke-container.sh` (linux-side). To add a new
+artifact type (e.g., a Docker image, an SBOM file):
+
+1. Add a `check_<name>` function that prints `PASS:` per assertion
+   and calls `fail` on the first failure (the existing `set -e`
+   propagates).
+2. Call it from the orchestrator's `main()` or from the in-container
+   script's bottom block.
+3. If the new check needs a host tool not yet listed (`sha256sum`,
+   `tar`, `unzip`, `docker`), document it in the script header.
+
+#### Deferred to v1.x
+
+Tracked under the ROADMAP entry *"Release dry-run expansion"*:
+
+- SBOM generation + verification (CycloneDX / SPDX); currently
+  noted in `.goreleaser.yaml` as out-of-scope for v1.0.
+- Cross-arch install smoke (arm64 in container via `qemu-user-static`
+  / `binfmt-misc`); v1.0 ships arm64 packages but the smoke only
+  installs the host-arch package.
+- `systemd-analyze verify` on the installed unit files; needs
+  systemd in the container which inflates pull size.
+- Reproducibility check (two independent builds → identical
+  checksums); RELEASE-PLAYBOOK Phase 4 covers this manually for
+  v1.0 single-signer releases.
+
 ### Security PR Review Process
 
 All PRs are automatically labeled by CI based on files changed. PRs with security-relevant changes require additional review.

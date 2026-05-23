@@ -105,3 +105,18 @@ func versionTemplate(name string, info version.Info) string {
 	return fmt.Sprintf("%s %s\ncommit: %s\nbuilt:  %s\n",
 		name, info.Version, info.GitCommit, info.BuildDate)
 }
+
+// AddVersion wires --version onto cmd with the canonical kscore-*
+// output format used by RootCommand. The binary name is taken from
+// cmd.Name() (the first word of Use), so the root command must set
+// Use before calling this.
+//
+// This is the standalone form for operator-CLI binaries (kscore-audit,
+// kscore-backup, …) that build their cobra.Command directly without
+// going through RootCommand. RootCommand already wires --version
+// internally — do not call AddVersion on a RootCommand result.
+func AddVersion(cmd *cobra.Command) {
+	info := version.Get()
+	cmd.Version = info.Version
+	cmd.SetVersionTemplate(versionTemplate(cmd.Name(), info))
+}

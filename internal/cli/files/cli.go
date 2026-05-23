@@ -25,6 +25,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
 )
 
@@ -98,6 +99,7 @@ KSCORE_PRINCIPAL_ROLE.`,
 	root.AddCommand(deleteCmd(g))
 	root.AddCommand(listCmd(g))
 	root.AddCommand(statCmd(g))
+	cli.AddVersion(root)
 	return root
 }
 

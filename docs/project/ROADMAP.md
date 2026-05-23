@@ -966,6 +966,17 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: Each sub-bullet adds its own Make target + CI step + brief docs entry under `docs/project/SECURITY-GOVERNANCE.md` "Security Baseline Pipeline." `make security` (or equivalent umbrella) runs all.
 - **References**: epic 19 task 7 `_(landed)_`; `Makefile` `security-*` targets; `docs/project/SECURITY-GOVERNANCE.md` "Security Baseline Pipeline" section.
 
+#### Release dry-run expansion
+
+- **Priority**: v1.x
+- **What**: Epic 19 task 13 shipped `make release-dry-run`: goreleaser snapshot + `scripts/release-smoke.sh` asserting checksum, archive content, linux-binary `--version`, deb/rpm content (via `debian:12-slim`), and opt-in deb/rpm install smoke in fresh `debian:12-slim` + `rockylinux:9` containers. v1.x rounds out the smoke surface:
+  - **SBOM generation + verification**. `.goreleaser.yaml` notes SBOM (CycloneDX + SPDX) is out-of-scope for v1.0; v1.x adds it via a separate `make security-sbom` path + a smoke assertion that an SBOM file is present and parseable.
+  - **Cross-arch install smoke**. v1.0 ships arm64 packages but the install smoke only exercises the host-arch package. v1.x adds `qemu-user-static` / `binfmt-misc` registration to run arm64 install smoke on amd64 hosts.
+  - **`systemd-analyze verify`** on the installed unit files. Requires `systemd` in the smoke container, inflating pull size; deferred until SBOM lands so the trade-off is made once.
+- **Why deferred**: The v1.0 smoke covers every artifact-shape failure mode that has shown up in practice (the task 13 implementation surfaced 15 binaries missing `--version` wiring + 6 regex anchor bugs in the smoke script itself; both fixed inline). The remaining gaps are belt-and-suspenders, not v1.0 blockers.
+- **Acceptance**: Each sub-bullet adds its own check function in `scripts/release-smoke.sh` (or the container companion) and a row in `docs/project/SECURITY-GOVERNANCE.md` "Release Dry-Run Smoke."
+- **References**: epic 19 task 13 `_(landed)_`; `scripts/release-smoke.sh`; `docs/project/SECURITY-GOVERNANCE.md` "Release Dry-Run Smoke" section.
+
 #### Rate-limit: `Retry-After` HTTP-date format alternative
 
 - **Priority**: v1.x

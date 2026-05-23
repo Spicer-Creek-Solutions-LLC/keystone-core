@@ -33,6 +33,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"go.keystone-core.io/keystone-core/internal/cli"
 	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 )
 
@@ -99,6 +100,7 @@ func NewClusterCommand(deps Deps) *cobra.Command {
 		backupCmd(g, "backup"),
 		restoreCmd(g, "restore"),
 	)
+	cli.AddVersion(cmd)
 	return cmd
 }
 
@@ -124,5 +126,6 @@ func NewBackupCommand(deps Deps) *cobra.Command {
 		listCmd(g),
 		verifyCmd(g),
 	)
+	cli.AddVersion(cmd)
 	return cmd
 }

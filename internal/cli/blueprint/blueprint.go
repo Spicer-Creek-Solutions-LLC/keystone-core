@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	bp "go.keystone-core.io/keystone-core/internal/blueprint"
+	"go.keystone-core.io/keystone-core/internal/cli"
 )
 
 // ErrEngineNotConfigured is returned by apply/rollback/applied when no
@@ -53,6 +54,7 @@ func NewCommand(d Deps) *cobra.Command {
 		installCmd(), updateCmd(), removeCmd(),
 		applyCmd(d), rollbackCmd(d), appliedCmd(d), bundleCmd(),
 	)
+	cli.AddVersion(root)
 	return root
 }
 

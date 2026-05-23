@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/selfmgmt"
 )
 
@@ -52,6 +53,7 @@ lands per the gate-v1.0 ROADMAP entry.`,
 	cmd.Flags().StringVar(&seedPath, "seed", "", "Path to the SeedConfig YAML")
 	cmd.Flags().StringVar(&logLevel, "log-level", "info", "Log level: debug, info, warn, error")
 	_ = cmd.MarkFlagRequired("seed")
+	cli.AddVersion(cmd)
 	return cmd
 }
 

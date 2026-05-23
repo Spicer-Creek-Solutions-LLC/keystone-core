@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"go.keystone-core.io/keystone-core/internal/backup/dest"
+	"go.keystone-core.io/keystone-core/internal/cli"
 )
 
 // globals holds shared flag values + log handle for every subcommand
@@ -93,6 +94,7 @@ task 7b.`,
 	root.AddCommand(verifyCmd(g))
 	root.AddCommand(listCmd(g))
 	root.AddCommand(restoreCmd(g))
+	cli.AddVersion(root)
 	return root
 }
 

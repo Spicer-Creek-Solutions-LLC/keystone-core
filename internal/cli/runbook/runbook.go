@@ -16,6 +16,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"go.keystone-core.io/keystone-core/internal/cli"
 	rb "go.keystone-core.io/keystone-core/internal/runbook"
 )
 
@@ -110,6 +111,7 @@ func NewCommand(d Deps) *cobra.Command {
 		SilenceErrors: true,
 	}
 	root.AddCommand(listCmd(), executeCmd(d), statusCmd(d), listExecutionsCmd(d), auditCmd(d), testCmd())
+	cli.AddVersion(root)
 	return root
 }
 
