@@ -23,13 +23,53 @@ git remote add upstream https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone
 # Install dependencies
 go mod download
 
-# Build
+# Build (writes to build/bin/$GOOS/$GOARCH/)
 make build
-# or: go build ./...
 
 # Run tests
 make test
-# or: go test ./...
+```
+
+## Build Artifact Discipline
+
+All binaries belong under `build/bin/$GOOS/$GOARCH/`. The Makefile
+enforces this:
+
+- `make build` writes host-platform binaries to
+  `build/bin/$(go env GOOS)/$(go env GOARCH)/`.
+- `make build-all-platforms` cross-compiles to the same layout for
+  every entry in the v1.0 platform matrix.
+- `make release` / `make release-snapshot` write goreleaser artifacts
+  to `dist/`.
+
+**Do not** run `go build ./cmd/foo` or `go build ./...` from the repo
+root — both write binaries (named after the package or the cwd) into
+the working directory. Those stray binaries are gitignored but pollute
+`ls`, confuse new contributors, and slow down `make clean`.
+
+If you genuinely need to invoke `go build` directly (e.g., debugging a
+specific build flag), pass `-o`:
+
+```bash
+go build -o build/bin/$(go env GOOS)/$(go env GOARCH)/kscore-server ./cmd/kscore-server
+```
+
+Two clean targets cover removal:
+
+- `make clean` — removes every gitignored build/runtime artifact
+  category: `build/`, `dist/`, root strays (`kscore-*`, `trackerctl`,
+  `*.test`), per-tool binaries, integration-test runtime state
+  (`data/`, `*.db`), dev-mode configs, Hugo output.
+- `make clean-all` — `clean` plus `.cache/` (grype/trivy scan DBs).
+  Forces a slow re-download on the next security scan; use only when
+  you genuinely want a fresh cache.
+
+A CI lint (`make clean-check`, run in the `lint` job) fails any PR
+that committed a stray binary at repo root. Run it locally before
+opening a PR if you suspect you bypassed the Makefile:
+
+```bash
+make clean-check
 ```
 
 ## Contribution Workflow

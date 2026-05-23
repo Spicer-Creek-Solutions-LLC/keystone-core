@@ -59,6 +59,12 @@ jobs:
       # `make docs-sync`. CI fails if a PR landed a source change
       # without re-running the generator.
       - run: make docs-sync-check
+      # Build-artifact discipline lint. Catches PRs that committed
+      # binaries from ad-hoc `go build ./cmd/foo` runs at repo root.
+      # `make build` writes to build/bin/$GOOS/$GOARCH/ — anything
+      # else means the Makefile was bypassed.
+      # See docs/project/DEVELOPMENT.md "Build artifact discipline".
+      - run: make clean-check
 
   test:
     runs-on: ubuntu-latest

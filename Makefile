@@ -110,6 +110,33 @@ clean-all: clean ## clean + scan caches (slow re-download on next security scan)
 	@chmod -R u+w .cache/ 2>/dev/null || true
 	rm -rf .cache/
 
+clean-check: ## Assert repo is free of stray build artifacts (CI lint gate)
+	# Catches the "I ran 'go build ./cmd/foo' from repo root" footgun.
+	# `make build` writes to build/bin/$$GOOS/$$GOARCH/$$bin — anything
+	# at repo root means someone bypassed the Makefile. See
+	# docs/project/DEVELOPMENT.md "Build artifact discipline".
+	@strays=""; \
+	for f in kscore-agent kscore-backup kscore-migrate kscore-server kscorectl trackerctl coverage.out; do \
+	  [ -e "$$f" ] && strays="$$strays $$f"; \
+	done; \
+	for t in tools/moddoc/moddoc scripts/docvalidation/docvalidation docvalidation; do \
+	  [ -e "$$t" ] && strays="$$strays $$t"; \
+	done; \
+	for f in *.test; do \
+	  [ -e "$$f" ] && strays="$$strays $$f"; \
+	done; \
+	if [ -n "$$strays" ]; then \
+	  echo "clean-check: FAIL — stray build artifacts present (run 'make clean'):"; \
+	  for s in $$strays; do echo "  $$s"; done; \
+	  echo ""; \
+	  echo "Hint: do not run 'go build ./cmd/foo' from repo root."; \
+	  echo "Use 'make build' (writes to build/bin/\$$GOOS/\$$GOARCH/)"; \
+	  echo "or 'go build -o build/bin/\$$(go env GOOS)/\$$(go env GOARCH)/foo ./cmd/foo'."; \
+	  echo "See docs/project/DEVELOPMENT.md."; \
+	  exit 1; \
+	fi; \
+	echo "clean-check: ok"
+
 deps: ## Download and verify Go module dependencies
 	go mod download
 	go mod verify
