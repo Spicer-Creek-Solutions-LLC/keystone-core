@@ -129,18 +129,26 @@ check_archives() {
 # -- 3. linux-side checks (binary --version, deb content, rpm content) ----
 
 check_linux_in_container() {
-  printf '\n== linux artifacts (debian:12-slim) ==\n'
-  command -v docker >/dev/null || fail "docker required for linux-side checks"
-  # Mount /dist read-only and /smoke read-only with just the in-container
-  # script (one file, not the full scripts/ tree). The container script
-  # installs rpm via apt, then runs binary --version + deb/rpm content
-  # checks. Output is forwarded; container exit code propagates.
-  docker run --rm \
-    -v "$dist:/dist:ro" \
-    -v "$script_dir/release-smoke-container.sh:/smoke.sh:ro" \
-    debian:12-slim \
-    bash /smoke.sh /dist \
-    || fail "linux-side artifact checks failed (see container output above)"
+  if command -v docker >/dev/null; then
+    printf '\n== linux artifacts (debian:12-slim) ==\n'
+    # Mount /dist read-only and /smoke read-only with just the in-container
+    # script (one file, not the full scripts/ tree). The container script
+    # installs rpm via apt, then runs binary --version + deb/rpm content
+    # checks. Output is forwarded; container exit code propagates.
+    docker run --rm \
+      -v "$dist:/dist:ro" \
+      -v "$script_dir/release-smoke-container.sh:/smoke.sh:ro" \
+      debian:12-slim \
+      bash /smoke.sh /dist \
+      || fail "linux-side artifact checks failed (see container output above)"
+  else
+    printf '\n== linux artifacts (native — no docker available) ==\n'
+    # Native fallback for environments without docker (e.g. Forgejo
+    # runner image). release-smoke-container.sh self-adapts: dpkg-deb
+    # is expected, rpm is installed via apt-get only if missing.
+    bash "$script_dir/release-smoke-container.sh" "$dist" \
+      || fail "linux-side artifact checks failed (native mode)"
+  fi
 }
 
 # -- 4. install smoke (opt-in) -------------------------------------------
@@ -151,7 +159,10 @@ check_install_smoke() {
     info "RELEASE_SMOKE_CONTAINERS=0 (skipped — set =1 to enable)"
     return 0
   fi
-  command -v docker >/dev/null || { echo "docker missing" >&2; exit 3; }
+  if ! command -v docker >/dev/null; then
+    info "docker unavailable — skipping install smoke (RELEASE_SMOKE_CONTAINERS=1 ignored)"
+    return 0
+  fi
 
   local host_arch
   case "$(uname -m)" in

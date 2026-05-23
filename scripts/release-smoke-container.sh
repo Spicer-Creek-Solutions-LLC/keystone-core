@@ -24,10 +24,21 @@ set -euo pipefail
 
 dist=${1:?"usage: $0 <dist-mount>"}
 
-# Install rpm (debian has dpkg-deb natively). The hush is intentional
-# to keep the smoke output focused on PASS:/FAIL: lines.
-apt-get update -qq >/dev/null
-apt-get install -y --no-install-recommends rpm >/dev/null 2>&1
+# Install rpm if missing (debian has dpkg-deb natively; rpm needs an apt
+# install in container mode). When invoked natively on a host that already
+# has both tools, this no-ops. apt-get is required only when rpm is absent.
+if ! command -v rpm >/dev/null 2>&1; then
+  if ! command -v apt-get >/dev/null 2>&1; then
+    echo "FAIL: rpm missing and apt-get not available to install it" >&2
+    exit 1
+  fi
+  apt-get update -qq >/dev/null
+  apt-get install -y --no-install-recommends rpm >/dev/null 2>&1
+fi
+if ! command -v dpkg-deb >/dev/null 2>&1; then
+  echo "FAIL: dpkg-deb missing on host" >&2
+  exit 1
+fi
 
 BINARIES=(
   kscore-server kscore-agent kscorectl
