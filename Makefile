@@ -37,7 +37,7 @@ export CGO_ENABLED := 0
 # ---- Phony declarations ---------------------------------------------------
 
 .PHONY: help \
-        build build-all-platforms clean deps install-tools \
+        build build-all-platforms clean clean-all clean-check deps install-tools \
         test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check test-integration slo profile test-cross-distro check \
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
@@ -82,10 +82,33 @@ build-all-platforms: ## Cross-compile all binaries for the v1.0 platform matrix
 		done; \
 	done
 
-clean: ## Remove build artifacts
+clean: ## Remove build artifacts and runtime state
+	# Build outputs (make build, make release, goreleaser).
 	rm -rf build/ dist/
-	rm -f coverage.out
-	rm -f trackerctl
+	# Root strays from ad-hoc `go build ./cmd/...` (gitignored as
+	# /kscore-* + /kscorectl + /trackerctl). `make build` writes to
+	# build/bin/$$GOOS/$$GOARCH/ — these only appear when someone
+	# bypasses the Makefile. See docs/project/DEVELOPMENT.md.
+	rm -f kscore-agent kscore-backup kscore-migrate kscore-server kscorectl trackerctl
+	# Test artifacts.
+	rm -f coverage.out *.test
+	rm -rf reports/ test/e2e/performance/reports/ internal/loadtest/reports/
+	# Per-tool binaries (gitignored).
+	rm -f tools/moddoc/moddoc scripts/docvalidation/docvalidation docvalidation
+	# Runtime state (integration tests, dev mode).
+	rm -rf data/ tmp/ temp/
+	rm -f *.db *.db-shm *.db-wal
+	rm -f keystone-core.yaml kscore-agent.yaml *.creds
+	# Editor/OS junk.
+	rm -f *.bak *.tmp .DS_Store
+	# Hugo (post-v1.0, but already gitignored).
+	rm -rf docs/.hugo_build.lock docs/resources docs/node_modules docs/package-lock.json
+
+clean-all: clean ## clean + scan caches (slow re-download on next security scan)
+	# .cache/ holds grype / trivy DBs etc. Some nested entries may be
+	# root-owned (if a scan ran via Docker); chmod first, ignore failures.
+	@chmod -R u+w .cache/ 2>/dev/null || true
+	rm -rf .cache/
 
 deps: ## Download and verify Go module dependencies
 	go mod download
