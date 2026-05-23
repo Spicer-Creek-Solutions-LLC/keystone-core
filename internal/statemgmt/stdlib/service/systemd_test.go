@@ -240,7 +240,7 @@ func TestRealShowLookup_BinaryNotFound(t *testing.T) {
 
 func TestDefaultProvider_ReturnsProvider(t *testing.T) {
 	t.Parallel()
-	if defaultProvider() == nil {
+	if defaultProvider(defaultSystemdRunDir) == nil {
 		t.Fatal("defaultProvider returned nil")
 	}
 }
@@ -274,14 +274,11 @@ func TestUndetectedProvider_MutatingOpsNoBackend(t *testing.T) {
 
 func TestDetect_SystemdRunDirMissing_FallsBackToLookPath(t *testing.T) {
 	t.Parallel()
-	// Point systemdRunDir at a missing path; defaultProvider should
-	// still try LookPath("systemctl"). On a CI host with systemctl
-	// installed it returns a systemdProvider; without, undetected.
-	// Either way it's a Provider.
-	old := systemdRunDir
-	systemdRunDir = "/no/such/run/systemd/system"
-	defer func() { systemdRunDir = old }()
-	if defaultProvider() == nil {
+	// Pass a missing path; defaultProvider should still try
+	// LookPath("systemctl"). On a CI host with systemctl installed
+	// it returns a systemdProvider; without, undetected. Either way
+	// it's a Provider.
+	if defaultProvider("/no/such/run/systemd/system") == nil {
 		t.Fatal("defaultProvider returned nil with missing run dir")
 	}
 }

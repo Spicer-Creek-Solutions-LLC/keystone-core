@@ -8,21 +8,31 @@ import (
 	"os/exec"
 )
 
-// systemdRunDir is the canonical "systemd is the active init"
-// marker. Overridable for tests.
-var systemdRunDir = "/run/systemd/system"
+// defaultSystemdRunDir is the canonical "systemd is the active init"
+// marker. Production callers pass this through defaultProvider;
+// tests pass a path of their choosing. v0.x finding (B5-tier
+// follow-up + the v0.x ROADMAP entry "`service` stdlib module —
+// make systemdRunDir test-mutable without a package-level global"):
+// the previous shape was a package-level `var`, which the race
+// detector caught when parallel tests mutated it. Threading the
+// run-dir through the parameter removes the global.
+const defaultSystemdRunDir = "/run/systemd/system"
 
-// defaultProvider auto-detects the init system. Preference order:
+// defaultProvider auto-detects the init system. systemdRunDir is the
+// path to test for "systemd is the active init"; pass
+// defaultSystemdRunDir for production, or a test-controlled path
+// from a unit test. Preference order:
 //
-//  1. /run/systemd/system/ exists → systemd is PID 1 → systemdProvider.
-//  2. systemctl is on PATH (chroot / container without /run/systemd/
-//     system but the binary still works) → systemdProvider.
+//  1. systemdRunDir exists → systemd is PID 1 → systemdProvider.
+//  2. systemctl is on PATH (chroot / container without
+//     /run/systemd/system but the binary still works) →
+//     systemdProvider.
 //  3. Otherwise → undetectedProvider (returns ErrNoBackend on
 //     mutating ops; Lookup reports the unit as not-existing so
 //     state=stopped decls don't false-drift).
 //
 // OpenRC / sysvinit branches land in 11f2 + post-v1.0.
-func defaultProvider() Provider {
+func defaultProvider(systemdRunDir string) Provider {
 	if fi, err := os.Stat(systemdRunDir); err == nil && fi.IsDir() {
 		if sc, err := exec.LookPath("systemctl"); err == nil {
 			return newSystemdProvider(sc)

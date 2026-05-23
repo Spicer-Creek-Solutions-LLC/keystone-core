@@ -34,8 +34,11 @@ type Module struct {
 	provider Provider
 }
 
-// New selects the platform's real Provider via auto-detection.
-func New() statemgmt.Module { return &Module{provider: defaultProvider()} }
+// New selects the platform's real Provider via auto-detection
+// against the canonical systemd run-dir path.
+func New() statemgmt.Module {
+	return &Module{provider: defaultProvider(defaultSystemdRunDir)}
+}
 
 // NewWithProvider is the test injection point.
 func NewWithProvider(p Provider) statemgmt.Module { return &Module{provider: p} }

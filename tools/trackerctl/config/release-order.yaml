@@ -84,7 +84,6 @@ gate-v1.0:
 
 v0.x:
   - "Persist dispatch principal on CommandRecord for audit-log User field"
-  - "`service` stdlib module — make systemdRunDir test-mutable without a package-level global"
   - "Vault auto re-authentication on token expiry"
   - "Bootstrap protocol versioning"
   - "Direct signing-cert accessor on CAManager"

@@ -9,7 +9,14 @@ import (
 
 type otherProvider struct{}
 
-func defaultProvider() Provider { return &otherProvider{} }
+// The linux variant of defaultProvider takes a systemdRunDir to
+// satisfy the test-mutable-without-global requirement; the non-
+// linux variant ignores it.
+func defaultProvider(_ string) Provider { return &otherProvider{} }
+
+// defaultSystemdRunDir is unused on non-linux builds but kept for
+// API parity so callers don't need build tags.
+const defaultSystemdRunDir = "/run/systemd/system"
 
 func (*otherProvider) Lookup(name string) (*ServiceInfo, error) {
 	return &ServiceInfo{Name: name, Exists: false}, nil
