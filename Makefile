@@ -105,8 +105,18 @@ clean: ## Remove build artifacts and runtime state
 	rm -rf docs/.hugo_build.lock docs/resources docs/node_modules docs/package-lock.json
 
 clean-all: clean ## clean + scan caches (slow re-download on next security scan)
-	# .cache/ holds grype / trivy DBs etc. Some nested entries may be
-	# root-owned (if a scan ran via Docker); chmod first, ignore failures.
+	# .cache/ holds grype / trivy / semgrep scan DBs etc. Containerized
+	# scan tooling may write it as root (via `docker run -v $PWD/.cache:...`);
+	# in that case rm cannot remove the files even with chmod (you can't
+	# chmod what you don't own). Detect up front and fail with one clear
+	# line instead of hundreds of `Permission denied` errors.
+	@if [ -d .cache ] && [ -n "$$(find .cache -not -user "$$(id -un)" -print -quit 2>/dev/null)" ]; then \
+	  echo "clean-all: .cache/ contains files not owned by $$(id -un) (likely from a Docker-run scan)."; \
+	  echo "  Run 'sudo rm -rf .cache/' to remove."; \
+	  exit 1; \
+	fi
+	# All entries are current-user-owned; chmod handles any read-only
+	# bits, then rm -rf wipes the tree.
 	@chmod -R u+w .cache/ 2>/dev/null || true
 	rm -rf .cache/
 
