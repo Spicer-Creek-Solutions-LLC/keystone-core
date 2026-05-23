@@ -17,28 +17,39 @@ When every box below is checked, the repository is ready to flip to public.
 **Goal**: every claim the repository makes about itself is true at the
 moment of public exposure.
 
-- [ ] **A1. Code-vs-docs sync sweep.** Walk every claim in `README.md`,
+- [x] **A1. Code-vs-docs sync sweep.** Walk every claim in `README.md`,
       `docs/project/*.md`, and the `_(landed)_` notes in `epics/NN-*.md`
       and verify the named code path exists with the described behavior.
       The auto-generated CLI / config / API references are gated by
       `make docs-sync-check`; the **prose** docs are not.
       *Watch for*: renamed functions/files; behavior scoped down "later";
       deferred items still phrased in the present tense; examples that no
-      longer compile.
+      longer compile. _(landed: 5 drift items fixed in commit `524757a0`.)_
 
-- [ ] **A2. Docs-vs-code sync.** Inverse audit: every exported package /
+- [x] **A2. Docs-vs-code sync.** Inverse audit: every exported package /
       cobra subcommand / public RPC has a docs anchor a curious reader
       would actually find. Catches "shipped but undocumented" gaps.
+      _(landed: 7 discoverability gaps fixed in commit `79fb46d8` —
+      Project Concepts glossary, modules/README.md, deploy/README.md,
+      README Operations section + kscorectl dispatch note,
+      DEVELOPMENT.md lint-fix + code-org snippet rewrite.)_
 
-- [ ] **A3. Markdown link health.** Run `lychee` against every `.md` file
+- [x] **A3. Markdown link health.** Run `lychee` against every `.md` file
       using the existing `.lychee.toml`. Add `make docs-links` if missing
       and wire it into the `lint` CI job. Fix every dead anchor, broken
-      cross-reference, dead external URL.
+      cross-reference, dead external URL. _(landed: commit `7613a0ea` —
+      `make docs-links` + `make docs-links-online` Make targets, CI lint
+      job gates `docs-links`, 11 local + 2 external broken links fixed,
+      pre-launch placeholder domains excluded with launch-time TODO.)_
 
-- [ ] **A4. Epic acceptance criteria audit.** Walk every
+- [x] **A4. Epic acceptance criteria audit.** Walk every
       `epics/NN-*.md` "Acceptance criteria" block and confirm each line is
       checked, or has an explicit `_(landed)_` / `_(deferred per ROADMAP)_`
       note. Surfaces half-landed work whose own scoreboard wasn't updated.
+      _(landed: commit `49234100` — 19 boxes ticked with evidence notes
+      across epics 00, 01, 06; 1 box annotated as Phase D-gated manual
+      test; previously-annotated open items in epics 02/04/05/07/08/13/15
+      already audit-clean; epic 19 WIP boxes intentionally skipped.)_
 
 **Exit gate for Phase A**: every doc file accurately reflects the code at
 HEAD; no broken links; every epic's scoreboard is consistent with reality.
