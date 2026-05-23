@@ -37,7 +37,7 @@ export CGO_ENABLED := 0
 # ---- Phony declarations ---------------------------------------------------
 
 .PHONY: help \
-        build build-all-platforms clean clean-all clean-check deps install-tools \
+        build build-all-platforms clean clean-all clean-check deps install-tools install-lychee \
         test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check test-integration slo profile test-cross-distro check \
         fmt lint lint-fix smoke \
         proto proto-lint proto-breaking \
@@ -151,7 +151,7 @@ deps: ## Download and verify Go module dependencies
 	go mod download
 	go mod verify
 
-install-tools: ## Install Go-installable dev tools (golangci-lint, gosec, govulncheck, buf, protoc-gen-go*, goreleaser, gitleaks, go-licenses)
+install-tools: ## Install dev tools (Go-installable + lychee binary)
 	@command -v golangci-lint >/dev/null || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	@command -v gosec >/dev/null || go install github.com/securego/gosec/v2/cmd/gosec@latest
 	@command -v govulncheck >/dev/null || go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -161,6 +161,34 @@ install-tools: ## Install Go-installable dev tools (golangci-lint, gosec, govuln
 	@command -v goreleaser >/dev/null || go install github.com/goreleaser/goreleaser/v2@latest
 	@command -v gitleaks >/dev/null || go install github.com/zricethezav/gitleaks/v8@latest
 	@command -v go-licenses >/dev/null || go install github.com/google/go-licenses@latest
+	@command -v lychee >/dev/null || $(MAKE) --no-print-directory install-lychee
+
+# Lychee is a Rust binary, not Go-installable. Pull the prebuilt release for
+# the current GOOS/GOARCH so docs-links can run without docker — the Forgejo
+# runner image lacks docker; ubuntu-latest GitHub runners ship it but pulling
+# the small native binary is faster than the docker image either way.
+LYCHEE_VERSION ?= lychee-v0.24.2
+
+install-lychee: ## Install pinned lychee binary into $(GOPATH)/bin
+	@goos="$$(go env GOOS)"; goarch="$$(go env GOARCH)"; \
+	case "$$goos-$$goarch" in \
+	  linux-amd64)  target="x86_64-unknown-linux-gnu" ;; \
+	  linux-arm64)  target="aarch64-unknown-linux-gnu" ;; \
+	  darwin-amd64) target="x86_64-apple-darwin" ;; \
+	  darwin-arm64) target="aarch64-apple-darwin" ;; \
+	  *) echo "lychee: unsupported $$goos-$$goarch (manual install required)"; exit 1 ;; \
+	esac; \
+	url="https://github.com/lycheeverse/lychee/releases/download/$(LYCHEE_VERSION)/lychee-$$target.tar.gz"; \
+	dest="$$(go env GOPATH)/bin"; mkdir -p "$$dest"; \
+	tmp="$$(mktemp -d)"; trap "rm -rf $$tmp" EXIT; \
+	echo "install-lychee: downloading $(LYCHEE_VERSION) for $$target"; \
+	curl -sSfL "$$url" -o "$$tmp/lychee.tar.gz"; \
+	tar -xzf "$$tmp/lychee.tar.gz" -C "$$tmp"; \
+	bin="$$(find "$$tmp" -name lychee -type f -perm -u+x | head -1)"; \
+	if [ -z "$$bin" ]; then echo "install-lychee: binary not found in tarball"; exit 1; fi; \
+	mv "$$bin" "$$dest/lychee"; \
+	echo "install-lychee: installed $$dest/lychee"; \
+	"$$dest/lychee" --version
 
 # ---- Test -----------------------------------------------------------------
 
@@ -330,28 +358,32 @@ docs-lint-container: ## Lint Markdown docs in a node:22-alpine container (no loc
 # docs-links-online additionally checks external URLs — slower, can
 # flake on rate limits, so it's not a CI gate; run manually.
 docs-links: ## Check internal/relative .md links via lychee (offline; CI gate)
-	@cre="$$(command -v docker || command -v podman)"; \
-	if [ -z "$$cre" ]; then \
-		echo "ERROR: docs-links needs docker or podman"; \
+	@if command -v lychee >/dev/null 2>&1; then \
+		lychee --config .lychee.toml --no-progress --offline "**/*.md"; \
+	elif cre="$$(command -v docker || command -v podman)"; [ -n "$$cre" ]; then \
+		"$$cre" run --rm -v "$(CURDIR)":/workspace:ro \
+			lycheeverse/lychee:latest \
+			--config /workspace/.lychee.toml \
+			--no-progress --offline \
+			"/workspace/**/*.md"; \
+	else \
+		echo "ERROR: docs-links needs lychee on PATH (run 'make install-tools') or docker/podman"; \
 		exit 1; \
-	fi; \
-	"$$cre" run --rm -v "$(CURDIR)":/workspace:ro \
-		lycheeverse/lychee:latest \
-		--config /workspace/.lychee.toml \
-		--no-progress --offline \
-		"/workspace/**/*.md"
+	fi
 
 docs-links-online: ## Check internal + external .md links via lychee (slow; not a CI gate)
-	@cre="$$(command -v docker || command -v podman)"; \
-	if [ -z "$$cre" ]; then \
-		echo "ERROR: docs-links-online needs docker or podman"; \
+	@if command -v lychee >/dev/null 2>&1; then \
+		lychee --config .lychee.toml --no-progress "**/*.md"; \
+	elif cre="$$(command -v docker || command -v podman)"; [ -n "$$cre" ]; then \
+		"$$cre" run --rm -v "$(CURDIR)":/workspace:ro \
+			lycheeverse/lychee:latest \
+			--config /workspace/.lychee.toml \
+			--no-progress \
+			"/workspace/**/*.md"; \
+	else \
+		echo "ERROR: docs-links-online needs lychee on PATH (run 'make install-tools') or docker/podman"; \
 		exit 1; \
-	fi; \
-	"$$cre" run --rm -v "$(CURDIR)":/workspace:ro \
-		lycheeverse/lychee:latest \
-		--config /workspace/.lychee.toml \
-		--no-progress \
-		"/workspace/**/*.md"
+	fi
 
 # ---- Dev run --------------------------------------------------------------
 

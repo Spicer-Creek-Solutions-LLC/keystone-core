@@ -587,6 +587,9 @@ func TestBackend_PersistFailureRollsBack(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("filesystem permission semantics differ on windows")
 	}
+	if os.Geteuid() == 0 {
+		t.Skip("read-only directory bypassed by root (CAP_DAC_OVERRIDE); test requires non-root uid")
+	}
 	t.Parallel()
 
 	dir := t.TempDir()
@@ -636,6 +639,9 @@ func TestBackend_PersistFailureRollsBack(t *testing.T) {
 func TestBackend_PersistFailure_DeleteRollsBack(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("filesystem permission semantics differ on windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("read-only directory bypassed by root (CAP_DAC_OVERRIDE); test requires non-root uid")
 	}
 	t.Parallel()
 
