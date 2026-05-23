@@ -156,8 +156,12 @@ install-tools: ## Install dev tools (Go-installable + lychee binary)
 	@command -v gosec >/dev/null || go install github.com/securego/gosec/v2/cmd/gosec@latest
 	@command -v govulncheck >/dev/null || go install golang.org/x/vuln/cmd/govulncheck@latest
 	@command -v buf >/dev/null || go install github.com/bufbuild/buf/cmd/buf@latest
-	@command -v protoc-gen-go >/dev/null || go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-	@command -v protoc-gen-go-grpc >/dev/null || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+	@# Pin the proto generators to specific versions: their output is
+	@# committed under pkg/api/v1/, so a moving @latest would drift the
+	@# version-stamp comment in *_grpc.pb.go / *.pb.go and trip the
+	@# proto-job's `git diff --exit-code` gate on fresh CI runs.
+	@command -v protoc-gen-go >/dev/null || go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+	@command -v protoc-gen-go-grpc >/dev/null || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
 	@command -v goreleaser >/dev/null || go install github.com/goreleaser/goreleaser/v2@latest
 	@command -v gitleaks >/dev/null || go install github.com/zricethezav/gitleaks/v8@latest
 	@command -v go-licenses >/dev/null || go install github.com/google/go-licenses@latest
