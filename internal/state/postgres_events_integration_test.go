@@ -185,9 +185,21 @@ func TestPg_ApplyRetention_MaxAge(t *testing.T) {
 	s := newPgStoreForTest(t)
 	ctx := t.Context()
 	now := time.Now().UTC()
-	for i := 0; i < 4; i++ {
+	// Phase C1 finding: the original loop placed an event at exactly
+	// `now - MaxAge`, which races against the boundary -- by the time
+	// ApplyEventsRetention reads its own time.Now(), the cutoff has
+	// drifted forward by milliseconds and the boundary event lands
+	// strictly older than the cutoff, getting deleted. Use clearly
+	// older / younger offsets so the assertion is timing-stable.
+	ages := []time.Duration{
+		-4 * time.Hour,    // delete: older than 2h
+		-3 * time.Hour,    // delete: older than 2h
+		-1 * time.Hour,    // keep:   younger than 2h
+		-30 * time.Minute, // keep:   younger than 2h
+	}
+	for i, age := range ages {
 		rec := samplePgEventRecord(fmt.Sprintf("pg-a-%d", i), "agent.connect", "agent-1")
-		rec.Time = now.Add(time.Duration(-(4 - i)) * time.Hour)
+		rec.Time = now.Add(age)
 		if err := s.CreateEvent(ctx, rec); err != nil {
 			t.Fatalf("seed: %v", err)
 		}

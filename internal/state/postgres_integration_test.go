@@ -40,12 +40,20 @@ func newPgStoreForTest(t *testing.T) *PostgreSQLStore {
 	return s
 }
 
-// truncateAll empties all v1.0 tables in FK-safe order.
+// truncateAll empties all v1.0 tables in FK-safe order. The list
+// MUST match the CREATE TABLE statements in internal/state/schema.go;
+// missing a table here lets stale rows survive between tests and
+// produces "duplicate record" failures (Phase C1 surfaced
+// audit_entries / events / join_tokens / secret_leases all missing
+// from the original 2026-05-21 list).
 func truncateAll(t *testing.T, db *sql.DB) {
 	t.Helper()
 	const stmt = `TRUNCATE TABLE
         state_run_results, state_runs,
-        batch_agent_results, batch_jobs, commands, agents, apikeys
+        batch_agent_results, batch_jobs, commands,
+        audit_entries, events,
+        secret_leases, join_tokens,
+        agents, apikeys
         RESTART IDENTITY CASCADE`
 	if _, err := db.ExecContext(t.Context(), stmt); err != nil {
 		t.Fatalf("truncate: %v", err)

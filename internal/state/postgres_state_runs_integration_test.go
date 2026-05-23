@@ -4,11 +4,31 @@ package state
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 )
+
+// equalJSON parses two JSON byte strings and compares them
+// semantically (ignoring key order + whitespace). Required because
+// Postgres `declarations_json` is JSONB, which normalizes both
+// (alphabetical key sort + no whitespace). SQLite is TEXT and
+// preserves the literal byte sequence; the same test must work
+// against both shapes.
+func equalJSON(t *testing.T, a, b string) bool {
+	t.Helper()
+	var av, bv any
+	if err := json.Unmarshal([]byte(a), &av); err != nil {
+		t.Fatalf("equalJSON: bad LHS %q: %v", a, err)
+	}
+	if err := json.Unmarshal([]byte(b), &bv); err != nil {
+		t.Fatalf("equalJSON: bad RHS %q: %v", b, err)
+	}
+	return reflect.DeepEqual(av, bv)
+}
 
 func TestPg_StateRun_CRUD(t *testing.T) {
 	s := newPgStoreForTest(t)
@@ -25,8 +45,10 @@ func TestPg_StateRun_CRUD(t *testing.T) {
 	if got.ID != r.ID || got.Mode != r.Mode || got.Source != r.Source {
 		t.Errorf("scalar fields lost: %+v", got)
 	}
-	if got.DeclarationsJSON != r.DeclarationsJSON {
-		t.Errorf("DeclarationsJSON not round-tripped: %q vs %q", got.DeclarationsJSON, r.DeclarationsJSON)
+	// Postgres JSONB normalizes key order + whitespace; compare
+	// semantically rather than byte-for-byte (Phase C1 finding).
+	if !equalJSON(t, got.DeclarationsJSON, r.DeclarationsJSON) {
+		t.Errorf("DeclarationsJSON not round-tripped semantically: %q vs %q", got.DeclarationsJSON, r.DeclarationsJSON)
 	}
 	if len(results) != 0 {
 		t.Errorf("results before any added = %d, want 0", len(results))
