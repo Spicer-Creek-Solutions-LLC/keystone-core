@@ -8,6 +8,10 @@ This glossary defines security, infrastructure, and domain-specific terminology 
 
 The process by which an agent proves its identity and integrity to the control plane. Attestation methods include join tokens, cloud instance metadata, Kubernetes service account tokens, and TPM-based attestation.
 
+### Audit Mode
+
+The v0.x → v1.0 policy posture: policies evaluate and emit audit records but never block requests. Enforcement (blocking on violation) graduates in v1.x. See [`POLICY-AUDIT.md`](POLICY-AUDIT.md).
+
 ### Authentication
 
 The process of verifying the identity of a user, agent, or service. Keystone Core supports multiple authentication methods including API keys, JWT tokens, mTLS certificates, and SPIFFE SVIDs.
@@ -60,6 +64,10 @@ The framework of policies and technologies for ensuring that the right entities 
 
 A one-time or limited-use secret used by agents to register with the control plane. Provides initial attestation before certificate issuance.
 
+### Lease (Secrets)
+
+A time-bounded secret credential issued by a dynamic secrets backend (database, cloud IAM, PKI). Each lease has a TTL and a renewal / revocation API. Distinct from KV secrets, which have no lease semantics. See `internal/secrets/leasedirectory.go`.
+
 ### Key Derivation Function (KDF)
 
 A cryptographic function that derives one or more secret keys from a secret value such as a password. Examples include Argon2, scrypt, and PBKDF2.
@@ -71,6 +79,10 @@ The security principle that entities should have only the minimum permissions ne
 ### mTLS (Mutual TLS)
 
 TLS authentication where both the client and server present certificates, providing mutual identity verification.
+
+### PSK (Pre-Shared Key)
+
+A symmetric secret presented at NATS bootstrap to authenticate a new agent *before* it has been issued a SPIFFE SVID. Production PSKs are single-use and short-lived; dev mode permits static PSKs with a startup `WARN` to keep operators honest about the production posture.
 
 ### OPA (Open Policy Agent)
 
@@ -108,6 +120,10 @@ A cryptographic protocol that provides privacy and data integrity between applic
 
 A security artifact that represents identity or authorization claims. Can be short-lived (JWT) or long-lived (API key).
 
+### Transit (Secrets)
+
+A secrets-engine surface for encryption-as-a-service: operators send plaintext, receive ciphertext; keys never leave the server. Supports encrypt / decrypt / sign / verify with named keys. See `internal/secrets/transit.go`.
+
 ### Trust Boundary
 
 A point in a system where the level of trust changes, requiring security controls such as authentication, authorization, and input validation.
@@ -129,6 +145,10 @@ A security model that requires verification for every access request, regardless
 ### Agent
 
 A lightweight process that runs on managed nodes, communicating with the control plane to execute commands and apply state configurations.
+
+### Blueprint
+
+A declarative composition of state modules + parameters + ordering, applied as a higher-level operation ("set up a web server", "harden a host"). Blueprints can be applied, rolled back, and queried like state. Authored as YAML. See `internal/blueprint/`.
 
 ### Bootstrap
 
@@ -154,6 +174,14 @@ An agent deployed in environments with intermittent connectivity, capable of ope
 
 NATS server running in-process with the control plane for simplified deployment without external dependencies.
 
+### Fencing
+
+A clustering safety mechanism preventing split-brain. When a cluster member loses quorum or detects it has been deposed as leader, it self-fences — refuses writes — until quorum is re-established. Implemented via etcd epoch + lease watch in `internal/cluster/fencing.go`.
+
+### GitOps
+
+Integration with GitOps deployment tooling (ArgoCD, Flux, raw GitHub/GitLab). Two surfaces: inbound webhooks that observe deploys + drive verification, and rollback executors that issue revert PRs / call ArgoCD or Kubernetes APIs when verification fails.
+
 ### etcd
 
 A distributed key-value store used for cluster coordination, leader election, and distributed locking.
@@ -178,6 +206,10 @@ A NATS connection mode where agents connect to a local NATS server that relays m
 
 A lightweight, high-performance messaging system used for all control plane to agent communication.
 
+### Membership
+
+The set of currently-known cluster members and their roles (leader / follower / learner). Membership changes (add / remove / transfer) flow through the etcd consensus layer.
+
 ### Proxy Agent
 
 An agent that manages devices unable to run native agents, using protocols like SSH, SNMP, or WinRM.
@@ -185,6 +217,14 @@ An agent that manages devices unable to run native agents, using protocols like 
 ### Quorum
 
 The minimum number of cluster members that must agree for distributed operations to proceed (typically majority).
+
+### Runbook
+
+A sequenced operational workflow with conditional branches that runs against one or more agents (backup, failover, incident response). Steps are typed (command / state / blueprint / wait); the engine persists execution status for status / list / audit queries. Authored as YAML. See `internal/runbook/`.
+
+### Saga
+
+A long-running transaction pattern where each step has a compensating action. The state Runner uses saga semantics when applying state — failure mid-apply rolls back already-applied steps via their compensations. See `internal/statemgmt/runner_saga.go` and `pkg/saga/`.
 
 ### State
 
@@ -223,6 +263,10 @@ A protocol for managing and monitoring network devices. Keystone Core proxy agen
 ### SSH (Secure Shell)
 
 A protocol for secure remote access and command execution. Used by proxy agents for managing Unix/Linux systems.
+
+### Webhook
+
+HTTP callback. Keystone Core has two flavors: **inbound** webhooks (`:8081/webhooks`) receive events from GitHub / GitLab / Flux / ArgoCD and drive [GitOps](#gitops) verification + rollback; **outbound** webhooks POST audit / state / event records matching an operator-registered filter to external URLs. See `internal/gitops/webhook/` (inbound) and `internal/webhook/outbound/` (outbound).
 
 ### WebSocket
 

@@ -51,7 +51,7 @@ For a complete 30-minute walkthrough from a fresh Ubuntu VM (install Go + Docker
 
 ### Reference
 
-- [`docs/project/CLI-REFERENCE.md`](docs/project/CLI-REFERENCE.md) — every `kscore-*` binary + every subcommand (auto-generated via `make docs-sync`).
+- [`docs/project/CLI-REFERENCE.md`](docs/project/CLI-REFERENCE.md) — every `kscore-*` binary + every subcommand (auto-generated via `make docs-sync`). Every `kscore-<name>` operator binary is also reachable as `kscorectl <name>` via plugin dispatch — `kscorectl module list` runs `kscore-module list` if the binary is on `PATH`.
 - [`docs/project/CONFIGURATION-REFERENCE.md`](docs/project/CONFIGURATION-REFERENCE.md) — every config key with type + description (auto-generated).
 - [`docs/project/API-REFERENCE.md`](docs/project/API-REFERENCE.md) — every gRPC RPC + REST endpoint (auto-generated, links to canonical proto/openapi sources).
 - [`docs/project/GETTING-STARTED.md`](docs/project/GETTING-STARTED.md) — the 30-minute fresh-VM walkthrough.
@@ -65,6 +65,11 @@ For a complete 30-minute walkthrough from a fresh Ubuntu VM (install Go + Docker
 - [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md) — the v0.x → v0.5 → v1.0 release ladder.
 - [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md) — ranked backlog (gate-v0.5 / gate-v1.0 / v1.x / v2.x+).
 - [`epics/`](epics/) — the 19 reconstruction epics, in dependency order.
+
+### Operations
+
+- [`docs/runbooks/`](docs/runbooks/) — 12 operational runbooks (backup-restore, bootstrap-new-cluster, disaster-recovery, certificate-rotation, upgrade-cluster, performance-degradation, security-incident, troubleshooting, …). Carried from the prior implementation; in-flight rework noted in [`AGENTS.md`](AGENTS.md).
+- [`deploy/`](deploy/) — systemd unit files + Grafana dashboards bundled with the `.deb` / `.rpm` packages. See [`deploy/README.md`](deploy/README.md).
 
 ### Releases
 

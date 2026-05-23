@@ -162,20 +162,39 @@ We follow standard Go conventions:
 
 - **Use `gofmt`**: All code must be formatted with `gofmt`
 - **Run `go vet`**: No vet warnings allowed
-- **Use `golangci-lint`**: Run `make lint` before committing
+- **Use `golangci-lint`**: Run `make lint` before committing. `make lint-fix` auto-applies the safe fixes; `make docs-lint-fix` does the same for markdown.
 - **Follow Effective Go**: See [Effective Go](https://golang.org/doc/effective_go.html)
 
 **Code organization:**
 
 ```
-pkg/
-├── api/           # Public APIs (gRPC/REST)
-├── agent/         # Agent implementation
-├── controlplane/  # Control plane services
-├── state/         # State management
-├── events/        # Event system
-├── policy/        # Policy engine
-└── ...
+pkg/           # Public, importable surface (Go API + protobuf)
+├── api/       #   gRPC + REST handlers + auth + apikeys
+├── module/    #   module loader / verify / registry / manifest / runtime
+├── saga/      #   saga primitives
+├── semver/    #   version parsing
+└── version/   #   build-time version metadata
+
+internal/     # Implementation, not importable outside the module
+├── agent/    #   agent runtime + bootstrap + systemd installer
+├── audit/    #   audit emitter + buffered / store / multi auditors
+├── blueprint/#   blueprint engine
+├── cli/      #   shared cobra root + per-binary CLI packages
+├── cluster/  #   etcd-backed clustering (membership, leader, fencing)
+├── config/   #   config loader + validation
+├── controlplane/  # gRPC server wiring + command + state + event services
+├── events/   #   event bus + JetStream publisher + SQL store
+├── gitops/   #   verification + rollback + webhook receivers
+├── identity/ #   CA + SVID + join tokens
+├── nats/     #   NATS connection mgmt + JetStream setup
+├── policy/   #   OPA + CEL evaluators + audit-mode runtime
+├── runbook/  #   runbook engine + execution store
+├── secrets/  #   broker + leases + transit + backends
+├── statemgmt/#   state runner + saga + stdlib modules (35)
+└── ...       #   plus health, logging, metrics, profiling, ratelimit, ...
+
+cmd/          # Binary entry points (kscore-* + kscorectl)
+api/proto/    # Protobuf sources (auto-generated Go in pkg/api/v1)
 ```
 
 ### Error Handling
