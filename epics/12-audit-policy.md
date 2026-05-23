@@ -11,7 +11,7 @@ Two related concerns shipped together: full audit log of all sensitive ops (v1.0
 ### Audit log (full v1.0)
 
 - `internal/audit/` — emitter; structured events for auth decisions, secret access, command exec, state apply, policy evaluations.
-- `internal/policy/audit.go` — `Auditor` (in-memory circular buffer; configurable size).
+- `internal/audit/auditor.go` (`Auditor` interface) + `internal/audit/buffered.go` (`BufferedAuditor` — in-memory circular buffer; configurable size). The policy domain adds `internal/policy/audit_entry.go` (canonical `EvaluationAuditEntry` builder) so the gRPC + REST policy-eval paths share one audit shape.
 - `AuditStore` interface + `SQLitePolicyAuditStore` (WAL; indexed on `policy_id`, `actor`, `resource_type`, `timestamp`, `severity`, `allowed`). Extends `internal/state.Store`.
 - `AuditEntry{ID, Timestamp, PolicyID, PolicyName, PolicyType, ResourceType, Allowed, Duration, Violations[], EnforcementMode, User, Action, Metadata}`.
 - `AuditFilter{PolicyID, Allowed, Severity, ResourceType, User, Action, StartTime, EndTime, Limit}` — pagination.

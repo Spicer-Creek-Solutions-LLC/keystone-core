@@ -102,7 +102,7 @@ The 19 reconstruction epics in [`epics/`](epics/) sequence dependency-ordered v1
 
 ## What v1.0 commits to
 
-The full success bar — all 19 epics complete, contracts frozen, SemVer stability begins — is in [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md). The headline commitment: a single-binary release that demonstrates one system can:
+The full success bar — all 19 epics complete, contracts frozen, SemVer stability begins — is in [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md). The headline commitment: a coherent release that demonstrates one system can:
 
 - Manage heterogeneous Linux fleets via a single agent over NATS.
 - Run remote commands with rich targeting, batch concurrency, and streaming output.

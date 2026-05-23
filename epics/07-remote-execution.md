@@ -20,7 +20,7 @@ Server-side orchestration of "run this command on these agents." Targeting expre
 - `internal/controlplane/batch_dispatcher.go` (extends Epic 04 stub) — `ExecuteBatch(req) → batchID`; spawns async goroutine; progress messages on 500ms ticker.
 - Streaming protocol per gRPC: BATCH_START → AGENT_START → AGENT_OUTPUT → AGENT_COMPLETE → BATCH_COMPLETE / BATCH_FAILED with `BatchSummary{total, successful, failed, success_rate}`.
 - Persistence: `state.BatchJobStore` (job, target, command, status, counts, timestamps); `batch_agent_results` (per-agent success/exit/error/timing).
-- `cmd/kscore-exec/main.go` and `kscorectl exec` dispatching: `run`, `async`, `status`, `list`, `cancel`, `output`, `script`. Flags: `--target`, `--concurrency` (default 10), `--command-timeout` (default 5m), `--continue-on-failure`, `--shell`, `--working-dir`, `--user`, `--env KEY=VAL` (repeatable), `--job-id`, `--dry-run`.
+- `kscorectl exec` dispatching (via `internal/cli/exec/`; no separate `cmd/kscore-exec` binary — see task 11): `run`, `async`, `status`, `list`, `cancel`, `output`, `script`. Flags: `--target`, `--concurrency` (default 10), `--command-timeout` (default 5m), `--continue-on-failure`, `--shell`, `--working-dir`, `--user`, `--env KEY=VAL` (repeatable), `--job-id`, `--dry-run`.
 - Output truncation defaults: stdout 1 MB, stderr 256 KB, combined 2 MB; configurable.
 
 ## Scope (out / non-goals)
