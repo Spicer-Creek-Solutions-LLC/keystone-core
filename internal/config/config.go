@@ -299,7 +299,13 @@ func (c *Config) ProductionWarnings() []string {
 	}
 	// Epic 19 task 8 — surface dev-mode-only credential knobs that
 	// silently work but should never ship.
-	if c.Security.HMACSecret != "" {
+	// Phase B5 finding C1: an empty HMACSecret silently disables
+	// command-signature verification on every agent (see
+	// internal/agent/security.go::checkHMAC). Bootstrap UX needs the
+	// empty-default to work; production deployments must not.
+	if c.Security.HMACSecret == "" {
+		w = append(w, "security.hmacsecret is EMPTY in production — agent command-signature verification is disabled; any caller able to publish to the agent's NATS subject can execute commands. Set hmacsecret (rotate out-of-band in production) before going live.")
+	} else {
 		w = append(w, "security.hmacsecret is set to a static value (rotate via an out-of-band secret manager in production; in v1.x this graduates to KMS-backed rotation)")
 	}
 	if c.Secrets.Enabled {

@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -194,7 +195,8 @@ func TestProductionWarnings_TLSDisabled(t *testing.T) {
 	cfg.Storage.Driver = "postgres"
 	cfg.Server.TLS.Enabled = false
 	cfg.Server.CORS = safeCORS()
-	w := cfg.ProductionWarnings()
+	cfg.Security.HMACSecret = "test-prod-hmac-key"
+	w := warningsExcludingHMACStatic(cfg)
 	if len(w) != 1 {
 		t.Fatalf("warnings = %v, want 1 (TLS disabled)", w)
 	}
@@ -211,7 +213,8 @@ func TestProductionWarnings_SQLiteInProd(t *testing.T) {
 	cfg.Server.TLS.KeyFile = "/k"
 	cfg.Storage.Driver = "sqlite"
 	cfg.Server.CORS = safeCORS()
-	w := cfg.ProductionWarnings()
+	cfg.Security.HMACSecret = "test-prod-hmac-key"
+	w := warningsExcludingHMACStatic(cfg)
 	if len(w) != 1 {
 		t.Fatalf("warnings = %v, want 1 (SQLite)", w)
 	}
@@ -225,9 +228,10 @@ func TestProductionWarnings_CORSWildcardInProd(t *testing.T) {
 	cfg.Server.TLS.KeyFile = "/k"
 	cfg.Storage.Driver = "postgres"
 	cfg.Storage.DSN = "postgres://x"
+	cfg.Security.HMACSecret = "test-prod-hmac-key"
 	// CORS=* is the default — leave it.
 
-	w := cfg.ProductionWarnings()
+	w := warningsExcludingHMACStatic(cfg)
 	if len(w) != 1 {
 		t.Fatalf("warnings = %v, want 1 (CORS *)", w)
 	}
@@ -245,8 +249,9 @@ func TestProductionWarnings_CORSExplicitOriginsOK(t *testing.T) {
 	cfg.Storage.Driver = "postgres"
 	cfg.Storage.DSN = "postgres://x"
 	cfg.Server.CORS = safeCORS()
+	cfg.Security.HMACSecret = "test-prod-hmac-key"
 
-	if w := cfg.ProductionWarnings(); len(w) != 0 {
+	if w := warningsExcludingHMACStatic(cfg); len(w) != 0 {
 		t.Errorf("warnings = %v, want none", w)
 	}
 }
@@ -260,10 +265,28 @@ func TestProductionWarnings_CORSDisabledOK(t *testing.T) {
 	cfg.Storage.Driver = "postgres"
 	cfg.Storage.DSN = "postgres://x"
 	cfg.Server.CORS = CORSConfig{Enabled: false, AllowedOrigins: []string{"*"}}
+	cfg.Security.HMACSecret = "test-prod-hmac-key"
 
-	if w := cfg.ProductionWarnings(); len(w) != 0 {
+	if w := warningsExcludingHMACStatic(cfg); len(w) != 0 {
 		t.Errorf("warnings = %v, want none (CORS disabled)", w)
 	}
+}
+
+// warningsExcludingHMACStatic returns ProductionWarnings filtered to
+// drop the "security.hmacsecret is set to a static value" line.
+// Every test in this file sets HMACSecret to a non-empty value to
+// avoid the more-severe C1 empty-secret warning, which produces the
+// static-value notice as a side-effect; tests that care about other
+// warnings filter the static notice out.
+func warningsExcludingHMACStatic(cfg *Config) []string {
+	var out []string
+	for _, w := range cfg.ProductionWarnings() {
+		if strings.Contains(w, "security.hmacsecret is set to a static value") {
+			continue
+		}
+		out = append(out, w)
+	}
+	return out
 }
 
 func TestProductionWarnings_AllSafe(t *testing.T) {
@@ -275,8 +298,9 @@ func TestProductionWarnings_AllSafe(t *testing.T) {
 	cfg.Storage.Driver = "postgres"
 	cfg.Storage.DSN = "postgres://x"
 	cfg.Server.CORS = safeCORS()
-	if w := cfg.ProductionWarnings(); len(w) != 0 {
-		t.Errorf("warnings = %v, want none in fully safe prod", w)
+	cfg.Security.HMACSecret = "test-prod-hmac-key"
+	if w := warningsExcludingHMACStatic(cfg); len(w) != 0 {
+		t.Errorf("warnings = %v, want none (besides documented static-HMAC notice) in fully safe prod", w)
 	}
 }
 
@@ -294,8 +318,27 @@ func TestProductionWarnings_HMACSecretSet(t *testing.T) {
 	cfg.Server.CORS = safeCORS()
 	cfg.Security.HMACSecret = "deadbeef"
 	w := cfg.ProductionWarnings()
-	if !containsSubstr(w, "security.hmacsecret") {
-		t.Errorf("want HMAC-secret warning, got %v", w)
+	if !containsSubstr(w, "security.hmacsecret is set to a static value") {
+		t.Errorf("want static-HMAC-secret warning, got %v", w)
+	}
+}
+
+// Phase B5 finding C1: empty HMACSecret in production is more
+// dangerous than a static one (agent command-signature verification
+// silently disabled). ProductionWarnings() must call this out.
+func TestProductionWarnings_HMACSecretEmpty(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Mode = ModeProduction
+	cfg.Server.TLS.Enabled = true
+	cfg.Server.TLS.CertFile = "/c"
+	cfg.Server.TLS.KeyFile = "/k"
+	cfg.Storage.Driver = "postgres"
+	cfg.Storage.DSN = "postgres://x"
+	cfg.Server.CORS = safeCORS()
+	cfg.Security.HMACSecret = ""
+	w := cfg.ProductionWarnings()
+	if !containsSubstr(w, "EMPTY") {
+		t.Errorf("want empty-HMAC-secret warning, got %v", w)
 	}
 }
 

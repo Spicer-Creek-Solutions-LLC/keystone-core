@@ -211,10 +211,12 @@ func (s *SecurityEnforcer) AppliedEnv(req CommandRequest) map[string]string {
 
 func (s *SecurityEnforcer) checkHMAC(req CommandRequest) error {
 	if len(s.policy.HMACSecret) == 0 {
-		// No secret configured = HMAC check disabled. Operators must
-		// explicitly opt-in by setting HMACSecret; v1.0 default
-		// (empty) lets a fresh agent start without crypto config so
-		// the bootstrap flow can wire it in later.
+		// No secret configured = HMAC check disabled. Empty default
+		// lets a fresh agent boot without crypto config so the
+		// bootstrap flow can wire it in later. Production
+		// deployments MUST set HMACSecret -- internal/config/config.go
+		// ProductionWarnings() emits a loud WARN at startup when this
+		// is empty in production mode (Phase B5 finding C1).
 		return nil
 	}
 	want, err := hex.DecodeString(req.Signature)
