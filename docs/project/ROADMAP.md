@@ -617,6 +617,54 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v0.x — desirable pre-v1.0 (no specific gate)
 
+#### Rewrite GETTING-STARTED.md around the operator (package-install) path
+
+- **Priority**: v0.x
+- **What**: Current `docs/project/GETTING-STARTED.md` walks a stranger through the docker-compose dev harness (clone source, `make e2e-up`, grpcurl). That's the contributor/developer path, not the operator path. Rewrite around `apt install kscore-server kscore-cli` → `systemctl start` → `kscorectl exec/state apply/audit log` so a v0.1.x trial install fits the "GitOps deploys it, we keep it running" positioning. Keep the docker-compose walkthrough as a secondary "for contributors" section.
+- **Why deferred**: surfaced during Phase D1 of the public-launch checklist; rewriting the doc is bigger than the Phase D fix-cycle. Package-install path is now functional (commit `4be8d19d` shipped postinst + default config); the docs just don't show it as the primary path yet.
+- **Acceptance**: `docs/project/GETTING-STARTED.md` leads with `apt install ./kscore-server*.deb ./kscore-cli*.deb && systemctl start kscore-server && curl /health/ready`; §§4-7 use `kscorectl audit log` / `kscorectl exec run` / `kscorectl state apply` instead of grpcurl; docker-compose path moved to a `For contributors` section; the §troubleshooting "REST alternative at :8080" claim removed (or made true — see entry below); F1 (`jq` not in prereq line), F2 (`golang-1.26` apt package non-existent on jammy + tarball fallback uncommented), F4 (`/health/ready` grace-period response shape), F6 (`exit_code:0` proto3 default), F7 (first-run `make e2e-up` 30-90s upper bound widened) all addressed at the same time.
+- **References**: `docs/project/GETTING-STARTED.md` current state; `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D1 evidence note (Pass A + Pass B); deploy/packaging/* (postinst rendering the default config); deploy/config/server.yaml.template (the default config the new docs would reference).
+
+#### `kscorectl agent list` subcommand
+
+- **Priority**: v0.x
+- **What**: `kscorectl` ships with built-in `exec` and `state` subcommands plus the dispatcher pattern that routes to `kscore-<plugin>` binaries on PATH (audit, secrets, files, …). No `kscorectl agent list` exists; the only path to "show me the registered agents" today is grpcurl against `ControlPlaneService/ListAgents`. Add either a top-level `agent` subcommand in `internal/cli/` or a separate `kscore-agent-cli` binary that dispatches to it (distinct from the `kscore-agent` runtime binary).
+- **Why deferred**: surfaced as a gap during Phase D1 operator-path walkthrough; not blocking the .deb/.rpm install smoke, but operator can't see fleet state without grpcurl. The control-plane RPC is there + tested; just no CLI on top.
+- **Acceptance**: `kscorectl agent list` returns a table of registered agents with id / status / labels / last-heartbeat; `--output json` works; integrates with the standard `--server` / `--api-key` flag pattern from `internal/cli/exec/` + `state/`; smoke test under `internal/cli/agent/` matches the audit/state coverage bar.
+- **References**: `api/proto/keystone/core/v1/controlplane.proto` `ControlPlaneService.ListAgents` RPC; `internal/cli/cli.go` RootCommand pattern; `cmd/kscorectl/main.go` newCommand `AddCommand(exec.NewCommand(...))` + `AddCommand(state.NewCommand(...))`; `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D1 evidence (operator-path Pass B).
+
+#### REST stubs for control-plane RPCs — decide: remove docs claims or implement
+
+- **Priority**: v0.x
+- **What**: `pkg/api/agents/handler.go`, `pkg/api/state/handler.go`, `pkg/api/schedule/handler.go` register routes (`GET /api/v1/agents`, `POST /api/v1/state/apply`, etc.) that all return HTTP 501 via `notImplemented`. The GETTING-STARTED.md §4 footnote ("If you don't have grpcurl handy, the REST equivalent: …") and the §troubleshooting "Alternative: drive everything via REST at :8080" both promise this surface works — it does not. Either (a) implement the REST→gRPC passthrough handlers so the docs' claim becomes true, or (b) remove the false claims as part of the GETTING-STARTED.md rewrite.
+- **Why deferred**: surfaced as F5 during Phase D1 (docker-compose walkthrough). Implementing the passthrough is the bigger-but-more-useful option; removing the claims is the cheap-but-narrowing option. Either way the docs need to stop lying.
+- **Acceptance**: pick a direction. If (a): `GET /api/v1/agents` returns the same JSON shape as `ControlPlaneService.ListAgents`; `POST /api/v1/state/apply` accepts base64'd YAML + agent id and streams back; existing 501-stub tests in `pkg/api/agents/handler_test.go` + `pkg/api/state/handler_test.go` flip to 200 + content assertions. If (b): the 501 handlers stay; GETTING-STARTED.md §4 + §troubleshooting drop the REST-alternative claims; the route handlers move from "stub" to "intentionally not part of v0.1 — gRPC only" with a doc comment.
+- **References**: `pkg/api/agents/handler.go` + `state/handler.go` + `schedule/handler.go` (stub registrations); `docs/project/GETTING-STARTED.md` §4 footnote + §troubleshooting "Alternative: drive everything via REST"; `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D1 evidence F5.
+
+#### kscore-server default gRPC port collides with Cockpit on Rocky 10
+
+- **Priority**: v0.x
+- **What**: `kscore-server`'s default gRPC port is `127.0.0.1:9090`. Cockpit (the RHEL-family web admin UI) listens on `:9090` by default — and Rocky 10 ships with `cockpit.socket` enabled out-of-box. Result: `apt install kscore-server && systemctl start kscore-server` fails on Rocky 10 with an undisclosed bind error (the cli.go RootCommand swallows it via `SilenceErrors: true`, so the systemd journal only shows "stopped" / status=1/FAILURE). Rocky 8/9 don't enable Cockpit by default so the conflict isn't observed there. Decide: (a) change `kscore-server`'s default gRPC port to something less popular (50051 is the gRPC convention), with the cost of touching every CLI subcommand's `--server` default; (b) detect the conflict in postinst + write a non-conflicting port into `/etc/kscore/server.yaml` (a `ss -tlnp` check at install time); (c) document the conflict in GETTING-STARTED.md and tell Rocky 10 operators to `systemctl stop cockpit.socket` or pick a different port.
+- **Why deferred**: surfaced as F13 during Phase D2 on rocky10; not blocking the broader Phase D pass since 5/6 distros work and rocky10 install completes cleanly after the conflict is resolved manually. The right fix is a real engineering decision, not a hot-patch.
+- **Acceptance**: pick a direction. If (a): default port changes in `deploy/config/server.yaml.template` + `internal/config/config.go` defaultConfig + every `internal/cli/*/` subcommand's `--server` default + docs/runbooks. If (b): postinst probes `ss -tln` for 9090 + falls back to 9091 (or similar) + logs a one-line WARNING that the operator should be aware of. If (c): GETTING-STARTED.md and the v0.x install runbook gain a "Rocky 10 / RHEL 10 note" callout box + the Phase D evidence stays as documented record.
+- **References**: `deploy/config/server.yaml.template` `server.grpcport`; `internal/config/config.go` defaultConfig `GRPCPort: 9090`; `internal/cli/*/`(many subcommands) `--server` default `localhost:9090`; Cockpit upstream docs (default 9090); `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D2 evidence F13; Phase D rocky10 journalctl excerpt (silent exit-1 right after "controlplane: command dispatcher started").
+
+#### kscore-server: surface fatal-init errors to stderr instead of silently exiting
+
+- **Priority**: v0.x
+- **What**: `internal/cli/cli.go` builds the cobra root command with `SilenceErrors: true`. When `kscore-server` fails during `run()` — e.g. gRPC bind conflict (the Rocky 10 cockpit case above), invalid config, metrics-registry collision — cobra swallows the wrapped error and `main()` does a bare `os.Exit(1)` with no message. The systemd journal shows only the routine `"stopped"` info line + `status=1/FAILURE` from systemd. Operators have to attach a debugger or read source to diagnose.
+- **Why deferred**: surfaced during Phase D rocky10 diagnosis. Easy fix (print the runErr to stderr before exiting in main()), but spans every cobra-rooted binary (kscore-server, kscore-agent, kscorectl, kscore-bootstrap, kscore-files, kscore-backup…) so wants a coordinated touch.
+- **Acceptance**: every `cmd/kscore-*/main.go` `main()` that calls `newCommand().Execute()` checks the returned error and writes it to stderr (`fmt.Fprintln(os.Stderr, "error:", err)`) before `os.Exit(1)`. The systemd journal shows `kscore-server: error: gRPC: listen tcp 127.0.0.1:9090: bind: address already in use` instead of just `stopped` then `status=1/FAILURE`.
+- **References**: `internal/cli/cli.go` `RootCommand` (SilenceErrors=true is appropriate — the wrapper is fine, main() just needs to print before exit); `cmd/kscore-server/main.go` `main()` `if err := newCommand().Execute(); err != nil { os.Exit(1) }`; `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D2 evidence (the half-day diagnosis to find Cockpit was the cost of the missing stderr message).
+
+#### Phase D3: macOS dev-build sanity test
+
+- **Priority**: v0.x
+- **What**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` Phase D3 calls for `make build` + `make test` on real macOS hardware to validate the `internal/statemgmt/stdlib/fs_unix.go` / `fs_windows.go` split + the cross-platform code paths. The Phase D rerun for v0.1.x deferred D3 because no maintainer/contributor currently has Mac access. Cross-compile via goreleaser already produces darwin amd64 + arm64 archives; what's missing is running the tests on a real Mac kernel.
+- **Why deferred**: hardware availability. The build target compiles cleanly via cross-compile on every release; the test gap is specifically about runtime behavior on Darwin.
+- **Acceptance**: a maintainer or named near-term contributor runs `make build && make test` (or `make check`) on macOS 14+ (Apple Silicon and/or Intel), reports the results, and either ticks D3 in PUBLIC-LAUNCH-CHECKLIST.md or files specific Darwin-runtime bugs as separate roadmap entries.
+- **References**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D3; `.goreleaser.yaml` darwin builds; `internal/statemgmt/stdlib/fs_unix.go` + `fs_windows.go`.
+
 #### Persist dispatch principal on CommandRecord for audit-log User field
 
 - **Priority**: v0.x

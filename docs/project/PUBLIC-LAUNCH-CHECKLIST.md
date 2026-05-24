@@ -189,25 +189,72 @@ HEAD that will be made public.
 
 **Goal**: a stranger on a fresh box can actually try the project.
 
-- [ ] **D1. Fresh Ubuntu 22.04 VM end-to-end.** Per epic 19 acceptance
+- [x] **D1. Fresh Ubuntu 22.04 VM end-to-end.** Per epic 19 acceptance
       line 116: provision a stock Ubuntu 22.04 VM with no Keystone Core
       artifacts. Clone, build, follow
       `docs/project/GETTING-STARTED.md` to completion in <30 minutes.
       Document every friction point as either a getting-started.md fix
       or a ROADMAP item.
+      *(landed: two passes ran against a fresh Ubuntu 22.04 VM.
+      **Pass A** (docker-compose dev path per current docs) completed
+      the full §1–§8 walkthrough in 8m 12s and surfaced friction
+      items F1–F7 — `jq` missing from prereq line, `golang-1.26` apt
+      package doesn't exist on jammy (tarball fallback hidden in a
+      comment), codeberg.org repo is empty (launch-blocker for the
+      clone step — Phase E/F task), `/health/ready` grace-period
+      response not documented, REST stubs `/api/v1/agents` and
+      `/api/v1/state/apply` return HTTP 501 despite docs' "REST
+      alternative" promise, §5 ExecuteCommand proto3-default
+      `exit_code:0` field-omit, first-run `make e2e-up` 183s
+      vs docs' predicted 30–90s.
+      **Pass B** (operator-path refocus per the v0.1.x positioning)
+      ran `apt install ./kscore-server*.deb ./kscore-cli*.deb
+      ./kscore-agent*.deb`, observed auto-start of `kscore-server`,
+      hit `ready=true` after 29s of grace, exercised the kscorectl
+      CLI surface (exec / state / audit / 19 dispatched sub-binaries
+      on PATH), then `apt purge` with verified cleanup of
+      /usr/bin/kscore-server + /etc/kscore + /var/lib/kscore + kscore
+      user — all in 47s wall.
+      Both passes pass on Ubuntu 22.04. ROADMAP entries filed for
+      docs rewrite + missing `kscorectl agent list` + REST-stub
+      decision + remaining docs polish items.)*
 
-- [ ] **D2. Fresh Debian 12 + Rocky 9 install smoke.** Provision a fresh
+- [x] **D2. Fresh Debian 12 + Rocky 9 install smoke.** Provision a fresh
       Debian 12 VM, install `kscore-server_*_linux_amd64.deb` via
       `dpkg -i`, start the systemd unit, hit `/health/ready`, stop the
       unit, uninstall. Same on Rocky 9 with the rpm. Task 13's smoke does
       content + install assertions in throwaway containers; this VM pass
       catches what containers miss (real systemd, reboot persistence,
       package-removal cleanup).
+      *(landed: scope expanded from the stated 2 VMs to all 6 provisioned
+      VMs (debian12, ubuntu22, ubuntu24, rocky8, rocky9, rocky10) running
+      the full install → systemctl start → /health/ready → systemctl
+      stop → purge → cleanup-verify sequence in parallel. Per-VM wall
+      times: debian12 66s, ubuntu22 (combined with D1) 47s, ubuntu24
+      79s, rocky8 69s, rocky9 38s, rocky10 manual recovery (see below).
+      **Out-of-box install was broken before this run** — the original
+      kscore-server.deb shipped no postinst, no kscore user creation,
+      and no default `/etc/kscore/server.yaml`. Fixed in commit
+      `4be8d19d` (postinst hooks + default-config templates + FHS
+      `/usr/bin` bindir + autogen HMAC secret).
+      **One distro-specific friction surfaced (F13)**: Rocky 10 ships
+      Cockpit enabled by default on port 9090, which conflicts with
+      kscore-server's default gRPC port. Rocky 10 install completes
+      cleanly after `systemctl stop cockpit.socket`; documented +
+      ROADMAP entry filed to either change kscore default ports or
+      detect the conflict in postinst. Rocky 8/9 don't enable Cockpit
+      by default — no conflict observed there.)*
 
 - [ ] **D3. macOS dev-build sanity** (optional / deferrable).
       If any maintainer or near-term contributor uses macOS:
       `make build` + `make test` on a Mac. Confirms task 12's
       `fs_unix.go` / `fs_windows.go` split holds cross-platform.
+      *(deferred: no Mac available to the current maintainer; ROADMAP
+      entry filed under v0.x for when a maintainer or near-term
+      contributor adds Mac access. Cross-platform CI matrix already
+      builds darwin amd64 + arm64 via goreleaser snapshot — this gate
+      is specifically about `make build` + `make test` on real
+      hardware, not just cross-compile.)*
 
 **Exit gate for Phase D**: getting-started works on stock Ubuntu;
 .deb/.rpm install + uninstall clean on real systemd.
