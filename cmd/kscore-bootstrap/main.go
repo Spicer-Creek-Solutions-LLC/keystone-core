@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-bootstrap is the Keystone Core bootstrap CLI (Epic 18
 // task 7b). It reads a SeedConfig YAML (Epic 18 task 1) and drives
 // the BootstrapManager state machine (Epic 18 task 2) through every

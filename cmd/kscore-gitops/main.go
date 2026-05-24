@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-gitops is the Keystone Core GitOps CLI (Epic 16 task 10):
 // `verify <file>` runs a verification workflow locally and `rollback`
 // (plus its approve / reject / get / list subcommands) drives the

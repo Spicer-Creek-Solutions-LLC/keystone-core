@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package secrets exposes REST routes for the secrets domain (Epic 10).
 //
 // Routes:

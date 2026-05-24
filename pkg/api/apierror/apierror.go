@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package apierror defines the project-wide error model.
 //
 // REST endpoints return Response as a JSON body. gRPC services use

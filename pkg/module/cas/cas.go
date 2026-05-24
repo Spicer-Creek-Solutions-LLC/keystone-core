@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package cas is the content-addressed module store — the SHA-256
 // hashing + CAS storage half of the Epic 14 verification pipeline
 // (PROJECT-DETAILS §4.18). The signature half is pkg/module/verify;

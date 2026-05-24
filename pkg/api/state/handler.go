@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package state exposes REST routes for the state-management domain.
 //
 // v1.0 scaffold — concrete handlers ship with epic 08 (State

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package gitops exposes the v1.0 GitOps REST routes per
 // PROJECT-DETAILS §4.13 (Epic 16 task 10): rollback execute / list /
 // get / approve / reject, plus verification history list / get.

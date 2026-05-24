@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package file implements the `file` stdlib state module — managing
 // files, directories, and symlinks on the agent's filesystem per
 // PROJECT-DETAILS §4.8.

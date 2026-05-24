@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package git implements the `git` stdlib state module — managing a
 // git working tree on the agent per PROJECT-DETAILS §4.8 (Files &
 // VCS category).

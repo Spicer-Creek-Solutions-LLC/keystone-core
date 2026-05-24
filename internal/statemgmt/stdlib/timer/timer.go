@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package timer implements the `systemd_timer` stdlib state module —
 // systemd timer units per PROJECT-DETAILS §4.8 (Scheduled tasks
 // category). The Go package is named `timer`; it registers under the

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package events
 
 // The 29 v1.0 event type constants per PROJECT-DETAILS §4.9. These

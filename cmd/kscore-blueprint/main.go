@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-blueprint is the Keystone Core blueprint authoring + apply
 // CLI (Epic 15 task 10). Local verbs (init/validate/lint/info/
 // bundle/install/update/remove) need no wiring; apply/rollback run

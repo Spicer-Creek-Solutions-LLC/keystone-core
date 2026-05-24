@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package cluster implements the `kscore-cluster` operator CLI and
 // the `kscore-cluster-backup` DR CLI (Epic 13 task 16).
 //

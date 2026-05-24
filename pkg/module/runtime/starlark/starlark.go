@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package starlark is the v1.0 module runtime (Epic 14 task 11):
 // a go.starlark.net-backed sandboxed interpreter implementing the
 // task-10 loader.Runtime / loader.Instance interfaces.

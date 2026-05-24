@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package examples_test drives every module in modules/examples
 // through the author UX: manifest validation, the real kscore-module
 // CLI (validate / build / test), unit tests via pkg/module/testing,

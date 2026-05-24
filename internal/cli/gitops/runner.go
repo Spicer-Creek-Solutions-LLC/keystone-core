@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package gitops implements the `kscore-gitops` CLI (Epic 16 task
 // 10). Reachable as `kscorectl gitops …` via the Epic-14 plugin
 // dispatch.

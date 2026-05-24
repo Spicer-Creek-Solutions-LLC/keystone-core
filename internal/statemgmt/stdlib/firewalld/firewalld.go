@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package firewalld implements the `firewalld` stdlib state module —
 // managing one item (a service, a port, or a rich rule) in a
 // firewalld zone via `firewall-cmd --permanent`, per

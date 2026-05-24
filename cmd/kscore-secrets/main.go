@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-secrets is the Keystone Core operator CLI for the
 // secrets domain (Epic 10).
 //

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package cron implements the `cron` stdlib state module — per-user
 // crontab entries per PROJECT-DETAILS §4.8 (Scheduled tasks
 // category).

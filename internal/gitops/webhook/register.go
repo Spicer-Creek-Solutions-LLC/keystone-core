@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package webhook
 
 // RegisterAll binds the four v1.0 provider handlers (ArgoCD, Flux,

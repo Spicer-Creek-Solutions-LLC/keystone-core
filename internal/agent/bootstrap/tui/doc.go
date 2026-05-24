@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package tui implements the interactive bootstrap wizard for
 // kscore-agent. It exposes a Configurer that satisfies
 // internal/agent/bootstrap.Configurer; the wizard runs a charm

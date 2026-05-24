@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package statemgmt
 
 // StateFile is one parsed state document. The parser produces this

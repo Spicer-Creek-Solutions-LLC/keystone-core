@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package dest resolves a kscore-backup destination URI to an
 // [io.WriteCloser] the rest of the backup stack (encrypter +
 // tar.Writer + manifest) writes through.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package moduletest is the Epic 14 task-15 Starlark module
 // unit-test runner. It fills the internal/cli/module.TestRunner
 // seam: `kscore-module test` discovers a module's `*_test.star`

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package agents exposes REST routes for the agents domain.
 //
 // v1.0 scaffold — concrete handlers ship with epic 06 (Agent Runtime).

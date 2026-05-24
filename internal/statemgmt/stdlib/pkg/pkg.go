@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package pkg implements the `package` stdlib state module — Linux
 // package management per PROJECT-DETAILS §4.8.
 //

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // gendocs/cli builds docs/project/CLI-REFERENCE.md from `<binary>
 // --help` output. Walks every cmd/kscore-* directory, builds the
 // binary into a temp dir, runs it with --help + recursively for

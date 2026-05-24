@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package wait provides cancellable polling helpers.
 package wait
 

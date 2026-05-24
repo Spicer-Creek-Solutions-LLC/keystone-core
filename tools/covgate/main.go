@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // covgate enforces the v1.0 per-package coverage gates documented in
 // docs/project/COVERAGE-GATES.md and called out in PROJECT-DETAILS
 // §5.3 / AGENTS.md §5: critical packages ≥70%, CLI packages ≥40%.

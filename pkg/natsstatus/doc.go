@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package natsstatus carries the public observability types for the
 // Keystone Core NATS transport: per-endpoint state, circuit-breaker
 // state, and the EndpointSnapshot rendered into /api/status.

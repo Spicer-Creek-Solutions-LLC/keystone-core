@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package disk implements the `disk` stdlib state module — manages
 // one block device's filesystem signature, per PROJECT-DETAILS §4.8
 // (Storage category).

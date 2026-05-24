@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package system implements the `system` stdlib state module — a
 // multi-op surface for the system-level settings that don't fit the
 // other stdlib modules, per PROJECT-DETAILS §4.8 (System & core

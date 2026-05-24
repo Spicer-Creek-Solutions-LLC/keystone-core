@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package route implements the `route` stdlib state module —
 // manages one entry in the kernel routing table at *runtime* via the
 // iproute2 `ip` tool, per PROJECT-DETAILS §4.8 (Network base

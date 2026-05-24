@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package secrets implements the `kscore-secrets` subcommand tree
 // (Epic 10 task 10). v1.0 ships:
 //

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package langpkg implements the `langpkg` stdlib state module —
 // manages one language-ecosystem package per declaration via pip /
 // npm / gem, per PROJECT-DETAILS §4.8 (Files & VCS category).

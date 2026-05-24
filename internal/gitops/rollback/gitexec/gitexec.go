@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package gitexec is the go-git v5 implementation of the rollback
 // [rollback.GitClient] seam. It is the only place the go-git
 // dependency is imported, keeping internal/gitops/rollback

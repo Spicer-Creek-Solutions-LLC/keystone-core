@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package resolver resolves a module's transitive dependency graph
 // against semver constraints (Epic 14 task 6, PROJECT-DETAILS
 // §4.18).

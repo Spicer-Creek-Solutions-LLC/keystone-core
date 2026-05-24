@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package events exposes REST routes for the events domain
 // (Epic 11 task 6).
 //

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-migrate copies state from a SQLite source to a PostgreSQL
 // target. One-shot tool — does not load a YAML config; takes connection
 // info via flags. The migration logic lives in internal/state; this

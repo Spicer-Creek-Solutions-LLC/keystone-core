@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package semver wraps github.com/Masterminds/semver/v3 to provide the
 // project-facing semver API. Callers do not need to import Masterminds.
 package semver

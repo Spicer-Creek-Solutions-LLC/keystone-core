@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-events is the Keystone Core operator CLI for the events
 // domain (Epic 11 task 7).
 //

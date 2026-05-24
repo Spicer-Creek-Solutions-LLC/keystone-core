@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package schedule exposes REST routes for the scheduled-jobs
 // domain.
 //

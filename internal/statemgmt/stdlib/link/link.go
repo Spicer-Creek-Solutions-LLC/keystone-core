@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package link implements the `link` stdlib state module — managing
 // symbolic and hard links on the agent's filesystem per
 // PROJECT-DETAILS §4.8 (Storage category).

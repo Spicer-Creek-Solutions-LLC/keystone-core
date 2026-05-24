@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package swap implements the `swap` stdlib state module — managing
 // swap space (a swapfile or a swap partition/device), its /etc/fstab
 // entry, and its live swapon state, per PROJECT-DETAILS §4.8 (Storage

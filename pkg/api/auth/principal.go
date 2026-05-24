@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package auth provides authentication and authorization primitives
 // for Keystone Core APIs (gRPC + REST).
 //

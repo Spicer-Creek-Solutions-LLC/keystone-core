@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package events is the v0.x reconstruction of Keystone Core's event
 // system per PROJECT-DETAILS §4.9. The epic-11 design ships a passive
 // pub/sub + persistence + filtering surface in v1.0; the active

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package group implements the `group` stdlib state module —
 // Unix group management per PROJECT-DETAILS §4.8.
 //

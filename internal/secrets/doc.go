@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package secrets is the v0.x reconstruction of Keystone Core's
 // secrets surface per PROJECT-DETAILS §4.11. The epic-10 design is
 // backend-pluggable by construction: every concrete store (encrypted

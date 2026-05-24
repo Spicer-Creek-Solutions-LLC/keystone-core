@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package age implements the [internal/backup.Encrypter] and
 // [internal/backup.Decrypter] seams using filippo.io/age — a
 // streaming envelope cipher built on X25519 + ChaCha20-Poly1305.

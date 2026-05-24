@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-backup is the Keystone Core backup + restore CLI
 // (Epic 18 task 7). Task 7a ships the read-only verify + list
 // subcommands; task 7b adds create + restore.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package selfmgmt
 
 import "go.keystone-core.io/keystone-core/pkg/statemachine"

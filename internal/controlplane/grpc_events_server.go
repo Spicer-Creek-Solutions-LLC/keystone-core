@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package controlplane Epic 11 task 6 — EventService gRPC adapter.
 //
 // EventsGRPCServer implements [v1.EventServiceServer] by delegating

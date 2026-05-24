@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package policy exposes REST routes for the policy domain
 // (Epic 12 task 13).
 //

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package archive implements the `archive` stdlib state module —
 // extracting an archive into a directory per PROJECT-DETAILS §4.8
 // (Files & VCS category). Pair it with the `file` / `git` modules to

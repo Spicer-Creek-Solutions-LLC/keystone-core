@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package policy is the v1.0 policy engine per PROJECT-DETAILS
 // §4.12. It owns the policy data model (Policy, PolicySet, Binding),
 // the in-memory Registry, the Evaluator seam (tasks 6-8 implement

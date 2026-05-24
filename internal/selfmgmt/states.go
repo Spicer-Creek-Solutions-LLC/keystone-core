@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package selfmgmt
 
 // BootstrapState is the kscore-bootstrap lifecycle state. The state

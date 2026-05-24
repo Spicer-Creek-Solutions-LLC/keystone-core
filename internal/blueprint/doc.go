@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package blueprint implements the v1.0 blueprint manifest layer per
 // PROJECT-DETAILS.md §4.17 — pre-packaged, Salt-formula-shaped state
 // collections.

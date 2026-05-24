@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package bootstrap implements the kscore-bootstrap CLI (Epic 18
 // task 7b). The binary reads a [selfmgmt.SeedConfig] from --seed,
 // runs the [selfmgmt.BootstrapManager] state machine through every

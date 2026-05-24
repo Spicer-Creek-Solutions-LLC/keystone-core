@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+
 # Keystone Core smoke test — fast pre-commit gate.
 #
 # Modes:

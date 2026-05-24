@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package network implements the `network` stdlib state module —
 // manages one network interface's *runtime* configuration via the
 // iproute2 `ip` tool, per PROJECT-DETAILS §4.8 (Network base

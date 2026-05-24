@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package hostname implements the `hostname` stdlib state module —
 // the system static hostname per PROJECT-DETAILS §4.8.
 //

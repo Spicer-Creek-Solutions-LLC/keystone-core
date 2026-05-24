@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package config defines the runtime configuration for all Keystone Core
 // binaries. It loads from YAML files plus KSCORE_-prefixed env vars,
 // validates after unmarshal, and emits production warnings for risky

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package audit is the v0.x reconstruction of Keystone Core's
 // audit log per PROJECT-DETAILS §4.12. The epic-12 design ships
 // two related concerns in v1.0:

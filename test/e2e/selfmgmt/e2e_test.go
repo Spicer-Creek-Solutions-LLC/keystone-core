@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build integration
 
 // Package selfmgmte2e is the Epic 18 task-8 end-to-end integration

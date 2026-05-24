@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package files
 
 // Subjects is the narrow interface internal/files consumers depend on

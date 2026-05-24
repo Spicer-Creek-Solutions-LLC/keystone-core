@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package capability holds the granted-capability registry and the
 // audited invoker that gates every module capability call
 // (Epic 14 task 2).

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package plugin implements Git/kubectl-style plugin discovery and
 // execution (Epic 14 task 13, PROJECT-DETAILS §4.18): any
 // `kscore-*` executable on $PATH becomes a `kscorectl <name>`

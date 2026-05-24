@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package registry is the v1.0 filesystem-backed module registry
 // (Epic 14 task 8): publish + the Go module-proxy HTTP endpoints,
 // and an in-process implementation of resolver.Source so the

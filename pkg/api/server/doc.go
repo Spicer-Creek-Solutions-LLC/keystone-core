@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package server is the kscore-server orchestrator: it wires
 // internal/state, the controlplane primitives (ConnectionManager,
 // CommandDispatcher, BatchDispatcher), the (stubbed) NATS transport,

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 // Coverage thresholds. Documented in docs/project/COVERAGE-GATES.md.

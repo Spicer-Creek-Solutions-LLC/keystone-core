@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package blueprint exposes the v1.0 blueprint REST routes (Epic 15
 // task 11): list/get blueprints and apply one. Backends are injected
 // via Providers; a nil provider degrades its routes to 503 (the

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package envelope is the wire-format wrapper around every Keystone
 // Core NATS message.
 //

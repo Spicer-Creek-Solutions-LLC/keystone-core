@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package storage is the registry blob-storage backend interface
 // and its v1.0 filesystem implementation (Epic 14 task 8). S3, OCI,
 // and NATS Object Store backends are post-v1.0 (epic non-goals).

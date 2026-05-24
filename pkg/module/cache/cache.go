@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package cache adds the §4.18 size/age/readonly lifecycle policy
 // on top of the task-5 content-addressed store (Epic 14 task 7).
 //

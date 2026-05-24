@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package security implements the `security` stdlib state module —
 // the v1.0 surface manages SELinux settings, per PROJECT-DETAILS §4.8
 // (SSH & security category).

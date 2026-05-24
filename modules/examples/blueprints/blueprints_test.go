@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package blueprints_test drives every shipped reference blueprint
 // through the real v1.0 blueprint pipeline: Load + Validate, then
 // Apply (render → parse → feature-filter → namespace → resolve)

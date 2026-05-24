@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build integration
 
 // Package main test — Epic 08 task 13 in-process state integration.

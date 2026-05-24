@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package execution exposes REST routes for the command execution
 // domain.
 //

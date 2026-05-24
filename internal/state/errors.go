@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package state defines the persistence-layer interfaces and types shared
 // by the SQLite and PostgreSQL backends.
 package state

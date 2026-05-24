@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package ratelimit is the basic per-key token-bucket layer used
 // by the kscore HTTP + gRPC middleware (Epic 18 tasks 17-19).
 //

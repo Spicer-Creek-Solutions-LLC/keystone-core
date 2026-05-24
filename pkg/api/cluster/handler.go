@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package cluster exposes REST routes for the cluster domain
 // (Epic 13 task 15) — the operator-facing topology + backup
 // surface. Watch streams stay gRPC-only (the events-REST

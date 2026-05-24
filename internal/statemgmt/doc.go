@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package statemgmt is the state management engine described in
 // PROJECT-DETAILS §4.8 — the declarative configuration surface that
 // applies YAML state files to agents, detects drift, and remediates.

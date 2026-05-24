@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package config implements the `config` stdlib state module —
 // managing an individual key/value inside a config file per
 // PROJECT-DETAILS §4.8 (Files & VCS category).

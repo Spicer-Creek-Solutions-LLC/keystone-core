@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package rollback is the GitOps manual-rollback engine (Epic 16).
 // It reverts a bad deployment via one of three v1.0 executors —
 // Git revert, ArgoCD sync-to-revision, Kubernetes rollout-undo —

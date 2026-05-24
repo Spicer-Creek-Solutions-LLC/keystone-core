@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package selfmgmt holds the bootstrap-from-seed and ongoing
 // self-management surfaces consumed by the kscore-bootstrap binary.
 //

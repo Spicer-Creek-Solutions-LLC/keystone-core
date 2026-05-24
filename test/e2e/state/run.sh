@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+
 #
 # test/e2e/state/run.sh — Layer C entry point for Epic 08 task 13.
 #

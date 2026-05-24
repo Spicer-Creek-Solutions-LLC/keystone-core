@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // gendocs/api builds docs/project/API-REFERENCE.md by extracting
 // every gRPC service + RPC from `api/proto/keystone/core/v1/*.proto`
 // and every REST path + method from `api/openapi/openapi-spec.yaml`.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package files exposes REST routes for the file-distribution
 // domain (Epic 18 task 14). Routes:
 //

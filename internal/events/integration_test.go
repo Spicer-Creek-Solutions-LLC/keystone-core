@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build integration
 
 // End-to-end integration tests for Epic 11 — the §4.9 acceptance

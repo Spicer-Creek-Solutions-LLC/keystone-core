@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package mount implements the `mount` stdlib state module —
 // managing a filesystem's /etc/fstab entry and its live mount state,
 // per PROJECT-DETAILS §4.8 (Storage category). Inspection is via

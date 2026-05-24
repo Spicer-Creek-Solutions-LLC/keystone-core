@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package main
 
 // AuditEmissionContract — Epic 12 task 4 contract tests.

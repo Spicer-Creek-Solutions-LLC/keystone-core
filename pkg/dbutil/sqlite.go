@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package dbutil provides storage-engine helpers used across the project.
 package dbutil
 

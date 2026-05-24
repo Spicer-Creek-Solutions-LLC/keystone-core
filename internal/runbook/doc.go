@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package runbook implements the v1.0 runbook engine per
 // PROJECT-DETAILS.md §4.17 — trigger-based workflow automation.
 //

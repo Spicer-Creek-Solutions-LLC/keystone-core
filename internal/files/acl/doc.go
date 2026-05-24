@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package acl is the namespace-based access-control layer for
 // file distribution. It sits between the inbound transport
 // request handler and the [backend.Store]: every Get / Put /

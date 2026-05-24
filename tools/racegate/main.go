@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // racegate enforces docs/project/TEST-POLICY.md: every `go test`
 // invocation under tracked source files must include -race unless
 // the enclosing target is on an explicit allowlist (currently:

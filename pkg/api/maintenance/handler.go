@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package maintenance exposes REST routes for the maintenance-window
 // domain.
 //

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-agent is the Keystone Core agent daemon.
 //
 // Default invocation runs the daemon: connects to the cluster's

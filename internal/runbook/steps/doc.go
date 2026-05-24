@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package steps provides the 9 v1.0 runbook step-type executors per
 // PROJECT-DETAILS.md §4.17 (Epic 15 task 8): noop, fail, wait,
 // command, script, state, api, notification, query.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package execution provides execution primitives shared across the
 // agent runtime and the control plane.
 //

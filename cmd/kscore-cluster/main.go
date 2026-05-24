@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-cluster is the Keystone Core cluster operator CLI
 // (Epic 13 task 16).
 //

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // gendocs/config builds docs/project/CONFIGURATION-REFERENCE.md by
 // walking internal/config/*.go with go/ast, extracting every struct
 // field that carries a `koanf:"..."` tag, and emitting a table per

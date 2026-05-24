@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package metrics
 
 // v1.0 metric directory.

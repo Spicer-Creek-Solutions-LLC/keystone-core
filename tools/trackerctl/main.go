@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Command trackerctl provisions the keystone-core Forgejo issue tracker from
 // the configuration checked into this directory: label set, milestones, and
 // (for the active bucket) leaf issues generated from docs/project/ROADMAP.md.

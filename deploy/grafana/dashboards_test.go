@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package grafana hosts the build-time validation gate for the v1.0
 // Grafana dashboards shipped under deploy/grafana/dashboards.
 //

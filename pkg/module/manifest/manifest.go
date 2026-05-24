@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package manifest defines the module manifest, per-capability
 // config, and lockfile types for the Epic 14 plugin/module system,
 // with a stable YAML codec and validation.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package extract returns rate-limit keys from inbound requests.
 // Concrete extractors cover IP, API key, and arbitrary header
 // per PROJECT-DETAILS §4.20. The package is consumed by the

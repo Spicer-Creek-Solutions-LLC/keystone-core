@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package tracing builds the OpenTelemetry TracerProvider that the rest
 // of Keystone Core writes spans through.
 //

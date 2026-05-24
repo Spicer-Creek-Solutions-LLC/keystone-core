@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package cardinality enforces hard limits on the number of distinct
 // label-value combinations a Prom metric may emit.
 //

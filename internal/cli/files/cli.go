@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package files implements the kscore-files CLI (Epic 18 task 15).
 // Subcommands wrap [transport.Client] over a NATS connection so
 // operators can read + write files in the kscore file service

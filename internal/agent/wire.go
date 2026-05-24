@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package agent
 
 // CommandResponse is the JSON payload the agent publishes inside an

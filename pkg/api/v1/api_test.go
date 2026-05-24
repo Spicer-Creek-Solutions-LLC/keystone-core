@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Smoke tests for the pkg/api/v1 generated proto code.
 //
 // These exist to close the loop on `make proto` end-to-end (epic 03

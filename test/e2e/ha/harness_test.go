@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build integration || slo
 
 // Package ha holds the Epic 13 task 17 HA end-to-end suite + the

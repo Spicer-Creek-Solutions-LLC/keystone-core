@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build slo
 
 // Package perf is the Epic 19 task 3 performance-SLO suite. It

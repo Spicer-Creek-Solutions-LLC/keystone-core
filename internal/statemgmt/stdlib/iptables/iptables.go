@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package iptables implements the `iptables` stdlib state module —
 // managing a single iptables (or ip6tables) rule, per
 // PROJECT-DETAILS §4.8 (Firewall category).

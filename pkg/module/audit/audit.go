@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package audit defines the module-domain capability-invocation
 // audit record and the bridge that forwards it to the §4.12 audit
 // log (Epic 14 task 2).

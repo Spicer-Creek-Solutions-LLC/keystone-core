@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package s3client constructs minio-go S3 clients from a shared
 // [Config]. It is the single home of S3 connection state across
 // kscore packages so a kscore-backup destination, a kscore-files

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package service implements the `service` stdlib state module —
 // Linux service management per PROJECT-DETAILS §4.8.
 //

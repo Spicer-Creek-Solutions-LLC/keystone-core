@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package secrets
 
 // CacheStats is the operator-visible view of cache effectiveness.

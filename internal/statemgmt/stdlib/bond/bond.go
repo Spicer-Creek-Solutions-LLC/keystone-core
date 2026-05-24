@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package bond implements the `bond` stdlib state module — creates
 // and removes a Linux bonding (link-aggregation) interface at
 // runtime via `ip link`, per PROJECT-DETAILS §4.8 (Network base

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package transport wires the kscore file service onto NATS. It is
 // the chunked-streaming layer between a [backend.Store] (Task 10)
 // and consumers — REST handlers (Task 14), the kscore-files CLI

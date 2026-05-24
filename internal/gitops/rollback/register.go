@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package rollback
 
 // Deps carries the client seams the executors need. A nil seam is

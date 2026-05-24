@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-webhook is the Keystone Core webhook CLI (Epic 16 task 16).
 // `outbound` subcommands (list/create/show/delete/history/test)
 // manage subscriptions stored in a local SQLite at --store. Reachable

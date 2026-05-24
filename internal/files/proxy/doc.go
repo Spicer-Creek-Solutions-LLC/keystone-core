@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package proxy is the agent-side cache for file-distribution reads.
 //
 // Agents fetch the same blueprints / configs / packages repeatedly;

@@ -21,8 +21,13 @@ linters:
     - unused
     - bodyclose
     - gosec
+    - goheader
 
   settings:
+    goheader:
+      template: |-
+        SPDX-License-Identifier: Apache-2.0
+
     errcheck:
       exclude-functions:
         # fmt.Print* to stdout/stderr rarely fail and are typically not checked

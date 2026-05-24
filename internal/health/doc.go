@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package health is the v1.0 component-health subsystem behind the
 // kscore-server /health/* endpoints.
 //

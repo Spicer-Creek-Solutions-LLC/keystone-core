@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package state implements the `kscorectl state` subcommand tree
 // (Epic 08 task 10a). v1.0 ships five subcommands:
 //

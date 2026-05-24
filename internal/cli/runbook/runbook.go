@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package runbook implements the kscore-runbook CLI (Epic 15
 // task 10): list, execute, status, list-executions, audit, test.
 // Dependency-light; the runbook engine (with its step registry) and

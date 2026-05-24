@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package bridge implements the `bridge` stdlib state module —
 // creates and removes a Linux bridge interface at runtime via `ip
 // link`, per PROJECT-DETAILS §4.8 (Network base category).

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package observer adapts the runbook engine's transition stream
 // ([runbook.Observer]) onto the Epic 11 event bus and the Epic 12
 // audit log (Epic 15 task 9).

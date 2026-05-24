@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package pki implements the `x509` stdlib state module — managing a
 // TLS certificate + private-key pair on disk with crypto/x509 (no
 // shelling out), per PROJECT-DETAILS §4.8 (Certificates category).

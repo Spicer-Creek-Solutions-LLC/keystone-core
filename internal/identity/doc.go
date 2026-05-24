@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package identity is the v0.x reconstruction of Keystone Core's
 // identity surface per PROJECT-DETAILS §4.10. The epic-09 design is
 // two-mode by construction: an **embedded** provider ships in v0.1

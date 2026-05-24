@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package vlan implements the `vlan` stdlib state module — creates
 // and removes a Linux 802.1Q VLAN interface at runtime via `ip
 // link`, per PROJECT-DETAILS §4.8 (Network base category).

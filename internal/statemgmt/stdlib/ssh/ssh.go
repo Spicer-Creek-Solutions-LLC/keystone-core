@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package ssh implements the `ssh` stdlib state module — managing an
 // entry in a user's ~/.ssh/authorized_keys (the classic
 // authorized_key.present / .absent), per PROJECT-DETAILS §4.8 (SSH &

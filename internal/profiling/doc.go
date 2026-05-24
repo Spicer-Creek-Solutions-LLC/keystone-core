@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package profiling runs the opt-in pprof endpoint on a dedicated
 // listener separate from the main HTTP server.
 //

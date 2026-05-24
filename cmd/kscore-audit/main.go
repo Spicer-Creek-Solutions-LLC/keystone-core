@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-audit is the Keystone Core operator CLI for the audit log
 // (Epic 12 task 14).
 //

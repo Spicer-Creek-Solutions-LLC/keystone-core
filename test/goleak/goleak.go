@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package goleakhelper wraps go.uber.org/goleak.VerifyTestMain with
 // the project's standard ignore set so each integration-test
 // package can opt in with a one-line TestMain:

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package exec implements the `kscorectl exec` subcommand tree
 // (Epic 07 task 11). v1.0 ships three streaming subcommands —
 // `run`, `async`, `script` — all backed by the gRPC

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build e2e
 
 // Package single — Epic 19 task 2a shared scaffold for the

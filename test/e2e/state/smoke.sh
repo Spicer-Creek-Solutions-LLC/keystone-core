@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+
 #
 # test/e2e/state/smoke.sh — runs inside each cross-distro container.
 #

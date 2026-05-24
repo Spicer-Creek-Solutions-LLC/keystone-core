@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package starlarksdk is the v1.0 Starlark host-capability SDK
 // (Epic 14 task 12, PROJECT-DETAILS §4.18): Go shims that expose
 // the task-3 capability backends to a Starlark module as namespaced

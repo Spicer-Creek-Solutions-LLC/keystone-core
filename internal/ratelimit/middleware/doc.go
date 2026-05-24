@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package middleware wires the token-bucket [ratelimit.Registry]
 // + [extract.Extractor] into the HTTP server chain and the gRPC
 // interceptor chain. Per PROJECT-DETAILS §4.4 the chain order is

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package audit implements the `kscore-audit` operator CLI per
 // Epic 12 task 14. v1.0 ships:
 //

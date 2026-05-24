@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build integration
 
 // Package modulee2e is the Epic 14 task-17 end-to-end module-flow

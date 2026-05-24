@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscorectl is the Keystone Core operator CLI.
 //
 // v1.0 hello-world: parses --config, emits a JSON startup log line, and

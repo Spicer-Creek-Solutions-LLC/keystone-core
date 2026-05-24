@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package at implements the `at` stdlib state module — one-shot
 // scheduled jobs via the Linux `at` toolchain, per PROJECT-DETAILS
 // §4.8 (Scheduled tasks category).

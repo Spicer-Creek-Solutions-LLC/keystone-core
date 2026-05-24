@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package files contains the file-distribution wire-format contract
 // shared by the kscore-server file service, the kscore-agent proxy
 // cache, and the kscore-files CLI. Epic 18 task 9 ships only the

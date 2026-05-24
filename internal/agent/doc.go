@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package agent is the kscore-agent daemon's runtime (Epic 06). The
 // Agent struct owns lifecycle: subscribes to its command topic and
 // spawns heartbeat + metadata loops. Tasks 2–11 fill in the

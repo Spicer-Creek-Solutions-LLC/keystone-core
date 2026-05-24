@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package verify is the module signature-verification half of the
 // Epic 14 verification pipeline (PROJECT-DETAILS §4.18).
 //

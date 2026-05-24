@@ -23,6 +23,15 @@ Anchored on the reconstruction baseline (commit `14be1109`).
 - Upgraded `golang.org/x/net` to v0.55.0 to close GO-2026-5026 (Phase B1,
   commit `43c5590a`).
 
+### Added
+
+- **SPDX license headers on every hand-written source file**
+  (`// SPDX-License-Identifier: Apache-2.0`): 1,332 `.go` files + 6
+  `.sh` files. Generated `.pb.go` excluded (already `linters: all` in
+  `.golangci.yml`). Enforced going forward by enabling the `goheader`
+  linter — new files without the header fail lint. Ecosystem-standard
+  posture (Kubernetes / etcd / NATS / CoreDNS / Prometheus all do this).
+
 ### Changed
 
 - **Default gRPC server port moved from `9090` → `5397`** to avoid the

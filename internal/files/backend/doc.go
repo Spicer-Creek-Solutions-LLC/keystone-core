@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package backend is the storage layer behind the kscore file
 // service. It owns where bytes live (filesystem, S3-compatible
 // object store, in-memory test double) without knowing anything

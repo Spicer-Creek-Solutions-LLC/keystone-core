@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package runbook exposes the v1.0 runbook REST routes (Epic 15
 // task 11): list/get runbooks, execute a runbook, fetch an
 // execution. Backends are injected via Providers; a nil provider

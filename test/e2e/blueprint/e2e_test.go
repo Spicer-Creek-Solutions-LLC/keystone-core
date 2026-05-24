@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build integration
 
 // Package blueprinte2e is the Epic 15 task-13 end-to-end integration

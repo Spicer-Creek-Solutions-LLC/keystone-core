@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package semver
 
 // DiffKind is the dimension along which two versions differ.

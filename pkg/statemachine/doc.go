@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package statemachine implements the v0.1 generic finite-state-machine
 // library, per PROJECT-DETAILS.md §4.17.
 //

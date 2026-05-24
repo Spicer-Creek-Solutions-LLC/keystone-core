@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-runbook is the Keystone Core runbook CLI (Epic 15 task 10):
 // list, execute, status, list-executions, audit, test. The engine is
 // wired with the v1.0 step set; step types whose backends are not

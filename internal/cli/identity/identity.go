@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package identity implements the `kscore-identity` subcommand
 // tree (Epic 09 task 12). v0.1 ships:
 //

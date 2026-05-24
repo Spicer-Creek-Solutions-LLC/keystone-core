@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package policy implements the v1.0 policy engine (PROJECT-DETAILS
 // §4.12). It is the evaluation half of the audit-and-policy pair;
 // the recording half is internal/audit.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package stdlib registers the v1.0 base stdlib state modules
 // (PROJECT-DETAILS §4.8) into a statemgmt.Registry.
 //

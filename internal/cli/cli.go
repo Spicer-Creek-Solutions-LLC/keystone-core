@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package cli builds the standard Cobra root command shared by every
 // Keystone Core binary (kscore-server, kscore-agent, kscorectl, and the
 // kscore-* helpers added by later epics).

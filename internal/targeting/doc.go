@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package targeting compiles user-facing target expressions into an
 // expr-lang VM program that can be evaluated against a flattened agent
 // metadata map (Epic 07 task 1).

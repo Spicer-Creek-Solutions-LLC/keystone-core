@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package apikeys generates, stores, and verifies API keys for the
 // Keystone Core HTTP/gRPC API surface. See PROJECT-DETAILS §4.10.
 //

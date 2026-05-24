@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package saga implements the v0.1 saga coordinator — multi-step
 // orchestration with compensating transactions on failure, per
 // PROJECT-DETAILS.md §4.17.

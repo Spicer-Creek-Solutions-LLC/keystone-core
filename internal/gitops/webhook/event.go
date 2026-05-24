@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package webhook is the GitOps inbound webhook receiver (Epic 16).
 //
 // It accepts deployment-tool webhooks (ArgoCD, Flux) and Git-provider

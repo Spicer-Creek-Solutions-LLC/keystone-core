@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package user implements the `user` stdlib state module — Linux
 // user-account management per PROJECT-DETAILS §4.8.
 //

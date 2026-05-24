@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package version exposes build-time version metadata populated via -ldflags -X.
 package version
 

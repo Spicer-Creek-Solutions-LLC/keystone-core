@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package verification is the GitOps deployment-verification engine
 // (Epic 16). It runs verification steps — HTTP probes, gRPC health
 // checks, command/script assertions — against a freshly-deployed

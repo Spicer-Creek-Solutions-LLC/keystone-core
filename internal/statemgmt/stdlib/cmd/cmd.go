@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package cmd implements the `cmd` stdlib state module — execute
 // arbitrary shell commands with idempotency guards per
 // PROJECT-DETAILS §4.8.

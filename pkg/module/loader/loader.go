@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package loader is the runtime-agnostic 7-step module load
 // pipeline (Epic 14 task 10, PROJECT-DETAILS §4.18):
 //

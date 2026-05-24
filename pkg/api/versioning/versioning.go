@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package versioning tracks per-endpoint API lifecycle status
 // (alpha/beta/current/supported/deprecated/retired) and emits standard
 // deprecation/sunset headers on outbound responses.

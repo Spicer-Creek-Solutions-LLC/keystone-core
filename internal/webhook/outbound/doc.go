@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package outbound is the Keystone Core outbound-webhooks subsystem
 // (Epic 16 tasks 11–18, PROJECT-DETAILS §4.14): persistent webhook
 // subscriptions + delivery audit + a NATS-driven Manager that fans

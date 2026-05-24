@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package argoexec is the stdlib-REST implementation of the rollback
 // [rollback.ArgoClient] seam. It talks to the ArgoCD API server's
 // grpc-gateway REST surface with net/http only — deliberately no

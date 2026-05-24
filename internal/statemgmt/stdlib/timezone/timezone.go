@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package timezone implements the `timezone` stdlib state module —
 // the system timezone per PROJECT-DETAILS §4.8.
 //

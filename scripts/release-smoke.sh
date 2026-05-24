@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+
 #
 # scripts/release-smoke.sh — Epic 19 task 13.
 #

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package module implements the kscore-module CLI (Epic 14 task
 // 14) — the module author/distribution flow:
 //

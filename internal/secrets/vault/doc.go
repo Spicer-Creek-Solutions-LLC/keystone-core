@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package vault is the HashiCorp Vault [SecretBackend] per
 // PROJECT-DETAILS §4.11 — the high-ROI v1.0 backend for trial
 // deployments that already run Vault. Talks the canonical Vault

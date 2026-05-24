@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build slo
 
 // Epic 13 task 18 — performance SLO gate.

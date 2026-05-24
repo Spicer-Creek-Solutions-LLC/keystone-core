@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package state
 
 // Compile-time interface compliance assertions. If a method is added to

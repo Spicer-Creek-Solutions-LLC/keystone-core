@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package metrics is the Keystone Core Prometheus abstraction layer.
 //
 // The package owns a private *prometheus.Registry (NOT the default global)

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package webhooks exposes the v1.0 outbound-webhooks REST routes per
 // PROJECT-DETAILS §4.14 (Epic 16 task 16): subscription CRUD,
 // test-delivery, and per-subscription delivery history. Backends are

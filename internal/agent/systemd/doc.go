@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package systemd renders + installs the keystone-core-agent
 // systemd unit. Three operations are exposed:
 //

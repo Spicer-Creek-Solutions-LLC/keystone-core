@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package file is the zero-deps encrypted-file [SecretBackend] per
 // PROJECT-DETAILS §4.11 — the v1.0 trial-day-1 backend that doesn't
 // require Vault. Authenticated encryption (AES-256-GCM) protects the

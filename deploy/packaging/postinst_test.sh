@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+
 # Unit-style test for the kscore-server and kscore-agent postinst
 # scripts. Runs the scripts in a fakeroot-style sandbox (PREFIX
 # substitution + skipped systemctl/useradd) and asserts that:

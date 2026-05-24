@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package controlplane orchestrates the kscore-server runtime: agent
 // connection state, command dispatch, and batch-job execution.
 //

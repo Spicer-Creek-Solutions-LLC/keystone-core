@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package sysctl implements the `sysctl` stdlib state module —
 // kernel parameter management per PROJECT-DETAILS §4.8.
 //

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build integration
 
 // Package webhooke2e is the Epic 16 task-18 end-to-end integration

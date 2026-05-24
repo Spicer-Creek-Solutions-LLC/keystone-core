@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-registry is the standalone v1.0 filesystem-backed module
 // registry server (Epic 14 task 9). It serves the Go module-proxy
 // read endpoints (`/<mod>/@v/{list,<ver>.info,<ver>.mod,<ver>.zip}`)

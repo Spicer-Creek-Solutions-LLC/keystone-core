@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package logging configures the project's structured logger.
 //
 // The implementation wraps log/slog: JSON output via JSONHandler, logfmt

@@ -275,10 +275,11 @@ HEAD that will be made public.
       sign-off + AI disclosure (per `docs/project/AI-CONTRIBUTIONS.md`)
       + tests required.
 
-- [ ] **E3. License headers audit decision.** Decide whether to add SPDX
-      headers (`// SPDX-License-Identifier: Apache-2.0`) to every source
-      file. If yes: one bulk commit via script. If no: document the
-      decision in `LICENSE` or `CONTRIBUTING.md`.
+- [x] **E3. License headers audit decision.** Added SPDX
+      headers (`// SPDX-License-Identifier: Apache-2.0`) to every
+      hand-written source file (1,332 `.go`, 6 `.sh`; `.pb.go` excluded
+      via existing `linters: all` rule for generated proto). Enforced
+      going forward by enabling `goheader` in `.golangci.yml`.
 
 - [ ] **E4. NOTICE accuracy.** Run `go-licenses report ./...` and
       cross-check against the current `NOTICE` file. Every third-party

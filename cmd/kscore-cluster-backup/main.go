@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-cluster-backup is the Keystone Core cluster disaster-
 // recovery CLI (Epic 13 task 16).
 //

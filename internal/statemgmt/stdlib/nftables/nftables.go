@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package nftables implements the `nftables` stdlib state module —
 // managing a single nftables rule, per PROJECT-DETAILS §4.8 (Firewall
 // category). It is the nft-native sibling of the `iptables` module;

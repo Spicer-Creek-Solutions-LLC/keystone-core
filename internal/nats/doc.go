@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package nats provides the v1.0 NATS transport for Keystone Core.
 //
 // Task 1 (this file set): a Manager that satisfies pkg/api/server.NATSManager —

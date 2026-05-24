@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package backup implements the kscore-backup CLI (Epic 18 task 7).
 // The root command exposes shared S3 + log-level flags and registers
 // the four subcommands: create, list, verify, restore. Task 7a

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-identity is the Keystone Core operator CLI for the
 // embedded identity provider (Epic 09).
 //

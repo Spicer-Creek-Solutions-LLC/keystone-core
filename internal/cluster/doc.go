@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package cluster implements Keystone Core's clustering & HA layer
 // (Epic 13, PROJECT-DETAILS §4.15) — the v1.0 commercial-trial
 // differentiator: a 3-node kscore-server cluster with leader

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-module is the Keystone Core module author + distribution
 // CLI (Epic 14 task 14). It scaffolds, builds, signs, verifies,
 // resolves, installs, and tests Starlark modules against a

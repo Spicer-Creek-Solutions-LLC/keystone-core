@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package firewall implements the `firewall` stdlib state module —
 // the v1.0 cross-backend abstraction over iptables, nftables and
 // firewalld, per PROJECT-DETAILS §4.8 (Firewall category).

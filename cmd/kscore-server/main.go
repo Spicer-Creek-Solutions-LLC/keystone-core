@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-server is the Keystone Core control-plane daemon.
 //
 // Wires the runtime pieces from internal/cli + internal/config +

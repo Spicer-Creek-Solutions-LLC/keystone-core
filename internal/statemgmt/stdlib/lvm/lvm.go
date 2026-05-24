@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package lvm implements the `lvm` stdlib state module — manages
 // one LVM object (a Physical Volume, a Volume Group, or a Logical
 // Volume) per declaration, per PROJECT-DETAILS §4.8 (Storage

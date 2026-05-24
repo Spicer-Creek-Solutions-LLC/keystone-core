@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package backup orchestrates portable kscore-server backup
 // artifacts. Epic 18 task 3 ships the orchestrator and six narrow
 // component seams ([StorageBackup], [JetStreamBackup], [EtcdBackup],

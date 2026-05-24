@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package webhook implements the `kscore-webhook` CLI (Epic 16 task
 // 16). Reachable as `kscorectl webhook ...` via the Epic-14 plugin
 // dispatch. Today only the `outbound` subcommand tree is wired —

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package events implements the `kscore-events` operator CLI per
 // Epic 11 task 7. v1.0 ships:
 //

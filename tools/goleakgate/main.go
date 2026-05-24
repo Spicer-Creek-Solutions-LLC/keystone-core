@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // goleakgate enforces docs/project/TEST-POLICY.md: every package
 // that contains a `//go:build integration` test file must also
 // contain a TestMain that wraps the project's

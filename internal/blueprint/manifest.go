@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 package blueprint
 
 // Parameter type names accepted in a ParamSpec.Type. They map 1:1 to

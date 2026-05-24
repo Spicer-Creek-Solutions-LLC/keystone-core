@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package bootstrap is the kscore-agent bootstrap engine (Epic 06
 // task 6). The Engine runs five phases as a state machine —
 // Detect, Configure, Validate, Install, Verify — and persists

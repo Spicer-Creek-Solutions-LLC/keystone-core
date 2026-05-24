@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package kmod implements the `kernel_module` stdlib state module —
 // kernel-module management per PROJECT-DETAILS §4.8.
 //

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // kscore-policy is the Keystone Core operator + authoring CLI for
 // the policy domain (Epic 12 task 14).
 //

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: Apache-2.0
+
 // Package blueprint implements the kscore-blueprint CLI (Epic 15
 // task 10): init, validate, lint, info, install, update, remove,
 // applied, apply, rollback, bundle. The package is dependency-light;
