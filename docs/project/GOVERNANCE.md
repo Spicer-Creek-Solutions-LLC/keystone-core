@@ -151,6 +151,29 @@ release process. The BDFL sets compatibility policy and may approve lifecycle ch
 
 ---
 
+## Launch Posture
+
+**v0.1.x — soft launch.** The repository is made public on Codeberg without a coordinated
+announcement (no blog post, no mailing-list push, no aggregator submission). Discovery happens
+organically through the GitOps/day-2-ops community, word of mouth, and direct outreach.
+
+The intended v0.1.x audience is operators who have been **explicitly invited to install** (per
+[`VERSIONING.md`](VERSIONING.md)) — people who already know what Keystone Core is, are willing
+to file detailed bug reports, and understand that the v0.x line is pre-stable. The soft-launch
+posture matches that audience: it surfaces the project to people who'll find it via deliberate
+search, without inviting the broader drive-by traffic that a hard-launch announcement would.
+
+A hard-launch announcement (blog post, HN/Lobsters submission, mailing-list push) is **not
+planned until at least v0.5**, when the v0.5 gates in [`VERSIONING.md`](VERSIONING.md) have
+been met and the project is closer to providing the operator experience a wider audience
+would expect.
+
+This decision lives here rather than only in the launch checklist because it shapes how
+maintainers triage early issues, set expectations in `README.md`, and decide what to commit
+to publicly during the v0.x line.
+
+---
+
 ## Future Evolution
 
 This governance model may evolve as the project and community grow. Changes to governance require a

@@ -301,15 +301,17 @@ intended posture; first-impression scan of the root file list is clean.
 
 **Goal**: decisions and artifacts in place for the public flip itself.
 
-- [ ] **F1. Soft-launch vs hard-launch decision.** Quietly flip-to-public
-      and let discovery happen organically, or actively announce?
-      VERSIONING.md's v0.1.x framing ("explicitly invited to install")
-      implies invitation; level of invitation is the open question.
+- [x] **F1. Soft-launch vs hard-launch decision.** **Decision: soft
+      launch for v0.1.x.** Repository goes public on Codeberg without a
+      coordinated announcement (no blog post, no mailing-list push, no
+      aggregator submission). Discovery happens organically through the
+      GitOps/day-2-ops community and direct outreach. Matches
+      VERSIONING.md's "explicitly invited to install" framing. Decision
+      recorded in [`GOVERNANCE.md` § Launch Posture](GOVERNANCE.md).
 
-- [ ] **F2. Announcement draft** (if hard-launch). Short post covering:
-      what is it, what works, what doesn't, how to try, where to file
-      feedback, what we are explicitly *not* committing to yet. Location
-      decided per F1.
+- [~] **F2. Announcement draft** — **not applicable for v0.1.x** per F1
+      soft-launch decision. Hard-launch announcement deferred to at
+      least v0.5; this checkbox reopens then.
 
 - [ ] **F3. Triage SLO commitment.** Document expected response time for
       issues, PRs, and security reports. Even "best effort, no SLO" is
