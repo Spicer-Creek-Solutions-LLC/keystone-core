@@ -5,21 +5,83 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Post-reconstruction launch-prep work. Frozen into v0.1.0 at the tag cut.
+Anchored on the reconstruction baseline (commit `14be1109`).
+
+### Security
+
+- Webhook handler error leakage, gRPC bypass on misrouted methods, and
+  HMAC hex-decode timing — three high-severity audit findings closed
+  (Phase B5 H1–H3, commit `7b46b28e`).
+- Join-token base62-prefix bias documented + exec capability allowlist
+  semantics tightened (Phase B5 M1+M2, commit `1f0164e0`).
+- Empty `security.hmacsecret` now emits a loud production-mode warning
+  (Phase B5 C1, commit `03d511e0`) — operators must set this explicitly
+  in production; dev-mode bootstrap UX remains unchanged.
+- Upgraded `golang.org/x/net` to v0.55.0 to close GO-2026-5026 (Phase B1,
+  commit `43c5590a`).
+
+### Changed
+
+- **Default gRPC server port moved from `9090` → `5397`** to avoid the
+  Cockpit collision on Rocky 10 / RHEL 10 (commit `3d482fa1`). Cockpit's
+  default `9090` made `apt install kscore-server` fail to start out-of-box
+  on Rocky 10; 5397 has no known popular collision. Operators with old
+  `kscorectl` defaults pointing at `9090` get `connection refused` and
+  pass `--server localhost:5397` to recover.
+- Debian/RPM packaging: postinst hooks create the `kscore` system user,
+  `/etc/kscore`, `/var/lib/kscore`, `/var/log/kscore`, `/run/kscore`;
+  auto-generate the HMAC secret; ship a default config so
+  `systemctl start kscore-server` works out-of-box (commit `4be8d19d`).
+- Binary install path moved from `/usr/local/bin/` to FHS-canonical
+  `/usr/bin/` for distro packages (commit `4be8d19d`).
+
+### Fixed
+
+- State integration tests: TRUNCATE + boundary + JSONB regressions
+  uncovered during clean-tree Phase C run (commit `dd7f03b4`).
+- Three timing-sensitive test flakes exposed by the Forgejo runner —
+  queue-group `≥1` assumption, observer-vs-state race, NATS
+  subscription-flush race (commit `928874b5`).
+- CI: pinned `protoc-gen-go@v1.36.11` + `protoc-gen-go-grpc@v1.6.1` so
+  generated stubs don't drift from `@latest` (commit `cbc78351`).
+- CI release-smoke: native-execution fallback when Docker is absent on
+  the Forgejo runner image (commit `032219cc`).
+- CI: musl `lychee` variant for the Forgejo runner's older glibc
+  (commit `af46bb52`); `install-tools` now pulls a pinned lychee binary
+  (commit `af4cb9e7`).
+
+### Docs
+
+- Public-launch checklist Phases A–D ticked across 4 commits
+  (`524757a0` → `9622ed36`): code-vs-docs sync, link health, epic
+  acceptance audit, security baseline + dummy-report-flow doc, threat-
+  model refresh, clean-tree CI gates green, six-VM cross-distro
+  environment validation (debian12 / ubuntu22 / ubuntu24 / rocky8 /
+  rocky9 / rocky10).
+- NOTICE accuracy audit: dropped `wazero`, added 8 notable deps
+  (HashiCorp Vault, gRPC, OpenTelemetry, Prometheus client,
+  SPIFFE go-spiffe, minio-go, modernc.org/sqlite, go-git), reorganized
+  by domain, documented the `modernc.org/mathutil` "Unknown" license
+  exception inline (commit `33f19178`).
+
 ## [v1.0.0] — Planned
 
 Pending all 19 epics complete + the v1.0 gate checklist in
 [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md). The full v1.0.0
 entry will land with the v1.0 cut; the in-progress feature inventory tracks
 under [`FEATURES.md`](FEATURES.md). Until then, v0.x is the active release
-line per the v0.1 → v0.5 → v0.9 → v1.0 ladder.
+line per the v0.1 → v0.5 → v1.0 ladder.
 
 ## [v0.1.0] — Unreleased
 
 First public release of the post-reset codebase. **Linux-only,
 `v0.x`-quality.** The reconstruction baseline established on 2026-05-05
-closed all 19 epics ahead of formal v1.0 sign-off; v0.1.0 is the
-"genuinely try-able" cut shipped to curious operators and early adopters
-under the v0.x line per [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md).
+closed all 19 epics; v0.1.0 is the first release on the v0.x line —
+the "genuinely try-able" cut shipped to curious operators and early
+adopters per [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md).
 **Expect breaking changes between minor versions** (minimised, always with
 a migration note). The formal external-tester milestone is the v0.5
 checklist; the SemVer stability commitment begins at v1.0.
@@ -41,10 +103,12 @@ This is intentional: full enforcement carries breaking-change risk (a
 misconfigured policy could block the fleet), so v1.0 ships policy as
 *observability* — run real policies against real workloads, inspect what
 *would* have been blocked via the audit trail / `WouldDeny`, and build
-confidence first. **v1.8 flips enforcement on and is a behavior-changing
-release** — policies left at `EnforcementMode=enforce` will start
-blocking. See [`docs/project/POLICY-AUDIT.md`](docs/project/POLICY-AUDIT.md)
-for the full audit-mode contract and the v1.0 → v1.8 migration steps.
+confidence first. **A future post-v1.0 release flips enforcement on
+and is a behavior-changing release** — policies left at
+`EnforcementMode=enforce` will start blocking at that point. See
+[`docs/project/POLICY-AUDIT.md`](docs/project/POLICY-AUDIT.md)
+for the full audit-mode contract and the v1.0 → enabling-enforcement
+migration steps.
 
 The audit log itself is fully live: every sensitive op (auth, secret
 access, command exec, state apply, policy eval) writes an `AuditEntry`.
@@ -169,3 +233,7 @@ Public hosting (primary): [`codeberg.org/Spicer-Creek-Solutions-LLC/keystone-cor
 GitHub mirror for discoverability: [`github.com/Spicer-Creek-Solutions-LLC/keystone-core`](https://github.com/Spicer-Creek-Solutions-LLC/keystone-core).
 
 Issues, RFCs, and discussion live on Codeberg.
+
+[Unreleased]: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/compare/14be1109...HEAD
+[v0.1.0]: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases/tag/v0.1.0
+[v1.0.0]: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases/tag/v1.0.0
