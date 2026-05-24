@@ -1,1107 +1,528 @@
-# Runbook: Bootstrap New Cluster
+# Runbook: Bootstrap a New Keystone Core Deployment
 
 ## Overview
 
-This runbook covers bootstrapping a new Keystone Core cluster from scratch using seed configurations, blueprints, or manual setup. It includes detailed procedures for single-node, HA cluster, and multi-region deployments.
+Install procedure for the v0.x line. Keystone Core v0.1 is
+**single-node** — the server runs on one host with embedded NATS +
+JetStream and a local SQLite store. The "bootstrap" path is the OS
+package manager: install the three `.deb` (or `.rpm`) packages and
+the postinstall scriptlets handle user creation, directory layout,
+config rendering, and systemd integration.
+
+> **v0.x scope note**: This runbook covers single-node first-install.
+> Multi-node HA, region federation, Kubernetes operators, Helm charts,
+> and the `kscore-bootstrap` SeedConfig FSM with real phase handlers
+> are gate-v1.0 work tracked in
+> [`docs/project/ROADMAP.md`](../project/ROADMAP.md). The
+> `kscore-bootstrap` binary that ships in v0.1 is the FSM shell with
+> logging no-op handlers — useful for wiring tests, not for production
+> install.
+
+For the narrative operator walkthrough (with `kscorectl` examples and
+expected output) see
+[`docs/project/GETTING-STARTED.md`](../project/GETTING-STARTED.md).
 
 ## Prerequisites
 
-### Infrastructure Requirements
+### Host
 
-| Component | Minimum (Demo) | Recommended (Production) | Enterprise |
-|-----------|---------------|-------------------------|------------|
-| Control Plane Nodes | 1 | 3 | 5+ per region |
-| CPU per Node | 2 cores | 4 cores | 8+ cores |
-| Memory per Node | 4GB | 8GB | 16GB+ |
-| Storage per Node | 50GB SSD | 200GB SSD | 500GB+ NVMe |
-| Network | 1 Gbps | 10 Gbps | 10 Gbps+ |
+- One Linux host. v0.1 cross-distro CI exercises:
+  - Ubuntu 22.04 LTS, Ubuntu 24.04 LTS
+  - Debian 12
+  - Rocky Linux 8, 9, 10
+- systemd present (the postinst skips systemd integration in chroots
+  / minimal containers but the runbook assumes a real host).
+- Root or sudo access.
+- Base utilities: `openssl`, `curl`, `tar`, `sed`, `install`. These
+  are in the base install on every supported distro.
 
-### Software Requirements
+### Resources
 
-- [ ] Linux OS (Ubuntu 20.04+, RHEL 8+, or Debian 11+)
-- [ ] Root or sudo access
-- [ ] curl, tar, openssl installed
-- [ ] systemd for service management
+Single-node v0.1 has modest needs — adequate for a trial install on
+any laptop or small VM:
 
-### Network Requirements
+| Resource | Minimum | Recommended for sustained use |
+|---|---|---|
+| CPU | 1 core | 2+ cores |
+| Memory | 1 GB | 2+ GB |
+| Disk (`/var/lib/kscore`) | 5 GB | 20+ GB (JetStream grows) |
 
-| Port | Protocol | Purpose | Required |
-|------|----------|---------|----------|
-| 8080 | TCP | API server | Yes |
-| 8443 | TCP | API server (TLS) | Yes |
-| 4222 | TCP | NATS client | Yes |
-| 6222 | TCP | NATS cluster | HA only |
-| 8222 | TCP | NATS monitoring | Optional |
-| 2379 | TCP | etcd client | HA only |
-| 2380 | TCP | etcd peer | HA only |
-| 5432 | TCP | PostgreSQL | External DB |
-| 5397 | TCP | gRPC control plane | Yes |
+Production sizing (TLS-enabled identity provider, external Postgres,
+large agent fleet) is gate-v1.0; this v0.1 runbook covers the trial
+install.
 
-### Checklist
+### Network
 
-- [ ] Infrastructure provisioned (servers, networking, storage)
-- [ ] SSH access to all nodes
-- [ ] Seed configuration file prepared (`seed.yaml`) OR blueprint selected
-- [ ] DNS entries configured (if applicable)
-- [ ] Firewall rules configured
-- [ ] Required credentials available (database, cloud storage)
-- [ ] TLS certificates prepared (or use auto-generation)
-- [ ] Backup storage configured (S3, NFS, etc.)
+The server binds to localhost by default. Adjust for your topology
+before exposing it to remote agents.
 
-## Trigger Conditions
+| Port | Bind (default) | Component | Required |
+|---|---|---|---|
+| 5397 | 127.0.0.1 | kscore-server gRPC (control plane API) | Yes |
+| 8080 | 127.0.0.1 | kscore-server HTTP (`/health/ready`, `/metrics`) | Yes |
+| 4222 | 127.0.0.1 | Embedded NATS (agent transport) | Yes |
+| 8081 | 127.0.0.1 | GitOps webhook receiver | Only if `gitops.webhook.enabled: true` |
+| 6060 | 127.0.0.1 | pprof endpoint | Only if `profiling.enabled: true` |
 
-- Initial Keystone Core deployment
-- Creating a new isolated cluster
-- DR cluster provisioning
-- Multi-region expansion
-- Development/testing environment setup
+Outbound: none required for a single-host trial. Production deployments
+that ship metrics to Prometheus, traces to OTLP, or backups to S3 will
+need outbound to those destinations.
 
-## Deployment Scenarios
+For remote agents, the server's gRPC + NATS ports must be reachable
+from each managed host. Re-bind `server.host` to `0.0.0.0` (or a
+specific interface) and adjust `nats.embedded.host` accordingly.
 
-### Scenario 1: Single-Node Demo Deployment
+## Trigger conditions
 
-Best for: Evaluation, development, CI/CD testing.
+- New host needs Keystone Core installed.
+- Test environment / sandbox setup.
+- Disaster-recovery cluster provisioning (after the data-plane
+  restore step in
+  [`disaster-recovery.md`](disaster-recovery.md)).
 
-### Scenario 2: HA Cluster Deployment
+## Procedure: trial install
 
-Best for: Production workloads with high availability requirements.
+This is the exact path Phase D's cross-distro VM matrix exercises.
+All commands run as root or via `sudo`.
 
-### Scenario 3: Multi-Region Enterprise Deployment
+### Step 1 — Acquire the packages
 
-Best for: Global enterprises with geo-distributed infrastructure.
-
----
-
-## Procedure: Single-Node Demo Deployment
-
-### Step 1: Download and Install
+Pre-v0.1.0 snapshots are operator-distributed (no public package
+repository yet — a public repo arrives with the v1.0 release
+ceremony). Copy the three packages for your distro family onto the
+target host:
 
 ```bash
-# Download the installer
-curl -sSL https://install.keystone-core.io | sudo bash
+# Debian / Ubuntu
+ls kscore-server_*_linux_amd64.deb \
+   kscore-cli_*_linux_amd64.deb \
+   kscore-agent_*_linux_amd64.deb
 
-# Or download manually
-curl -LO https://releases.keystone-core.io/latest/kscore-bootstrap-linux-amd64.tar.gz
-tar -xzf kscore-bootstrap-linux-amd64.tar.gz
-sudo mv kscore-bootstrap /usr/local/bin/
-sudo chmod +x /usr/local/bin/kscore-bootstrap
-
-# Verify installation
-kscore-bootstrap version
+# Rocky / RHEL
+ls kscore-server-*.x86_64.rpm \
+   kscore-cli-*.x86_64.rpm \
+   kscore-agent-*.x86_64.rpm
 ```
 
-### Step 2: Create Demo Seed Configuration
+### Step 2 — Install
 
 ```bash
-# Create minimal seed configuration
-cat > /tmp/seed.yaml << 'EOF'
-apiVersion: bootstrap.keystone-core.io/v1
-kind: SeedConfiguration
+# Debian / Ubuntu
+sudo apt install -y ./kscore-server_*_linux_amd64.deb \
+                    ./kscore-cli_*_linux_amd64.deb \
+                    ./kscore-agent_*_linux_amd64.deb
 
-metadata:
-  name: demo-cluster
-  description: Single-node demo deployment
-
-cluster:
-  name: demo
-  mode: single  # single, ha, enterprise
-
-server:
-  bind_address: 0.0.0.0
-  http_port: 8080
-  grpc_port: 5397
-
-  tls:
-    enabled: true
-    auto_generate: true
-    cert_validity: 8760h  # 1 year
-
-database:
-  type: sqlite
-  sqlite:
-    path: /var/lib/keystone-core/keystone.db
-    cache_size: -64000  # 64MB
-
-nats:
-  embedded: true
-  jetstream:
-    enabled: true
-    store_dir: /var/lib/keystone-core/jetstream
-    max_memory: 1GB
-    max_file: 10GB
-
-admin:
-  username: admin
-  password_hash: ""  # Will prompt during bootstrap
-  # Or specify: password_hash: "$argon2id$v=19$m=65536,t=3,p=2$..."
-
-observability:
-  metrics:
-    enabled: true
-    port: 9091
-  logging:
-    level: info
-    format: json
-EOF
+# Rocky / RHEL
+sudo dnf install -y ./kscore-server-*.x86_64.rpm \
+                    ./kscore-cli-*.x86_64.rpm \
+                    ./kscore-agent-*.x86_64.rpm
 ```
 
-### Step 3: Run Bootstrap
+The `kscore-server` postinst is idempotent and performs the following
+on first install (see
+[`deploy/packaging/kscore-server.postinst`](../../deploy/packaging/kscore-server.postinst)):
+
+1. Creates the `kscore` system user + group (server runs unprivileged).
+2. Creates `/etc/kscore` (`root:kscore` `0750`), `/var/lib/kscore`,
+   `/var/log/kscore`, `/run/kscore` (each `kscore:kscore` `0750`).
+3. Renders `/etc/kscore/server.yaml` from
+   `/usr/share/kscore/server.yaml.template`, substituting
+   `__HMAC_SECRET__` with a freshly generated `openssl rand -hex 32`
+   value unique to this host.
+4. `systemctl daemon-reload`, `enable`, and `start` (or `restart` on
+   upgrade) of `kscore-server.service`.
+
+The `kscore-agent` postinst (see
+[`deploy/packaging/kscore-agent.postinst`](../../deploy/packaging/kscore-agent.postinst)):
+
+1. Creates `/etc/kscore` and the agent's home + log directories
+   (root-owned because the agent runs as root to manage host state).
+2. Copies `/usr/share/kscore/agent.yaml.template` to
+   `/etc/kscore/agent.yaml` (with placeholder `agent.id` and
+   `nats.urls`).
+3. `daemon-reload` + `enable` of `kscore-agent.service`.
+4. **Deliberately does NOT start the agent** — operator edits to
+   `agent.id` and `nats.urls` are required first.
+
+### Step 3 — Verify the server is up
 
 ```bash
-# Validate configuration
-kscore-bootstrap validate --config /tmp/seed.yaml
+# Wait past the health.startupgraceperiod (30s default) before
+# expecting a positive readiness signal.
+sleep 35
+curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
 
-# Run bootstrap (will prompt for admin password)
-sudo kscore-bootstrap seed --config /tmp/seed.yaml
+# Service status.
+sudo systemctl status kscore-server --no-pager | head -10
 
-# Or specify password via environment
-export KSCORE_ADMIN_PASSWORD="your-secure-password"
-sudo kscore-bootstrap seed --config /tmp/seed.yaml
+# The recent journal will show the banner line:
+#   "kscore-server dev (commit ...) gRPC: 127.0.0.1:5397 HTTP: 127.0.0.1:8080 ..."
+sudo journalctl -u kscore-server -n 50 --no-pager | grep "kscore-server"
+
+# CLI smoke (--version / --help should both work without server contact).
+/usr/bin/kscore-server --version
+kscorectl --version
+kscorectl --help | head -10
 ```
 
-### Step 4: Verify Installation
-
-```bash
-# Check service status
-systemctl status kscore-server
-
-# Check logs
-journalctl -u kscore-server -f
-
-# Test API
-curl -k https://localhost:8080/health/ready
-
-# Verify CLI connectivity
-kscorectl cluster health
-```
-
----
-
-## Procedure: HA Cluster Deployment
-
-### Step 1: Prepare All Nodes
-
-On each node (ks-server-1, ks-server-2, ks-server-3):
-
-```bash
-# Install kscore-bootstrap
-curl -sSL https://install.keystone-core.io | sudo bash
-
-# Verify installation
-kscore-bootstrap version
-
-# Set hostname (if not already set)
-sudo hostnamectl set-hostname ks-server-1  # Adjust for each node
-
-# Update /etc/hosts (on all nodes)
-cat >> /etc/hosts << 'EOF'
-10.0.1.10 ks-server-1
-10.0.1.11 ks-server-2
-10.0.1.12 ks-server-3
-EOF
-
-# Verify network connectivity
-for node in ks-server-1 ks-server-2 ks-server-3; do
-  ping -c 3 $node
-done
-```
-
-### Step 2: Prepare External PostgreSQL (Recommended)
-
-```bash
-# On PostgreSQL server (or use managed service)
-psql -U postgres << 'EOF'
--- Create database
-CREATE DATABASE kscore;
-
--- Create user
-CREATE USER kscore WITH ENCRYPTED PASSWORD 'secure-password';
-
--- Grant privileges
-GRANT ALL PRIVILEGES ON DATABASE kscore TO kscore;
-
--- Create replication user (for HA)
-CREATE USER replicator WITH REPLICATION ENCRYPTED PASSWORD 'repl-password';
-
--- Enable required extensions
-\c kscore
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
-EOF
-```
-
-### Step 3: Create HA Seed Configuration
-
-```bash
-cat > /tmp/seed-ha.yaml << 'EOF'
-apiVersion: bootstrap.keystone-core.io/v1
-kind: SeedConfiguration
-
-metadata:
-  name: production-cluster
-  description: HA production deployment
-
-cluster:
-  name: prod
-  mode: ha
-
-  nodes:
-    - name: ks-server-1
-      address: 10.0.1.10
-      roles: [control-plane, etcd]
-    - name: ks-server-2
-      address: 10.0.1.11
-      roles: [control-plane, etcd]
-    - name: ks-server-3
-      address: 10.0.1.12
-      roles: [control-plane, etcd]
-
-  etcd:
-    initial_cluster_token: kscore-prod-cluster
-    auto_compaction_mode: periodic
-    auto_compaction_retention: "24h"
-    snapshot_count: 10000
-
-server:
-  bind_address: 0.0.0.0
-  http_port: 8080
-  grpc_port: 5397
-
-  tls:
-    enabled: true
-    auto_generate: true
-    ca_validity: 87600h      # 10 years
-    cert_validity: 8760h     # 1 year
-    auto_rotate: true
-    rotate_before: 720h      # Rotate 30 days before expiry
-
-  load_balancer:
-    enabled: true
-    virtual_ip: 10.0.1.100   # If using keepalived
-    # Or use external load balancer
-    # external: lb.example.com
-
-database:
-  type: postgres
-  postgres:
-    host: postgres.internal
-    port: 5432
-    database: kscore
-    user: kscore
-    password: "${POSTGRES_PASSWORD}"  # From environment
-    sslmode: require
-    pool:
-      max_connections: 50
-      min_connections: 5
-      max_lifetime: 1h
-
-nats:
-  embedded: true
-  cluster:
-    enabled: true
-    name: kscore-nats
-  jetstream:
-    enabled: true
-    store_dir: /var/lib/keystone-core/jetstream
-    max_memory: 4GB
-    max_file: 100GB
-    replicas: 3
-
-admin:
-  username: admin
-  password_hash: ""  # Will prompt
-
-observability:
-  metrics:
-    enabled: true
-    port: 9091
-  logging:
-    level: info
-    format: json
-  tracing:
-    enabled: true
-    endpoint: http://jaeger:14268/api/traces
-    sampling_rate: 0.1
-
-backup:
-  enabled: true
-  schedule: "0 2 * * *"  # 2 AM daily
-  retention_days: 30
-  destination:
-    type: s3
-    s3:
-      bucket: kscore-backups
-      region: us-east-1
-      prefix: prod/
-EOF
-```
-
-### Step 4: Bootstrap First Node
-
-```bash
-# SSH to first node
-ssh ks-server-1
-
-# Set required environment variables
-export POSTGRES_PASSWORD="secure-password"
-export KSCORE_ADMIN_PASSWORD="admin-password"
-
-# Copy seed configuration
-scp seed-ha.yaml ks-server-1:/tmp/
-
-# Validate configuration
-kscore-bootstrap validate --config /tmp/seed-ha.yaml
-
-# Dry run first
-kscore-bootstrap seed \
-  --config /tmp/seed-ha.yaml \
-  --node ks-server-1 \
-  --dry-run
-
-# Execute bootstrap
-sudo kscore-bootstrap seed \
-  --config /tmp/seed-ha.yaml \
-  --node ks-server-1
-
-# Generate a join token on the seeded node (or use one from bootstrap output)
-JOIN_TOKEN=$(kscorectl cluster token generate --ttl 1h --max-uses 2 -o json | jq -r .token)
-echo "Join token: $JOIN_TOKEN"
-```
-
-### Step 5: Join Additional Nodes
-
-On ks-server-2:
-
-```bash
-# Join cluster
-sudo kscore-bootstrap join \
-  --server https://ks-server-1:8080 \
-  --token "$JOIN_TOKEN" \
-  --node ks-server-2 \
-  --advertise-address 10.0.1.11
-
-# Verify join
-kscorectl cluster members
-```
-
-On ks-server-3:
-
-```bash
-# Join cluster
-sudo kscore-bootstrap join \
-  --server https://ks-server-1:8080 \
-  --token "$JOIN_TOKEN" \
-  --node ks-server-3 \
-  --advertise-address 10.0.1.12
-
-# Verify join
-kscorectl cluster members
-```
-
-### Step 6: Verify HA Cluster
-
-```bash
-# From any node
-kscorectl cluster health
-
-# Expected output:
-# Cluster: prod
-# Status: healthy
-# Leader: ks-server-1
-# Members:
-#   ks-server-1: healthy (leader)
-#   ks-server-2: healthy (follower)
-#   ks-server-3: healthy (follower)
-# Quorum: 3/3
-# NATS: healthy (3/3 nodes)
-# Database: healthy
-
-# Test leader election
-# Stop leader and verify failover
-ssh ks-server-1 "sudo systemctl stop kscore-server"
-
-# Check new leader
-kscorectl cluster health
-
-# Restart original leader
-ssh ks-server-1 "sudo systemctl start kscore-server"
-```
-
----
-
-## Procedure: Blueprint-Based Deployment
-
-### Using Production Cluster Blueprint
-
-```bash
-# Create parameters file
-cat > params.yaml << 'EOF'
-cluster_name: prod-east
-node_count: 3
-postgres_host: postgres.internal
-postgres_database: kscore
-postgres_user: kscore
-postgres_password: !secret databases/postgres/kscore
-nats_urls:
-  - nats://nats-1:4222
-  - nats://nats-2:4222
-  - nats://nats-3:4222
-EOF
-
-# Bootstrap with blueprint
-kscore-bootstrap seed \
-  --apply-blueprint kscore/production-cluster \
-  --params params.yaml
-
-# Or with inline parameters
-kscore-bootstrap seed \
-  --apply-blueprint kscore/production-cluster \
-  --param cluster_name=prod-east \
-  --param postgres_host=postgres.internal \
-  --param postgres_password="${POSTGRES_PASSWORD}"
-```
-
-### Using Enterprise Blueprint
-
-```bash
-# Create enterprise configuration
-cat > enterprise-params.yaml << 'EOF'
-cluster_name: global-platform
-regions:
-  - name: us-east
-    primary: true
-    nodes:
-      - ks-east-1.example.com
-      - ks-east-2.example.com
-      - ks-east-3.example.com
-    postgres_host: postgres-us-east.internal
-    nats_urls:
-      - nats://nats-east-1:4222
-      - nats://nats-east-2:4222
-  - name: eu-west
-    primary: false
-    nodes:
-      - ks-eu-1.example.com
-      - ks-eu-2.example.com
-      - ks-eu-3.example.com
-    postgres_host: postgres-eu-west.internal
-    nats_urls:
-      - nats://nats-eu-1:4222
-      - nats://nats-eu-2:4222
-federation_enabled: true
-identity_provider: oidc
-oidc_issuer: https://auth.example.com
-oidc_client_id: kscore-platform
-oidc_client_secret: !secret auth/oidc/secret
-EOF
-
-# Bootstrap enterprise platform
-kscore-bootstrap seed \
-  --apply-blueprint kscore/enterprise-platform \
-  --params enterprise-params.yaml
-```
-
----
-
-## Procedure: Kubernetes Deployment
-
-### Deploy via Helm
-
-```bash
-# Add Keystone Core Helm repo
-helm repo add kscore https://charts.keystone-core.io
-helm repo update
-
-# Create namespace
-kubectl create namespace kscore-system
-
-# Create secrets
-kubectl create secret generic kscore-secrets \
-  --namespace kscore-system \
-  --from-literal=admin-password="${ADMIN_PASSWORD}" \
-  --from-literal=postgres-password="${POSTGRES_PASSWORD}"
-
-# Install with custom values
-cat > values.yaml << 'EOF'
-controlPlane:
-  replicas: 3
-
-  resources:
-    requests:
-      cpu: 500m
-      memory: 512Mi
-    limits:
-      cpu: 2000m
-      memory: 2Gi
-
-database:
-  type: postgres
-  postgres:
-    host: postgres.database.svc
-    database: kscore
-    existingSecret: kscore-secrets
-    secretKey: postgres-password
-
-nats:
-  enabled: true
-  replicas: 3
-  jetstream:
-    enabled: true
-    fileStorage:
-      enabled: true
-      size: 50Gi
-      storageClassName: fast-ssd
-
-ingress:
-  enabled: true
-  className: nginx
-  hosts:
-    - kscore.example.com
-  tls:
-    - secretName: kscore-tls
-      hosts:
-        - kscore.example.com
-
-monitoring:
-  enabled: true
-  serviceMonitor:
-    enabled: true
-EOF
-
-# Install
-helm install kscore kscore/kscore \
-  --namespace kscore-system \
-  --values values.yaml \
-  --wait
-
-# Verify installation
-kubectl get pods -n kscore-system
-kubectl get svc -n kscore-system
-```
-
-### Deploy via Operator
-
-```bash
-# Install operator
-kubectl apply -f https://releases.keystone-core.io/operator/latest/install.yaml
-
-# Create KSCoreCluster resource
-cat << 'EOF' | kubectl apply -f -
-apiVersion: keystone-core.io/v1
-kind: KSCoreCluster
-metadata:
-  name: production
-  namespace: kscore-system
-spec:
-  controlPlane:
-    replicas: 3
-  database:
-    type: postgres
-    postgres:
-      host: postgres.database.svc
-      database: kscore
-      secretRef:
-        name: postgres-credentials
-  nats:
-    replicas: 3
-    jetstream:
-      enabled: true
-  tls:
-    mode: auto
-EOF
-
-# Watch deployment progress
-kubectl get kscorecluster production -n kscore-system -w
-```
-
----
-
-## Seed Configuration Reference
-
-### Complete Seed Configuration Schema
+If `/health/ready` returns `ready=false` past the grace period, or
+the service is in `activating (auto-restart)`, jump to
+[`troubleshooting.md`](troubleshooting.md#server-wont-start).
+
+## What just landed on the filesystem
+
+| Path | Purpose | Created by |
+|---|---|---|
+| `/usr/bin/kscore-server` | Server binary | server package |
+| `/usr/bin/kscore-agent` | Agent binary | agent package |
+| `/usr/bin/kscorectl` | Operator CLI | cli package |
+| `/usr/bin/kscore-bootstrap` | Bootstrap CLI (FSM shell, v0.1) | server package |
+| `/usr/bin/kscore-*` | Dispatched sub-binaries (audit, secrets, …) | cli package |
+| `/usr/share/kscore/server.yaml.template` | Server config template | server package |
+| `/usr/share/kscore/agent.yaml.template` | Agent config template | agent package |
+| `/etc/kscore/server.yaml` | Rendered server config | server postinst |
+| `/etc/kscore/agent.yaml` | Rendered agent config (placeholders) | agent postinst |
+| `/var/lib/kscore/keystone.db` | SQLite state (created on first server start) | kscore-server |
+| `/var/lib/kscore/jetstream/` | Embedded JetStream store | kscore-server |
+| `/var/log/kscore/` | Log destination if file logging configured | server postinst |
+| `/run/kscore/` | Runtime sockets | server postinst |
+| `/etc/systemd/system/multi-user.target.wants/kscore-server.service` | systemd enable link | server postinst |
+
+## Configuration walkthrough
+
+The rendered `/etc/kscore/server.yaml` is shown below. This is the
+trial-mode default — single-node, embedded NATS, SQLite, TLS off,
+identity off — and it boots without further edits.
 
 ```yaml
-apiVersion: bootstrap.keystone-core.io/v1
-kind: SeedConfiguration
-
-metadata:
-  name: string                    # Cluster name (required)
-  description: string             # Human-readable description
-  labels:                         # Custom labels
-    environment: production
-    region: us-east
-
-cluster:
-  name: string                    # Short cluster name
-  mode: string                    # single, ha, enterprise
-
-  nodes:                          # For HA/enterprise mode
-    - name: string                # Node hostname
-      address: string             # Node IP address
-      roles: [string]             # control-plane, etcd, nats
-      labels: {}                  # Node labels
-
-  etcd:                           # etcd configuration (HA mode)
-    initial_cluster_token: string
-    auto_compaction_mode: string  # periodic, revision
-    auto_compaction_retention: string
-    snapshot_count: integer
-    quota_backend_bytes: integer
-
-  federation:                     # Enterprise multi-cluster
-    enabled: boolean
-    trust_domain: string
-    remote_clusters:
-      - name: string
-        endpoint: string
-        bundle_endpoint: string
+mode: development
 
 server:
-  bind_address: string            # 0.0.0.0 for all interfaces
-  http_port: integer              # API HTTP port (default: 8080)
-  grpc_port: integer              # gRPC port (default: 5397)
-  workers: integer                # Worker threads (default: auto)
-  max_connections: integer        # Max concurrent connections
-
+  host: 127.0.0.1
+  grpcport: 5397
+  httpport: 8080
   tls:
-    enabled: boolean
-    auto_generate: boolean        # Auto-generate certificates
-    ca_cert: string               # Path to CA certificate
-    cert: string                  # Path to server certificate
-    key: string                   # Path to private key
-    ca_validity: string           # CA validity duration
-    cert_validity: string         # Certificate validity duration
-    auto_rotate: boolean          # Auto-rotate before expiry
-    rotate_before: string         # Rotate this duration before expiry
+    enabled: false
 
-  load_balancer:
-    enabled: boolean
-    type: string                  # keepalived, external
-    virtual_ip: string            # VIP for keepalived
-    external: string              # External LB hostname
+logging:
+  level: info
+  format: json
 
-database:
-  type: string                    # sqlite, postgres
-
-  sqlite:                         # SQLite configuration
-    path: string
-    cache_size: integer           # Negative = KB, positive = pages
-    journal_mode: string          # wal, delete, truncate
-    synchronous: string           # off, normal, full
-
-  postgres:                       # PostgreSQL configuration
-    host: string
-    port: integer
-    database: string
-    user: string
-    password: string              # Or ${ENV_VAR}
-    sslmode: string               # disable, require, verify-full
-    pool:
-      max_connections: integer
-      min_connections: integer
-      max_lifetime: string
-      health_check_interval: string
+storage:
+  driver: sqlite
+  dsn: /var/lib/kscore/keystone.db
 
 nats:
-  embedded: boolean               # Use embedded NATS
-  urls: [string]                  # External NATS URLs
-  credentials_file: string        # NATS credentials file
-
-  cluster:
-    enabled: boolean
-    name: string
-    routes: [string]              # Cluster routes
-
+  mode: embedded
   jetstream:
-    enabled: boolean
-    store_dir: string
-    max_memory: string
-    max_file: string
-    replicas: integer             # Stream replicas
+    enabled: true
+    storedir: /var/lib/kscore/jetstream
 
-  tls:
-    enabled: boolean
-    cert: string
-    key: string
-    ca: string
-
-admin:
-  username: string                # Admin username
-  password: string                # Plaintext password (not recommended)
-  password_hash: string           # Argon2id hash
-  email: string                   # Admin email
-
-observability:
-  metrics:
-    enabled: boolean
-    port: integer
-    path: string                  # Default: /metrics
-
-  logging:
-    level: string                 # debug, info, warn, error
-    format: string                # json, text
-    output: string                # stdout, file path
-
-  tracing:
-    enabled: boolean
-    endpoint: string              # Jaeger/OTLP endpoint
-    sampling_rate: number         # 0.0 - 1.0
-
-  audit:
-    enabled: boolean
-    destination: string           # file, syslog, webhook
-    retention_days: integer
-
-backup:
-  enabled: boolean
-  schedule: string                # Cron expression
-  retention_days: integer
-  destination:
-    type: string                  # s3, gcs, azure, local, nfs
-    s3:
-      bucket: string
-      region: string
-      endpoint: string            # For S3-compatible storage
-      prefix: string
-      access_key: string
-      secret_key: string
-    gcs:
-      bucket: string
-      project: string
-      credentials_file: string
-    azure:
-      container: string
-      account: string
-      key: string
-    local:
-      path: string
-    nfs:
-      server: string
-      path: string
+identity:
+  enabled: false
 
 security:
-  policy:
-    default_deny: boolean         # Deny by default
-    audit_all: boolean            # Audit all operations
+  hmacsecret: "<32-byte hex generated on first install>"
 
-  secrets:
-    backend: string               # vault, kubernetes, file
-    vault:
-      address: string
-      auth_method: string
-      role: string
-      path: string
+metrics:
+  enabled: true
+  path: /metrics
+
+health:
+  startupgraceperiod: 30s
+  checktimeout: 2s
 ```
 
----
+The koanf tags are flat lowercase — `grpcport`, `httpport`,
+`storedir`, `hmacsecret`, `startupgraceperiod`, `heartbeatinterval`.
+There are no snake_case (`grpc_port`, `store_dir`) or kebab-case keys
+anywhere in v0.1; the canonical schema lives in
+[`internal/config/`](../../internal/config/) and is auto-rendered into
+[`CONFIGURATION-REFERENCE.md`](../project/CONFIGURATION-REFERENCE.md).
 
-## Verification Checklist
+### When to edit `/etc/kscore/server.yaml`
 
-### Single-Node Deployment
+| Reason | Section to touch | See |
+|---|---|---|
+| Expose to remote agents | `server.host`, `nats.embedded.host` | [`CONFIGURATION-REFERENCE.md`](../project/CONFIGURATION-REFERENCE.md) |
+| Enable TLS | `server.tls.{enabled,certfile,keyfile}` | hardening checklist below |
+| Switch to Postgres | `storage.{driver,dsn}` | hardening checklist below |
+| Switch to external NATS | `nats.{mode,urls}` | hardening checklist below |
+| Enable identity provider | `identity.enabled: true` + `trustdomain` | [`CONFIGURATION-REFERENCE.md`](../project/CONFIGURATION-REFERENCE.md) |
+| Enable agent bootstrap PSKs | `nats.bootstrap.{enabled,psks}` | "Bootstrap an agent" below |
+| Promote to production mode | `mode: production` | every WARN in [`SECURITY-GOVERNANCE.md`](../project/SECURITY-GOVERNANCE.md) must be addressed |
 
-- [ ] Service running: `systemctl status kscore-server`
-- [ ] API healthy: `curl -k https://localhost:8080/health/ready`
-- [ ] CLI connected: `kscorectl cluster health`
-- [ ] Metrics available: `curl http://localhost:9091/metrics`
-- [ ] NATS healthy: `nats server check connection`
-
-### HA Cluster Deployment
-
-- [ ] All nodes running: `kscorectl cluster members`
-- [ ] Cluster healthy: `kscorectl cluster health`
-- [ ] Leader elected: `kscorectl cluster leader`
-- [ ] NATS cluster formed: `nats server report`
-- [ ] Database connected: `curl -s http://localhost:8080/health/ready` (checks DB connectivity)
-- [ ] Quorum established: `kscorectl cluster status` (check has_quorum field)
-- [ ] Failover works: Stop leader, verify new leader elected
-- [ ] API accessible via LB: `curl -k https://lb.example.com:8080/health/ready`
-
-### Enterprise Deployment
-
-- [ ] All regions online: `kscorectl federation status`
-- [ ] Federation trust established: `kscorectl federation trust list`
-- [ ] Cross-region communication: `kscorectl federation ping --region eu-west`
-- [ ] OIDC authentication works: Test login via SSO
-- [ ] Audit logging active: `kscorectl audit search --limit 10`
-- [ ] Backups scheduled: `kscore-cluster-backup list`
-
----
-
-## Rollback Procedures
-
-### Failed Bootstrap Cleanup
+After any edit:
 
 ```bash
-# Stop services
-sudo systemctl stop kscore-server || true
-sudo systemctl stop nats-server || true
-
-# Clean up data directories
-sudo rm -rf /var/lib/keystone-core/*
-sudo rm -rf /etc/keystone-core/certs/*
-
-# Remove systemd units
-sudo rm -f /etc/systemd/system/kscore-server.service
-sudo rm -f /etc/systemd/system/nats-server.service
-sudo systemctl daemon-reload
-
-# Clean up any remaining processes
-pkill -f kscore-server || true
-pkill -f nats-server || true
-
-# Review logs for root cause
-sudo journalctl -u kscore-server -n 200 --no-pager
+sudo systemctl restart kscore-server
+sleep 35
+curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
 ```
 
-### Rollback to Previous Version
+The rendered config is **not** a packaging conffile — upgrades will
+not overwrite operator edits (see
+[`upgrade-cluster.md`](upgrade-cluster.md)).
+
+## Bootstrap an agent
+
+The agent package leaves `agent.yaml` with placeholder values and the
+unit disabled-from-start by design. To bring up the agent on the same
+host as the server (the simplest trial topology):
+
+### Step 1 — Edit `/etc/kscore/agent.yaml`
 
 ```bash
-# Stop service
-sudo systemctl stop kscore-server
-
-# Backup current state
-sudo cp -r /var/lib/keystone-core /var/lib/keystone-core.bak
-sudo cp -r /etc/keystone-core /etc/keystone-core.bak
-
-# Download the known-good previous version (substitute the exact patch
-# version you are rolling back to — pin an exact version pre-v1.0, never @latest;
-# see docs/project/VERSIONING.md)
-curl -LO https://releases.keystone-core.io/<previous-version>/kscore-server-linux-amd64
-sudo mv kscore-server-linux-amd64 /usr/local/bin/kscore-server
-sudo chmod +x /usr/local/bin/kscore-server
-
-# Restore previous configuration if needed
-# sudo cp -r /backup/kscore-config/* /etc/keystone-core/
-
-# Start service
-sudo systemctl start kscore-server
-
-# Verify
-kscorectl cluster health
+sudo $EDITOR /etc/kscore/agent.yaml
 ```
 
----
-
-## Post-Bootstrap Tasks
-
-1. **Documentation**
-   - [ ] Document cluster details in CMDB
-   - [ ] Record admin credentials securely
-   - [ ] Document network topology
-   - [ ] Update runbooks with specific cluster details
-
-2. **Security**
-   - [ ] Change default admin password
-   - [ ] Configure RBAC roles
-   - [ ] Set up API key rotation
-   - [ ] Enable audit logging
-
-3. **Monitoring**
-   - [ ] Configure Prometheus scraping
-   - [ ] Import Grafana dashboards
-   - [ ] Set up alert rules
-   - [ ] Configure on-call notifications
-
-4. **Backup**
-   - [ ] Verify backup job runs successfully
-   - [ ] Test backup restoration
-   - [ ] Document backup location and encryption keys
-
-5. **Agents**
-   - [ ] Generate agent registration tokens
-   - [ ] Deploy first agents
-   - [ ] Verify agent connectivity
-   - [ ] Set up agent auto-update policy
-
-6. **Integration**
-   - [ ] Configure GitOps repository
-   - [ ] Set up webhook integrations
-   - [ ] Configure secret backend
-   - [ ] Test end-to-end workflow
-
----
-
-## Troubleshooting
-
-### Bootstrap Fails to Start
-
-```bash
-# Check prerequisites
-kscore-bootstrap prereq-check
-
-# Common issues:
-# - Insufficient disk space
-# - Port already in use
-# - SELinux/AppArmor blocking
-# - Missing dependencies
-
-# Check port availability
-ss -tlnp | grep -E '(8080|4222|6222|2379)'
-
-# Check SELinux
-getenforce
-# If enforcing, check for denials:
-ausearch -m avc -ts recent
-
-# Check system resources
-free -h
-df -h
-```
-
-### Certificate Generation Fails
-
-```bash
-# Check for existing certificates
-ls -la /etc/keystone-core/certs/
-
-# Remove stale certificates
-sudo rm -rf /etc/keystone-core/certs/*
-
-# Check openssl is available
-openssl version
-
-# Try manual certificate generation
-sudo kscore-bootstrap cert-gen \
-  --ca-cn "Keystone Core CA" \
-  --server-cn "$(hostname -f)" \
-  --output /etc/keystone-core/certs/
-```
-
-### NATS Cluster Formation Issues
-
-```bash
-# Check NATS logs
-journalctl -u nats-server -n 100 --no-pager
-
-# Verify network connectivity
-for port in 4222 6222 8222; do
-  for node in ks-server-1 ks-server-2 ks-server-3; do
-    nc -zv $node $port && echo "$node:$port OK" || echo "$node:$port FAILED"
-  done
-done
-
-# Check NATS configuration
-cat /etc/nats/nats.conf
-
-# Verify cluster routes
-nats server info --server nats://localhost:4222
-
-# Force cluster rejoin
-sudo systemctl restart nats-server
-```
-
-### etcd Cluster Issues
-
-```bash
-# Check etcd health
-etcdctl endpoint health
-
-# Check cluster membership
-etcdctl member list
-
-# Check leader
-etcdctl endpoint status
-
-# If member is unhealthy, try removing and re-adding
-MEMBER_ID=$(etcdctl member list | grep unhealthy-node | cut -d, -f1)
-etcdctl member remove $MEMBER_ID
-etcdctl member add unhealthy-node --peer-urls=https://10.0.1.12:2380
-```
-
-### Database Connection Issues
-
-```bash
-# Test PostgreSQL connectivity
-psql -h postgres.internal -U kscore -d kscore -c "SELECT 1"
-
-# Check health endpoint (includes database status)
-curl -s http://localhost:8080/health/ready
-
-# Check server logs for database connection info
-journalctl -u kscore-server | grep -i "database\|postgres\|sqlite"
-
-# Check for connection limits
-psql -h postgres.internal -U postgres -c "SELECT * FROM pg_stat_activity WHERE datname = 'kscore'"
-
-# Verify SSL mode
-psql "host=postgres.internal dbname=kscore user=kscore sslmode=require" -c "SELECT 1"
-
-# Check DNS resolution
-nslookup postgres.internal
-dig postgres.internal
-```
-
-### Node Join Failures
-
-```bash
-# Verify cluster is accessible (token validation happens during join)
-curl -k https://ks-server-1:8080/health/ready
-
-# Check network connectivity to existing nodes
-curl -k https://ks-server-1:8080/health/ready
-
-# Check TLS certificate chain
-openssl s_client -connect ks-server-1:8080 -showcerts
-
-# Check time synchronization
-timedatectl status
-chronyc tracking
-
-# Retry with verbose logging
-sudo kscore-bootstrap join \
-  --server https://ks-server-1:8080 \
-  --token "$JOIN_TOKEN" \
-  --debug
-```
-
----
-
-## Performance Tuning
-
-### Control Plane Optimization
+At minimum, set:
 
 ```yaml
-# /etc/keystone-core/server.yaml additions for high load
-server:
-  workers: 32                    # Match CPU cores
-  max_connections: 100000
-  read_timeout: 60s
-  write_timeout: 60s
-
-  rate_limit:
-    enabled: true
-    requests_per_second: 1000
-    burst: 2000
-
-database:
-  postgres:
-    pool:
-      max_connections: 100
-      min_connections: 20
+agent:
+  id: "trial-host-01"          # operator-chosen, any non-empty string
 
 nats:
-  pool_size: 20
-  pending_limit: 512MB
+  urls:
+    - "nats://127.0.0.1:4222"   # embedded NATS on the same host
 ```
 
-### System Tuning
+The template's other defaults (`heartbeatinterval: 30s`,
+`metadatainterval: 60s`) are fine for a trial.
+
+### Step 2 — Decide on agent registration
+
+v0.1 supports two registration shapes:
+
+- **PSK-based bootstrap** (server-side `nats.bootstrap.psks` lists
+  per-agent hex secrets; agent presents `agent.bootstrappsk` at
+  boot). The PSK record is in-memory on the server — a server
+  restart wipes consumption, so PSKs are intended as
+  rotation-friendly one-shots.
+- **Pre-provisioned agent rows** (operator inserts the agent
+  identity out-of-band before the agent starts). This is the
+  trial-install shortcut; no server-side edits needed.
+
+For the trial, leave both `nats.bootstrap.enabled: false` on the
+server and `agent.bootstrappsk` unset on the agent. The control plane
+will accept heartbeats from the agent.id straight off; production
+deployments must turn on either PSK-based bootstrap or
+identity-issued join tokens (gate-v1.0 — see
+[`ROADMAP.md`](../project/ROADMAP.md)).
+
+### Step 3 — Start and verify
 
 ```bash
-# Increase file descriptors
-cat >> /etc/security/limits.conf << 'EOF'
-kscore soft nofile 65536
-kscore hard nofile 65536
-EOF
+sudo systemctl start kscore-agent
+sudo systemctl status kscore-agent --no-pager | head -10
 
-# Network tuning
-cat >> /etc/sysctl.conf << 'EOF'
-net.core.somaxconn = 65535
-net.ipv4.tcp_max_syn_backlog = 65535
-net.core.rmem_max = 16777216
-net.core.wmem_max = 16777216
-net.ipv4.tcp_tw_reuse = 1
-EOF
+# Server-side: confirm the agent registered.
+kscorectl events list --type agent_connected --since 5m
 
-sysctl -p
+# Optional: tail the agent journal to see reconnect / heartbeat logs.
+sudo journalctl -u kscore-agent -f
 ```
+
+If the agent never appears in the events list, jump to
+[`troubleshooting.md`](troubleshooting.md#agent-issues).
+
+## Post-install verification checklist
+
+- [ ] `curl http://127.0.0.1:8080/health/ready` returns `ready=true`
+      with every component reporting `status=ok`
+- [ ] `kscore-server --version` reports the expected version
+- [ ] `kscorectl --version` reports the expected version
+- [ ] `/var/lib/kscore/keystone.db` exists and is owned by
+      `kscore:kscore`
+- [ ] `/var/lib/kscore/jetstream/` exists and is populated
+      (the embedded server creates the commands + events streams on
+      first start)
+- [ ] At least one entry in
+      `kscorectl audit log --limit 5` (every CLI invocation against
+      the server writes an audit record — proves the audit pipeline
+      is healthy end-to-end)
+- [ ] If you started the agent: it appears in
+      `kscorectl events list --type agent_connected --since 5m`
+- [ ] A representative state apply works:
+
+```bash
+kscorectl state apply ./examples/hello.yaml --agent trial-host-01
+kscorectl state drift --agent trial-host-01   # should report zero drift
+```
+
+## Cross-references
+
+- Operator walkthrough (narrative, with expected output):
+  [`docs/project/GETTING-STARTED.md`](../project/GETTING-STARTED.md)
+- Full canonical config schema:
+  [`docs/project/CONFIGURATION-REFERENCE.md`](../project/CONFIGURATION-REFERENCE.md)
+- Full CLI reference (`kscorectl`, sub-binaries, exit codes):
+  [`docs/project/CLI-REFERENCE.md`](../project/CLI-REFERENCE.md)
+- When the install doesn't work:
+  [`troubleshooting.md`](troubleshooting.md)
+- When a deployed change broke things:
+  [`emergency-rollback.md`](emergency-rollback.md)
+- Routine upgrades:
+  [`upgrade-cluster.md`](upgrade-cluster.md)
+- Backups and snapshot creation:
+  [`backup-restore.md`](backup-restore.md)
+- DR-cluster rebuild from a snapshot:
+  [`disaster-recovery.md`](disaster-recovery.md)
+- Production-mode warning catalog:
+  [`docs/project/SECURITY-GOVERNANCE.md`](../project/SECURITY-GOVERNANCE.md)
+
+## Appendix: production hardening checklist
+
+The trial install is intentionally insecure-by-default so it boots
+out-of-box on any host. **Before exposing the server to a real agent
+fleet**, work through the following. Each item maps to a config
+section or external dependency; none of them are automatic.
+
+### TLS
+
+- [ ] Provision a server cert + key (operator-managed PKI, ACME, or
+      the identity provider — see next item).
+- [ ] Set `server.tls.enabled: true` and either:
+  - `server.tls.certfile` + `server.tls.keyfile` (file-sourced PKI), or
+  - leave both empty + set `identity.enabled: true` (identity-provider
+      sources the server cert and rotates it on each CA roll).
+- [ ] Re-bind `server.host` from `127.0.0.1` to the interface that
+      remote agents reach.
+- [ ] Confirm `mode: production` triggers the "TLS is disabled" prod
+      warning if you forget — see
+      [`SECURITY-GOVERNANCE.md`](../project/SECURITY-GOVERNANCE.md).
+
+### Identity provider
+
+- [ ] Set `identity.enabled: true`.
+- [ ] Pick a trust domain (`identity.trustdomain`) — usually a DNS
+      label you own.
+- [ ] Allocate persistent storage at `identity.storagepath` (defaults
+      to `./data/identity`; relocate to `/var/lib/kscore/identity`).
+- [ ] First-start initializes the signing CA. Back up
+      `identity.storagepath` immediately after — losing it means
+      re-bootstrapping every agent.
+
+### HMAC secret rotation
+
+- [ ] The first-install HMAC was generated by `openssl rand -hex 32`.
+      Decide on a rotation cadence (the value lives in
+      `security.hmacsecret`).
+- [ ] Each rotation invalidates every agent's stored bootstrap PSK;
+      plan a coordinated re-bootstrap (or graduate to identity-issued
+      join tokens via `identity.enabled: true`).
+- [ ] Storing the secret inline in `server.yaml` is a v0.1 footgun
+      `ProductionWarnings()` calls out — rotate via an out-of-band
+      secret manager. KMS-backed rotation is post-v1.0.
+
+### External NATS
+
+- [ ] If you need cross-host messaging without exposing the embedded
+      NATS, switch to external mode:
+
+```yaml
+nats:
+  mode: external
+  urls:
+    - "nats://nats-1.internal:4222"
+    - "nats://nats-2.internal:4222"
+    - "nats://nats-3.internal:4222"
+```
+
+- [ ] Validate the external broker has JetStream enabled (the
+      commands + events streams require it).
+- [ ] Configure NATS-level auth (`token` / `credential`) per your
+      external broker's auth model.
+
+### External Postgres
+
+- [ ] Provision a Postgres instance (v0.1 targets PG 14+).
+- [ ] Create the database + user; grant DDL privileges (kscore-server
+      runs schema migrations on first start).
+- [ ] Switch the kscore config:
+
+```yaml
+storage:
+  driver: postgres
+  dsn: "host=pg.internal port=5432 dbname=kscore user=kscore password=… sslmode=require"
+```
+
+- [ ] If migrating from SQLite, follow the migration playbook in
+      [`disaster-recovery.md`](disaster-recovery.md) (export-and-
+      import; in-place migration is gate-v1.0).
+
+### Observability
+
+- [ ] Confirm `/metrics` is reachable from your Prometheus scraper
+      (default path `/metrics` on `http://<host>:8080`).
+- [ ] Import the agent-fleet dashboard from
+      [`deploy/grafana/dashboards/agent-fleet.json`](../../deploy/grafana/dashboards/agent-fleet.json)
+      and the rest of the Grafana bundle.
+- [ ] Enable OpenTelemetry tracing if you have an OTLP collector:
+
+```yaml
+tracing:
+  enabled: true
+  exporter: otlp
+  sampler: probabilistic
+  samplerate: 0.1
+```
+
+- [ ] Forward `journalctl -u kscore-server -u kscore-agent` to your
+      central log store.
+
+### Backups
+
+- [ ] Schedule `kscore-cluster-backup create` runs (cron / systemd
+      timer / your scheduler of choice). See
+      [`backup-restore.md`](backup-restore.md) for the create
+      cadence and destination guidance.
+- [ ] Pick a backup destination outside the kscore host (S3, NFS,
+      object store with versioning).
+- [ ] Test the restore path end-to-end at least once before going
+      live. An un-tested backup is a not-yet-failed backup.
+
+### Security baseline
+
+- [ ] Run a vulnerability scanner against the packaged binaries
+      (`syft` for SBOM, `grype` / `trivy` for CVEs). The release
+      pipeline produces SBOMs alongside the packages — verify they
+      match what's installed.
+- [ ] Set `mode: production` to enable the warning catalog. Address
+      every WARN that the server prints on startup before going
+      live.
+- [ ] Set `security.defaultpolicy: deny` (it's the default but worth
+      confirming).
+- [ ] Lock down the gRPC + HTTP listeners at the network layer
+      (firewall / VPC security group) — `server.host: 0.0.0.0` plus
+      open ingress is the v0.1 footgun the trial install
+      deliberately avoids.
+
+## Appendix: what `kscore-bootstrap` is in v0.1
+
+The `kscore-bootstrap` binary that ships in v0.1 is the FSM shell for
+the gate-v1.0 bootstrap orchestrator. It reads a `SeedConfig` YAML
+and drives the state machine through phases (detect, configure,
+validate, install, blueprints, verify) — but the phase handlers are
+logging no-ops that return nil. The binary is useful today for:
+
+- Exercising the FSM wiring in tests.
+- Validating a SeedConfig YAML parses.
+- Watching the phase transitions log in dev.
+
+It is **not** the supported install path in v0.1. The supported path
+is `apt install` / `dnf install` per Step 2 above. Real phase
+handlers (host detect, binary install, systemd unit gen, blueprint
+engine invocation, `/health` verify) are tracked under the gate-v1.0
+ROADMAP entry "Bootstrap phase handlers + durable checkpointer". The
+binary lives at `/usr/bin/kscore-bootstrap` after install; running it
+without `--seed <path>` exits non-zero with a usage banner.
+
+## Escalation
+
+If the install fails on a supported distro and
+[`troubleshooting.md`](troubleshooting.md) doesn't get you unblocked,
+file an issue per
+[`docs/project/INCIDENT-RESPONSE.md`](../project/INCIDENT-RESPONSE.md).
+Attach the diagnostic bundle described in the
+[`troubleshooting.md` collection appendix](troubleshooting.md#collecting-diagnostics-for-a-bug-report).
