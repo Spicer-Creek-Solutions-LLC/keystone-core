@@ -27,8 +27,8 @@ func TestLoad_DefaultsWhenNoPath(t *testing.T) {
 	if cfg.Server.Host != "0.0.0.0" {
 		t.Errorf("Server.Host = %q", cfg.Server.Host)
 	}
-	if cfg.Server.GRPCPort != 9090 {
-		t.Errorf("Server.GRPCPort = %d, want 9090", cfg.Server.GRPCPort)
+	if cfg.Server.GRPCPort != 5397 {
+		t.Errorf("Server.GRPCPort = %d, want 5397", cfg.Server.GRPCPort)
 	}
 	if cfg.Server.HTTPPort != 8080 {
 		t.Errorf("Server.HTTPPort = %d, want 8080", cfg.Server.HTTPPort)

@@ -4,7 +4,7 @@
 // Both binaries are thin wrappers over this package (the
 // kscore-policy precedent). kscore-cluster talks to the
 // ClusterService gRPC on a running kscore-server (default
-// `localhost:9090`; override via `--server host:port`; API-key auth
+// `localhost:5397`; override via `--server host:port`; API-key auth
 // via `--api-key` or `KSCORE_API_KEY`). kscore-cluster-backup shares
 // the remote backup/restore plumbing but adds local, server-free
 // `list` / `verify` over snapshot files (the policy eval/validate
@@ -67,7 +67,7 @@ func newGlobals(deps Deps) *globals {
 }
 
 func (g *globals) bindPersistent(cmd *cobra.Command) {
-	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:9090",
+	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:5397",
 		"cluster-service gRPC address (host:port)")
 	cmd.PersistentFlags().StringVar(&g.APIKey, "api-key", "",
 		"API key for authentication (or set KSCORE_API_KEY)")
@@ -84,7 +84,7 @@ func NewClusterCommand(deps Deps) *cobra.Command {
 		Short: "Keystone Core cluster operator CLI",
 		Long: "Operator surface for the Keystone Core clustering control " +
 			"plane.\n\nTalks to the ClusterService gRPC on a running " +
-			"kscore-server (default localhost:9090). `add` is a contract " +
+			"kscore-server (default localhost:5397). `add` is a contract " +
 			"passthrough — members self-register on start, so the server " +
 			"returns Unimplemented.",
 	}

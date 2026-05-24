@@ -8,7 +8,7 @@
 //	status
 //
 // All commands talk to the IdentityService gRPC hosted by
-// kscore-server (default `localhost:9090`; override via
+// kscore-server (default `localhost:5397`; override via
 // `--server host:port`). API-key auth flows through the
 // `authorization: Bearer …` header, sourced from `--api-key`
 // or the `KSCORE_API_KEY` environment variable.

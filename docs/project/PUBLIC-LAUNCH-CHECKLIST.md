@@ -238,12 +238,11 @@ HEAD that will be made public.
       `4be8d19d` (postinst hooks + default-config templates + FHS
       `/usr/bin` bindir + autogen HMAC secret).
       **One distro-specific friction surfaced (F13)**: Rocky 10 ships
-      Cockpit enabled by default on port 9090, which conflicts with
-      kscore-server's default gRPC port. Rocky 10 install completes
-      cleanly after `systemctl stop cockpit.socket`; documented +
-      ROADMAP entry filed to either change kscore default ports or
-      detect the conflict in postinst. Rocky 8/9 don't enable Cockpit
-      by default — no conflict observed there.)*
+      Cockpit enabled by default on port 9090, which conflicted with
+      kscore-server's then-default gRPC port. Fixed by moving the
+      default gRPC port from 9090 to 5397 (Rocky 10 install now
+      succeeds with Cockpit still running). Rocky 8/9 don't enable
+      Cockpit by default — no conflict observed there.)*
 
 - [ ] **D3. macOS dev-build sanity** (optional / deferrable).
       If any maintainer or near-term contributor uses macOS:

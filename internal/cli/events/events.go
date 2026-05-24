@@ -6,7 +6,7 @@
 //	types / stats
 //
 // All subcommands talk to the EventService gRPC hosted by
-// kscore-server (default `localhost:9090`; override via
+// kscore-server (default `localhost:5397`; override via
 // `--server host:port`). API-key auth flows through the
 // `authorization: Bearer <key>` metadata header, sourced from
 // `--api-key` or the `KSCORE_API_KEY` environment variable.
@@ -68,9 +68,9 @@ func NewCommand(deps Deps) *cobra.Command {
 			"emit events; subscribe / watch / replay event streams; inspect the " +
 			"taxonomy + storage stats.\n\n" +
 			"All commands talk to the EventService gRPC on the running " +
-			"kscore-server (default localhost:9090).",
+			"kscore-server (default localhost:5397).",
 	}
-	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:9090",
+	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:5397",
 		"events-service gRPC address (host:port)")
 	cmd.PersistentFlags().StringVar(&g.APIKey, "api-key", "",
 		"API key for authentication (or set KSCORE_API_KEY)")

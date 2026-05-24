@@ -2,7 +2,7 @@
 // (Epic 13 task 16).
 //
 // Subcommands talk to the ClusterService gRPC on a running
-// kscore-server (default `localhost:9090`; override via
+// kscore-server (default `localhost:5397`; override via
 // `--server host:port`). API-key auth flows through the
 // `authorization: Bearer …` header from `--api-key` or
 // `KSCORE_API_KEY`.

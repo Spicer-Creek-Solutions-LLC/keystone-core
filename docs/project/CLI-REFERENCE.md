@@ -60,7 +60,7 @@ Use "kscore-agent [command] --help" for more information about a command.
 ```
 Query the Keystone Core audit log + compliance roll-ups.
 
-log / report / stats talk to the PolicyService gRPC on a running kscore-server (default localhost:9090). Audit-mode v1.0: policy evaluations are recorded but never block.
+log / report / stats talk to the PolicyService gRPC on a running kscore-server (default localhost:5397). Audit-mode v1.0: policy evaluations are recorded but never block.
 
 Usage:
   kscore-audit [command]
@@ -77,7 +77,7 @@ Flags:
       --api-key string   API key for authentication (or set KSCORE_API_KEY)
   -h, --help             help for kscore-audit
   -o, --output string    output format: table | json (default "table")
-      --server string    policy-service gRPC address (host:port) (default "localhost:9090")
+      --server string    policy-service gRPC address (host:port) (default "localhost:5397")
   -v, --version          version for kscore-audit
 
 Use "kscore-audit [command] --help" for more information about a command.
@@ -170,7 +170,7 @@ Flags:
 ```
 Operator surface for the Keystone Core clustering control plane.
 
-Talks to the ClusterService gRPC on a running kscore-server (default localhost:9090). `add` is a contract passthrough — members self-register on start, so the server returns Unimplemented.
+Talks to the ClusterService gRPC on a running kscore-server (default localhost:5397). `add` is a contract passthrough — members self-register on start, so the server returns Unimplemented.
 
 Usage:
   kscore-cluster [command]
@@ -192,7 +192,7 @@ Flags:
       --api-key string   API key for authentication (or set KSCORE_API_KEY)
   -h, --help             help for kscore-cluster
   -o, --output string    output format: table | json (default "table")
-      --server string    cluster-service gRPC address (host:port) (default "localhost:9090")
+      --server string    cluster-service gRPC address (host:port) (default "localhost:5397")
   -v, --version          version for kscore-cluster
 
 Use "kscore-cluster [command] --help" for more information about a command.
@@ -220,7 +220,7 @@ Flags:
       --api-key string   API key for authentication (or set KSCORE_API_KEY)
   -h, --help             help for kscore-cluster-backup
   -o, --output string    output format: table | json (default "table")
-      --server string    cluster-service gRPC address (host:port) (default "localhost:9090")
+      --server string    cluster-service gRPC address (host:port) (default "localhost:5397")
   -v, --version          version for kscore-cluster-backup
 
 Use "kscore-cluster-backup [command] --help" for more information about a command.
@@ -231,7 +231,7 @@ Use "kscore-cluster-backup [command] --help" for more information about a comman
 ```
 Operator surface for the Keystone Core event bus — list / get / emit events; subscribe / watch / replay event streams; inspect the taxonomy + storage stats.
 
-All commands talk to the EventService gRPC on the running kscore-server (default localhost:9090).
+All commands talk to the EventService gRPC on the running kscore-server (default localhost:5397).
 
 Usage:
   kscore-events [command]
@@ -252,7 +252,7 @@ Flags:
       --api-key string   API key for authentication (or set KSCORE_API_KEY)
   -h, --help             help for kscore-events
   -o, --output string    output format for non-streaming commands: table | json (default "table")
-      --server string    events-service gRPC address (host:port) (default "localhost:9090")
+      --server string    events-service gRPC address (host:port) (default "localhost:5397")
   -v, --version          version for kscore-events
 
 Use "kscore-events [command] --help" for more information about a command.
@@ -320,7 +320,7 @@ Use "kscore-gitops [command] --help" for more information about a command.
 ```
 Operator surface for the Keystone Core identity provider — mint join tokens, inspect + rotate the CA, query provider health.
 
-All commands talk to the IdentityService gRPC on the running kscore-server (default localhost:9090).
+All commands talk to the IdentityService gRPC on the running kscore-server (default localhost:5397).
 
 Usage:
   kscore-identity [command]
@@ -336,7 +336,7 @@ Flags:
       --api-key string   API key for authentication (or set KSCORE_API_KEY)
   -h, --help             help for kscore-identity
   -o, --output string    output format: table | json (default "table")
-      --server string    identity-service gRPC address (host:port) (default "localhost:9090")
+      --server string    identity-service gRPC address (host:port) (default "localhost:5397")
   -v, --version          version for kscore-identity
 
 Use "kscore-identity [command] --help" for more information about a command.
@@ -400,7 +400,7 @@ Use "kscore-module [command] --help" for more information about a command.
 ```
 Operator + authoring surface for the Keystone Core policy engine.
 
-list / show / compliance / violations talk to the PolicyService gRPC on a running kscore-server (default localhost:9090). eval / validate run the evaluator in-process against a policy source file — no server required.
+list / show / compliance / violations talk to the PolicyService gRPC on a running kscore-server (default localhost:5397). eval / validate run the evaluator in-process against a policy source file — no server required.
 
 v1.0 is audit-mode: policies evaluate + record but never block.
 
@@ -421,7 +421,7 @@ Flags:
       --api-key string   API key for authentication (or set KSCORE_API_KEY)
   -h, --help             help for kscore-policy
   -o, --output string    output format: table | json (default "table")
-      --server string    policy-service gRPC address (host:port) — used by remote subcommands (default "localhost:9090")
+      --server string    policy-service gRPC address (host:port) — used by remote subcommands (default "localhost:5397")
   -v, --version          version for kscore-policy
 
 Use "kscore-policy [command] --help" for more information about a command.
@@ -478,7 +478,7 @@ Use "kscore-runbook [command] --help" for more information about a command.
 ```
 Operator surface for the Keystone Core secrets domain — read / write KV secrets, manage leases for dynamic credentials, and run transit encrypt/decrypt/sign/verify operations.
 
-All commands talk to the SecretsService gRPC on the running kscore-server (default localhost:9090).
+All commands talk to the SecretsService gRPC on the running kscore-server (default localhost:5397).
 
 Usage:
   kscore-secrets [command]
@@ -497,7 +497,7 @@ Flags:
       --api-key string   API key for authentication (or set KSCORE_API_KEY)
   -h, --help             help for kscore-secrets
   -o, --output string    output format: table | json (default "table")
-      --server string    secrets-service gRPC address (host:port) (default "localhost:9090")
+      --server string    secrets-service gRPC address (host:port) (default "localhost:5397")
   -v, --version          version for kscore-secrets
 
 Use "kscore-secrets [command] --help" for more information about a command.

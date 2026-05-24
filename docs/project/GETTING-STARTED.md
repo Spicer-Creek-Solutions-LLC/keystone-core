@@ -54,7 +54,7 @@ Ports exposed on `127.0.0.1`:
 | Port | Service | Use |
 |------|---------|-----|
 | `8080` | server HTTP | `/health/*`, `/metrics`, REST API |
-| `9090` | server gRPC | operator-facing gRPC |
+| `5397` | server gRPC | operator-facing gRPC |
 | `8081` | server GitOps webhook | inbound webhook receiver |
 | `5432` | postgres | DB access for queries |
 | `8222` | nats monitoring | broker introspection |
@@ -84,7 +84,7 @@ echo "Admin API key: $DEV_KEY"
 
 ```bash
 grpcurl -plaintext -H "authorization: Bearer $DEV_KEY" \
-    127.0.0.1:9090 keystone.core.v1.ControlPlaneService/ListAgents | jq
+    127.0.0.1:5397 keystone.core.v1.ControlPlaneService/ListAgents | jq
 ```
 
 Expect two entries (`agent-1`, `agent-2`), both with `status: AGENT_STATUS_CONNECTED`.
@@ -109,7 +109,7 @@ grpcurl -plaintext -H "authorization: Bearer $DEV_KEY" \
           "args":["--version"],
           "timeout_seconds":10
         }' \
-    127.0.0.1:9090 keystone.core.v1.ControlPlaneService/ExecuteCommand
+    127.0.0.1:5397 keystone.core.v1.ControlPlaneService/ExecuteCommand
 ```
 
 You get a stream of events: a `command_id` first, then a
@@ -139,7 +139,7 @@ Apply via gRPC:
 ```bash
 grpcurl -plaintext -H "authorization: Bearer $DEV_KEY" \
     -d @ \
-    127.0.0.1:9090 keystone.core.v1.StateService/ApplyState <<JSON
+    127.0.0.1:5397 keystone.core.v1.StateService/ApplyState <<JSON
 {
   "yaml_content": "$(base64 -w0 /tmp/hello.yaml)",
   "agent_id": "agent-1",
@@ -160,7 +160,7 @@ the audit store. Query it via PolicyService:
 ```bash
 grpcurl -plaintext -H "authorization: Bearer $DEV_KEY" \
     -d '{"limit":10}' \
-    127.0.0.1:9090 keystone.core.v1.PolicyService/GetAuditLog | jq
+    127.0.0.1:5397 keystone.core.v1.PolicyService/GetAuditLog | jq
 ```
 
 ## 8. Tear down

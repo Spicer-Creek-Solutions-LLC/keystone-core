@@ -67,9 +67,9 @@ func NewCommand(deps Deps) *cobra.Command {
 			"read / write KV secrets, manage leases for dynamic credentials, " +
 			"and run transit encrypt/decrypt/sign/verify operations.\n\n" +
 			"All commands talk to the SecretsService gRPC on the running " +
-			"kscore-server (default localhost:9090).",
+			"kscore-server (default localhost:5397).",
 	}
-	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:9090",
+	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:5397",
 		"secrets-service gRPC address (host:port)")
 	cmd.PersistentFlags().StringVar(&g.APIKey, "api-key", "",
 		"API key for authentication (or set KSCORE_API_KEY)")

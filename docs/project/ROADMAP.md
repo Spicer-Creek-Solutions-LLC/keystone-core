@@ -641,29 +641,21 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: pick a direction. If (a): `GET /api/v1/agents` returns the same JSON shape as `ControlPlaneService.ListAgents`; `POST /api/v1/state/apply` accepts base64'd YAML + agent id and streams back; existing 501-stub tests in `pkg/api/agents/handler_test.go` + `pkg/api/state/handler_test.go` flip to 200 + content assertions. If (b): the 501 handlers stay; GETTING-STARTED.md §4 + §troubleshooting drop the REST-alternative claims; the route handlers move from "stub" to "intentionally not part of v0.1 — gRPC only" with a doc comment.
 - **References**: `pkg/api/agents/handler.go` + `state/handler.go` + `schedule/handler.go` (stub registrations); `docs/project/GETTING-STARTED.md` §4 footnote + §troubleshooting "Alternative: drive everything via REST"; `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D1 evidence F5.
 
-#### Select a different default gRPC port (avoid Cockpit collision on Rocky 10)
-
-- **Priority**: v0.x
-- **What**: `kscore-server`'s default gRPC port is `127.0.0.1:9090`. Cockpit (the RHEL-family web admin UI) listens on `:9090` by default — and Rocky 10 ships with `cockpit.socket` enabled out-of-box. Result: `apt install kscore-server && systemctl start kscore-server` fails on Rocky 10 because the gRPC listener can't bind. Pick a new default port and roll it out everywhere. `50051` is the obvious candidate — it's the convention used in every `google.golang.org/grpc` Helloworld example, has no popular collision on Debian/Ubuntu/Rocky, and is well below the 32768+ ephemeral-port range so it never conflicts with kernel-allocated client sockets. `8080` (default HTTP port) should be reviewed at the same time — it conflicts with Tomcat, Jenkins, dev-server defaults, and several other common services; if HTTP changes it'd want to land in the same PR.
-- **Why deferred**: surfaced as F13 during Phase D2 on rocky10; not blocking the broader Phase D pass since 5/6 distros work and rocky10 install completes cleanly after `systemctl stop cockpit.socket`. The change is mechanical but touches ~57 references (counted via grep across `internal/cli/`, `internal/config/`, `deploy/`, `docs/`, and per-domain runbooks) so it wants a focused commit rather than a hot-patch on top of Phase D.
-- **Acceptance**:
-  1. `internal/config/config.go` `defaultConfig` `GRPCPort: 9090` → new default (decide 50051 vs alternative).
-  2. `deploy/config/server.yaml.template` `server.grpcport` follows.
-  3. Every `internal/cli/*/` cobra subcommand's `--server` flag default updates (audit, exec, state, secrets, policy, identity, cluster, events — eight subcommands, all use the `localhost:9090` literal).
-  4. `internal/config/config_test.go` defaults-assertion test updates.
-  5. `pkg/api/server/banner_test.go` and similar test fixtures update.
-  6. Docs sweep — `docs/project/GETTING-STARTED.md`, `docs/runbooks/*.md`, `docs/project/CONFIGURATION-REFERENCE.md`, `docs/project/API-REFERENCE.md`, `docs/project/CLI-REFERENCE.md` (auto-generated; regenerate after CLI defaults change). `make docs-sync-check` gate confirms the auto-generated references match.
-  7. Operator-path D1 re-runs on rocky10 with Cockpit *still active* and succeeds without intervention.
-- **Why not detect-in-postinst**: rejected. Probing for the conflict at install time writes a non-default port into `/etc/kscore/server.yaml`, which means the operator's deployed port silently varies by install order (was Cockpit running when you installed? you don't remember). Doc + support burden increases; predictability decreases.
-- **Why not just document**: rejected. Pushes the workaround onto every Rocky 10 / RHEL 10 / Alma 10 operator. The expected default-port collision rate goes up over time as Cockpit gets enabled by more RHEL-family releases; a one-time port change is cheaper than ongoing operator friction.
-- **References**: `internal/config/config.go` defaultConfig `GRPCPort: 9090`; `deploy/config/server.yaml.template` `server.grpcport`; `internal/cli/*/` `--server` default `localhost:9090` (8 subcommands); Cockpit upstream docs (default 9090); `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D2 evidence F13; Phase D rocky10 journalctl excerpt (silent exit-1 right after "controlplane: command dispatcher started"). Cross-ref `kscore-server: surface fatal-init errors to stderr instead of silently exiting` — the silent-error pattern is what made this conflict so costly to diagnose; both entries should land before public flip.
+<!-- "Select a different default gRPC port (avoid Cockpit collision on
+     Rocky 10)" landed as part of the Phase-D rerun cycle: default
+     moved from 9090 to 5397 across internal/config defaults,
+     deploy/config/server.yaml.template, the 8 cobra subcommand
+     --server defaults, test fixtures, and the prose docs sweep.
+     Operator-path D1 on rocky10 with cockpit.socket still active
+     now succeeds without intervention. Entry retired from this list;
+     the change is visible in the code. -->
 
 #### kscore-server: surface fatal-init errors to stderr instead of silently exiting
 
 - **Priority**: v0.x
 - **What**: `internal/cli/cli.go` builds the cobra root command with `SilenceErrors: true`. When `kscore-server` fails during `run()` — e.g. gRPC bind conflict (the Rocky 10 cockpit case above), invalid config, metrics-registry collision — cobra swallows the wrapped error and `main()` does a bare `os.Exit(1)` with no message. The systemd journal shows only the routine `"stopped"` info line + `status=1/FAILURE` from systemd. Operators have to attach a debugger or read source to diagnose.
 - **Why deferred**: surfaced during Phase D rocky10 diagnosis. Easy fix (print the runErr to stderr before exiting in main()), but spans every cobra-rooted binary (kscore-server, kscore-agent, kscorectl, kscore-bootstrap, kscore-files, kscore-backup…) so wants a coordinated touch.
-- **Acceptance**: every `cmd/kscore-*/main.go` `main()` that calls `newCommand().Execute()` checks the returned error and writes it to stderr (`fmt.Fprintln(os.Stderr, "error:", err)`) before `os.Exit(1)`. The systemd journal shows `kscore-server: error: gRPC: listen tcp 127.0.0.1:9090: bind: address already in use` instead of just `stopped` then `status=1/FAILURE`.
+- **Acceptance**: every `cmd/kscore-*/main.go` `main()` that calls `newCommand().Execute()` checks the returned error and writes it to stderr (`fmt.Fprintln(os.Stderr, "error:", err)`) before `os.Exit(1)`. The systemd journal shows `kscore-server: error: gRPC: listen tcp 127.0.0.1:5397: bind: address already in use` instead of just `stopped` then `status=1/FAILURE`.
 - **References**: `internal/cli/cli.go` `RootCommand` (SilenceErrors=true is appropriate — the wrapper is fine, main() just needs to print before exit); `cmd/kscore-server/main.go` `main()` `if err := newCommand().Execute(); err != nil { os.Exit(1) }`; `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D2 evidence (the half-day diagnosis to find Cockpit was the cost of the missing stderr message).
 
 #### Phase D3: macOS dev-build sanity test

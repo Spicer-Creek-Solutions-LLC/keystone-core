@@ -65,7 +65,7 @@ func defaultConfig() *Config {
 		Mode: ModeDevelopment,
 		Server: ServerConfig{
 			Host:     "0.0.0.0",
-			GRPCPort: 9090,
+			GRPCPort: 5397,
 			HTTPPort: 8080,
 			// Epic 09 task 13: TLS defaults on — a fresh
 			// kscore-server boots with mTLS-aware TLS, deriving

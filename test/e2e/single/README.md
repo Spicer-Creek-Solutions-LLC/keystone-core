@@ -111,7 +111,7 @@ What the harness asserts at infrastructure level (Task 1):
                  ┌──────▼───────┐
                  │ kscore-server│  --config /etc/kscore/server.yaml
                  │   :8080 http │
-                 │   :9090 grpc │
+                 │   :5397 grpc │
                  └──────┬───────┘
                         │ (NATS subjects)
                  ┌──────▼───────┐
@@ -128,7 +128,7 @@ What the harness asserts at infrastructure level (Task 1):
 External port bindings (loopback only):
 
 - `127.0.0.1:8080` → server HTTP (`/health/*`, `/metrics`, REST APIs)
-- `127.0.0.1:9090` → server gRPC
+- `127.0.0.1:5397` → server gRPC
 - `127.0.0.1:8081` → server GitOps inbound webhook receiver
 - `127.0.0.1:5432` → Postgres
 - `127.0.0.1:8222` → NATS monitoring

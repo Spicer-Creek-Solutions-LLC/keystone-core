@@ -142,7 +142,7 @@ func TestRootCommand_ConfigLoaded(t *testing.T) {
 	if got == nil {
 		t.Fatal("Run callback did not receive Config")
 	}
-	if got.Server.Host != "127.0.0.1" || got.Server.GRPCPort != 9090 {
+	if got.Server.Host != "127.0.0.1" || got.Server.GRPCPort != 5397 {
 		t.Errorf("unexpected config: %+v", got.Server)
 	}
 }

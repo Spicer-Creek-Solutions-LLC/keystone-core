@@ -27,7 +27,7 @@ import (
 //
 // Pinned ports (must be free on the host running the tests):
 //   - 8080 server REST / health
-//   - 9090 server gRPC
+//   - 5397 server gRPC
 //   - 8081 gitops webhook receiver
 //
 // Dynamic ports (looked up via the OS, threaded into config templates):
@@ -52,7 +52,7 @@ func startNativeStack() (cleanup func(), err error) {
 	// /health/ready probe succeed against the orphan, then surface as
 	// a confusing 401 when the test hits any authed endpoint with the
 	// new server's dev key against the orphan's API key store.
-	for _, port := range []int{8080, 9090, 8081} {
+	for _, port := range []int{8080, 5397, 8081} {
 		if err := assertPortFree(port); err != nil {
 			return nil, fmt.Errorf("native mode requires port %d free: %w "+
 				"(hint: `docker compose -f test/e2e/single/docker-compose.yml down -v` "+

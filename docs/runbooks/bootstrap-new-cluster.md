@@ -35,7 +35,7 @@ This runbook covers bootstrapping a new Keystone Core cluster from scratch using
 | 2379 | TCP | etcd client | HA only |
 | 2380 | TCP | etcd peer | HA only |
 | 5432 | TCP | PostgreSQL | External DB |
-| 9090 | TCP | Metrics | Optional |
+| 5397 | TCP | gRPC control plane | Yes |
 
 ### Checklist
 
@@ -109,7 +109,7 @@ cluster:
 server:
   bind_address: 0.0.0.0
   http_port: 8080
-  grpc_port: 9090
+  grpc_port: 5397
 
   tls:
     enabled: true
@@ -266,7 +266,7 @@ cluster:
 server:
   bind_address: 0.0.0.0
   http_port: 8080
-  grpc_port: 9090
+  grpc_port: 5397
 
   tls:
     enabled: true
@@ -660,7 +660,7 @@ cluster:
 server:
   bind_address: string            # 0.0.0.0 for all interfaces
   http_port: integer              # API HTTP port (default: 8080)
-  grpc_port: integer              # gRPC port (default: 9090)
+  grpc_port: integer              # gRPC port (default: 5397)
   workers: integer                # Worker threads (default: auto)
   max_connections: integer        # Max concurrent connections
 

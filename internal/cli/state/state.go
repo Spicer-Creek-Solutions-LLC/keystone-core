@@ -58,7 +58,7 @@ func NewCommand(deps Deps) *cobra.Command {
 			"Local subcommands (compile, vars) run the engine client-side without " +
 			"contacting the server.",
 	}
-	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:9090",
+	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:5397",
 		"control-plane gRPC address (host:port)")
 	cmd.PersistentFlags().StringVar(&g.APIKey, "api-key", "",
 		"API key for authentication (or set KSCORE_API_KEY)")

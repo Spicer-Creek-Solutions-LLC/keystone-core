@@ -414,7 +414,7 @@ rpm -Va 2>/dev/null || dpkg --verify
 
 ```bash
 # Unusual outbound connections
-ss -tuanp | grep ESTABLISHED | grep -v -E ":(22|80|443|4222|8080|9090) "
+ss -tuanp | grep ESTABLISHED | grep -v -E ":(22|80|443|4222|5397|8080|9090) "
 
 # DNS tunneling indicators
 tcpdump -i any -n port 53 | grep -E "TXT|NULL"

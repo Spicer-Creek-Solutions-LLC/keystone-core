@@ -49,7 +49,7 @@ import (
 
 const (
 	serverHTTPAddr = "http://127.0.0.1:8080"
-	serverGRPCAddr = "127.0.0.1:9090"
+	serverGRPCAddr = "127.0.0.1:5397"
 
 	composeReadyBudget = 90 * time.Second
 	scenarioBudget     = 60 * time.Second

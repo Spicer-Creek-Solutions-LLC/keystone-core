@@ -15,7 +15,7 @@ Inspired by Salt Project's UX, built on a modern Go stack with cloud-native prim
 ```
                    ┌────────────────────┐
    Operators ─────▶│   kscore-server    │◀───── Postgres (state, audit, events)
-   (kscorectl /    │  gRPC :9090        │
+   (kscorectl /    │  gRPC :5397        │
     REST /         │  REST :8080        │
     kscore-*)      │  Webhooks :8081    │
                    └─────────┬──────────┘
@@ -41,7 +41,7 @@ cd keystone-core
 make e2e-up
 ```
 
-Topology is reachable at `http://127.0.0.1:8080` (REST + health) and `127.0.0.1:9090` (gRPC). Both agents bootstrap automatically and reach `connected` within a few seconds.
+Topology is reachable at `http://127.0.0.1:8080` (REST + health) and `127.0.0.1:5397` (gRPC). Both agents bootstrap automatically and reach `connected` within a few seconds.
 
 Tear down: `make e2e-down`.
 

@@ -53,7 +53,7 @@ func NewCommand(deps Deps) *cobra.Command {
 			"selectors today; full expression-string targeting (os: / arch: / " +
 			"OR / NOT / glob-on-id) lands in v1.x with a proto extension.",
 	}
-	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:9090",
+	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:5397",
 		"control-plane gRPC address (host:port)")
 	cmd.PersistentFlags().StringVar(&g.APIKey, "api-key", "",
 		"API key for authentication (or set KSCORE_API_KEY)")

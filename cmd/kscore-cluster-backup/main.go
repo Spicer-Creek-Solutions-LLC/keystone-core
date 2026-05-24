@@ -2,7 +2,7 @@
 // recovery CLI (Epic 13 task 16).
 //
 //	backup / restore   talk to the ClusterService gRPC on a running
-//	                   kscore-server (default `localhost:9090`).
+//	                   kscore-server (default `localhost:5397`).
 //	list / verify      inspect snapshot files locally — no server
 //	                   required (CI-friendly, the kscore-policy
 //	                   eval/validate precedent).

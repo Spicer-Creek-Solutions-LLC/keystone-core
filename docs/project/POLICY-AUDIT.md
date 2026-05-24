@@ -135,7 +135,7 @@ kscore-audit stats --since 7d
 kscore-audit export --format jsonl --redact-pattern 'password=\S+' > out.jsonl
 ```
 
-Both CLIs default to `--server localhost:9090`; auth via `--api-key` or
+Both CLIs default to `--server localhost:5397`; auth via `--api-key` or
 `KSCORE_API_KEY`. `kscore-policy eval`/`validate` are local and need no server.
 Deferred subcommands (`kscore-policy check|test`,
 `kscore-audit search|analyze|timeline|watch`, the export

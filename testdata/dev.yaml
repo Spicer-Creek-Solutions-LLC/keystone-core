@@ -2,7 +2,7 @@ mode: development
 
 server:
   host: 127.0.0.1
-  grpcport: 9090
+  grpcport: 5397
   httpport: 8080
   # Dev fixtures explicitly opt out of TLS so kscore-server boots
   # against API-key auth without needing a CA bootstrap. Production

@@ -6,7 +6,7 @@
 //
 // kscore-policy is a HYBRID CLI. list/show/compliance/violations talk
 // to the PolicyService gRPC on a running kscore-server (default
-// `localhost:9090`; override via `--server host:port`; API-key auth
+// `localhost:5397`; override via `--server host:port`; API-key auth
 // via `--api-key` or `KSCORE_API_KEY`). eval/validate are policy-
 // authoring tools that read a source file and run the OPA / CEL /
 // Builtin evaluator in-process — no server, works in CI (matches
@@ -65,11 +65,11 @@ func NewCommand(deps Deps) *cobra.Command {
 		Long: "Operator + authoring surface for the Keystone Core policy " +
 			"engine.\n\nlist / show / compliance / violations talk to the " +
 			"PolicyService gRPC on a running kscore-server (default " +
-			"localhost:9090). eval / validate run the evaluator in-process " +
+			"localhost:5397). eval / validate run the evaluator in-process " +
 			"against a policy source file — no server required.\n\n" +
 			"v1.0 is audit-mode: policies evaluate + record but never block.",
 	}
-	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:9090",
+	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:5397",
 		"policy-service gRPC address (host:port) — used by remote subcommands")
 	cmd.PersistentFlags().StringVar(&g.APIKey, "api-key", "",
 		"API key for authentication (or set KSCORE_API_KEY)")

@@ -7,7 +7,7 @@
 //	eval / validate                          (local — in-process evaluators)
 //
 // list/show/compliance/violations talk to the PolicyService gRPC on
-// the running kscore-server (default `localhost:9090`; override via
+// the running kscore-server (default `localhost:5397`; override via
 // `--server host:port`). API-key auth flows through the
 // `authorization: Bearer …` header from `--api-key` or
 // `KSCORE_API_KEY`. eval/validate read a policy source file and run

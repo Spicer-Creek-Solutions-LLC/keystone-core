@@ -18,7 +18,7 @@ mode: development
 
 server:
   host: 127.0.0.1
-  grpcport: 9090
+  grpcport: 5397
   httpport: 8080
   tls:
     enabled: false

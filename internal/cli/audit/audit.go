@@ -8,7 +8,7 @@
 //	         redaction applied on export (Epic 12 task 15)
 //
 // All subcommands talk to the PolicyService gRPC on a running
-// kscore-server (default `localhost:9090`; override via
+// kscore-server (default `localhost:5397`; override via
 // `--server host:port`). API-key auth via `--api-key` or
 // `KSCORE_API_KEY`.
 //
@@ -62,10 +62,10 @@ func NewCommand(deps Deps) *cobra.Command {
 		Short: "Keystone Core audit-log operator CLI",
 		Long: "Query the Keystone Core audit log + compliance roll-ups.\n\n" +
 			"log / report / stats talk to the PolicyService gRPC on a " +
-			"running kscore-server (default localhost:9090). Audit-mode " +
+			"running kscore-server (default localhost:5397). Audit-mode " +
 			"v1.0: policy evaluations are recorded but never block.",
 	}
-	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:9090",
+	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:5397",
 		"policy-service gRPC address (host:port)")
 	cmd.PersistentFlags().StringVar(&g.APIKey, "api-key", "",
 		"API key for authentication (or set KSCORE_API_KEY)")

@@ -138,7 +138,7 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 - **Connection Manager** (agent registration, heartbeat tracking, stale detection). Source: `internal/controlplane/`. _Reasoning: core agent lifecycle._
 - **Command Dispatcher** (route, timeout, result retention). _Reasoning: core remote-execution backbone._
 - **Batch Dispatcher** (group-targeted ops, batch progress state machine). _Reasoning: required for fleet operations at any scale._
-- **Listen ports**: gRPC 9090, HTTP 8080, optional metrics, optional pprof. _Reasoning: standard split._
+- **Listen ports**: gRPC 5397, HTTP 8080, optional metrics, optional pprof. _Reasoning: standard split._
 - **Dual-stack (IPv4 + IPv6) listeners**. _Reasoning: minimal cost, broad applicability._
 - **Health endpoints** (`/health/live`, `/health/ready`, `/health/status`, `/api/status`). _Reasoning: K8s probes + ops dashboards._
 - **Middleware chain** (CORS → rate-limit → auth → handler). _Reasoning: standard ordering; auth as innermost so audit can log denials before handler._
@@ -677,7 +677,7 @@ _Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadm
 - **Network interface detection** (IPv4/IPv6, MTU, speed). Source: `internal/netutil/`. _Reasoning: v1 must be IPv6-clean._
 - **IPv6 dual-stack on all listeners** (control plane gRPC/HTTP, NATS, etcd, Postgres). _Reasoning: per Epic 18; non-negotiable for modern infra._
 - **Address family preference** (`prefer_ipv4`, `prefer_ipv6`, `ipv4_only`, `ipv6_only`). _Reasoning: deterministic selection._
-- **IPv6 bracketing helpers** (`[::]:8080`, `[::1]:9090`, IPv6-aware DSN building for Postgres). _Reasoning: real-world bug source._
+- **IPv6 bracketing helpers** (`[::]:8080`, `[::1]:5397`, IPv6-aware DSN building for Postgres). _Reasoning: real-world bug source._
 - **Cloud metadata stub** (AWS IMDSv2 token, GCP metadata header, Azure MSI — minimal probe; full metadata extraction v1.x). _Reasoning: detect "running in cloud" vs not is useful day 1._
 
 ### v1.x (deferred)

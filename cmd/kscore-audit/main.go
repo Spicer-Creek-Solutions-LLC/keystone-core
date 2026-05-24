@@ -9,7 +9,7 @@
 //	export — stream JSON / JSONL / CSV with redaction on export
 //
 // All commands talk to the PolicyService gRPC on the running
-// kscore-server (default `localhost:9090`; override via
+// kscore-server (default `localhost:5397`; override via
 // `--server host:port`). API-key auth via `--api-key` or
 // `KSCORE_API_KEY`.
 //

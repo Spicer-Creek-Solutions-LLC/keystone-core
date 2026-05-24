@@ -61,9 +61,9 @@ func NewCommand(deps Deps) *cobra.Command {
 		Long: "Operator surface for the Keystone Core identity provider — " +
 			"mint join tokens, inspect + rotate the CA, query provider health.\n\n" +
 			"All commands talk to the IdentityService gRPC on the running " +
-			"kscore-server (default localhost:9090).",
+			"kscore-server (default localhost:5397).",
 	}
-	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:9090",
+	cmd.PersistentFlags().StringVar(&g.Server, "server", "localhost:5397",
 		"identity-service gRPC address (host:port)")
 	cmd.PersistentFlags().StringVar(&g.APIKey, "api-key", "",
 		"API key for authentication (or set KSCORE_API_KEY)")

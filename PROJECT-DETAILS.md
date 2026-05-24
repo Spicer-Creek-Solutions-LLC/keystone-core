@@ -51,7 +51,7 @@ Keystone Core is the **runtime operations control plane** between deployment too
 ```
 ┌─────────────────────────── Control Plane ───────────────────────────┐
 │  kscore-server                                                        │
-│  ├─ gRPC server (:9090)        REST gateway (:8080)                  │
+│  ├─ gRPC server (:5397)        REST gateway (:8080)                  │
 │  ├─ ConnectionMgr  ───── tracks agents, heartbeats                    │
 │  ├─ CommandDispatcher  ── routes commands, retains results           │
 │  ├─ BatchDispatcher  ──── group ops with batch state machine         │
