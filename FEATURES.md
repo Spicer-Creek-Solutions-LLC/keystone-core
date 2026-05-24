@@ -60,10 +60,14 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 - **Baseline lint set** (errcheck, govet, staticcheck, gosec, bodyclose). Source: `.golangci.yml`. _Reasoning: catches real bugs without slowing dev._
 - **Single-topology E2E** (all-in-one docker-compose). Source: `test/e2e/single/`, Makefile, required CI gate. _Reasoning: smoke test for releases. **Landed via epic-19 task 2 (2a/2b/2c)**: 11 `TestE2E_*` scenarios over server + 2× agent + Postgres + NATS — infrastructure health, agent registration via PSK bootstrap + heartbeats, command exec, state apply, blueprint apply (server-local Applier), multi-stdlib module execution, secrets KV round-trip, audit log query + compliance report, outbound webhook delivery, GitOps inbound webhook ingest, GitOps rollback FSM. Several gate-v1.0 ROADMAP items remain open (remote-fleet blueprint apply, module system boot wiring, K8s/ArgoCD rollback executors, Vault transit + leases) but the v1.0 baseline is in place._
 
+### v0.5 (pulled forward from v1.x)
+
+- **Documentation site** (Hugo + Docsy). Source: `docs/`. **[v0.5]**. _Reasoning: pulled forward from v1.x because the v0.5 external-tester audience benefits from a polished, searchable doc experience; pre-v0.5 README + reference docs remain sufficient for v0.1.x invitees. PDF export stays v1.x (see below)._
+
 ### v1.x (deferred)
 
 - **Syslog logging output** [v1.x]. _Reasoning: ops nice-to-have; stdout suffices for trial users on systemd/k8s._
-- **Documentation site** (Hugo + Docsy + PDF). Source: `docs/`. **[v1.x]**. _Reasoning: README + reference docs sufficient for v1.0; Hugo site adds tooling burden._
+- **PDF export of the docs site** (Hugo print pipeline). Source: `docs/`. **[v1.x]**. _Reasoning: web docs at v0.5 (above) satisfy the tester audience; PDF generation is a separate ceremony — toolchain, page-break tuning, archive-class freezing — not justified for the v0.5 milestone._
 - **HA / IPv6 / HA+IPv6 E2E topologies** [v1.x]. _Reasoning: clustering ships in v0.1 but full topology matrix can land iteratively._
 - **Hot-reload dev server (`air`)** [v1.0.x]. _Reasoning: dev-only, ship with v1.0 dot release._
 - **Repository generation (DNF/APT/Windows MSI)** [v1.x]. _Reasoning: tarballs cover trial users; package repos require infra commitment._

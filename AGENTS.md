@@ -65,7 +65,7 @@ Coverage targets (per `epics/00-meta-reconstruction-plan.md`):
 
 ### Required docs
 
-Every code change must update the documentation it affects. Until the Hugo site lands (post-v1.0), the canonical doc surfaces are:
+Every code change must update the documentation it affects. Until the Hugo site lands (planned for v0.5; see [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md) § v0.5 gate § Documentation), the canonical doc surfaces are:
 
 - `README.md` — project overview / status / quickstart
 - `epics/NN-*.md` — mark task acceptance criteria as met when work lands

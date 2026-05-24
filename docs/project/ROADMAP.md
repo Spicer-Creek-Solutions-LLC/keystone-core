@@ -220,6 +220,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: an `EncryptedFileCAStorage` (AES-256-GCM or NaCl secretbox; key sourced via a documented resolver shared with Epic 10) round-trips with `FileCAStorage`; existing plaintext deployments migrate via an explicit `kscore-identity ca encrypt` command; the v0.5 gate test boots a clean embedded provider with encryption enabled end-to-end.
 - **References**: `internal/identity/ca_storage.go` `FileCAStorage`; PROJECT-DETAILS §4.10 ("with optional encryption key"); Epic 10 (Secrets) for the master-key resolver this shares.
 
+#### Hugo docs site
+
+- **Priority**: gate-v0.5
+- **What**: The v0.1.x doc surface is rendered Markdown under `docs/` (`README.md`, `docs/project/*.md`, `docs/runbooks/*.md`, `docs/adr/*.md`) — discoverable through Forgejo's web UI, navigable via the subtree `README.md` index pages added during the v0.1.x first-impression doc pass. v0.5 graduates this into a Hugo + Docsy site under `docs/content/en/docs/...` with per-page navigation, full-text search, and the structure the epic-19 §Documentation block originally called for (reference/, getting-started/, operations/).
+- **Why now (v0.5)**: pulled forward from a prior v1.x position. v0.5 is the "external-tester ready" milestone, and a wider tester audience benefits from a polished, searchable doc experience over plain Markdown — particularly for the auto-generated CLI / config / API references, which become genuinely browsable when rendered with navigation. Pre-v0.5 (the v0.1.x soft-launch audience), the Markdown surface is sufficient because the audience is invited and willing to navigate the repo directly.
+- **Acceptance**: `docs/` builds a Hugo site under `docs/public/` via `make docs-site`; auto-generated CLI / config / API references regenerate via `make docs-sync` into the Hugo content tree (one source of truth — edits go to the auto-gen source, not the Hugo content copy); the published site mirrors the structure of `docs/project/` with per-page navigation; site hosted under `keystone-core.io/docs` (or a documented alternative if the domain isn't yet provisioned at v0.5 cut); link-check CI gate (`lychee` already in pipeline) covers the rendered site in addition to the Markdown source.
+- **References**: epic 19 task 9 `_(landed)_` (auto-gen CLI/config/API references); `docs/project/{CLI,CONFIGURATION,API}-REFERENCE.md` + `GETTING-STARTED.md` (Hugo-content-tree sources); `docs/README.md` + `docs/project/README.md` + `docs/runbooks/README.md` (v0.1.x subtree indexes that the Hugo navigation will replace); AGENTS.md §5 (canonical-doc-surfaces pointer); FEATURES.md §1 v0.5 (pulled forward from v1.x).
+
 ## gate-v1.0 — blocks v1.0 SemVer-stability commitment
 
 #### Module system boot wiring (loader PolicyChecker/Hosts/trust-policy + runtime registration)
@@ -953,21 +961,13 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v1.x — post-v1.0 feature additions
 
-#### Hugo docs site
-
-- **Priority**: v1.x
-- **What**: The v1.0 reference docs live as Markdown under `docs/project/` (per AGENTS.md §5: "Until the Hugo site lands (post-v1.0), the canonical doc surfaces are README.md, epics/NN-*.md, docs/project/*.md"). v1.x migrates them into a Hugo + Docsy site under `docs/content/en/docs/...` with the layout the epic-19 §Documentation block originally called for (reference/, getting-started/, operations/).
-- **Why deferred**: Hugo setup + Docsy theming + per-page front-matter + CI build pipeline is its own scope. The v1.0 Markdown docs are complete and discoverable — graduating them to a rendered site is a polish task, not a release blocker.
-- **Acceptance**: `docs/` builds a Hugo site under `docs/public/`; auto-generated CLI / config / API references regenerate via `make docs-sync` into the Hugo content tree; the published site mirrors the structure of `docs/project/` with per-page navigation.
-- **References**: epic 19 task 9 `_(landed)_`; `docs/project/{CLI,CONFIGURATION,API}-REFERENCE.md` + `GETTING-STARTED.md`.
-
 #### Expanded getting-started guides (per-domain tutorials)
 
 - **Priority**: v1.x
-- **What**: Epic 19 §Documentation listed five getting-started guides (install, first cluster, first command, first state apply, first blueprint, first module). v1.0 ships one consolidated 30-minute walkthrough at `docs/project/GETTING-STARTED.md` that covers install + topology + command + state. v1.x expands to per-domain tutorials covering blueprint authoring, module authoring + publishing, secrets, GitOps integration, audit/policy queries, HA cluster topology.
-- **Why deferred**: One thorough walkthrough satisfies the epic-19 acceptance line ("Quick-start guide can be followed end-to-end on a fresh Ubuntu VM in <30 minutes"). The longer-form per-domain content is Hugo-era editorial work.
-- **Acceptance**: Six guides under `docs/content/en/docs/getting-started/` (or equivalent post-Hugo); each is runnable end-to-end on a fresh Ubuntu VM; each is link-checked.
-- **References**: epic 19 task 9 `_(landed)_`; `docs/project/GETTING-STARTED.md`.
+- **What**: Epic 19 §Documentation listed five getting-started guides (install, first cluster, first command, first state apply, first blueprint, first module). v0.1.x ships one consolidated ~30-minute walkthrough at `docs/project/GETTING-STARTED.md` that covers install + agent online + command + state + audit. v1.x expands to per-domain tutorials covering blueprint authoring, module authoring + publishing, secrets, GitOps integration, audit/policy queries, HA cluster topology.
+- **Why deferred**: One thorough walkthrough satisfies the epic-19 acceptance line ("Quick-start guide can be followed end-to-end on a fresh Ubuntu VM in <30 minutes"). The longer-form per-domain content is editorial work that benefits from the Hugo site (gate-v0.5) being live so the new guides can land into the proper site IA rather than as ad-hoc Markdown files.
+- **Acceptance**: Six guides under `docs/content/en/docs/getting-started/` in the Hugo content tree; each is runnable end-to-end on a fresh Ubuntu VM; each is link-checked.
+- **References**: epic 19 task 9 `_(landed)_`; `docs/project/GETTING-STARTED.md`; Hugo docs site entry under gate-v0.5.
 
 #### Operations runbooks v1.x sweep
 
@@ -993,13 +993,13 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `make profile-sustained` (or equivalent) runs the harness; per-domain profile files land next to `docs/project/PROFILING-BASELINE.md`'s baseline numbers; the doc gains a per-domain section.
 - **References**: epic 19 task 8 `_(landed)_`; `docs/project/PROFILING-BASELINE.md`.
 
-#### Error-message docs URLs (post Hugo site)
+#### Error-message docs URLs
 
 - **Priority**: v1.x
-- **What**: Many error messages would benefit from a docs URL (`See https://keystone-core.io/docs/errors/<slug>` style). Epic 19 §Hardening calls this out; epic 19 task 8 deferred it because the Hugo docs site is post-v1.0. v1.x adds the URLs once the docs site is live + has the per-error slug pages.
-- **Why deferred**: URLs to a non-existent docs site would rot.
+- **What**: Many error messages would benefit from a docs URL (`See https://keystone-core.io/docs/errors/<slug>` style). Epic 19 §Hardening calls this out; epic 19 task 8 deferred it because the Hugo docs site was post-v1.0 at the time. With Hugo pulled forward to gate-v0.5 (above), this entry becomes opportunistically earlier-actionable — it can land any time after the Hugo site is live + the per-error slug pages exist — but v1.x remains its scheduled bucket because the per-error content work is editorial and bigger than the helper-plus-emitter scope.
+- **Why deferred**: URLs to a non-existent docs site would rot. Was v1.x-because-Hugo-was-v1.x; now v1.x because the per-error slug pages need to be written + maintained, and that content effort is post-v1.0 editorial work.
 - **Acceptance**: A `pkg/api/apierror` (or similar) helper produces "<message>. See <docs-url>" strings; the docs site has the matching slug pages; key user-facing errors (config validation, secrets read, command exec failures) carry the URLs.
-- **References**: epic 19 task 8 `_(landed)_`; the Hugo docs ROADMAP entry (post-v1.0).
+- **References**: epic 19 task 8 `_(landed)_`; the Hugo docs ROADMAP entry under gate-v0.5; `keystone-core.io` domain provisioning.
 
 #### Logging: context-aware threading of deep helpers
 

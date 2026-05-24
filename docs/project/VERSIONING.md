@@ -80,6 +80,7 @@ The v0.5 milestone is not a calendar point; it's a checklist. v0.5.0 ships when 
 ### Documentation
 
 1. **A "v0.5 — what works, what doesn't" doc** lists every state-file param and each one's status (`stable` / `experimental` / `deprecated`). Operators evaluating v0.5 can know in advance what's safe to depend on.
+2. **Hugo docs site live** under [`docs/`](.). The v0.1.x Markdown surface (`README.md`, `docs/project/*.md`, `docs/runbooks/*.md`) graduates into a Hugo + Docsy site with per-page navigation and full-text search. The auto-generated CLI / config / API references regenerate via `make docs-sync` into the Hugo content tree. *Pulled forward from a former v1.x position because v0.5's "external-tester ready" audience benefits from a polished doc experience; see [`ROADMAP.md`](ROADMAP.md) § Hugo docs site.*
 
 ## v1.0 gate — "stable, production-ready"
 
@@ -91,10 +92,11 @@ The v1.0 milestone is the SemVer stability commitment. Once cut, breaking change
 4. **Engine coverage >85%, module coverage >80%** across the board (same standard as v0.5; verified at v1.0).
 5. **Performance + load test baseline** passing (per Epic 19's harden-and-release acceptance).
 6. **Security review + audit complete** (per Epics 12 + 19).
-7. **Documentation site live** (Hugo docs site — the post-v1.0 docs-site work, advanced to land by v1.0).
-8. **Migration tooling** for any state-file or schema changes between v0.x and v1.0 — operators can move data forward without a manual rewrite.
-9. **Outstanding "must-haves" from external testers addressed** — the v0.5+ tester feedback loop closes before v1.0 cut.
-10. **CHANGELOG + RELEASE-PLAYBOOK ready** for the long-term v1.x cadence.
+7. **Migration tooling** for any state-file or schema changes between v0.x and v1.0 — operators can move data forward without a manual rewrite.
+8. **Outstanding "must-haves" from external testers addressed** — the v0.5+ tester feedback loop closes before v1.0 cut.
+9. **CHANGELOG + RELEASE-PLAYBOOK ready** for the long-term v1.x cadence.
+
+> The former gate-7 "Documentation site live" moved to the v0.5 gate (above). All other v1.0 gates renumbered down by one.
 
 ## v0.x roadmap
 

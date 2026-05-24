@@ -81,6 +81,17 @@ Anchored on the reconstruction baseline (commit `14be1109`).
   [`docs/project/GOVERNANCE.md`](docs/project/GOVERNANCE.md) § Launch
   Posture; F1 ticked in the public-launch checklist; F2
   (announcement draft) marked not-applicable for v0.1.x.
+- **Hugo docs site pulled forward from v1.x to gate-v0.5**: updates
+  AGENTS.md §5, FEATURES.md §1, VERSIONING.md (resolves the prior
+  v1.0-gate-7-vs-v1.x-FEATURES contradiction — Hugo is now a v0.5
+  gate; v1.0 gates renumbered 8/9/10 → 7/8/9), ROADMAP.md (Hugo
+  entry moved from v1.x to gate-v0.5; dependent v1.x entries
+  "Expanded getting-started guides" + "Error-message docs URLs"
+  re-framed against Hugo's new position). Rationale: a polished,
+  searchable doc experience benefits the v0.5 external-tester
+  audience; pre-v0.5 Markdown + subtree READMEs remain sufficient
+  for the v0.1.x invited-installer audience. PDF export stays
+  v1.x (FEATURES.md §1).
 - Public-launch checklist Phases A–D ticked across 4 commits
   (`524757a0` → `9622ed36`): code-vs-docs sync, link health, epic
   acceptance audit, security baseline + dummy-report-flow doc, threat-
@@ -196,7 +207,7 @@ coverage or behind a v0.x flag:
 - **Network base: firewalld rich-rule canonicalisation deferred** to v0.5 per [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md).
 - **Persistence renderers** for networking (NetworkManager, netplan, systemd-networkd) — limited coverage in v0.1; full set graduates at v0.5.
 - **Policy enforcement** is locked at audit-mode for the entire v0.x → v1.0 line per [`docs/project/POLICY-AUDIT.md`](docs/project/POLICY-AUDIT.md); enforcement flips at v1.8.
-- **Hugo docs site** — post-v1.0. v0.1.0 ships Markdown references under `docs/project/`.
+- **Hugo docs site** — planned for v0.5 (pulled forward from a former v1.x position; see [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md) § v0.5 gate § Documentation). v0.1.x ships Markdown references under `docs/project/` with curated subtree-index `README.md` files for navigation.
 - **Multi-party release signing** — v1.2 graduation per [`RELEASE-PLAYBOOK.md`](RELEASE-PLAYBOOK.md). v0.x / v1.0 / v1.1 ship under the single-signer ceremony.
 - **Windows + macOS agents, WASM modules, full SPIRE, Kubernetes operator, federation, web UI, blueprint marketplace** — explicitly post-v1.0 (epic 19 §Scope out).
 - **gRPC server reflection disabled in dev** — the workaround (pass `-import-path api/proto -proto api/proto/keystone/core/v1/controlplane.proto` to grpcurl, or use the REST surface) is documented in [`docs/project/DEVELOPMENT.md`](docs/project/DEVELOPMENT.md) § Local Dev Topology.
