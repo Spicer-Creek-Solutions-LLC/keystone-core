@@ -1,0 +1,19 @@
+#!/bin/sh
+# Preremove scriptlet for kscore-server (.deb + .rpm).
+#
+# Runs before package files are deleted. Stops the running service so
+# the binary it has open isn't yanked out from under it.
+#
+# nfpms invokes this with $1=remove|upgrade (deb) or $1=0|1 (rpm).
+# We stop unconditionally — on upgrade the postinst restarts the unit
+# with the new binary; on remove the postremove handles purge cleanup.
+
+set -eu
+
+if [ -d /run/systemd/system ]; then
+    if systemctl is-active --quiet kscore-server.service 2>/dev/null; then
+        systemctl stop kscore-server.service >/dev/null 2>&1 || true
+    fi
+fi
+
+exit 0

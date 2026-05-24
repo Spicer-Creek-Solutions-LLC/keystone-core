@@ -1,0 +1,43 @@
+#!/bin/sh
+# Postinstall scriptlet for kscore-agent (.deb + .rpm).
+#
+# The agent runs as root because it applies state to the managed host
+# (network, firewall, packages, etc.). Postinst therefore only deals
+# with directories + the systemd unit; no user/group creation.
+#
+# We deliberately enable but DO NOT start the agent. The default
+# agent.yaml ships with placeholder values for nats.url + agent.id;
+# operators edit those (or hand off to kscore-bootstrap) before the
+# agent can actually register against a control plane.
+
+set -eu
+
+KSCORE_CONF_DIR=/etc/kscore
+KSCORE_CONF_FILE=${KSCORE_CONF_DIR}/agent.yaml
+KSCORE_CONF_TEMPLATE=/usr/share/kscore/agent.yaml.template
+KSCORE_AGENT_HOME=/var/lib/kscore-agent
+KSCORE_AGENT_LOG_DIR=/var/log/kscore-agent
+
+# --- directories ---------------------------------------------------------
+
+# /etc/kscore may already exist if kscore-server is also installed —
+# install -d is idempotent on existing dirs.
+install -d -o root -g root -m 0755 "$KSCORE_CONF_DIR"
+install -d -o root -g root -m 0750 "$KSCORE_AGENT_HOME"
+install -d -o root -g root -m 0750 "$KSCORE_AGENT_LOG_DIR"
+
+# --- first-install config render -----------------------------------------
+
+if [ ! -f "$KSCORE_CONF_FILE" ] && [ -f "$KSCORE_CONF_TEMPLATE" ]; then
+    install -o root -g root -m 0640 "$KSCORE_CONF_TEMPLATE" "$KSCORE_CONF_FILE"
+fi
+
+# --- systemd integration -------------------------------------------------
+
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl enable kscore-agent.service >/dev/null 2>&1 || true
+    # Intentionally NOT started — operator must configure first.
+fi
+
+exit 0

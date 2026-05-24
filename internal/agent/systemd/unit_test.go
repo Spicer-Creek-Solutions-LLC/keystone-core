@@ -14,16 +14,16 @@ func TestRender_DefaultsHappyPath(t *testing.T) {
 
 	wantContain := []string{
 		"Description=Keystone Core Agent",
-		"ExecStart=/usr/local/bin/kscore-agent --config /etc/keystone-core/keystone-core-agent.yaml",
+		"ExecStart=/usr/bin/kscore-agent --config /etc/kscore/agent.yaml",
 		"Type=exec",
 		"Restart=on-failure",
 		"NoNewPrivileges=true",
 		"ProtectSystem=strict",
 		"ProtectHome=true",
 		"PrivateTmp=true",
-		"ReadWritePaths=/var/lib/keystone-core /var/log/keystone-core",
+		"ReadWritePaths=/var/lib/kscore-agent /var/log/kscore-agent",
 		"WantedBy=multi-user.target",
-		"StateDirectory=keystone-core",
+		"StateDirectory=kscore-agent",
 	}
 	for _, w := range wantContain {
 		if !strings.Contains(s, w) {

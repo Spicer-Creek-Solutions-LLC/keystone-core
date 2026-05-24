@@ -109,19 +109,19 @@ check_deb_contents() {
 
       case "$family" in
         kscore-server)
-          echo "$listing" | grep -qE '^\./usr/local/bin/kscore-server$' \
-            || fail "$deb missing /usr/local/bin/kscore-server"
+          echo "$listing" | grep -qE '^\./usr/bin/kscore-server$' \
+            || fail "$deb missing /usr/bin/kscore-server"
           ;;
         kscore-agent)
-          echo "$listing" | grep -qE '^\./usr/local/bin/kscore-agent$' \
-            || fail "$deb missing /usr/local/bin/kscore-agent"
+          echo "$listing" | grep -qE '^\./usr/bin/kscore-agent$' \
+            || fail "$deb missing /usr/bin/kscore-agent"
           ;;
         kscore-cli)
-          echo "$listing" | grep -qE '^\./usr/local/bin/kscorectl$' \
-            || fail "$deb missing /usr/local/bin/kscorectl"
+          echo "$listing" | grep -qE '^\./usr/bin/kscorectl$' \
+            || fail "$deb missing /usr/bin/kscorectl"
           for sub in "${CLI_SUBS[@]}"; do
-            echo "$listing" | grep -qE "^\./usr/local/bin/${sub}$" \
-              || fail "$deb missing /usr/local/bin/${sub} (kscore-cli bundle)"
+            echo "$listing" | grep -qE "^\./usr/bin/${sub}$" \
+              || fail "$deb missing /usr/bin/${sub} (kscore-cli bundle)"
           done
           ;;
       esac
@@ -149,19 +149,19 @@ check_rpm_contents() {
 
       case "$family" in
         kscore-server)
-          echo "$listing" | grep -qE '^/usr/local/bin/kscore-server$' \
-            || fail "$rpm missing /usr/local/bin/kscore-server"
+          echo "$listing" | grep -qE '^/usr/bin/kscore-server$' \
+            || fail "$rpm missing /usr/bin/kscore-server"
           ;;
         kscore-agent)
-          echo "$listing" | grep -qE '^/usr/local/bin/kscore-agent$' \
-            || fail "$rpm missing /usr/local/bin/kscore-agent"
+          echo "$listing" | grep -qE '^/usr/bin/kscore-agent$' \
+            || fail "$rpm missing /usr/bin/kscore-agent"
           ;;
         kscore-cli)
-          echo "$listing" | grep -qE '^/usr/local/bin/kscorectl$' \
-            || fail "$rpm missing /usr/local/bin/kscorectl"
+          echo "$listing" | grep -qE '^/usr/bin/kscorectl$' \
+            || fail "$rpm missing /usr/bin/kscorectl"
           for sub in "${CLI_SUBS[@]}"; do
-            echo "$listing" | grep -qE "^/usr/local/bin/${sub}$" \
-              || fail "$rpm missing /usr/local/bin/${sub} (kscore-cli bundle)"
+            echo "$listing" | grep -qE "^/usr/bin/${sub}$" \
+              || fail "$rpm missing /usr/bin/${sub} (kscore-cli bundle)"
           done
           ;;
       esac

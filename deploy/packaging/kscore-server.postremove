@@ -1,0 +1,46 @@
+#!/bin/sh
+# Postremove scriptlet for kscore-server (.deb + .rpm).
+#
+# Runs after package files are deleted. Behavior depends on which kind
+# of removal triggered us:
+#   - dpkg "remove"   ($1=remove)   : daemon-reload only; keep state/config
+#   - dpkg "purge"    ($1=purge)    : nuke /etc/kscore + /var/lib/kscore
+#                                     + /var/log/kscore + /run/kscore;
+#                                     delete the kscore user/group
+#   - rpm  "uninstall"($1=0)        : equivalent to purge
+#   - rpm  "upgrade"  ($1=1)        : no-op (next package's postinst restarts)
+
+set -eu
+
+ACTION=${1:-}
+
+is_purge() {
+    # deb: purge; rpm: 0 means the last copy is gone.
+    [ "$ACTION" = "purge" ] || [ "$ACTION" = "0" ]
+}
+
+if is_purge; then
+    rm -rf \
+        /etc/kscore \
+        /var/lib/kscore \
+        /var/log/kscore \
+        /run/kscore \
+        /usr/share/kscore || true
+
+    # Delete the user/group ONLY if no other kscore-* package
+    # (kscore-agent) still needs them. kscore-agent runs as root so
+    # the answer is always "no other consumer" for now; future server-
+    # agent shared-user designs would need a refcount.
+    if getent passwd kscore >/dev/null 2>&1; then
+        userdel kscore >/dev/null 2>&1 || true
+    fi
+    if getent group kscore >/dev/null 2>&1; then
+        groupdel kscore >/dev/null 2>&1 || true
+    fi
+fi
+
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+
+exit 0

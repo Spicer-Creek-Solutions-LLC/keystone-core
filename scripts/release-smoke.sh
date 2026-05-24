@@ -179,8 +179,8 @@ check_install_smoke() {
   docker run --rm -v "$dist:/dist:ro" debian:12-slim bash -c '
     set -e
     dpkg -i /dist/'"$(basename "$deb")"' >/dev/null 2>&1
-    [ -x /usr/local/bin/kscore-server ] || { echo "binary not installed at /usr/local/bin/kscore-server"; exit 1; }
-    /usr/local/bin/kscore-server --version >/dev/null
+    [ -x /usr/bin/kscore-server ] || { echo "binary not installed at /usr/bin/kscore-server"; exit 1; }
+    /usr/bin/kscore-server --version >/dev/null
     [ -f /lib/systemd/system/kscore-server.service ] || { echo "systemd unit not at /lib/systemd/system/kscore-server.service"; exit 1; }
   ' || { echo "FAIL: debian:12-slim deb install" >&2; exit 3; }
   pass "debian:12-slim: dpkg -i + --version + systemd unit present"
@@ -189,8 +189,8 @@ check_install_smoke() {
   docker run --rm -v "$dist:/dist:ro" rockylinux:9 bash -c '
     set -e
     rpm -i --nodeps /dist/'"$(basename "$rpm")"' >/dev/null 2>&1
-    [ -x /usr/local/bin/kscore-server ] || { echo "binary not installed at /usr/local/bin/kscore-server"; exit 1; }
-    /usr/local/bin/kscore-server --version >/dev/null
+    [ -x /usr/bin/kscore-server ] || { echo "binary not installed at /usr/bin/kscore-server"; exit 1; }
+    /usr/bin/kscore-server --version >/dev/null
     [ -f /lib/systemd/system/kscore-server.service ] || { echo "systemd unit not at /lib/systemd/system/kscore-server.service"; exit 1; }
   ' || { echo "FAIL: rockylinux:9 rpm install" >&2; exit 3; }
   pass "rockylinux:9: rpm -i + --version + systemd unit present"

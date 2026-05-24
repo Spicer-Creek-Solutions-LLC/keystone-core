@@ -1,0 +1,16 @@
+#!/bin/sh
+# Preremove scriptlet for kscore-agent (.deb + .rpm).
+#
+# Stop the agent before the binary disappears. On upgrade the next
+# package's postinst leaves the unit stopped (operator restarts after
+# verifying config); on remove/purge the postremove finishes cleanup.
+
+set -eu
+
+if [ -d /run/systemd/system ]; then
+    if systemctl is-active --quiet kscore-agent.service 2>/dev/null; then
+        systemctl stop kscore-agent.service >/dev/null 2>&1 || true
+    fi
+fi
+
+exit 0

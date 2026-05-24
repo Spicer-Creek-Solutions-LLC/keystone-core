@@ -11,7 +11,7 @@ Type=simple
 # your fleet uses a non-root agent identity.
 User=root
 Group=root
-ExecStart=/usr/local/bin/kscore-agent --config /etc/kscore/agent.yaml
+ExecStart=/usr/bin/kscore-agent --config /etc/kscore/agent.yaml
 Restart=on-failure
 RestartSec=5s
 # Agent drains in-flight commands on SIGTERM (epic 06); give it room.

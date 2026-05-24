@@ -279,10 +279,18 @@ nfpms:
     license: "Apache-2.0"
     formats: [deb, rpm]
     ids: [kscore-server]
-    bindir: /usr/local/bin
+    bindir: /usr/bin
+    scripts:
+      postinstall: "./deploy/packaging/kscore-server.postinst"
+      preremove:   "./deploy/packaging/kscore-server.preremove"
+      postremove:  "./deploy/packaging/kscore-server.postremove"
     contents:
       - src: ./deploy/systemd/kscore-server.service
         dst: /lib/systemd/system/kscore-server.service
+      - src: ./deploy/config/server.yaml.template
+        dst: /usr/share/kscore/server.yaml.template
+        file_info:
+          mode: 0644
       - src: ./LICENSE
         dst: /usr/share/doc/kscore-server/LICENSE
       - src: ./README.md
@@ -303,10 +311,18 @@ nfpms:
     license: "Apache-2.0"
     formats: [deb, rpm]
     ids: [kscore-agent]
-    bindir: /usr/local/bin
+    bindir: /usr/bin
+    scripts:
+      postinstall: "./deploy/packaging/kscore-agent.postinst"
+      preremove:   "./deploy/packaging/kscore-agent.preremove"
+      postremove:  "./deploy/packaging/kscore-agent.postremove"
     contents:
       - src: ./deploy/systemd/kscore-agent.service
         dst: /lib/systemd/system/kscore-agent.service
+      - src: ./deploy/config/agent.yaml.template
+        dst: /usr/share/kscore/agent.yaml.template
+        file_info:
+          mode: 0644
       - src: ./LICENSE
         dst: /usr/share/doc/kscore-agent/LICENSE
       - src: ./README.md
@@ -350,7 +366,7 @@ nfpms:
       - kscore-runbook
       - kscore-secrets
       - kscore-webhook
-    bindir: /usr/local/bin
+    bindir: /usr/bin
     contents:
       - src: ./LICENSE
         dst: /usr/share/doc/kscore-cli/LICENSE

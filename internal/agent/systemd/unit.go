@@ -19,22 +19,23 @@ const DefaultUnitName = "keystone-core-agent.service"
 // here regardless of distro.
 const DefaultUnitDir = "/etc/systemd/system"
 
-// DefaultBinaryPath is the conventional install location. Operators
-// can override via Params.BinaryPath when staging from a different
-// directory.
-const DefaultBinaryPath = "/usr/local/bin/kscore-agent"
+// DefaultBinaryPath is where the kscore-agent .deb / .rpm installs
+// the agent binary (FHS-canonical /usr/bin for distro packages).
+// Operators can override via Params.BinaryPath when staging from a
+// different directory.
+const DefaultBinaryPath = "/usr/bin/kscore-agent"
 
 // DefaultConfigPath matches the bootstrap installer's render
 // target so a `kscore-agent bootstrap` followed by
 // `kscore-agent service install` lines up by default.
-const DefaultConfigPath = "/etc/keystone-core/keystone-core-agent.yaml"
+const DefaultConfigPath = "/etc/kscore/agent.yaml"
 
 // DefaultReadWritePaths is the set systemd's ProtectSystem=strict
 // hardening exempts. The agent writes its state dir + log dir
 // under /var; everything else stays read-only.
 var DefaultReadWritePaths = []string{
-	"/var/lib/keystone-core",
-	"/var/log/keystone-core",
+	"/var/lib/kscore-agent",
+	"/var/log/kscore-agent",
 }
 
 // Params captures every operator-tunable field on the rendered
@@ -42,11 +43,11 @@ var DefaultReadWritePaths = []string{
 // see fillDefaults.
 type Params struct {
 	// BinaryPath is the absolute path to the kscore-agent binary.
-	// Defaults to /usr/local/bin/kscore-agent.
+	// Defaults to /usr/bin/kscore-agent.
 	BinaryPath string
 
 	// ConfigPath is the --config flag passed to the daemon.
-	// Defaults to /etc/keystone-core/keystone-core-agent.yaml.
+	// Defaults to /etc/kscore/agent.yaml.
 	ConfigPath string
 
 	// User and Group are optional. When empty, systemd runs the
@@ -158,8 +159,8 @@ EnvironmentFile={{.EnvironmentFile}}
 {{- range .ExtraEnv}}
 Environment={{.}}
 {{- end}}
-StateDirectory=keystone-core
-WorkingDirectory=/var/lib/keystone-core
+StateDirectory=kscore-agent
+WorkingDirectory=/var/lib/kscore-agent
 
 # Hardening (v1.0 secure-by-default).
 NoNewPrivileges=true

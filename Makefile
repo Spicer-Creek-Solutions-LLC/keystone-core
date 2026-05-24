@@ -39,7 +39,7 @@ export CGO_ENABLED := 0
 .PHONY: help \
         build build-all-platforms clean clean-all clean-check deps install-tools install-lychee \
         test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check test-integration slo profile test-cross-distro check \
-        fmt lint lint-fix smoke \
+        fmt lint lint-fix smoke test-packaging \
         proto proto-lint proto-breaking \
         openapi-lint \
         docs-lint docs-lint-fix docs-lint-container docs-links docs-links-online \
@@ -287,6 +287,9 @@ check: lint docs-lint test ## Run lint + docs-lint + tests
 
 smoke: ## Run quick smoke checks (compile + SQLite pragmas)
 	scripts/smoke-test.sh quick
+
+test-packaging: ## Run the postinst-scriptlet unit tests (no root needed)
+	bash deploy/packaging/postinst_test.sh
 
 # ---- Lint / Format --------------------------------------------------------
 

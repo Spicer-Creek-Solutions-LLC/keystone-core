@@ -1,0 +1,91 @@
+#!/bin/sh
+# Postinstall scriptlet for kscore-server (.deb + .rpm).
+#
+# Runs after package files are unpacked. Idempotent: safe to re-run
+# on upgrade or reinstall. Responsibilities:
+#   - create the kscore system user/group (server runs unprivileged)
+#   - create /etc/kscore, /var/lib/kscore, /var/log/kscore, /run/kscore
+#   - on first install only, render /etc/kscore/server.yaml from the
+#     shipped template, substituting a freshly generated HMAC secret
+#   - reload + enable + start the systemd unit (when systemd present)
+#
+# nfpms invokes this as $1=configure (deb) or $1=1/2 (rpm); we don't
+# branch on the argument — the file checks below make every step
+# idempotent regardless of invocation reason.
+
+set -eu
+
+KSCORE_USER=kscore
+KSCORE_GROUP=kscore
+KSCORE_HOME=/var/lib/kscore
+KSCORE_LOG_DIR=/var/log/kscore
+KSCORE_RUN_DIR=/run/kscore
+KSCORE_CONF_DIR=/etc/kscore
+KSCORE_CONF_FILE=${KSCORE_CONF_DIR}/server.yaml
+KSCORE_CONF_TEMPLATE=/usr/share/kscore/server.yaml.template
+
+# --- user / group --------------------------------------------------------
+
+if ! getent group "$KSCORE_GROUP" >/dev/null; then
+    groupadd --system "$KSCORE_GROUP"
+fi
+
+if ! getent passwd "$KSCORE_USER" >/dev/null; then
+    useradd --system \
+        --gid "$KSCORE_GROUP" \
+        --home-dir "$KSCORE_HOME" \
+        --shell /usr/sbin/nologin \
+        --comment "Keystone Core control-plane" \
+        "$KSCORE_USER"
+fi
+
+# --- directories ---------------------------------------------------------
+
+# /etc/kscore is root:kscore so the daemon (running as kscore) can READ
+# the config but cannot WRITE it. The config file itself gets 0640.
+install -d -o root -g "$KSCORE_GROUP" -m 0750 "$KSCORE_CONF_DIR"
+
+# State + log + runtime dirs the daemon writes to.
+install -d -o "$KSCORE_USER" -g "$KSCORE_GROUP" -m 0750 "$KSCORE_HOME"
+install -d -o "$KSCORE_USER" -g "$KSCORE_GROUP" -m 0750 "$KSCORE_LOG_DIR"
+install -d -o "$KSCORE_USER" -g "$KSCORE_GROUP" -m 0750 "$KSCORE_RUN_DIR"
+
+# --- first-install config render -----------------------------------------
+
+# Generate the config from the template if absent. On upgrade the
+# operator's edited copy is left intact.
+if [ ! -f "$KSCORE_CONF_FILE" ] && [ -f "$KSCORE_CONF_TEMPLATE" ]; then
+    # Portable random hex generator. openssl is in base on Debian and
+    # Rocky; the od fallback covers minimal containers.
+    if command -v openssl >/dev/null 2>&1; then
+        HMAC_SECRET=$(openssl rand -hex 32)
+    else
+        HMAC_SECRET=$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')
+    fi
+
+    # Render to a temp file then atomic-rename so a crash mid-write
+    # leaves the operator with either nothing or a complete config.
+    KSCORE_TMP=$(mktemp "${KSCORE_CONF_DIR}/server.yaml.XXXXXX")
+    sed "s|__HMAC_SECRET__|${HMAC_SECRET}|g" "$KSCORE_CONF_TEMPLATE" > "$KSCORE_TMP"
+    chown root:"$KSCORE_GROUP" "$KSCORE_TMP"
+    chmod 0640 "$KSCORE_TMP"
+    mv "$KSCORE_TMP" "$KSCORE_CONF_FILE"
+fi
+
+# --- systemd integration -------------------------------------------------
+
+# Only touch systemd when it's actually running (skip in chroots,
+# minimal containers, and CI runners without systemd).
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    # Enable on every postinst so the service starts on next boot.
+    systemctl enable kscore-server.service >/dev/null 2>&1 || true
+    # Start (or restart on upgrade) so the new binary is live.
+    if systemctl is-active --quiet kscore-server.service; then
+        systemctl restart kscore-server.service >/dev/null 2>&1 || true
+    else
+        systemctl start kscore-server.service >/dev/null 2>&1 || true
+    fi
+fi
+
+exit 0

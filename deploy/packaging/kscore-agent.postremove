@@ -1,0 +1,32 @@
+#!/bin/sh
+# Postremove scriptlet for kscore-agent (.deb + .rpm).
+#
+# Cleanup matches kscore-server.postremove: keep state on plain
+# remove, nuke everything (agent's own paths only) on purge.
+# /etc/kscore is intentionally NOT removed here even on purge because
+# kscore-server may still own it; the server postremove handles that.
+
+set -eu
+
+ACTION=${1:-}
+
+is_purge() {
+    [ "$ACTION" = "purge" ] || [ "$ACTION" = "0" ]
+}
+
+if is_purge; then
+    rm -rf \
+        /var/lib/kscore-agent \
+        /var/log/kscore-agent || true
+
+    # Only remove the agent.yaml itself + /etc/kscore (if empty) —
+    # leave server.yaml alone if the server package is still around.
+    rm -f /etc/kscore/agent.yaml
+    rmdir /etc/kscore 2>/dev/null || true
+fi
+
+if [ -d /run/systemd/system ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+
+exit 0

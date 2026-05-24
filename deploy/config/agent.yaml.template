@@ -1,0 +1,40 @@
+# Default Keystone Core agent configuration.
+#
+# Shipped by the kscore-agent package. Placeholder values — edit
+# before `systemctl start kscore-agent`.
+#
+# The package postinstall enables the systemd unit but does NOT
+# start it (unlike kscore-server, which boots standalone). The
+# agent needs to know where its control plane is + which agent
+# identity it represents; those are operator decisions.
+#
+# For a single-host trial (server + agent on the same VM):
+#   - leave nats.urls pointed at 127.0.0.1:4222 (kscore-server's
+#     embedded NATS listens there by default)
+#   - pick an agent id (any non-empty string)
+#   - register the agent at the server side per the bootstrap
+#     runbook (docs/runbooks/bootstrap-new-cluster.md)
+#
+# For a remote agent on a managed host:
+#   - point nats.urls at the server's reachable NATS endpoint
+#   - run `kscore-bootstrap` to exchange a join token for an
+#     identity-issued SVID
+
+mode: development
+
+agent:
+  id: ""                # REQUIRED — operator-chosen identifier
+  heartbeatinterval: 30s
+  metadatainterval: 60s
+
+logging:
+  level: info
+  format: json
+
+nats:
+  urls:
+    - "nats://127.0.0.1:4222"
+
+metrics:
+  enabled: true
+  path: /metrics
