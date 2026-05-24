@@ -2,856 +2,646 @@
 
 ## Overview
 
-This runbook covers disaster recovery procedures for complete or partial Keystone Core cluster loss.
+Restore procedures for the v0.x line when the Keystone Core deployment
+is down and needs to be rebuilt from a prior snapshot or from scratch.
+Companion to [`backup-restore.md`](backup-restore.md) (which owns
+backup *creation*) and [`emergency-rollback.md`](emergency-rollback.md)
+(which owns rollback of a live-but-misbehaving deployment).
 
-## Prerequisites
+This runbook is specifically about: "the cluster is down, restore it."
 
-- [ ] Access to backup storage (S3, GCS, Azure, local)
-- [ ] Backup decryption keys/identities
-- [ ] New infrastructure provisioned (or recovery site)
-- [ ] Network connectivity to backup location
-- [ ] DNS update access (if needed)
+> **v0.x scope note**: Keystone Core v0.1 is **single-node**. Multi-
+> region failover, cross-cluster replication, and split-brain recovery
+> are gate-v1.0 features tracked in
+> [`docs/project/ROADMAP.md`](../project/ROADMAP.md). The v0.1 DR
+> primitives are:
+>
+> - `kscore-cluster-backup list <dir>` — list snapshots (local file
+>   inspection; no server contact required)
+> - `kscore-cluster-backup verify --input <snapshot>` — verify a
+>   snapshot's integrity (local file inspection; no server contact
+>   required)
+> - `kscore-cluster-backup create` / `restore` — the snapshot
+>   create/restore subcommands talk to the server's
+>   `ClusterGRPCServer`. That gRPC service is **not yet wired at boot**
+>   in v0.1 (tracked under gate-v1.0); the runnable v0.1 backup-create
+>   path today is `kscore-backup` (see `cmd/kscore-backup`, documented
+>   in [`backup-restore.md`](backup-restore.md)).
+>
+> The procedures below therefore treat snapshots as **tar archives of
+> `/var/lib/kscore/` plus `/etc/kscore/`** that were produced by the
+> `kscore-backup` tool, by `kscore-cluster-backup create` (where the
+> service is wired), or by an out-of-band filesystem snapshot. Postgres
+> dumps, where applicable, come from the operator's existing `pg_dump`
+> / `pg_basebackup` tooling — kscore-core does not own Postgres
+> backup orchestration.
 
-## Trigger Conditions
+## RTO and RPO expectations on the v0.x line
 
-- Complete cluster loss (all control plane nodes down)
-- Datacenter outage
-- Unrecoverable data corruption
-- Complete infrastructure failure
+| Scenario                                  | RTO target | RPO target           | Notes |
+|-------------------------------------------|------------|----------------------|-------|
+| SQLite corruption, snapshot on hand       | 15-30 min  | last snapshot        | filesystem restore + restart |
+| Postgres corruption, recent dump on hand  | 30-60 min  | last `pg_dump` / WAL | Postgres-side restore from operator tooling |
+| JetStream store corruption                | 15-30 min  | last snapshot        | loses in-flight events between backup + restore |
+| Identity / CA data loss                   | 15-30 min  | last snapshot        | identity is opt-in; default config has it off |
+| Config destruction (no operator backup)   | 30-60 min  | last operator change | regenerate from template, rotates HMAC, re-issue agent PSKs |
+| Total host loss, snapshot on hand         | 1-3 hours  | last snapshot        | OS reinstall + package install + filesystem restore |
+| Total host loss, no snapshot              | not recoverable | n/a              | rebuild from scratch per `bootstrap-new-cluster.md`; agent state is lost |
 
-## Severity Assessment
+These are **modest** targets relative to the v1.0 HA story. v0.1 is a
+single-node deployment; an RTO of "minutes to a few hours" is the
+shape you should plan around, with RPO bounded by your snapshot
+cadence. The fastest path to a smaller RPO on v0.1 is a more frequent
+backup schedule, not a runtime feature.
 
-| Scenario | RTO Target | RPO Target | Priority |
-|----------|------------|------------|----------|
-| Single node failure | 15 min | 0 | P2 |
-| Multi-node failure | 30 min | 0 | P1 |
-| Complete cluster loss | 4 hours | Last backup | P0 |
-| Datacenter outage | 4 hours | Last backup | P0 |
+## Pre-DR checklist
 
-## Procedure
+Before starting, confirm:
 
-### Phase 1: Assessment (15 minutes)
-
-#### Step 1.1: Confirm Disaster
-
-```bash
-# Attempt to reach all control plane nodes
-for node in ks-server-1 ks-server-2 ks-server-3; do
-  ping -c 3 $node || echo "$node unreachable"
-  curl -sk https://$node:8080/health/live || echo "$node API unreachable"
-done
-
-# Check if any node is responding
-kscorectl cluster health || echo "Cluster unreachable"
-```
-
-#### Step 1.2: Identify Available Backups
-
-```bash
-# List backups from primary location
-kscore-cluster-backup list --dest s3://keystone-backups/
-
-# List backups from DR location
-kscore-cluster-backup list --dest s3://keystone-backups-dr/
-
-# Identify most recent valid backup
-# Note: timestamp, size, components
-```
-
-#### Step 1.3: Document Current State
-
-```
-Disaster Assessment:
-- Date/Time: ____________
-- Affected nodes: ____________
-- Last known good state: ____________
-- Latest backup: ____________
-- Recovery location: ____________
-```
-
-### Phase 2: Infrastructure Preparation (30-60 minutes)
-
-#### Step 2.1: Provision Recovery Infrastructure
+- [ ] You have a usable snapshot. Verify it without trusting the
+      filename:
 
 ```bash
-# Option A: Use pre-provisioned DR site
-# Verify DR infrastructure is ready
-ssh dr-server-1 "hostname && systemctl status"
-
-# Option B: Provision new infrastructure
-# Use Terraform/CloudFormation/etc.
-cd infrastructure/
-terraform apply -var="environment=recovery"
+kscore-cluster-backup list /var/backups/kscore/
+kscore-cluster-backup verify --input /var/backups/kscore/<snapshot>.tar
 ```
 
-#### Step 2.2: Verify Network Connectivity
+- [ ] You know which storage driver the failed deployment used
+      (SQLite vs Postgres). Check the snapshot's
+      `/etc/kscore/server.yaml` for `storage.driver`.
+- [ ] If Postgres: you have credentials and a recent dump or PITR
+      window from your Postgres tooling.
+- [ ] You have root on the recovery host.
+- [ ] The recovery host has the same major-version
+      `kscore-server` / `kscore-cli` packages installed as the
+      snapshot was taken on. Cross-version restore is not
+      supported on the v0.x line.
+- [ ] Stakeholders have been notified per
+      [`docs/project/INCIDENT-RESPONSE.md`](../project/INCIDENT-RESPONSE.md).
+
+---
+
+## Scenario 1 — SQLite corruption (default storage backend)
+
+**Symptoms**:
+
+- `kscore-server` fails to start; `journalctl -u kscore-server`
+  shows the silent-exit pattern (see `troubleshooting.md` §
+  "Server won't start").
+- Manual run surfaces `database disk image is malformed`,
+  `file is not a database`, or `PRAGMA integrity_check` returns
+  errors:
 
 ```bash
-# Test connectivity between recovery nodes
-for node in dr-server-1 dr-server-2 dr-server-3; do
-  ssh $node "ping -c 1 dr-server-1 && ping -c 1 dr-server-2 && ping -c 1 dr-server-3"
-done
-
-# Test connectivity to backup storage
-aws s3 ls s3://keystone-backups-dr/ --region us-west-2
+sudo -u kscore sqlite3 /var/lib/kscore/keystone.db "PRAGMA integrity_check"
 ```
 
-#### Step 2.3: Prepare Recovery Environment
+- Audit-log writes fail. State queries return errors.
+
+**Impact**: server unavailable. Agents disconnect after their
+heartbeat-timeout window.
+
+**Procedure**:
 
 ```bash
-# Copy bootstrap binary to recovery nodes
-for node in dr-server-1 dr-server-2 dr-server-3; do
-  scp kscore-bootstrap $node:/usr/local/bin/
-done
+# 1. Stop the server.
+sudo systemctl stop kscore-server
 
-# Copy decryption identity
-scp /secure/backup-identity.txt dr-server-1:/tmp/
+# 2. Preserve the corrupt DB for forensics before overwriting it.
+sudo cp -a /var/lib/kscore/keystone.db \
+    /var/lib/kscore/keystone.db.corrupt-$(date -u +%Y%m%dT%H%M%S)
+
+# 3. (Optional best-effort) attempt SQLite's native .recover before
+#    restoring from snapshot. If this produces a usable DB, RPO is
+#    "near zero" instead of "last snapshot."
+sudo -u kscore sqlite3 /var/lib/kscore/keystone.db ".recover" \
+    | sudo -u kscore sqlite3 /var/lib/kscore/keystone-recovered.db
+# Inspect /var/lib/kscore/keystone-recovered.db for completeness.
+# If usable, swap it in:
+#   sudo -u kscore mv /var/lib/kscore/keystone-recovered.db \
+#                     /var/lib/kscore/keystone.db
+#   sudo systemctl start kscore-server
+#   curl -fsS http://127.0.0.1:8080/health/ready | jq
+
+# 4. If .recover failed or produced an incomplete DB, restore from
+#    snapshot. The snapshot tar contains /var/lib/kscore/ in full --
+#    extract just the keystone.db file (and its sidecars) to bound
+#    the change set.
+sudo tar -xf /var/backups/kscore/<snapshot>.tar \
+    -C / \
+    var/lib/kscore/keystone.db
+
+# Remove stale WAL / SHM that would otherwise confuse the new DB
+# file.
+sudo rm -f /var/lib/kscore/keystone.db-wal \
+           /var/lib/kscore/keystone.db-shm
+
+sudo chown kscore:kscore /var/lib/kscore/keystone.db
+sudo chmod 0640          /var/lib/kscore/keystone.db
+
+# 5. Restart and verify.
+sudo systemctl start kscore-server
+sleep 35
+curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
 ```
 
-### Phase 3: Restore from Backup (60-120 minutes)
+**Verification**:
 
-#### Step 3.1: Download and Verify Backup
+- `/health/ready` returns `ready=true` with every component
+  `status=ok`.
+- `kscorectl audit log --limit 5` accepts the new request and the
+  call itself appears in the returned tail.
+- A `kscorectl state check ./examples/hello.yaml --agent <agent-id>`
+  against a known-good YAML succeeds.
+
+**Data loss**: everything written to the DB between the snapshot
+time and the failure is lost. Cross-reference the audit log on
+the recovered DB against the snapshot's audit log to identify
+which state-applies / exec-runs landed in the gap and need to be
+manually re-run.
+
+---
+
+## Scenario 2 — Postgres backend corruption / unavailable
+
+**Symptoms**:
+
+- `kscore-server` startup logs surface
+  `failed to connect to postgres` / `pq:` errors, or the server
+  starts but every state query fails.
+- The kscore-side health check fails:
 
 ```bash
-# SSH to first recovery node
-ssh dr-server-1
-
-# Download latest backup
-aws s3 cp s3://keystone-backups-dr/backup-2024-01-15T02-00-00.tar.gz /tmp/
-
-# Verify backup integrity
-kscore-cluster-backup verify /tmp/backup-2024-01-15T02-00-00.tar.gz
-
-# Expected: "Backup verification passed"
+curl -fsS http://127.0.0.1:8080/health/ready | jq '.components'
 ```
 
-#### Step 3.2: Restore First Node
+with the `storage` component reporting `status=fail`.
+
+**Impact**: server unavailable. Postgres being shared with other
+applications can broaden the impact.
+
+**Procedure**:
 
 ```bash
-# Restore from backup
-kscore-bootstrap restore \
-  --backup /tmp/backup-2024-01-15T02-00-00.tar.gz \
-  --decrypt-identity /tmp/backup-identity.txt \
-  --node-ip $(hostname -I | awk '{print $1}')
-
-# Monitor restore progress
-# This will restore: database, config, certificates, JetStream data
-```
-
-#### Step 3.3: Verify First Node
-
-```bash
-# Check server status
-systemctl status kscore-server
-
-# Check API health
-curl -k https://localhost:8080/health/ready
-
-# Check cluster status (single node)
-kscorectl cluster health
-```
-
-#### Step 3.4: Join Additional Nodes
-
-```bash
-# Get join token from cluster config or bootstrap output
-JOIN_TOKEN="$CLUSTER_JOIN_TOKEN"  # Set from config file
-
-# On each additional node
-ssh dr-server-2
-kscore-bootstrap import \
-  --join https://dr-server-1:8080 \
-  --token $JOIN_TOKEN
-
-ssh dr-server-3
-kscore-bootstrap import \
-  --join https://dr-server-1:8080 \
-  --token $JOIN_TOKEN
-```
-
-#### Step 3.5: Verify Cluster Formation
-
-```bash
-# Verify all nodes are healthy
-kscorectl cluster members
-
-# Verify quorum
-kscorectl cluster health
-
-# Verify leader election
-kscorectl cluster leader
-```
-
-### Phase 4: Agent Recovery (30-60 minutes)
-
-#### Step 4.1: Update DNS (if needed)
-
-```bash
-# Update DNS to point to new control plane
-# This depends on your DNS provider
-
-# Example: AWS Route53
-aws route53 change-resource-record-sets \
-  --hosted-zone-id ZXXXXX \
-  --change-batch file://dns-update.json
-```
-
-#### Step 4.2: Wait for Agent Reconnection
-
-```bash
-# Agents should automatically reconnect if DNS is updated
-# Monitor agent reconnections
-watch -n 10 'kscorectl agents list -o json | jq length'
-
-# Check for agents that haven't reconnected
-kscorectl agents list --status offline
-```
-
-#### Step 4.3: Manual Agent Update (if needed)
-
-```bash
-# If agents can't reach new control plane via DNS,
-# update agent configurations
-# On each agent node:
-sed -i 's/old-server/new-server/g' /etc/keystone-core/agent.yaml
-systemctl restart kscore-agent
-```
-
-### Phase 5: Validation (30 minutes)
-
-#### Step 5.1: Verify Cluster Health
-
-```bash
-# Full health check
-kscorectl cluster health --verbose
-
-# Verify all agents connected
-kscorectl agents list
-
-# Verify state data by checking a known state file
-kscorectl state check /path/to/known-state.yaml
-```
-
-#### Step 5.2: Run Integration Tests
-
-```bash
-# Run smoke tests
-kscore-test smoke
-
-# Run integration tests
-kscore-test integration --suite recovery
-```
-
-#### Step 5.3: Verify Critical Functionality
-
-```bash
-# Test remote execution (on a single agent)
-kscorectl exec run "role:webserver" -- hostname
-
-# Test state application
-kscorectl state check /etc/keystone-core/states/test.yaml
-
-# Test event system
-kscorectl events list --limit 10
-```
-
-## Verification Checklist
-
-- [ ] All control plane nodes healthy
-- [ ] Cluster quorum established
-- [ ] Leader elected
-- [ ] Database restored and accessible
-- [ ] NATS cluster formed
-- [ ] All agents reconnected
-- [ ] API responding correctly
-- [ ] State data intact
-- [ ] Remote execution working
-- [ ] Events flowing
-
-## Rollback
-
-If recovery fails:
-
-```bash
-# Try older backup
-kscore-bootstrap restore --backup /tmp/backup-older.tar.gz
-
-# Or restore to previous recovery point
-# Contact support for assistance
-```
-
-## Post-Procedure
-
-### Immediate (within 1 hour)
-
-1. [ ] Update status page
-2. [ ] Notify stakeholders of recovery
-3. [ ] Document recovery details:
-   - Recovery start time
-   - Recovery completion time
-   - Data loss (if any)
-   - Issues encountered
-
-### Within 24 hours
-
-1. [ ] Root cause analysis
-2. [ ] Update monitoring for new infrastructure
-3. [ ] Reconfigure backup jobs
-4. [ ] Test backup/restore cycle
-
-### Within 1 week
-
-1. [ ] Post-mortem meeting
-2. [ ] Update DR procedures based on learnings
-3. [ ] Plan infrastructure improvements
-4. [ ] Update runbook if needed
-
-## Appendix: Recovery Time Estimates
-
-| Component | Estimated Time |
-|-----------|----------------|
-| Infrastructure provisioning | 15-60 min |
-| Backup download | 5-30 min |
-| Database restore | 10-60 min |
-| Certificate restore | 2 min |
-| NATS data restore | 10-30 min |
-| Cluster formation | 10 min |
-| Agent reconnection | 5-30 min |
-| Validation | 30 min |
-| **Total** | **1.5-4 hours** |
-
-## Split-Brain Recovery Playbook
-
-Split-brain occurs when a network partition divides the cluster into multiple segments, each believing it's the authoritative cluster. This is one of the most dangerous distributed systems failure modes.
-
-### Understanding Split-Brain
-
-#### What Causes Split-Brain
-
-```
-Normal State:
-┌─────────────────────────────────────────────────────┐
-│                    Cluster                           │
-│   [Node A] ←──→ [Node B] ←──→ [Node C]              │
-│     (L)           (F)           (F)                  │
-│   L=Leader, F=Follower                               │
-└─────────────────────────────────────────────────────┘
-
-Split-Brain State:
-┌───────────────────────┐     ┌───────────────────────┐
-│    Partition A        │  X  │    Partition B        │
-│   [Node A] ←→ [Node B]│     │      [Node C]         │
-│     (L)        (F)    │     │        (L?)           │
-└───────────────────────┘     └───────────────────────┘
-                  Network partition
-```
-
-**Common causes:**
-
-- Network equipment failure (switch, router)
-- Misconfigured firewalls
-- Cloud provider network issues
-- DNS failures
-- Certificate expiration blocking communication
-
-### Detection
-
-#### Symptoms of Split-Brain
-
-1. **Conflicting leaders**: Multiple nodes claiming leadership
-2. **Data divergence**: Different state on different nodes
-3. **Agent confusion**: Agents connected to different "clusters"
-4. **Duplicate operations**: Commands executed multiple times
-
-#### Detection Commands
-
-```bash
-# Check for multiple leaders
-for node in ks-server-1 ks-server-2 ks-server-3; do
-  echo "=== $node ==="
-  ssh $node "kscorectl cluster leader 2>/dev/null || echo 'unreachable'"
-done
-
-# Check etcd cluster state
-for node in ks-server-1 ks-server-2 ks-server-3; do
-  echo "=== $node ==="
-  ssh $node "etcdctl endpoint status --cluster 2>/dev/null" || echo "unreachable"
-done
-
-# Check agent distribution
-kscorectl agents list -o json | jq 'group_by(.control_plane_node) | .[] | {node: .[0].control_plane_node, count: length}'
-
-# Check for data divergence
-for node in ks-server-1 ks-server-2 ks-server-3; do
-  echo "=== $node agent count ==="
-  ssh $node "kscorectl agents list -o json 2>/dev/null | jq length" || echo "unreachable"
-done
-```
-
-#### Alert Rules for Split-Brain
-
-```yaml
-groups:
-  - name: split-brain-detection
-    rules:
-      - alert: ClusterMultipleLeaders
-        expr: count(kscore_cluster_is_leader == 1) > 1
-        for: 30s
-        labels:
-          severity: critical
-        annotations:
-          summary: "SPLIT-BRAIN: Multiple leaders detected"
-          runbook_url: "https://docs.example.com/runbooks/split-brain"
-
-      - alert: ClusterPartitioned
-        expr: |
-          count(kscore_cluster_member_reachable == 0) by (from_node) > 0
-          and count(kscore_cluster_member_reachable == 1) by (from_node) > 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "Network partition detected in cluster"
-
-      - alert: EtcdClusterDegraded
-        expr: etcd_server_has_leader == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "etcd node has no leader - possible split-brain"
-```
-
-### Recovery Procedure
-
-#### Phase 1: Isolate and Assess (5-10 minutes)
-
-##### Step 1.1: Prevent Further Damage
-
-```bash
-# CRITICAL: Stop all write operations
-# On ALL nodes, enable read-only mode in config then restart:
-for node in ks-server-1 ks-server-2 ks-server-3; do
-  ssh $node "sed -i 's/read_only: false/read_only: true/' /etc/keystone-core/server.yaml && systemctl restart kscore-server" 2>/dev/null || true
-done
-
-# Block agent connections temporarily (if needed)
-# This prevents agents from making changes during recovery
-iptables -A INPUT -p tcp --dport 4222 -j REJECT --reject-with tcp-reset
-```
-
-##### Step 1.2: Identify Partitions
-
-```bash
-# From each node, check connectivity to others
-echo "=== Connectivity Matrix ==="
-for src in ks-server-1 ks-server-2 ks-server-3; do
-  echo -n "$src: "
-  for dst in ks-server-1 ks-server-2 ks-server-3; do
-    ssh $src "nc -zw1 $dst 2379 && echo -n '$dst:OK ' || echo -n '$dst:FAIL '" 2>/dev/null || echo -n "$dst:UNREACHABLE "
-  done
-  echo
-done
-
-# Document partition topology
-# Example output:
-# ks-server-1: ks-server-1:OK ks-server-2:OK ks-server-3:FAIL
-# ks-server-2: ks-server-1:OK ks-server-2:OK ks-server-3:FAIL
-# ks-server-3: ks-server-1:FAIL ks-server-2:FAIL ks-server-3:OK
+# 1. Confirm the failure is Postgres-side, not kscore-side.
+PGPASSWORD=<pwd> psql -h <pg-host> -U kscore kscore \
+    -c "SELECT count(*) FROM pg_stat_activity WHERE datname='kscore'"
+
+# 2. Stop kscore-server so it doesn't keep retrying.
+sudo systemctl stop kscore-server
+
+# 3. Restore Postgres using YOUR Postgres tooling. kscore-core does
+#    not ship Postgres restore primitives. Typical paths:
 #
-# This shows: [Node1, Node2] | [Node3] partition
+#    a. From a logical dump:
+#       PGPASSWORD=<pwd> psql -h <pg-host> -U postgres -c \
+#           "DROP DATABASE kscore; CREATE DATABASE kscore OWNER kscore;"
+#       PGPASSWORD=<pwd> pg_restore -h <pg-host> -U kscore -d kscore \
+#           /backup/postgres/kscore-<timestamp>.dump
+#
+#    b. From a base backup + WAL (point-in-time recovery): run the
+#       Postgres-side recovery flow your operator documentation
+#       covers; kscore-core is unaffected by which mechanism.
+
+# 4. Verify the database is queryable.
+PGPASSWORD=<pwd> psql -h <pg-host> -U kscore kscore \
+    -c "SELECT count(*) FROM kscore_audit_events"
+
+# 5. Restart kscore-server.
+sudo systemctl start kscore-server
+sleep 35
+curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
 ```
 
-##### Step 1.3: Determine Authoritative Partition
+**Verification**: same as Scenario 1 — `/health/ready`, audit log
+accepting writes, a state-check round-trip.
 
-Criteria for selecting authoritative partition (in order):
+**Data loss**: bounded by your Postgres backup cadence and the
+Postgres-side WAL retention. Coordinate Postgres PITR with the
+kscore-side audit log to identify the gap.
 
-1. **Quorum**: Partition with majority of nodes
-2. **Data freshness**: Partition with most recent data
-3. **Agent count**: Partition serving more agents
-4. **Manual selection**: If no clear winner, make explicit choice
+---
+
+## Scenario 3 — JetStream store corruption
+
+**Symptoms**:
+
+- `kscore-server` starts but the events stream and audit-log write
+  rate drop to zero.
+- `journalctl -u kscore-server` shows JetStream-side errors:
+  `jetstream stream replay failed`, `consumer not found`,
+  `stream file corrupt`.
+- `kscorectl events list --since 5m` returns no entries even though
+  agents are actively heartbeating.
+
+**Impact**: in-flight events between the corruption point and the
+restore are lost. State persistence (SQLite / Postgres) is
+unaffected — the agent fleet and state history survive.
+
+**Procedure**:
 
 ```bash
-# Check which partition has quorum
-for node in ks-server-1 ks-server-2 ks-server-3; do
-  echo "=== $node quorum status ==="
-  ssh $node "kscorectl cluster status -o json | jq '.has_quorum'" 2>/dev/null || echo "unreachable"
-done
+# 1. Stop the server.
+sudo systemctl stop kscore-server
 
-# Check data timestamps (last write time via database file mtime)
-for node in ks-server-1 ks-server-2 ks-server-3; do
-  echo "=== $node last write ==="
-  ssh $node "stat /var/lib/keystone-core/keystone-core.db 2>/dev/null | grep Modify" || echo "unreachable"
-done
+# 2. Preserve the corrupt JetStream directory for forensics.
+sudo mv /var/lib/kscore/jetstream \
+        /var/lib/kscore/jetstream.corrupt-$(date -u +%Y%m%dT%H%M%S)
 
-# Check agent counts
-for node in ks-server-1 ks-server-2 ks-server-3; do
-  echo "=== $node agents ==="
-  ssh $node "kscorectl agents list -o json 2>/dev/null | jq length" || echo "unreachable"
-done
+# 3. Restore the JetStream subtree from snapshot.
+sudo tar -xf /var/backups/kscore/<snapshot>.tar \
+    -C / \
+    var/lib/kscore/jetstream
+
+sudo chown -R kscore:kscore /var/lib/kscore/jetstream
+
+# 4. Restart.
+sudo systemctl start kscore-server
+sleep 35
+
+# 5. Confirm JetStream is replaying / accepting writes.
+sudo journalctl -u kscore-server -n 100 --no-pager \
+    | grep -i jetstream
+curl -fsS http://127.0.0.1:8080/health/ready | jq '.components'
+kscorectl events list --since 1m --limit 5
 ```
 
-#### Phase 2: Resolve Network Partition (5-30 minutes)
+**Verification**:
 
-##### Step 2.1: Diagnose Network Issue
+- `/health/ready` returns `ready=true` with the
+  `nats`/`jetstream` component `status=ok`.
+- `kscorectl audit log --limit 5` accepts new writes — the audit
+  pipeline depends on JetStream, so this is the load-bearing
+  signal.
+- New `kscorectl events list` queries return entries within ~10s
+  of post-restart wall-clock.
+
+**Data loss**: any event published to JetStream between the
+snapshot and the corruption is lost. Outbound effects already
+delivered to agents are unaffected; in-flight `kscorectl exec
+run` results that hadn't been ACK'd may need to be re-run.
+
+---
+
+## Scenario 4 — Identity / CA data loss
+
+**Symptoms**:
+
+- Identity is opt-in. The default `/etc/kscore/server.yaml.template`
+  ships `identity.enabled: false`; **if you haven't enabled
+  identity, skip this scenario**.
+- With identity enabled (operator-provided CA cert/key or
+  identity-provider mode): the server fails to start with TLS
+  bootstrap errors, or agents fail mTLS handshakes against the
+  control-plane gRPC endpoint.
+- `journalctl -u kscore-server` shows `failed to load identity
+  material` / `certfile not found` / `failed to derive identity`.
+
+**Impact**: depends on enabled mode. Server may refuse to start
+(CertFile/KeyFile mode) or start but reject mTLS clients
+(identity-provider mode).
+
+**Procedure**:
 
 ```bash
-# Check for network issues
-traceroute ks-server-3
-mtr --report ks-server-3
+# 1. Stop the server.
+sudo systemctl stop kscore-server
 
-# Check firewall rules
-iptables -L -n | grep -E "2379|4222|8080"
+# 2. Restore the identity subtree from snapshot. The on-disk layout
+#    is under /var/lib/kscore/identity/ (CA material, issued
+#    cert/key pairs, identity-provider state).
+sudo tar -xf /var/backups/kscore/<snapshot>.tar \
+    -C / \
+    var/lib/kscore/identity
 
-# Check cloud security groups (AWS)
-aws ec2 describe-security-groups --group-ids sg-xxx
+sudo chown -R kscore:kscore /var/lib/kscore/identity
+sudo chmod -R go-rwx        /var/lib/kscore/identity
 
-# Check DNS resolution
-dig ks-server-3
+# 3. If your server.yaml points identity.certfile / identity.keyfile
+#    at paths OUTSIDE /var/lib/kscore/ (e.g. /etc/kscore/tls/),
+#    restore those paths separately from the snapshot:
+sudo tar -xf /var/backups/kscore/<snapshot>.tar -C / \
+    etc/kscore/tls/ 2>/dev/null || true
 
-# Check certificates
-openssl s_client -connect ks-server-3:8080 -servername ks-server-3
+# 4. Restart.
+sudo systemctl start kscore-server
+sleep 35
+curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
 ```
 
-##### Step 2.2: Fix Network Issue
+**Verification**:
+
+- `/health/ready` returns `ready=true` with the `identity`
+  component `status=ok`.
+- A known-good agent reconnects per its mTLS handshake — confirm
+  via `kscorectl events list --type agent_connected --since 5m`.
+
+**Data loss**: any cert / key material issued after the snapshot
+is lost. Agents holding post-snapshot identities need to be
+re-issued via the identity bootstrap flow. The certificate-rotation
+runbook covers re-issuance.
+
+---
+
+## Scenario 5 — Config destruction (regenerate from template)
+
+**Symptoms**:
+
+- `/etc/kscore/server.yaml` has been deleted, truncated, or
+  rendered unparseable, and **no operator-side backup** of the
+  prior config exists.
+- `kscore-server` startup fails before it reaches the banner line.
+
+**Impact**: server unavailable. Regenerating from the shipped
+template **rotates the HMAC secret**, which invalidates every
+agent's stored bootstrap PSK; every agent must be re-bootstrapped.
+
+**Procedure**:
+
+This scenario overlaps with Scenario C in
+[`emergency-rollback.md`](emergency-rollback.md). Use Scenario C
+as the authoritative procedure; the steps below are reproduced for
+DR convenience.
 
 ```bash
-# If firewall issue:
-iptables -D INPUT -p tcp --dport 2379 -j DROP  # Remove bad rule
-systemctl restart kscore-server
+# 1. Stop the server (it isn't running anyway, but make state
+#    deterministic).
+sudo systemctl stop kscore-server
 
-# If DNS issue:
-# Update /etc/hosts or fix DNS records
-echo "10.0.1.3 ks-server-3" >> /etc/hosts
+# 2. Regenerate /etc/kscore/server.yaml from the shipped template.
+sudo install -o root -g kscore -m 0640 \
+    /usr/share/kscore/server.yaml.template /etc/kscore/server.yaml
 
-# If cloud network issue:
-# Update security groups, VPC peering, etc.
+HMAC=$(openssl rand -hex 32)
+sudo sed -i "s|__HMAC_SECRET__|${HMAC}|g" /etc/kscore/server.yaml
 
-# If certificate issue:
-# Regenerate or distribute certificates
+# 3. If you remember your operator edits (storage.driver, listen
+#    addresses, identity.enabled, etc.), apply them now BEFORE
+#    starting. Otherwise you'll boot with template defaults --
+#    SQLite at /var/lib/kscore/keystone.db, gRPC :5397, HTTP :8080,
+#    embedded NATS :4222, profiling off, identity off.
+sudo $EDITOR /etc/kscore/server.yaml
+
+# 4. Restart.
+sudo systemctl start kscore-server
+sleep 35
+curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
+
+# 5. Re-bootstrap each agent. The HMAC rotation invalidated every
+#    agent's stored bootstrap PSK. Follow the agent-bootstrap flow
+#    in bootstrap-new-cluster.md for each affected host.
 ```
 
-##### Step 2.3: Verify Connectivity Restored
+**Verification**:
+
+- `/health/ready` returns `ready=true`.
+- Re-bootstrapped agents appear in
+  `kscorectl events list --type agent_connected --since 30m`.
+- State applies and audit-log writes work end-to-end.
+
+**Data loss**: no in-database data loss (SQLite / Postgres / JetStream
+all survive). Operator-side config customisations are lost unless
+restored from a sibling backup or version-controlled config.
+
+---
+
+## Scenario 6 — Total host loss (rebuild + restore)
+
+**Symptoms**: the host is gone (hardware failure, accidental VM
+deletion, ransomware) and a replacement host is being provisioned
+or has already been provisioned. SSH no longer reaches the prior
+host.
+
+**Impact**: full outage until rebuild completes. This is the
+worst-case v0.1 DR scenario.
+
+**Procedure**:
 
 ```bash
-# Test connectivity from all nodes
-for src in ks-server-1 ks-server-2 ks-server-3; do
-  echo "=== From $src ==="
-  ssh $src "for dst in ks-server-1 ks-server-2 ks-server-3; do nc -zw1 \$dst 2379 && echo \"\$dst OK\" || echo \"\$dst FAIL\"; done"
-done
+# 1. Provision the replacement host with the same OS major version
+#    as the failed host (cross-distro DR is not supported on the
+#    v0.x line). Network reachability for agents must match the
+#    original host (same IP, or a DNS record they'll re-resolve).
+
+# 2. Install the kscore packages. Use the SAME version as the
+#    snapshot was taken on -- the snapshot tar will not survive a
+#    cross-version restore.
+sudo apt install -y \
+    ./kscore-server_<version>_linux_amd64.deb \
+    ./kscore-cli_<version>_linux_amd64.deb   # Debian/Ubuntu
+# or
+sudo dnf install -y \
+    ./kscore-server-<version>.x86_64.rpm \
+    ./kscore-cli-<version>.x86_64.rpm        # Rocky/RHEL
+
+# 3. Stop the freshly-postinst-started service so the restore
+#    doesn't race against a running server.
+sudo systemctl stop kscore-server
+
+# 4. Restore state + config from snapshot.
+sudo tar -xf /tmp/<snapshot>.tar \
+    -C / \
+    var/lib/kscore \
+    etc/kscore
+
+# Fix ownership (the tar may have been created on a host where
+# the kscore UID/GID differs from the replacement host's).
+sudo chown -R kscore:kscore /var/lib/kscore
+sudo chown -R root:kscore   /etc/kscore
+sudo chmod 0640             /etc/kscore/server.yaml
+
+# 5. If using Postgres, point at the restored / live Postgres
+#    instance. Verify the connection independently before starting
+#    the server:
+#       PGPASSWORD=<pwd> psql -h <pg-host> -U kscore kscore -c '\dt'
+
+# 6. Start the server.
+sudo systemctl start kscore-server
+sleep 35
+curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
+
+# 7. Update DNS if the replacement host has a different IP.
+#    Agents resolve the control plane via their /etc/kscore/agent.yaml
+#    nats.urls; if you used hostnames there, DNS update is enough.
+#    If you used raw IPs, edit each agent.yaml.
 ```
 
-#### Phase 3: Cluster Reconciliation (10-30 minutes)
+**Verification**:
 
-##### Step 3.1: Stop Non-Authoritative Partition
+- `/health/ready` returns `ready=true` with every component
+  `status=ok`.
+- Every agent that survived the host loss reconnects within ~5
+  minutes:
 
 ```bash
-# Identify non-authoritative partition (example: Node 3)
-# Stop services on non-authoritative nodes
-ssh ks-server-3 "systemctl stop kscore-server"
-ssh ks-server-3 "systemctl stop etcd"
+kscorectl events list --type agent_connected --since 30m
 ```
 
-##### Step 3.2: Preserve Split Data (Optional)
+- A spot-check state apply succeeds end-to-end:
 
 ```bash
-# If data on non-authoritative partition might be needed
-ssh ks-server-3 "
-  # Backup local data before reset
-  tar czf /backup/split-brain-data-$(date +%Y%m%d-%H%M%S).tar.gz \
-    /var/lib/keystone-core \
-    /var/lib/etcd
-"
+kscorectl state apply ./examples/hello.yaml --agent <agent-id>
+kscorectl state drift --agent <agent-id>
 ```
 
-##### Step 3.3: Reset Non-Authoritative Nodes
+- Audit log accepts new writes:
 
 ```bash
-# Remove cluster membership and data from non-authoritative nodes
-ssh ks-server-3 "
-  # Remove from etcd cluster first
-  etcdctl member remove \$(etcdctl member list | grep ks-server-3 | cut -d',' -f1)
-
-  # Clear local data
-  rm -rf /var/lib/etcd/*
-  rm -rf /var/lib/keystone-core/state/*
-"
+kscorectl audit log --limit 5
 ```
 
-##### Step 3.4: Rejoin Nodes to Authoritative Cluster
+**Data loss**: bounded by snapshot freshness (state + config) and
+Postgres backup cadence (if applicable). Agent-side runtime state
+(in-flight exec runs, queued state-applies) between the snapshot
+and the host loss is gone.
+
+**No snapshot available?** This procedure cannot complete. Treat
+the deployment as net-new and follow
+[`bootstrap-new-cluster.md`](bootstrap-new-cluster.md). You will
+lose the entire agent fleet's stored identities, audit history,
+and state-run history.
+
+---
+
+## RTO/RPO drill procedure
+
+Snapshots that aren't periodically restored are not known to work.
+Run this drill **quarterly** at minimum, ideally monthly:
 
 ```bash
-# On authoritative cluster, add member back
-kscorectl cluster add ks-server-3
+# 1. Spin up an isolated drill host (VM / container) on the same OS
+#    + kscore-server version as production.
 
-# Prepare join configuration on the rejoining node
-# The node will use cluster join command with appropriate token
+# 2. Copy the most recent production snapshot to the drill host.
+scp prod:/var/backups/kscore/<latest>.tar drill:/tmp/
 
-# On rejoining node
-ssh ks-server-3 "
-  # Write join configuration
-  echo '$JOIN_CONFIG' > /etc/keystone-core/join.yaml
+# 3. On the drill host, walk Scenario 6 (total host rebuild) end-to-end.
+ssh drill
+sudo systemctl stop kscore-server
+sudo tar -xf /tmp/<latest>.tar -C / var/lib/kscore etc/kscore
+sudo chown -R kscore:kscore /var/lib/kscore
+sudo chown -R root:kscore   /etc/kscore
+sudo systemctl start kscore-server
+sleep 35
 
-  # Start etcd in join mode
-  systemctl start etcd
+# 4. Run the standard DR verification checklist below.
 
-  # Wait for etcd to sync
-  sleep 30
+# 5. Record wall-clock duration -- this is your measured RTO.
+#    Compare against the production snapshot timestamp -- this is
+#    your measured RPO if the prior incident happened at drill time.
 
-  # Start kscore-server
-  systemctl start kscore-server
-"
+# 6. Tear down the drill host.
 ```
 
-##### Step 3.5: Verify Cluster Unified
+Drill results should be filed in your incident-response log. A
+snapshot you haven't restored within 90 days is a snapshot you
+shouldn't assume works.
+
+---
+
+## Cross-references
+
+- **Backup creation**: [`backup-restore.md`](backup-restore.md).
+  This file does not document `kscore-backup` / `kscore-cluster-backup
+  create` ergonomics; that runbook does.
+- **Live-but-bad deployment** (server up, recently changed, behaving
+  badly): [`emergency-rollback.md`](emergency-rollback.md). Use that
+  runbook instead of this one when the server is running but the
+  *change* needs to be rolled back. The four scenarios there are
+  package downgrade (A), state rollback (B), config revert (C), and
+  catastrophic restore-from-snapshot (D — overlaps with Scenarios 1
+  and 6 here).
+- **Net-new install** (no prior deployment, no snapshot to restore):
+  [`bootstrap-new-cluster.md`](bootstrap-new-cluster.md).
+- **Server-side troubleshooting** (silent exit, port conflict,
+  storage / NATS issues): [`troubleshooting.md`](troubleshooting.md).
+- **Certificate / identity rotation**:
+  [`certificate-rotation.md`](certificate-rotation.md).
+- **Incident response process** (notifications, post-mortem flow):
+  [`docs/project/INCIDENT-RESPONSE.md`](../project/INCIDENT-RESPONSE.md).
+
+---
+
+## Post-DR checklist
+
+After completing any DR scenario:
+
+- [ ] `curl /health/ready` returns `ready=true` with every component
+      reporting `status=ok`.
+- [ ] All agents that should have reconnected are visible via
+      `kscorectl events list --type agent_connected --since 30m`.
+- [ ] Audit log accepts new writes (`kscorectl audit log --limit 5`
+      shows recent entries including the verification calls
+      themselves).
+- [ ] A representative state apply / drift round-trip succeeds:
 
 ```bash
-# Check cluster membership
-kscorectl cluster members
-
-# Verify all nodes see same leader
-for node in ks-server-1 ks-server-2 ks-server-3; do
-  echo "$node leader: $(ssh $node 'kscorectl cluster leader')"
-done
-
-# Verify quorum
-kscorectl cluster health
-
-# Check etcd cluster
-etcdctl endpoint status --cluster -w table
+kscorectl state apply ./examples/hello.yaml --agent <agent-id>
+kscorectl state drift --agent <agent-id>
 ```
 
-#### Phase 4: Data Reconciliation (15-60 minutes)
+- [ ] Prometheus error-rate metrics return to a sane baseline within
+      ~10 minutes of restart.
+- [ ] If HMAC was rotated (Scenario 5), every agent has been
+      re-bootstrapped.
+- [ ] If identity material was restored (Scenario 4), any agents
+      issued certs after the snapshot have been re-issued.
+- [ ] The corrupt/old data preserved at the start of each scenario
+      (`*.corrupt-<timestamp>`) is either copied off to forensic
+      storage or deliberately discarded.
 
-##### Step 4.1: Identify Data Conflicts
+## Post-DR diagnostic bundle
+
+Collect this bundle for the post-mortem regardless of which scenario
+ran:
 
 ```bash
-# Export agent list from authoritative partition
-kscorectl agents list -o json > authoritative-agents.json
+D=/tmp/kscore-dr-$(date -u +%Y%m%dT%H%M%S)
+mkdir -p "$D"
 
-# Compare with backup from non-authoritative partition (if available)
-# Check for agents that exist in backup but not in authoritative
-jq -r '.[].id' authoritative-agents.json | sort > auth-ids.txt
-jq -r '.[].id' backup-agents.json | sort > backup-ids.txt
-comm -13 auth-ids.txt backup-ids.txt > missing-agents.txt
+# Service journals around the incident window.
+sudo journalctl -u kscore-server --since "6 hours ago" --no-pager > "$D/server.log"
+sudo journalctl -u kscore-agent  --since "6 hours ago" --no-pager > "$D/agent.log" 2>/dev/null || true
+
+# Config (redacted) at recovery time.
+sudo cp /etc/kscore/server.yaml "$D/server.yaml.at-recovery"
+sudo sed -i 's/^\(\s*hmacsecret:\s*"\).*"/\1REDACTED"/' "$D/server.yaml.at-recovery"
+sudo sed -i 's/^\(\s*master_key:\s*\).*$/\1REDACTED/'    "$D/server.yaml.at-recovery"
+
+# Snapshot manifest (which snapshot was used).
+echo "snapshot restored: <snapshot>.tar" > "$D/restore-manifest.txt"
+echo "wall-clock start: <start-time-UTC>" >> "$D/restore-manifest.txt"
+echo "wall-clock end:   <end-time-UTC>"   >> "$D/restore-manifest.txt"
+echo "scenario:         <1-6>"            >> "$D/restore-manifest.txt"
+
+# Versions.
+sudo dpkg -l kscore-server kscore-cli kscore-agent > "$D/installed-packages.txt" 2>/dev/null || \
+    sudo rpm -q kscore-server kscore-cli kscore-agent > "$D/installed-packages.txt"
+/usr/bin/kscore-server --version >> "$D/installed-packages.txt"
+
+# Health snapshot.
+curl -fsS http://127.0.0.1:8080/health/ready > "$D/health-ready.json" 2>/dev/null || true
+
+# Audit log tail (last 200 entries -- captures restore-time activity).
+kscorectl audit log --limit 200 -o json > "$D/audit-tail.json" 2>/dev/null || true
+
+# Storage sizes (sanity-check the restore actually populated the data plane).
+sudo du -sh /var/lib/kscore /var/lib/kscore/* 2>/dev/null > "$D/storage-sizes.txt"
+
+# Bundle.
+sudo tar czf "${D}.tar.gz" -C /tmp "$(basename $D)"
+echo "DR diagnostic bundle: ${D}.tar.gz"
 ```
 
-##### Step 4.2: Manual Conflict Resolution
+Attach the bundle to the incident ticket. **Inspect before sharing
+externally** — the redaction is best-effort and may miss
+operator-added secrets in the YAML.
 
-```bash
-# For split-brain scenarios, data reconciliation must be done manually:
-# 1. Identify the authoritative partition (usually the one with more recent data
-#    or the one that was accessible to more agents)
-# 2. Restore from the authoritative partition's backup
-# 3. Review logs from the non-authoritative partition for any critical operations
-#    that need to be replayed manually
+## Escalation
 
-# Check server logs for operations during split-brain window
-journalctl -u kscore-server --since "2024-01-15 10:00" --until "2024-01-15 12:00" \
-  | grep -E "state apply|exec run|agent register"
-```
-
-##### Step 4.3: Replay Lost Operations
-
-If the non-authoritative partition accepted commands that need to be preserved:
-
-```bash
-# Extract backup from non-authoritative partition
-tar xzf /backup/split-brain-data-xxx.tar.gz -C /tmp/split-data
-
-# Review logs from non-authoritative partition for operations to replay
-# State applies during the split-brain window:
-grep "state apply" /tmp/split-data/var/log/keystone-core/*.log
-
-# Manual replay: re-apply any critical state files
-# Review each state file and apply if appropriate
-for state_file in /tmp/split-data/states/*.yaml; do
-  echo "Review: $state_file"
-  cat "$state_file"
-  # After review, apply with:
-  # kscorectl state apply "$state_file" --dry-run
-done
-
-# For exec commands, review and re-run manually as needed
-grep "exec run" /tmp/split-data/var/log/keystone-core/*.log
-```
-
-> **Note**: Automated command replay is not currently implemented. Operations
-> from the non-authoritative partition must be reviewed and replayed manually.
-
-#### Phase 5: Agent Recovery (10-30 minutes)
-
-##### Step 5.1: Enable Write Operations
-
-```bash
-# Re-enable writes on all nodes
-for node in ks-server-1 ks-server-2 ks-server-3; do
-  ssh $node "sed -i 's/read_only: true/read_only: false/' /etc/keystone-core/server.yaml && systemctl restart kscore-server"
-done
-
-# Re-enable agent connections (if blocked)
-iptables -D INPUT -p tcp --dport 4222 -j REJECT --reject-with tcp-reset
-```
-
-##### Step 5.2: Force Agent Re-registration
-
-```bash
-# Agents connected to non-authoritative partition will auto-reconnect.
-# If agents are stuck, restart the agent service on affected nodes:
-# ssh agent-node "systemctl restart kscore-agent"
-
-# Monitor agent reconnection
-watch -n 5 'kscorectl agents list -o json | jq "[.[] | select(.status==\"online\")] | length"'
-```
-
-##### Step 5.3: Verify Agent State
-
-```bash
-# Check all agents are connected
-kscorectl agents list --status offline
-
-# If agents are stuck, restart agent service on affected nodes:
-# ssh agent-node "systemctl restart kscore-agent"
-
-# Verify agent data is consistent
-kscorectl agents verify --sample 10
-```
-
-### Post-Recovery Checklist
-
-- [ ] All cluster nodes healthy and communicating
-- [ ] Single leader elected
-- [ ] Quorum established
-- [ ] All agents reconnected
-- [ ] Data consistency verified
-- [ ] No conflicting operations pending
-- [ ] Monitoring alerts cleared
-- [ ] Write operations re-enabled
-
-### Prevention Measures
-
-#### Network Redundancy
-
-```yaml
-# Use multiple network paths
-cluster:
-  peers:
-    - name: ks-server-1
-      peer_urls:
-        - https://10.0.1.1:2380      # Primary network
-        - https://172.16.1.1:2380    # Secondary network
-```
-
-#### Quorum Configuration
-
-```yaml
-# Ensure odd number of nodes for clear majority
-cluster:
-  min_quorum: 2  # For 3 nodes
-  election_timeout: 5s
-  heartbeat_interval: 1s
-```
-
-#### Split-Brain Prevention
-
-```yaml
-# Configure pre-vote to prevent disruption
-etcd:
-  pre_vote: true
-
-  # Strict quorum checking
-  strict_reconfig_check: true
-
-  # Auto-compaction to limit divergence
-  auto_compaction_retention: "1h"
-```
-
-#### Monitoring
-
-```yaml
-# Set up split-brain alerting
-alerting:
-  rules:
-    - alert: PotentialSplitBrain
-      expr: |
-        (sum(kscore_cluster_members_connected) by (node) /
-         count(kscore_cluster_members_total)) < 0.5
-      for: 30s
-      severity: warning
-```
-
-### Recovery Time Estimates
-
-| Phase | Estimated Time |
-|-------|----------------|
-| Detection and assessment | 5-10 min |
-| Network diagnosis | 5-15 min |
-| Network repair | 5-30 min |
-| Cluster reconciliation | 10-30 min |
-| Data reconciliation | 15-60 min |
-| Agent recovery | 10-30 min |
-| Validation | 15 min |
-| **Total** | **1-3 hours** |
-
-### Decision Tree
-
-```
-Split-brain detected
-        │
-        ▼
-┌───────────────────────┐
-│ Network partition     │
-│ currently active?     │
-└───────────┬───────────┘
-            │
-     ┌──────┴──────┐
-     │             │
-    YES           NO
-     │             │
-     ▼             ▼
-Fix network    Partitions may
-first          have rejoined
-     │         automatically
-     │             │
-     ▼             ▼
-┌───────────────────────┐
-│ Multiple leaders      │
-│ detected?             │
-└───────────┬───────────┘
-            │
-     ┌──────┴──────┐
-     │             │
-    YES           NO
-     │             │
-     ▼             ▼
-Select         Check for
-authoritative  data divergence
-partition      only
-     │             │
-     ▼             ▼
-Reset non-     Reconcile
-authoritative  data
-nodes              │
-     │             │
-     └──────┬──────┘
-            │
-            ▼
-    Verify cluster
-    unified
-            │
-            ▼
-    Reconcile
-    agent state
-            │
-            ▼
-    Resume normal
-    operations
-```
-
-## Appendix: Backup Locations
-
-| Location | Purpose | Retention |
-|----------|---------|-----------|
-| s3://keystone-backups/ | Primary backups | 30 days |
-| s3://keystone-backups-dr/ | DR backups (cross-region) | 30 days |
-| /backup/local/ | Local fast restore | 7 days |
+If a chosen scenario fails to bring the server back to
+`ready=true`, escalate per
+[`docs/project/INCIDENT-RESPONSE.md`](../project/INCIDENT-RESPONSE.md).
+Maintainer contact channels are documented in
+[`OWNERSHIP.md`](../../OWNERSHIP.md) and
+[`SECURITY.md`](../../SECURITY.md).
