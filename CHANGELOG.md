@@ -64,6 +64,23 @@ Anchored on the reconstruction baseline (commit `14be1109`).
 
 ### Docs
 
+- **First-impression doc pass** for the v0.1.x soft launch:
+  - `README.md` Quickstart rewritten around the `apt install` /
+    `systemctl` / `kscorectl` operator path (was `git clone`,
+    `make e2e-up`, and grpcurl). Mirrors
+    [`docs/runbooks/bootstrap-new-cluster.md`](docs/runbooks/bootstrap-new-cluster.md).
+  - `docs/project/GETTING-STARTED.md` rewritten as a guided ~30-minute
+    fresh-VM operator tutorial: package install, smoke checks, agent
+    online, run a command via `kscorectl exec`, apply state via
+    `kscorectl state apply`, browse audit via `kscorectl audit log`.
+    Closes the matching v0.x ROADMAP entry.
+  - Docker-compose dev topology + grpcurl walkthrough relocated to
+    `docs/project/DEVELOPMENT.md` § Local Dev Topology, where it
+    belongs as contributor onboarding.
+- **F1 soft-launch decision** for v0.1.x recorded durably in
+  [`docs/project/GOVERNANCE.md`](docs/project/GOVERNANCE.md) § Launch
+  Posture; F1 ticked in the public-launch checklist; F2
+  (announcement draft) marked not-applicable for v0.1.x.
 - Public-launch checklist Phases A–D ticked across 4 commits
   (`524757a0` → `9622ed36`): code-vs-docs sync, link health, epic
   acceptance audit, security baseline + dummy-report-flow doc, threat-
@@ -182,7 +199,7 @@ coverage or behind a v0.x flag:
 - **Hugo docs site** — post-v1.0. v0.1.0 ships Markdown references under `docs/project/`.
 - **Multi-party release signing** — v1.2 graduation per [`RELEASE-PLAYBOOK.md`](RELEASE-PLAYBOOK.md). v0.x / v1.0 / v1.1 ship under the single-signer ceremony.
 - **Windows + macOS agents, WASM modules, full SPIRE, Kubernetes operator, federation, web UI, blueprint marketplace** — explicitly post-v1.0 (epic 19 §Scope out).
-- **gRPC server reflection disabled in dev** — verification flows in [`docs/project/GETTING-STARTED.md`](docs/project/GETTING-STARTED.md) describe the workaround.
+- **gRPC server reflection disabled in dev** — the workaround (pass `-import-path api/proto -proto api/proto/keystone/core/v1/controlplane.proto` to grpcurl, or use the REST surface) is documented in [`docs/project/DEVELOPMENT.md`](docs/project/DEVELOPMENT.md) § Local Dev Topology.
 - **gosec G115 (integer overflow conversion) excluded project-wide** per [`docs/project/SECURITY-GOVERNANCE.md`](docs/project/SECURITY-GOVERNANCE.md) "Security Baseline Pipeline." v1.x ROADMAP entry "Security baseline expansion" tracks the per-site re-audit.
 - **Per-domain sustained-load profiling, 1-hour fd-leak soak, docs-URL injection in errors, context-aware threading of 122 deep-helper log sites** — tracked as v1.x ROADMAP entries; the v1.0 baseline is in [`docs/project/PROFILING-BASELINE.md`](docs/project/PROFILING-BASELINE.md) + [`docs/project/HARDENING-BASELINE.md`](docs/project/HARDENING-BASELINE.md).
 
