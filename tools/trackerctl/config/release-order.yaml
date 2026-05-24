@@ -86,6 +86,8 @@ v0.x:
   - "Rewrite GETTING-STARTED.md around the operator (package-install) path"
   - "`kscorectl agent list` subcommand"
   - "REST stubs for control-plane RPCs — decide: remove docs claims or implement"
+  - "RunbookGRPCServer not registered at boot"
+  - "Blueprint and runbook REST handler packages not mounted"
   - "kscore-server: surface fatal-init errors to stderr instead of silently exiting"
   - "Phase D3: macOS dev-build sanity test"
   - "Persist dispatch principal on CommandRecord for audit-log User field"

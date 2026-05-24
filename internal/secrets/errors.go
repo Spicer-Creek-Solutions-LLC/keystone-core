@@ -36,8 +36,10 @@ var ErrLeaseExpired = errors.New("secrets: lease expired")
 // for non-dynamic paths) also use this sentinel.
 var ErrLeaseNotRenewable = errors.New("secrets: lease not renewable")
 
-// ErrNotImplementedYet is the placeholder return used by in-flight
-// epic-10 tasks: every method on the [SecretBackend] interface returns
-// this until the owning task lands. Tasks 2-12 remove the sentinel
-// from their owned call sites as they land.
-var ErrNotImplementedYet = errors.New("secrets: backend method not implemented yet (Epic 10 in flight)")
+// ErrNotImplementedYet is the sentinel test doubles return for
+// SecretBackend methods that aren't wired in a given test fixture.
+// Epic 10 backends (encrypted-file, Vault) no longer return this
+// from production code; the sentinel survives because it's the
+// canonical "method-not-wired" signal that test rigs assert against
+// via errors.Is.
+var ErrNotImplementedYet = errors.New("secrets: backend method not wired (test fixture)")

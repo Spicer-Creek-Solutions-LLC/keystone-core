@@ -27,9 +27,3 @@ var ErrPublisherNotStarted = errors.New("events: publisher not started")
 // ErrSubscriberNotStarted is returned by [EventSubscriber] methods
 // invoked before `Start` or after `Close` (task 4).
 var ErrSubscriberNotStarted = errors.New("events: subscriber not started")
-
-// ErrNotImplementedYet is the placeholder return used by in-flight
-// epic-11 tasks: every method on [EventStore] / [EventPublisher] /
-// [EventSubscriber] returns this until the owning task lands. Tasks
-// 2-11 remove the sentinel from their owned call sites as they land.
-var ErrNotImplementedYet = errors.New("events: method not implemented yet (Epic 11 in flight)")

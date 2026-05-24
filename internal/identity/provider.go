@@ -19,13 +19,14 @@ var ErrInvalidProvider = errors.New("identity: invalid Provider")
 // using [errors.Is] against the family root.
 var ErrProviderNotRunning = errors.New("identity: provider not running")
 
-// ErrNotImplementedYet is the sentinel the placeholder Provider
-// methods return during the v0.1 transitional window: [Provider.Attest]
-// (task 8), [Provider.CreateJoinToken] / [Provider.ListJoinTokens]
-// / [Provider.DeleteJoinToken] (tasks 9-11). Once those tasks land,
-// the sentinel disappears from the call sites; downstream code
-// branches with [errors.Is] in the meantime.
-var ErrNotImplementedYet = errors.New("identity: provider method not implemented yet (Epic 09 in flight)")
+// ErrNotImplementedYet is returned by [EmbeddedProvider.Attest] when
+// the provider has no registered attestors. Other identity methods
+// that historically returned this during Epic 09 development now have
+// concrete implementations; the sentinel survives only for the
+// no-attestors-registered code path (embedded_provider.go) where
+// returning a structured error is the right shape for callers
+// branching with [errors.Is].
+var ErrNotImplementedYet = errors.New("identity: no attestors registered")
 
 // Provider is the top-level v0.1 identity surface. The embedded
 // CA provider (this epic) and the future SPIRE provider (post-v1.0)
@@ -53,12 +54,12 @@ type Provider interface {
 	IssueX509SVID(ctx context.Context, req IssueX509SVIDRequest) (X509SVID, error)
 	IssueJWTSVID(ctx context.Context, req IssueJWTSVIDRequest) (JWTSVID, error)
 
-	// Attestation — task 8 fills in. Task 7 returns
-	// [ErrNotImplementedYet].
+	// Attestation. Returns [ErrNotImplementedYet] when the provider
+	// has no registered attestors; production callers always register
+	// at least one (JoinTokenAttestor at minimum) before Start.
 	Attest(ctx context.Context, req AttestRequest) (*AttestResult, error)
 
-	// Join tokens — tasks 9-11 fill in. Task 7 returns
-	// [ErrNotImplementedYet].
+	// Join tokens.
 	CreateJoinToken(ctx context.Context, req CreateJoinTokenRequest) (JoinToken, error)
 	ListJoinTokens(ctx context.Context, filter ListJoinTokensFilter) ([]JoinToken, error)
 	DeleteJoinToken(ctx context.Context, id string) error

@@ -31,7 +31,6 @@
 package secrets
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -636,6 +635,3 @@ func signFirstErr(rs []secrets.SignResult, fallback string) string {
 	return fallback
 }
 
-// _ = context.TODO is here so a future refactor that adds a context
-// parameter doesn't break the import unused-check.
-var _ = context.TODO
