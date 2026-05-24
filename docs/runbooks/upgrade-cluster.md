@@ -1,316 +1,263 @@
-# Runbook: Upgrade Cluster
+# Runbook: Upgrade a Keystone Core deployment
 
 ## Overview
 
-This runbook covers upgrading a Keystone Core cluster to a new version.
+Upgrade procedures for the v0.x line. Keystone Core v0.1 is **single-
+node** — the server runs on one host and is upgraded as a single
+unit using the OS package manager. Rolling / canary / blue-green
+upgrade strategies and the orchestrated `kscorectl upgrade` command
+family arrive with the HA work tracked in
+[`docs/project/ROADMAP.md`](../project/ROADMAP.md).
+
+> **v0.x scope note**: This runbook covers the v0.1 single-node
+> upgrade flow. Multi-node orchestration, canary deploys, and
+> automatic agent fleet upgrades are gate-v1.0 features tracked in
+> the roadmap.
 
 ## Prerequisites
 
-- [ ] Target version tested in staging
-- [ ] Upgrade path validated (version compatibility)
-- [ ] Backup created within last 24 hours
+- [ ] Target version validated in a non-production environment
+- [ ] Backup created within the last 24 hours
+      (see [`backup-restore.md`](backup-restore.md))
+- [ ] Release notes reviewed
+      (see [`CHANGELOG.md`](../../CHANGELOG.md))
 - [ ] Maintenance window scheduled
 - [ ] Rollback plan reviewed
-- [ ] Release notes reviewed
+      (see [`emergency-rollback.md`](emergency-rollback.md))
 
-## Trigger Conditions
+## When to upgrade
 
-- New version available with required features
-- Security patch required
-- Bug fix needed
-- End of support approaching
+- A new version ships with a feature you need
+- A security patch is required (see
+  [`SECURITY.md`](../../SECURITY.md) for disclosure timelines)
+- A bug fix in your dependency path
+- A breaking change in the v0.x line is documented in
+  [`CHANGELOG.md`](../../CHANGELOG.md) requiring proactive migration
 
-## Pre-Upgrade Checklist
-
-```bash
-# 1. Check current version
-kscorectl version
-
-# 2. Check available upgrades
-kscorectl upgrade check
-
-# 3. Verify compatibility
-kscorectl upgrade check --target 0.2.0
-
-# 4. Review release notes
-# Visit: https://docs.keystone.io/releases/0.2.0
-
-# 5. Verify cluster health
-kscorectl cluster health
-
-# 6. Create backup
-kscore-cluster-backup create \
-  --dest /backup/pre-upgrade-0.2.0 \
-  --label "pre-upgrade-0.2.0"
-```
-
-## Procedure
-
-### Step 1: Pre-Flight Checks
+## Pre-upgrade
 
 ```bash
-# Verify all nodes healthy
-kscorectl cluster health --verbose
+# 1. Confirm current versions.
+sudo systemctl status kscore-server --no-pager | head -5
+dpkg -l kscore-server kscore-cli kscore-agent 2>/dev/null || \
+    rpm -q kscore-server kscore-cli kscore-agent
 
-# Verify all agents connected
-TOTAL_AGENTS=$(kscorectl agents list --status online -o json | jq length)
-echo "Total agents online: $TOTAL_AGENTS"
+# 2. Confirm cluster (server) is healthy before the change.
+curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
 
-# Verify no recent state failures (check logs)
-journalctl -u kscore-server --since "1 hour ago" | grep -i "state apply\|failed" | tail -10
+# 3. Confirm agents are connected (the events stream is the
+#    authoritative signal; Prometheus is a lagging indicator).
+kscorectl events list --type agent_connected --since 1h
 
-# Record baseline metrics
-curl -s http://localhost:9090/api/v1/query?query=rate(kscore_api_errors_total[5m]) > /tmp/baseline-errors.txt
-curl -s http://localhost:9090/api/v1/query?query=histogram_quantile(0.99,rate(kscore_api_request_duration_seconds_bucket[5m])) > /tmp/baseline-latency.txt
+# 4. Sample recent error baseline so post-upgrade comparison is
+#    meaningful. Replace <PROM_URL> with your scrape target.
+curl -s "http://<PROM_URL>/api/v1/query?query=sum(rate(kscore_api_errors_total[5m]))" \
+    > /tmp/upgrade-baseline-errors.json
+
+# 5. Take a snapshot. Skip only if you have a recent backup AND a
+#    documented restore drill in the last 30 days.
+sudo kscore-cluster-backup create \
+    --output /var/backups/kscore/pre-upgrade-$(date -u +%Y%m%dT%H%M%S).tar \
+    --description "pre-upgrade snapshot"
+
+# 6. Read the release notes for breaking changes. Honor any
+#    documented config migration before stopping the service.
+$EDITOR CHANGELOG.md  # or open in your forge UI
 ```
 
-### Step 2: Generate Upgrade Plan
+## Server upgrade
 
 ```bash
-# Generate and review upgrade plan
-kscorectl upgrade plan --target 0.2.0
+# 1. Stop the server. The systemd unit drains in-flight gRPC
+#    streams cleanly within TimeoutStopSec=30s.
+sudo systemctl stop kscore-server
 
-# Example output:
-# Upgrade Plan: 1.5.0 -> 0.2.0
-# Strategy: rolling
-# Estimated duration: 45 minutes
-#
-# Pre-upgrade:
-#   - Validate prerequisites
-#   - Create backup checkpoint
-#
-# Server upgrade (rolling):
-#   1. ks-server-1: drain, upgrade, verify (15 min)
-#   2. ks-server-2: drain, upgrade, verify (15 min)
-#   3. ks-server-3: drain, upgrade, verify (15 min)
-#
-# Agent upgrade (batched):
-#   - 15 batches of 10 agents (30 min)
-#
-# Post-upgrade:
-#   - Verify cluster health
-#   - Run smoke tests
-#
-# Rollback: Automatic on failure
+# 2. Upgrade the package via the OS package manager. apt /
+#    dnf will pull the new version from whichever channel is
+#    configured (the v0.x snapshot artifacts ship via
+#    operator-managed repos in v0.1; a public package repo
+#    arrives with the v1.0 release ceremony).
+sudo apt install -y ./kscore-server_<version>_linux_amd64.deb   # Debian/Ubuntu
+sudo dnf install -y ./kscore-server-<version>.x86_64.rpm        # Rocky/RHEL
 
-# Save plan for reference
-kscorectl upgrade plan --target 0.2.0 --output /tmp/upgrade-plan.yaml
+# 3. The postinst re-runs daemon-reload + enable + (re)start. If
+#    your config has operator edits the postinst preserves them
+#    (the rendered /etc/kscore/server.yaml is NOT a conffile;
+#    upgrades never overwrite it).
+sudo systemctl status kscore-server --no-pager | head -10
+
+# 4. Wait for the 30s grace period then verify health.
+sleep 35
+curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
+
+# 5. Verify the running version matches expectations.
+/usr/bin/kscore-server --version
 ```
 
-### Step 3: Execute Upgrade
+## CLI upgrade
+
+The `kscore-cli` package bundles `kscorectl` + every dispatched
+sub-binary (`kscore-audit`, `kscore-secrets`, …). Upgrade it in
+lockstep with the server.
 
 ```bash
-# Start upgrade
-kscorectl upgrade execute --target 0.2.0
+sudo apt install -y ./kscore-cli_<version>_linux_amd64.deb   # Debian/Ubuntu
+sudo dnf install -y ./kscore-cli-<version>.x86_64.rpm        # Rocky/RHEL
 
-# Or with specific options
-kscorectl upgrade execute --target 0.2.0 \
-  --strategy rolling \
-  --max-unavailable 1 \
-  --backup-before \
-  --auto-rollback
+# Sanity-check the new CLI.
+kscorectl --version
+kscorectl --help | head -10
 ```
 
-### Step 4: Monitor Progress
+## Agent upgrade
+
+Agents are upgraded per-host. The server keeps running while
+individual agents are bounced; agents handle reconnect via the
+control plane's bootstrap chain.
+
+For each managed host:
 
 ```bash
-# Watch upgrade progress
-kscorectl upgrade status --watch
+# 1. Stop the agent locally on the host (or via a remote command
+#    if the agent connection is healthy).
+sudo systemctl stop kscore-agent
 
-# In another terminal, monitor metrics
-watch -n 10 'curl -s http://localhost:9090/api/v1/query?query=rate(kscore_api_errors_total[1m]) | jq ".data.result[0].value[1]"'
+# 2. Upgrade the package.
+sudo apt install -y ./kscore-agent_<version>_linux_amd64.deb   # Debian/Ubuntu
+sudo dnf install -y ./kscore-agent-<version>.x86_64.rpm        # Rocky/RHEL
 
-# Monitor cluster health
-watch -n 10 'kscorectl cluster health'
+# 3. Restart. The agent re-registers with the control plane on
+#    the next NATS reconnect (60s default, see
+#    nats.reconnectWait in /etc/kscore/agent.yaml).
+sudo systemctl start kscore-agent
 
-# Monitor agent count
-watch -n 10 'kscorectl agents list --status online -o json | jq length'
+# 4. Verify the agent reconnected by watching the control-plane
+#    events stream from the operator workstation.
+kscorectl events list --type agent_connected --since 5m \
+    --filter "metadata.agent_id == '<host-id>'"
 ```
 
-### Step 5: Verification
+If you have many hosts, automate this with the configuration-
+management tool you already use to push packages
+(`ansible`, `chef`, `puppet`, `salt`, etc.); v0.1 does not ship a
+built-in agent-fleet upgrade orchestrator.
+
+## Verification
+
+After the server + CLI + (relevant) agent upgrades land:
+
+- [ ] `/health/ready` returns `ready=true` with every component
+      reporting `status=ok`
+- [ ] `kscore-server --version` and `kscorectl --version` both
+      report the target version
+- [ ] Every upgraded agent reappears in
+      `kscorectl events list --type agent_connected --since 30m`
+- [ ] A representative state apply still works:
 
 ```bash
-# Verify upgrade completed
-kscorectl upgrade status
-# Expected: Status: completed
-
-# Verify version
-kscorectl version
-# Expected: Version: 0.2.0
-
-# Verify cluster health
-kscorectl cluster health
-# Expected: Status: healthy
-
-# Verify all agents upgraded
-kscorectl upgrade agents --report | grep -c "0.2.0"
-
-# Compare metrics to baseline
-curl -s http://localhost:9090/api/v1/query?query=rate(kscore_api_errors_total[5m])
-# Should be similar to baseline
-
-# Run smoke tests
-kscore-test smoke
+kscorectl state apply ./examples/hello.yaml --agent <agent-id>
+kscorectl state drift --agent <agent-id>
 ```
 
-### Step 6: Agent Upgrade (if separate)
+- [ ] Error-rate metrics return to (or improve on) the pre-upgrade
+      baseline within ~10 minutes — compare against the
+      `/tmp/upgrade-baseline-errors.json` captured pre-upgrade
+- [ ] Audit log accepts new writes:
 
 ```bash
-# If agents are upgraded separately
-kscorectl upgrade agents --target 0.2.0
-
-# Monitor agent upgrade
-kscorectl upgrade agents --status
-
-# Verify all agents upgraded
-kscorectl agents list --show-compatibility | grep -v "0.2.0"
-# Should be empty
+kscorectl audit log --limit 5
 ```
 
-## Verification Checklist
+- [ ] No new alerts firing in your Prometheus / observability stack
 
-- [ ] Server version is 0.2.0
-- [ ] All cluster nodes healthy
-- [ ] All agents on 0.2.0
-- [ ] Error rate at baseline
-- [ ] Latency at baseline
-- [ ] All smoke tests pass
-- [ ] No new alerts
+## If something goes wrong
 
-## Rollback Procedure
+Follow [`emergency-rollback.md`](emergency-rollback.md). The
+relevant scenario depends on what changed:
 
-If issues are detected:
+- Server package broke things → Scenario A (package downgrade)
+- A state apply done during the upgrade window left bad state →
+  Scenario B (`kscorectl state rollback`)
+- Operator config edit during the window caused the regression →
+  Scenario C (config revert from backup)
+- Server can't start at all → Scenario D (restore from the
+  pre-upgrade snapshot you took in step 5 above)
 
-```bash
-# Automatic rollback is triggered if:
-# - Error rate > 5%
-# - Node health check fails
-# - Cluster loses quorum
-
-# Manual rollback
-kscorectl upgrade rollback
-
-# Or rollback to specific version
-kscorectl upgrade rollback --target 1.5.0
-
-# Monitor rollback
-kscorectl upgrade status --watch
-```
-
-## Post-Procedure
+## Post-procedure
 
 ### Immediate
 
-1. [ ] Update status page
-2. [ ] Notify stakeholders
-3. [ ] Close change ticket
+1. [ ] Update the change-management ticket with the actual versions
+       deployed and the wall-clock duration.
+2. [ ] Notify stakeholders the upgrade completed.
 
 ### Within 24 hours
 
-1. [ ] Review post-upgrade metrics
-2. [ ] Address any new warnings
-3. [ ] Update documentation
-4. [ ] Clean up old version artifacts
+1. [ ] Review post-upgrade metrics for any sustained regression.
+2. [ ] Address any new warnings in the audit log.
+3. [ ] Update local documentation if any operator step changed.
+4. [ ] Clean up old version artifacts you no longer need
+       (old `.deb` / `.rpm` files in `/tmp/` etc.).
 
-### If Rollback Occurred
+### If a rollback was needed
 
-1. [ ] Collect diagnostics
-2. [ ] File issue with details
-3. [ ] Schedule post-mortem
-4. [ ] Plan retry after fix
+1. [ ] Collect diagnostics (see `emergency-rollback.md` post-procedure).
+2. [ ] File a bug report against the failing version.
+3. [ ] Schedule the post-mortem.
+4. [ ] Plan the retry after the root cause is fixed.
 
-## Appendix: Upgrade Strategies
+## Appendix: version-compatibility expectations on the v0.x line
 
-### Rolling Upgrade (Default)
+The v0.x line **allows breaking changes between minor versions**.
+The `Breaking changes` section in
+[`CHANGELOG.md`](../../CHANGELOG.md) is the authoritative source
+for each release. Read it before upgrading.
 
-```bash
-kscorectl upgrade execute --target 0.2.0 --strategy rolling
+The v1.0 SemVer stability commitment (no breaking changes in
+patches, breaking changes only at major-version boundaries)
+begins at v1.0.0, not v0.1.0. See
+[`docs/project/VERSIONING.md`](../project/VERSIONING.md).
 
-# Options:
-# --max-unavailable 1     # Max nodes down at once
-# --drain-timeout 5m      # Time to drain workloads
-# --node-delay 30s        # Delay between nodes
-```
+## Appendix: troubleshooting an upgrade
 
-Best for: Most upgrades, minimal disruption
+### `systemctl start kscore-server` fails with exit 1
 
-### Canary Upgrade
+The cli.go RootCommand silences cobra errors by default
+(`SilenceErrors: true`); a fatal-init failure surfaces only as the
+routine `"stopped"` log line + `status=1/FAILURE` in journalctl.
+Common causes:
 
-```bash
-kscorectl upgrade execute --target 0.2.0 --strategy canary
+- **Port conflict**: another process holds gRPC `:5397` (the
+  default) or HTTP `:8080`. Diagnose with `ss -tlnp | grep -E
+  ':5397|:8080'`.
+- **Invalid config**: an operator-edited
+  `/etc/kscore/server.yaml` no longer parses against the new
+  binary's config schema. Diagnose by running
+  `/usr/bin/kscore-server --config /etc/kscore/server.yaml`
+  manually outside systemd and reading stderr.
+- **Storage migration error**: a schema migration in the new
+  binary failed against the existing SQLite or Postgres state.
+  Diagnose by running the binary manually and reading the
+  migration error.
 
-# Options:
-# --canary-percentage 10  # Initial percentage
-# --canary-increment 20   # Step increase
-# --canary-interval 10m   # Time between steps
-```
+A v0.x ROADMAP entry ("kscore-server: surface fatal-init errors
+to stderr instead of silently exiting") tracks the long-term fix
+for the silent-exit pattern.
 
-Best for: Major version upgrades, new features
+### Agent stays disconnected after upgrade
 
-### Blue-Green Upgrade
+- Check `journalctl -u kscore-agent -n 100` for the agent's last
+  reconnect-attempt log line.
+- Confirm the agent.yaml `nats.urls` still points at the server's
+  NATS port.
+- Confirm the agent identity wasn't invalidated. If the server-side
+  HMAC secret was regenerated during the upgrade (see Scenario C
+  in `emergency-rollback.md`), every agent's bootstrap PSK needs
+  to be re-issued.
 
-```bash
-kscorectl upgrade execute --target 0.2.0 --strategy blue-green
+### Server logs warn `secrets: enable production controls`
 
-# Options:
-# --keep-old              # Keep old version for quick rollback
-```
-
-Best for: When instant rollback is critical
-
-## Appendix: Version Compatibility
-
-Check upgrade path compatibility:
-
-```bash
-# Direct upgrade possible?
-kscorectl upgrade check --from 1.4.0 --to 0.2.0
-
-# If not, find required path
-kscorectl upgrade path --from 1.4.0 --to 0.2.0
-# Output: 1.4.0 -> 1.5.0 -> 0.2.0
-```
-
-## Appendix: Troubleshooting
-
-### Upgrade Stuck
-
-```bash
-# Check upgrade status
-kscorectl upgrade status --verbose
-
-# Check node status
-for node in ks-server-1 ks-server-2 ks-server-3; do
-  echo "=== $node ==="
-  ssh $node "sudo systemctl status kscore-server"
-done
-
-# Force proceed (use with caution)
-kscorectl upgrade resume --force
-```
-
-### Health Check Fails
-
-```bash
-# Check what's failing
-kscorectl cluster health --verbose
-
-# Check specific node via SSH
-ssh ks-server-1 "kscorectl cluster health"
-
-# Override health check (emergency only)
-kscorectl upgrade resume --skip-health-check
-```
-
-### Agent Upgrade Fails
-
-```bash
-# Check agent logs
-ssh agent-node "journalctl -u kscore-agent -n 100"
-
-# Retry specific agent
-kscorectl upgrade agents --retry agent-web-1
-
-# Skip problematic agent
-kscorectl upgrade agents --skip agent-web-1
-```
+Pre-existing dev-mode bootstrap UX surface. The
+[`SECURITY-GOVERNANCE.md`](../project/SECURITY-GOVERNANCE.md)
+"Production warnings" section lists every prod-mode WARN; none
+of them are upgrade-introduced.
