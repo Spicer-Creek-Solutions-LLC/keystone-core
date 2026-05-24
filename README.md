@@ -33,19 +33,37 @@ One control plane, N agents, NATS as the transport, Postgres for durable state. 
 
 ## Quickstart
 
-The fast path is `make e2e-up` — brings up server + 2 agents + Postgres + NATS via docker-compose:
+> **v0.1.x — explicitly invited to install** (per [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md)). Until the v1.0 release ceremony, `.deb` / `.rpm` packages are operator-distributed rather than published to a public repo. Get the snapshot you've been sent onto the target host, then:
+
+### Debian / Ubuntu
 
 ```bash
-git clone https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core.git
-cd keystone-core
-make e2e-up
+sudo apt install -y ./kscore-server_*_linux_amd64.deb \
+                    ./kscore-cli_*_linux_amd64.deb \
+                    ./kscore-agent_*_linux_amd64.deb
 ```
 
-Topology is reachable at `http://127.0.0.1:8080` (REST + health) and `127.0.0.1:5397` (gRPC). Both agents bootstrap automatically and reach `connected` within a few seconds.
+### Rocky / RHEL
 
-Tear down: `make e2e-down`.
+```bash
+sudo dnf install -y ./kscore-server-*.x86_64.rpm \
+                    ./kscore-cli-*.x86_64.rpm \
+                    ./kscore-agent-*.x86_64.rpm
+```
 
-For a complete 30-minute walkthrough from a fresh Ubuntu VM (install Go + Docker, generate a PSK, run a command, apply state), see [`docs/project/GETTING-STARTED.md`](docs/project/GETTING-STARTED.md).
+The `kscore-server` postinst creates the `kscore` system user, lays down `/etc/kscore/`, generates a per-host HMAC secret, and enables + starts `kscore-server.service`. Smoke-check:
+
+```bash
+sleep 35  # past the 30s startup grace period
+curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
+kscorectl --version
+```
+
+`kscore-agent` installs but **does not** auto-start — operator edits to `/etc/kscore/agent.yaml` (`agent.id`, `nats.urls`) are required first.
+
+For the full single-node walkthrough (package layout, what the postinst does, verification), see [`docs/runbooks/bootstrap-new-cluster.md`](docs/runbooks/bootstrap-new-cluster.md). For the guided fresh-VM tutorial (install → run a command → apply state → browse the audit log), see [`docs/project/GETTING-STARTED.md`](docs/project/GETTING-STARTED.md).
+
+> **Developing on the source?** The contributor environment uses a docker-compose harness with Postgres + NATS + a 2-agent topology — see [`docs/project/DEVELOPMENT.md`](docs/project/DEVELOPMENT.md).
 
 ## Documentation
 
