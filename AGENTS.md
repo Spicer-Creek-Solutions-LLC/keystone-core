@@ -103,6 +103,7 @@ Use these files instead of expanding AGENTS with mutable detail:
 - Release-incident response (yank / fast follow-up / public comms): `docs/project/RELEASE-INCIDENT.md`
 - Operational runbooks (carried from v0; rework in-flight): `docs/runbooks/`
 - Go vanity-import static-site source (`go.keystone-core.io` meta tag): `deploy/vanity/` (`vangen.json` + generated `site/`; regen via `make vanity-regen`)
+- Documentation-site source (`docs.keystone-core.io`): `deploy/docs/` (v0.1.x: placeholder pointing at the in-repo Markdown docs; full Hugo site lands at gate-v0.5 per ROADMAP)
 
 ## 8) Maintenance Rule for This File
 

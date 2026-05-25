@@ -109,6 +109,14 @@ Anchored on the reconstruction baseline (commit `14be1109`).
   `.github/ISSUE_TEMPLATE/config.yml` redirect (now with
   `blank_issues_enabled: false`) are kept. Closes E2 in the
   public-launch checklist.
+- **`docs.keystone-core.io` placeholder site source** added under
+  [`deploy/docs/`](deploy/docs/) — small branded HTML page that
+  links visitors at the canonical Markdown docs in the source
+  repository, with a "polished site coming with v0.5" note. Hosted
+  same shape as the Go vanity-import site (catch-all rewrite to
+  `index.html` for any path under `/`). At gate-v0.5, this
+  placeholder is replaced by the full Hugo-generated output per
+  the matching ROADMAP entry.
 - **Go vanity-import static-site source** added under
   [`deploy/vanity/`](deploy/vanity/) using
   [vangen](https://github.com/leighmcculloch/vangen) (canonical
