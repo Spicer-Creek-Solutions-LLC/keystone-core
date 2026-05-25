@@ -313,10 +313,13 @@ intended posture; first-impression scan of the root file list is clean.
       soft-launch decision. Hard-launch announcement deferred to at
       least v0.5; this checkbox reopens then.
 
-- [ ] **F3. Triage SLO commitment.** Document expected response time for
-      issues, PRs, and security reports. Even "best effort, no SLO" is
-      fine — but it should be stated explicitly. Lands in
-      `docs/project/GOVERNANCE.md` or `MAINTAINERS.md`.
+- [x] **F3. Triage SLO commitment.** Documented in
+      [`docs/project/MAINTAINERS.md` § Triage and Response](MAINTAINERS.md).
+      v0.1.x posture: best effort, no formal SLO. Rough cadences
+      stated for issues (~1 week first-touch, ~2 week triage), PRs
+      (~1 week ack, ~2 week first review), and security reports
+      (~72 hour ack via private channel per SECURITY.md). Cadences
+      reassessed at v0.5; formal SLO possible from v0.5+.
 
 - [ ] **F4. Rollback / yank plan.** Procedure if the first hour of public
       exposure reveals a critical bug. Cover: how to pull the latest tag;

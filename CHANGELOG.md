@@ -81,6 +81,11 @@ Anchored on the reconstruction baseline (commit `14be1109`).
   [`docs/project/GOVERNANCE.md`](docs/project/GOVERNANCE.md) § Launch
   Posture; F1 ticked in the public-launch checklist; F2
   (announcement draft) marked not-applicable for v0.1.x.
+- **F3 triage SLO commitment** documented in
+  [`docs/project/MAINTAINERS.md`](docs/project/MAINTAINERS.md) §
+  Triage and Response. v0.1.x posture: best-effort, no formal SLO;
+  rough cadences stated for issues / PRs / security reports;
+  cadences reassessed at v0.5 (formal SLO possible from v0.5+).
 - **Hugo docs site pulled forward from v1.x to gate-v0.5**: updates
   AGENTS.md §5, FEATURES.md §1, VERSIONING.md (resolves the prior
   v1.0-gate-7-vs-v1.x-FEATURES contradiction — Hugo is now a v0.5
