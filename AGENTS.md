@@ -100,7 +100,9 @@ Use these files instead of expanding AGENTS with mutable detail:
 - Governance / DCO / AI policy: `docs/project/{GOVERNANCE,DCO,AI-CONTRIBUTIONS,MAINTAINERS,RFC}.md`
 - Security policy: `SECURITY.md`, `docs/project/SECURITY-*.md`
 - Release process and signing ceremony: `RELEASE-PLAYBOOK.md`
+- Release-incident response (yank / fast follow-up / public comms): `docs/project/RELEASE-INCIDENT.md`
 - Operational runbooks (carried from v0; rework in-flight): `docs/runbooks/`
+- Go vanity-import static-site source (`go.keystone-core.io` meta tag): `deploy/vanity/` (`vangen.json` + generated `dist/`; regen via `make vanity-regen`)
 - Prior implementation (read-only reference): `archive/v0` branch
 
 ## 8) Maintenance Rule for This File

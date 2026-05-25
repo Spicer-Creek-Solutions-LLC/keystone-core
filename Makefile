@@ -165,6 +165,7 @@ install-tools: ## Install dev tools (Go-installable + lychee binary)
 	@command -v goreleaser >/dev/null || go install github.com/goreleaser/goreleaser/v2@latest
 	@command -v gitleaks >/dev/null || go install github.com/zricethezav/gitleaks/v8@latest
 	@command -v go-licenses >/dev/null || go install github.com/google/go-licenses@latest
+	@command -v vangen >/dev/null || go install 4d63.com/vangen@latest
 	@command -v lychee >/dev/null || $(MAKE) --no-print-directory install-lychee
 
 # Lychee is a Rust binary, not Go-installable. Pull the prebuilt release for
@@ -233,6 +234,19 @@ docs-sync-check: ## Assert auto-generated reference docs are in sync with the ge
 		diff -q docs/project/CONFIGURATION-REFERENCE.md $$tmpdir/CONFIGURATION.md && \
 		diff -q docs/project/API-REFERENCE.md           $$tmpdir/API.md && \
 		echo "docs-sync-check: ok"
+
+vanity-regen: ## Regenerate the Go-vanity-import static HTML under deploy/vanity/site/
+	# Source of truth: deploy/vanity/vangen.json. Output lands under
+	# deploy/vanity/site/ and is committed alongside the config so deploys
+	# don't need vangen installed. See deploy/vanity/README.md for the
+	# end-to-end story.
+	vangen -config deploy/vanity/vangen.json -out deploy/vanity/site/
+
+vanity-regen-check: ## Assert committed vanity HTML matches what vangen would produce now
+	@tmpdir=$$(mktemp -d) && \
+		vangen -config deploy/vanity/vangen.json -out $$tmpdir/dist/ && \
+		diff -ruq deploy/vanity/site/ $$tmpdir/dist/ && \
+		echo "vanity-regen-check: ok"
 
 test-integration: ## Run integration tests (-tags=integration)
 	# -p=1 forces test binaries to run sequentially. Integration tests

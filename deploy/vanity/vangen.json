@@ -1,0 +1,19 @@
+{
+  "domain": "go.keystone-core.io",
+  "docsDomain": "pkg.go.dev",
+  "repositories": [
+    {
+      "prefix": "keystone-core",
+      "type": "git",
+      "url": "https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core",
+      "source": {
+        "home": "https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core",
+        "dir": "https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main{/dir}",
+        "file": "https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main{/dir}/{file}#L{line}"
+      },
+      "website": {
+        "url": "https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core"
+      }
+    }
+  ]
+}

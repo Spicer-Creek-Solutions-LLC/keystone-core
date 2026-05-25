@@ -97,6 +97,20 @@ Anchored on the reconstruction baseline (commit `14be1109`).
   cross-references. v0.1.x-specific: operator-distributed-package
   reality shapes the "yank" mechanics (no public APT/DNF repo to
   withdraw from yet).
+- **Go vanity-import static-site source** added under
+  [`deploy/vanity/`](deploy/vanity/) using
+  [vangen](https://github.com/leighmcculloch/vangen) (canonical
+  module `4d63.com/vangen`): `vangen.json` config + generated
+  `site/keystone-core/index.html` carrying the `go-import` +
+  `go-source` meta tags pointing at the Codeberg primary. Two new
+  `make` targets (`vanity-regen` + `vanity-regen-check`); vangen
+  added to `make install-tools`. Closes the last remaining piece
+  of the `keystone-core.io` domain-provisioning story — DNS,
+  mailboxes, web hosting, TLS, and key-material hosting are
+  operator-side; this file is the code-side preparation. Once
+  deployed at `go.keystone-core.io`, the existing
+  `go.keystone-core.io/keystone-core` Go module path resolves
+  end-to-end for external `go get` users.
 - **Hugo docs site pulled forward from v1.x to gate-v0.5**: updates
   AGENTS.md §5, FEATURES.md §1, VERSIONING.md (resolves the prior
   v1.0-gate-7-vs-v1.x-FEATURES contradiction — Hugo is now a v0.5
