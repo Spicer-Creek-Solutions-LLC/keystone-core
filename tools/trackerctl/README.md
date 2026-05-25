@@ -21,7 +21,7 @@ by `gen-tracker`) — see `docs/project/ISSUE-TRACKING.md`.
 | `sync-milestones` | `config/milestones.yaml` | create/update milestones |
 | `sync` | both of the above | `sync-labels` then `sync-milestones` |
 | `gen-issues` | `docs/project/ROADMAP.md` | create one leaf issue per `####` entry not already present, labelled + assigned to its priority-bucket milestone |
-| `reconcile-issues` | `docs/project/ROADMAP.md` | update *existing* issues' milestone and managed labels (`source/*`, `kind/*`, `v1x-backlog`, `v1.0-narrowing`) to match the backlog; never creates, never touches `area/*` |
+| `reconcile-issues` | `docs/project/ROADMAP.md` | update *existing* issues' milestone and managed labels (`source/*`, `kind/*`, `roadmap-backlog`) to match the backlog; never creates, never touches `area/*` |
 | `gen-tracker` | `config/release-order.yaml` (+ existing issues) | create/update the `<bucket> — tracker` issue: an ordered checklist of that bucket's leaf issues; `--version <bucket>` required |
 
 Issue creation (`gen-issues`) is intentionally separate from `sync`: labels and
@@ -39,12 +39,10 @@ editing `ROADMAP.md` — e.g. moving an entry between priority buckets — run
 `reconcile-issues --apply` to push the change to the live issues. Both take
 `--versions` to scope to one or more buckets.
 
-> **Legacy label note.** The `v1x-backlog` umbrella label and the
-> `v1.0-narrowing` marker label predate the v0.x rename. They're kept in
-> `isManagedLabel` so old Forgejo issues that carry them reconcile cleanly,
-> but new issues no longer emit `v1.0-narrowing`. Renaming `v1x-backlog` →
-> `v0x-backlog` on the Forgejo side is a separate operator task tracked in
-> ROADMAP.md.
+> **Legacy label note.** The umbrella label was renamed `v1x-backlog` →
+> `roadmap-backlog` (the version-pinned name predated the v0.x rename). The
+> paired source label `source/v1x-backlog` still carries the legacy name;
+> renaming it is tracked as a v0.x ROADMAP entry.
 
 `gen-tracker` orders the bucket's leaf issues by `config/release-order.yaml`
 (falling back to `ROADMAP.md` file order for any bucket or entry not listed

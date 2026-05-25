@@ -91,9 +91,6 @@
   description: "Area: observability"
 
 # --- umbrellas ---
-- name: v1x-backlog
+- name: roadmap-backlog
   color: "fbca04"
-  description: Item minted from docs/project/ROADMAP.md
-- name: v1.0-narrowing
-  color: "d93f0b"
-  description: v1.0 implementation-time narrowing; not yet version-tagged
+  description: Umbrella — item minted from docs/project/ROADMAP.md

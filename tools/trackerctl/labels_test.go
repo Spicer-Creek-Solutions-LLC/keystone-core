@@ -22,7 +22,7 @@ func TestLoadLabelSpecs(t *testing.T) {
 		}
 		byName[s.Name] = s
 	}
-	for _, want := range []string{"v1x-backlog", "source/v1x-backlog", "kind/feature", "kind/chore", "area/statemgmt"} {
+	for _, want := range []string{"roadmap-backlog", "source/v1x-backlog", "kind/feature", "kind/chore", "area/statemgmt"} {
 		if _, ok := byName[want]; !ok {
 			t.Errorf("missing expected label %q", want)
 		}
@@ -109,7 +109,7 @@ func TestInferAreas(t *testing.T) {
 func TestLabelNamesFor(t *testing.T) {
 	feat := backlogEntry{Title: "Schema versioning via golang-migrate", Version: "gate-v1.0"}
 	got := labelNamesFor(feat)
-	want := []string{"v1x-backlog", "source/v1x-backlog", "kind/feature", "area/schema"}
+	want := []string{"roadmap-backlog", "source/v1x-backlog", "kind/feature", "area/schema"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("labelNamesFor(feature) = %v, want %v", got, want)
 	}
@@ -118,14 +118,14 @@ func TestLabelNamesFor(t *testing.T) {
 	// for unscheduled narrowings; today emits kind/chore.
 	unscheduled := backlogEntry{Title: "Bootstrap auto-installs systemd unit"}
 	got = labelNamesFor(unscheduled)
-	want = []string{"v1x-backlog", "source/v1x-backlog", "kind/chore", "area/bootstrap"}
+	want = []string{"roadmap-backlog", "source/v1x-backlog", "kind/chore", "area/bootstrap"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("labelNamesFor(unscheduled) = %v, want %v", got, want)
 	}
 
 	scheduled := backlogEntry{Title: "Batch dispatcher: no orphan-job recovery", Version: "gate-v1.0"}
 	got = labelNamesFor(scheduled)
-	want = []string{"v1x-backlog", "source/v1x-backlog", "kind/feature", "area/server"}
+	want = []string{"roadmap-backlog", "source/v1x-backlog", "kind/feature", "area/server"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("labelNamesFor(scheduled) = %v, want %v", got, want)
 	}

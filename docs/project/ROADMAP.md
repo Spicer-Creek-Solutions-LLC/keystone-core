@@ -959,6 +959,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why now**: Row-level resume needs a transactional checkpoint protocol that v1.0's `state.Tx` (deferred post-v1.0) would unlock. Improvement to recovery only; no compatibility break.
 - **References**: `internal/state/migrate_txlog.go:25`.
 
+#### Rename `source/v1x-backlog` label to drop the version pin
+
+- **Priority**: v0.x
+- **What**: The umbrella label was renamed `v1x-backlog` → `roadmap-backlog` to drop the version pin (the underlying file was renamed `V1X-BACKLOG.md` → `docs/project/ROADMAP.md` earlier). The paired source label `source/v1x-backlog` still carries the legacy `v1x` name. Rename it consistently — likely `source/v1x-backlog` → `source/roadmap-backlog` (or another version-neutral name) — so the provenance enum no longer references a retired version line.
+- **Why deferred**: surfaced during the pre-public-launch trackerctl provisioning sweep. Renaming the source label touches `tools/trackerctl/issues.go::labelNamesFor`, `tools/trackerctl/config/labels.yaml`, `tools/trackerctl/labels_test.go`, `tools/trackerctl/reconcile_test.go`, `docs/project/ISSUE-TRACKING.md`, the README; and once issues exist that carry the label, a Forgejo-side migration step (relabel-by-API or sync-labels delete+recreate) is needed. The umbrella rename happened in the same sweep because zero issues existed yet; if more issues land before this entry is taken, the rename gets more expensive.
+- **Acceptance**: `source/v1x-backlog` is gone from `tools/trackerctl/config/labels.yaml`, `issues.go::labelNamesFor`, both test files, `ISSUE-TRACKING.md` §`source/v1x-backlog` table row, and the README. `trackerctl sync-labels --apply` re-converges Codeberg to the new name. Existing issues (if any) carry the new label and not the old one. `roadmap-backlog` and `source/v1x-backlog` no longer coexist in the label set.
+- **References**: `tools/trackerctl/config/labels.yaml`; `tools/trackerctl/issues.go::labelNamesFor`; `docs/project/ISSUE-TRACKING.md` §`source/v1x-backlog`; the umbrella rename's commit (look for `roadmap-backlog` in the trackerctl/ history).
+
 ## v1.x — post-v1.0 feature additions
 
 #### Expanded getting-started guides (per-domain tutorials)

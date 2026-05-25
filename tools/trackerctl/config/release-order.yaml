@@ -117,6 +117,7 @@ v0.x:
   - "Active dial-time circuit breaker eviction"
   - "Glob matching: no `**` (double-star)"
   - "Migration journal: no per-table checkpoint resume"
+  - "Rename `source/v1x-backlog` label to drop the version pin"
 
 v1.x:
   - "Rate-limit: `Retry-After` HTTP-date format alternative"

@@ -14,15 +14,10 @@ import (
 // label. The `source/*`, `kind/*`, and umbrella labels are derived from the
 // backlog and reconciled to match it; `area/*` and anything else are left
 // alone so human curation (and the heuristic's near-misses) survive.
-//
-// `v1.0-narrowing` is retained as a managed label name so old Forgejo issues
-// that still carry it get cleaned up on reconcile (no current entries emit
-// it after the v0.x rename — the section it referenced no longer exists).
 func isManagedLabel(name string) bool {
 	return strings.HasPrefix(name, "source/") ||
 		strings.HasPrefix(name, "kind/") ||
-		name == "v1x-backlog" ||
-		name == "v1.0-narrowing"
+		name == "roadmap-backlog"
 }
 
 // managedLabelDelta returns the managed labels to add to / remove from an issue

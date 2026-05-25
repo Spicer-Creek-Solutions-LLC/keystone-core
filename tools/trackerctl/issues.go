@@ -57,12 +57,11 @@ func inferAreas(text string) []string {
 
 // labelNamesFor returns the label names that issue for e should carry:
 // the umbrella + source labels, a `kind/*`, and any confidently-inferred
-// `area/*`. The label names retain `v1x-backlog`/`source/v1x-backlog`
-// across the v0.x rename to avoid a Forgejo-side label migration; rename
-// to `v0x-backlog` is a separate operator task tracked as a v0.x backlog
-// item.
+// `area/*`. The umbrella was renamed `v1x-backlog` → `roadmap-backlog`;
+// `source/v1x-backlog` retains its legacy name pending a separate rename
+// tracked as a v0.x ROADMAP entry.
 func labelNamesFor(e backlogEntry) []string {
-	names := []string{"v1x-backlog", "source/v1x-backlog"}
+	names := []string{"roadmap-backlog", "source/v1x-backlog"}
 	if e.Version != "" {
 		names = append(names, "kind/feature")
 	} else {

@@ -8,13 +8,13 @@ import (
 )
 
 func TestIsManagedLabel(t *testing.T) {
-	managed := []string{"source/v1x-backlog", "kind/feature", "kind/release-tracker", "v1x-backlog", "v1.0-narrowing"}
+	managed := []string{"source/v1x-backlog", "kind/feature", "kind/release-tracker", "roadmap-backlog"}
 	for _, n := range managed {
 		if !isManagedLabel(n) {
 			t.Errorf("%q should be managed", n)
 		}
 	}
-	for _, n := range []string{"area/agent", "area/statemgmt", "wontfix", ""} {
+	for _, n := range []string{"area/agent", "area/statemgmt", "wontfix", "v1x-backlog", "v1.0-narrowing", ""} {
 		if isManagedLabel(n) {
 			t.Errorf("%q should not be managed", n)
 		}
@@ -30,31 +30,19 @@ func TestManagedLabelDelta(t *testing.T) {
 	}{
 		{
 			name:    "no change",
-			want:    []string{"v1x-backlog", "source/v1x-backlog", "kind/feature", "area/agent"},
-			current: []string{"area/agent", "kind/feature", "source/v1x-backlog", "v1x-backlog"},
-		},
-		{
-			// Back-compat scenario: `v1.0-narrowing` is still in isManagedLabel
-			// (so old Forgejo issues that carry it are reconciled cleanly), but
-			// labelNamesFor no longer emits it post-v0.x rename. The delta
-			// must keep the existing v1.0-narrowing label when both want and
-			// current carry it.
-			name:         "preserve legacy v1.0-narrowing label when both sides carry it",
-			want:         []string{"v1x-backlog", "source/v1x-backlog", "v1.0-narrowing", "kind/feature", "area/server"},
-			current:      []string{"v1x-backlog", "source/v1x-backlog", "v1.0-narrowing", "kind/chore", "area/server", "area/agent"},
-			expectAdd:    []string{"kind/feature"},
-			expectRemove: []string{"kind/chore"},
+			want:    []string{"roadmap-backlog", "source/v1x-backlog", "kind/feature", "area/agent"},
+			current: []string{"area/agent", "kind/feature", "source/v1x-backlog", "roadmap-backlog"},
 		},
 		{
 			name:      "add missing umbrella",
-			want:      []string{"v1x-backlog", "source/v1x-backlog", "kind/feature"},
+			want:      []string{"roadmap-backlog", "source/v1x-backlog", "kind/feature"},
 			current:   []string{"kind/feature"},
-			expectAdd: []string{"source/v1x-backlog", "v1x-backlog"},
+			expectAdd: []string{"roadmap-backlog", "source/v1x-backlog"},
 		},
 		{
 			name:         "remove stray managed label",
-			want:         []string{"v1x-backlog", "source/v1x-backlog", "kind/feature"},
-			current:      []string{"v1x-backlog", "source/v1x-backlog", "kind/feature", "source/triage"},
+			want:         []string{"roadmap-backlog", "source/v1x-backlog", "kind/feature"},
+			current:      []string{"roadmap-backlog", "source/v1x-backlog", "kind/feature", "source/triage"},
 			expectRemove: []string{"source/triage"},
 		},
 	}

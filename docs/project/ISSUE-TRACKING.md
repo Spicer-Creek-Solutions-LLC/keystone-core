@@ -85,21 +85,13 @@ them once with `fj repo labels create`.
 `area/cli`, `area/security`, `area/policy`, `area/observability`, … (add as needed; keep the set
 small).
 
-### `v1x-backlog`
+### `roadmap-backlog`
 
 Umbrella label on every issue minted from `ROADMAP.md`, so they are distinguishable from regular
-tracker traffic. **Legacy name** — predates the v0.x rename; kept to avoid a Forgejo label
-migration. Renaming to `v0x-backlog` is a v0.x roadmap item. (Equivalent umbrella labels may be
-added for other bulk imports.)
-
-### `v1.0-narrowing` (legacy, no new emissions)
-
-Historically marked an issue that came from the *Implementation-time narrowings* section of the
-old `ROADMAP.md` — somewhere v1.0 shipped with deliberately reduced scope. That section was
-retired in the v0.x rename (narrowings are now mixed into the priority buckets directly), so
-new issues no longer carry this label. The label is **kept** in `isManagedLabel` so old Forgejo
-issues that still carry it reconcile cleanly; `reconcile-issues` doesn't strip it from issues
-where it already exists.
+tracker traffic. Renamed from the original `v1x-backlog` to drop the version pin (the underlying
+document was renamed `V1X-BACKLOG.md` → `docs/project/ROADMAP.md` earlier). The paired source
+label `source/v1x-backlog` still carries the legacy name; renaming it is tracked as a v0.x
+ROADMAP entry. (Equivalent umbrella labels may be added for other bulk imports.)
 
 ### Version
 
@@ -151,8 +143,8 @@ added only if CLI filtering by bucket becomes necessary; the milestone is canoni
 2. Body = the originating document section copied verbatim (What / Why / Acceptance / References),
    plus: a backlink to the document heading anchor, the epic/task it was deferred from (if any), and
    `Blocked by #N` lines for each dependency.
-3. Apply labels: one `source/*`, one `kind/*`, one or more `area/*`, plus `v1x-backlog` (or the
-   relevant umbrella). `fj issue create` cannot set labels at creation time — create, then
+3. Apply labels: one `source/*`, one `kind/*`, one or more `area/*`, plus `roadmap-backlog` (or
+   the relevant umbrella). `fj issue create` cannot set labels at creation time — create, then
    `fj issue edit <n> labels`.
 4. Assign the milestone (priority bucket) (web UI / API).
 5. Slot it into the execution order: add its title to `tools/trackerctl/config/release-order.yaml`
