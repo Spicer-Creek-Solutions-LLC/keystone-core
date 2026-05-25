@@ -38,10 +38,12 @@ Be respectful and constructive. See `CODE_OF_CONDUCT.md` for details.
 Keystone Core handles sensitive infrastructure operations. Security-conscious development is required.
 
 **Before writing code:**
+
 - Review [SECURITY-DESIGN.md](docs/project/SECURITY-DESIGN.md) for design principles and cryptographic standards
 - Understand trust boundaries your code crosses (see `docs/concepts/threat-model.md`)
 
 **During development:**
+
 - Validate all external input using `pkg/security.Validate*` helpers
 - Use parameterized queries — never concatenate SQL strings
 - Avoid shell injection — never pass user input to `exec.Command` without validation
@@ -49,6 +51,7 @@ Keystone Core handles sensitive infrastructure operations. Security-conscious de
 - Use structured logging with automatic redaction for sensitive data
 
 **PRs requiring security review:**
+
 - Authentication or authorization logic
 - Cryptographic operations
 - Database queries with user input

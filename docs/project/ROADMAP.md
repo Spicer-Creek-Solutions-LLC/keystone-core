@@ -967,6 +967,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `source/v1x-backlog` is gone from `tools/trackerctl/config/labels.yaml`, `issues.go::labelNamesFor`, both test files, `ISSUE-TRACKING.md` §`source/v1x-backlog` table row, and the README. `trackerctl sync-labels --apply` re-converges Codeberg to the new name. Existing issues (if any) carry the new label and not the old one. `roadmap-backlog` and `source/v1x-backlog` no longer coexist in the label set.
 - **References**: `tools/trackerctl/config/labels.yaml`; `tools/trackerctl/issues.go::labelNamesFor`; `docs/project/ISSUE-TRACKING.md` §`source/v1x-backlog`; the umbrella rename's commit (look for `roadmap-backlog` in the trackerctl/ history).
 
+#### PROJECT-DETAILS.md lint cleanup
+
+- **Priority**: v0.x
+- **What**: `PROJECT-DETAILS.md` carries ~210 pre-existing markdownlint errors: MD032 blanks-around-lists (124), MD029 ordered-list-prefix (45), MD031 blanks-around-fences (23), MD022 blanks-around-headings (14), plus a few MD049/MD028/MD012 stragglers. Currently carved out of the lint glob in `.markdownlint-cli2.yaml` so CI doesn't fail. The errors are mechanical (whitespace + ordered-list numbering) but the file is large and the MD029 cluster needs a style decision (`one-based-incremental` vs `single-zero` — the codebase hasn't picked one because the rule never enforced).
+- **Why deferred**: surfaced during the pre-public-launch lint hygiene sweep. The other 4 large root-level files (FEATURES.md, AGENTS.md, RELEASE-PLAYBOOK.md, CONTRIBUTING.md) all got cleaned + brought into the lint glob in the same sweep; PROJECT-DETAILS.md is the largest holdout and the only one needing a style call before the cleanup can be mechanical.
+- **Acceptance**: `markdownlint-cli2 PROJECT-DETAILS.md` returns 0 errors. The carve-out is removed from `.markdownlint-cli2.yaml`'s `ignores` block. `make docs-lint` (with the file no longer carved out) stays clean.
+- **References**: `PROJECT-DETAILS.md`; `.markdownlint-cli2.yaml` (the carve-out comment to delete); MD029 doc at <https://github.com/DavidAnson/markdownlint/blob/main/doc/md029.md> for the style call.
+
 ## v1.x — post-v1.0 feature additions
 
 #### Expanded getting-started guides (per-domain tutorials)

@@ -26,4 +26,3 @@ Because we prefer culture over bureaucracy and believe most contributors act in 
 ever find ourselves writing lots of rules, something has gone wrong.
 
 If you have questions or concerns, open a discussion or contact the maintainers privately.
-

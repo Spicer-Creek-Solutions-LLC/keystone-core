@@ -205,13 +205,17 @@ This is performed once and whenever the root key must be regenerated.
 2. Boot an air-gapped machine from a known-good live image
    (e.g., [Tails](https://tails.net/)).
 3. Generate the root key pair:
+
    ```
    gpg --quick-generate-key "Keystone Core Release Authority <release@keystone-core.io>" ed25519 cert never
    ```
+
 4. For each signer, generate a signing subkey:
+
    ```
    gpg --quick-add-key <ROOT_FINGERPRINT> ed25519 sign 26m
    ```
+
 5. Export each subkey to the respective signer's hardware token or
    encrypted offline media.
 6. Export the root public key and all subkey public keys.
@@ -298,19 +302,24 @@ source code.
 
 1. Each participant independently clones or fetches the repository and
    checks out the target commit:
+
    ```
    git clone <repo-url> keystone-core-release
    cd keystone-core-release
    git checkout <TAG_OR_SHA>
    ```
+
 2. Each participant computes the tree hash:
+
    ```
    git rev-parse HEAD
    git ls-tree -r --name-only HEAD | sort | xargs sha256sum | sha256sum
    ```
+
 3. Release Manager collects and compares all tree hashes. They must be
    identical.
 4. If the commit is a signed tag, verify the tag signature:
+
    ```
    git verify-tag <TAG>
    ```
@@ -341,6 +350,7 @@ known vulnerabilities.
    repositories that transitively depend on `k8s.io/kubernetes` due to its
    internal `replace` directives. Use `go mod graph` to extract the resolved
    module set instead:
+
    ```
    # Extract unique modules from the dependency graph
    go mod graph | awk '{print $2}' | sort -u > deps-full.txt
@@ -348,10 +358,13 @@ known vulnerabilities.
    # Also capture the direct dependencies from go.mod for focused review
    go list -m -mod=mod all 2>/dev/null > deps-direct.txt || true
    ```
+
 2. Diff against the dependency list from the previous release:
+
    ```
    diff deps-previous-release.txt deps-full.txt
    ```
+
 3. For each new or changed dependency, record:
    - Module path and version
    - Reason for addition/change (link to commit or issue)
@@ -397,6 +410,7 @@ This produces both CycloneDX and SPDX format SBOMs.
 result, list of new/changed dependencies with justifications.
 
 **Vote**:
+
 - **Majority** if no new or changed dependencies and no new scanner findings.
 - **Unanimous** if any new or changed dependencies exist.
 - **Unanimous** if any scanner reports a finding not previously accepted.
@@ -432,23 +446,28 @@ source.
 ### Build Steps
 
 1. Verify the Go toolchain:
+
    ```
    sha256sum $(which go)
    go version
    ```
+
    Compare against the published hash from
    [go.dev/dl](https://go.dev/dl/).
 
 2. Verify GoReleaser:
+
    ```
    sha256sum $(which goreleaser)
    goreleaser --version
    ```
 
 3. Run the dry-run (build + smoke):
+
    ```
    RELEASE_SMOKE_CONTAINERS=1 make release-dry-run
    ```
+
    This validates the goreleaser config, builds every artifact into
    `dist/` (5 archives, 12 nfpm packages, `checksums.txt`), then runs
    `scripts/release-smoke.sh` which asserts:
@@ -477,6 +496,7 @@ source.
    reproducibility check below).
 
 4. Generate checksums of all artifacts:
+
    ```
    cd dist/
    sha256sum *.tar.gz *.zip *.deb *.rpm checksums.txt > ceremony-checksums.txt
@@ -775,10 +795,12 @@ requires a separate majority vote.
 ### Publication Steps
 
 1. **Tag the release** (if not already tagged):
+
    ```
    git tag -s v<VERSION> -m "Release v<VERSION>" <COMMIT_SHA>
    git push origin v<VERSION>
    ```
+
    The tag must be signed by the Release Manager's key.
 
 2. **Upload artifacts** to the release page. Include:
@@ -789,6 +811,7 @@ requires a separate majority vote.
    - Release notes / changelog
 
 3. **Push container images**:
+
    ```
    docker push ghcr.io/kscore/kscore-server:<VERSION>
    docker push ghcr.io/kscore/kscore-agent:<VERSION>
@@ -829,17 +852,23 @@ one who performed the upload) must:
 
 1. Download every artifact from every distribution channel.
 2. Verify all checksums:
+
    ```
    sha256sum -c checksums.txt
    ```
+
 3. Verify all signatures:
+
    ```
    gpg --verify checksums.txt.sig.<SIGNER_ID> checksums.txt
    ```
+
 4. Pull container images and verify Cosign signatures:
+
    ```
    cosign verify --key <PUBLIC_KEY> ghcr.io/kscore/kscore-server:<VERSION>
    ```
+
 5. Install a package (DEB or RPM) in a clean environment and run a smoke
    test.
 
@@ -922,11 +951,13 @@ If a signing key is suspected compromised:
 1. Any participant may initiate revocation by notifying all other
    participants immediately.
 2. Revoke the compromised subkey:
+
    ```
    gpg --edit-key <ROOT_FINGERPRINT>
    > key <SUBKEY_INDEX>
    > revkey
    ```
+
 3. Publish the revocation certificate immediately to all channels where
    the public key was published.
 4. Audit all releases signed with the compromised key.

@@ -118,6 +118,7 @@ v0.x:
   - "Glob matching: no `**` (double-star)"
   - "Migration journal: no per-table checkpoint resume"
   - "Rename `source/v1x-backlog` label to drop the version pin"
+  - "PROJECT-DETAILS.md lint cleanup"
 
 v1.x:
   - "Rate-limit: `Retry-After` HTTP-date format alternative"

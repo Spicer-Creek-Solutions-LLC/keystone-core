@@ -11,9 +11,17 @@ config:
 
 globs:
   - "docs/**/*.md"
+  - "*.md" # repo-root markdown (README, AGENTS, FEATURES, CHANGELOG, etc.)
 
 ignores:
   - "docs/themes/**"
   - "docs/node_modules/**"
   - "docs/resources/**"
   - "docs/public/**"
+  # CLAUDE.md is a one-line `@AGENTS.md` Claude Code import directive — a
+  # leading H1 would break the import semantics, so MD041 will always fail.
+  - "CLAUDE.md"
+  # PROJECT-DETAILS.md carries ~210 pre-existing lint errors (mostly MD032
+  # list-spacing + MD029 ordered-list numbering); deferred-cleanup tracked
+  # in docs/project/ROADMAP.md under v0.x "PROJECT-DETAILS.md lint cleanup".
+  - "PROJECT-DETAILS.md"

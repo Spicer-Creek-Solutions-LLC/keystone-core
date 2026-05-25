@@ -32,6 +32,7 @@ Before starting any epic task, you MUST:
 6. Commit and push.
 
 Rules:
+
 - Do not batch tasks across approvals — one task, one approval, one PR.
 - This requirement still applies after context resets/resume.
 - If a task uncovers scope outside the epic, stop and ask before expanding.
@@ -60,6 +61,7 @@ All code changes must include tests:
 - Follow existing patterns once they emerge (table-driven, `t.TempDir()`, success/error paths).
 
 Coverage targets (per `epics/00-meta-reconstruction-plan.md`):
+
 - Critical packages: >70%
 - CLI packages: >40%
 
