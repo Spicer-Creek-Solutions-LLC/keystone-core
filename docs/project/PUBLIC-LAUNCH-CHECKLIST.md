@@ -153,7 +153,7 @@ zero-state machine.
       `RELEASE_SMOKE_CONTAINERS=1 make release-dry-run` against latest
       main. Validates the full task 13 pipeline: config check + snapshot
       build + smoke + container install.
-      *(landed: release-dry-run is a named job in `.github/workflows/ci.yml`
+      *(landed: release-dry-run is a named job in `.forgejo/workflows/ci.yml`
       and runs with `RELEASE_SMOKE_CONTAINERS=1`. Run #561 / task id
       `3535` succeeded. Two patches required to get it green on the
       Forgejo runner: commits `032219cc` (native fallback for the
@@ -162,7 +162,7 @@ zero-state machine.
       runner image.)*
 
 - [x] **C3. Forgejo Actions CI green on main.** Confirm every job in
-      `.github/workflows/ci.yml` is green on the forge (not just locally):
+      `.forgejo/workflows/ci.yml` is green on the forge (not just locally):
       `lint`, `test`, `slo`, `integration`, `smoke`, `release-dry-run`,
       `security`.
       *(landed: run #561 on HEAD `37cf75e9` shows all 11 named jobs +
@@ -283,8 +283,10 @@ HEAD that will be made public.
       sign-off. `.github/` template duplicates removed; just the
       `.github/ISSUE_TEMPLATE/config.yml` redirect-to-Codeberg
       stub kept (blank_issues_enabled now false; tighter funnel).
-      `.github/workflows/` untouched — it's CI surface shared
-      between internal Forgejo Actions and the GitHub mirror.
+      The CI workflow lives at `.forgejo/workflows/ci.yml` (moved
+      from `.github/workflows/` when the Codeberg-hosted Actions
+      runner came online); the GitHub mirror is code-only and runs
+      no CI.
 
 - [x] **E3. License headers audit decision.** Added SPDX
       headers (`// SPDX-License-Identifier: Apache-2.0`) to every
