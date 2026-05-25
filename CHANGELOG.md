@@ -97,6 +97,18 @@ Anchored on the reconstruction baseline (commit `14be1109`).
   cross-references. v0.1.x-specific: operator-distributed-package
   reality shapes the "yank" mechanics (no public APT/DNF repo to
   withdraw from yet).
+- **E2 Codeberg / Forgejo templates** land under
+  [`.forgejo/`](.forgejo/) (Forgejo's first-preference lookup path;
+  Codeberg picks them up automatically). Four issue templates
+  (bug, feature, documentation, security-redirect [new]) +
+  `config.yml` disabling blank issues + a PR template audited
+  against AGENTS.md § 5 (tests-required, docs-updated,
+  SPDX-header reminder, AI disclosure, DCO sign-off). The
+  parallel `.github/` template duplicates are deleted —
+  `.github/workflows/` (shared CI surface) and a tightened
+  `.github/ISSUE_TEMPLATE/config.yml` redirect (now with
+  `blank_issues_enabled: false`) are kept. Closes E2 in the
+  public-launch checklist.
 - **Go vanity-import static-site source** added under
   [`deploy/vanity/`](deploy/vanity/) using
   [vangen](https://github.com/leighmcculloch/vangen) (canonical

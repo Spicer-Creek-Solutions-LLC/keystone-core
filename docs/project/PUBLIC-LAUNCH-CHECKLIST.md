@@ -270,10 +270,21 @@ HEAD that will be made public.
       fields set. Disable any unused features (wiki, packages) if not
       planned for v0.1.x.
 
-- [ ] **E2. Issue + PR templates.** `.gitea/ISSUE_TEMPLATE/`: bug,
-      feature, security. `.gitea/PULL_REQUEST_TEMPLATE.md` enforcing DCO
-      sign-off + AI disclosure (per `docs/project/AI-CONTRIBUTIONS.md`)
-      + tests required.
+- [x] **E2. Issue + PR templates.** Canonical templates land under
+      `.forgejo/` (Forgejo's first-preference lookup path per
+      [Forgejo docs](https://forgejo.org/docs/latest/user/issue-pull-request-templates/);
+      Codeberg picks them up automatically). Templates:
+      bug / feature / documentation / security-redirect (new) +
+      `config.yml` that disables blank issues and surfaces the
+      SECURITY.md private channel. `PULL_REQUEST_TEMPLATE.md`
+      audited against AGENTS.md § 5: explicit tests-required +
+      docs-updated checklists, Make-target verification (per
+      AGENTS.md § 2), SPDX-header reminder, AI disclosure, DCO
+      sign-off. `.github/` template duplicates removed; just the
+      `.github/ISSUE_TEMPLATE/config.yml` redirect-to-Codeberg
+      stub kept (blank_issues_enabled now false; tighter funnel).
+      `.github/workflows/` untouched — it's CI surface shared
+      between internal Forgejo Actions and the GitHub mirror.
 
 - [x] **E3. License headers audit decision.** Added SPDX
       headers (`// SPDX-License-Identifier: Apache-2.0`) to every

@@ -1,0 +1,15 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: Security vulnerabilities — use the private channel
+    url: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/SECURITY.md
+    about: >-
+      Security findings must NOT be filed as public issues. Read SECURITY.md
+      for the private disclosure process.
+
+  - name: Read the docs first
+    url: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs
+    about: >-
+      Many "how do I…" questions are answered in docs/project/GETTING-STARTED.md,
+      the CLI / Configuration / API references, and the runbooks under
+      docs/runbooks/. Check there before filing.

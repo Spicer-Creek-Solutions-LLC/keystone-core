@@ -1,7 +1,15 @@
-blank_issues_enabled: true
+blank_issues_enabled: false
+
 contact_links:
-  - name: Codeberg Discussions
-    url: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/issues
-    about: |
-      Keystone Core is hosted on Codeberg; the GitHub presence is a
-      code-only mirror. File issues and questions on Codeberg.
+  - name: File this issue on Codeberg (canonical tracker)
+    url: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/issues/new/choose
+    about: >-
+      Keystone Core's primary host is Codeberg. This GitHub repo is a code-only
+      mirror. File issues + PRs there; the templates that match this project's
+      conventions live on Codeberg under .forgejo/.
+
+  - name: Security vulnerabilities — use the private channel
+    url: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/SECURITY.md
+    about: >-
+      Security findings must NOT be filed as public issues on either forge.
+      Read SECURITY.md for the private disclosure process.
