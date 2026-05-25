@@ -36,6 +36,26 @@ Anchored on the reconstruction baseline (commit `14be1109`).
 
 ### Changed
 
+- **Forgejo Actions CI workflow moved from `.github/workflows/` to
+  `.forgejo/workflows/`** with `runs-on:` switched from `ubuntu-latest`
+  to `docker` across all 12 jobs. Triggered by the Codeberg-hosted
+  Actions runner coming online — Codeberg's pool advertises the
+  `docker` label, and `.forgejo/workflows/` is Forgejo's
+  first-preference workflow lookup path. Same workflow now drives both
+  the local Forgejo runner at `192.168.10.21` and Codeberg's hosted
+  runner. The GitHub mirror is code-only — no CI runs there.
+  `.woodpecker/` is left in place for one push cycle and retired
+  once the Codeberg Actions surface has a green run on main.
+- **Per-command response timeouts in `test/e2e/perf/slo_test.go` bumped
+  `2s → 10s`** (3 sites: single-agent `CommandTimeout`, single-agent
+  test-side `ctx` deadline, 10-agent batch `CommandTimeout`). The SLO
+  assertion thresholds (`sloCommandLatency = 100ms`, `sloBatchExec =
+  2s`) are unchanged — the bump only widens the per-command response
+  ceiling so flaky shared-CI hardware doesn't trip the test before the
+  assertion stage can run. First seen on the initial Codeberg Actions
+  run (run #5, `slo` job) where one agent out of ten hit a 2s response
+  timeout while the batch wall-clock measured 18ms (well under the 2s
+  SLO).
 - **`trackerctl --repo` default flipped to Codeberg canonical**
   (`Spicer-Creek-Solutions-LLC/keystone-core`, commit `22ad0fada`). The
   CLI is now Codeberg-ready out of the box; the self-hosted Forgejo
@@ -161,10 +181,9 @@ Anchored on the reconstruction baseline (commit `14be1109`).
   against AGENTS.md § 5 (tests-required, docs-updated,
   SPDX-header reminder, AI disclosure, DCO sign-off). The
   parallel `.github/` template duplicates are deleted —
-  `.github/workflows/` (shared CI surface) and a tightened
-  `.github/ISSUE_TEMPLATE/config.yml` redirect (now with
-  `blank_issues_enabled: false`) are kept. Closes E2 in the
-  public-launch checklist.
+  only a tightened `.github/ISSUE_TEMPLATE/config.yml` redirect
+  (now with `blank_issues_enabled: false`) is kept. Closes E2 in
+  the public-launch checklist.
 - **`docs.keystone-core.io` placeholder site source** added under
   [`deploy/docs/`](deploy/docs/) — small branded HTML page that
   links visitors at the canonical Markdown docs in the source

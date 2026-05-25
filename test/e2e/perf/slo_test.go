@@ -84,7 +84,9 @@ func TestSLO_CommandLatency_LocalNATS(t *testing.T) {
 		AgentID:           agentID,
 		HeartbeatInterval: time.Hour, // disable heartbeat traffic — we measure command path only
 		MetadataInterval:  time.Hour,
-		CommandTimeout:    2 * time.Second,
+		// 10s gives slack on slow shared CI hardware; the SLO
+		// assertion (median <100ms) is what enforces the perf contract.
+		CommandTimeout: 10 * time.Second,
 	}, agentNATSAdapter{m: agentNATS}, agentNATS.Subjects(),
 		agent.NewGopsutilCollector(log), executor, enforcer, log)
 	if err != nil {
@@ -142,7 +144,7 @@ func TestSLO_CommandLatency_LocalNATS(t *testing.T) {
 	}
 
 	dispatchOnce := func() time.Duration {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		start := time.Now()
 		res, err := exec.Execute(ctx, "slo-A-batch", agentID, "/bin/echo", []string{"slo"})
@@ -318,7 +320,8 @@ func TestSLO_BatchExec_10Agents(t *testing.T) {
 			AgentID:           id,
 			HeartbeatInterval: time.Hour,
 			MetadataInterval:  time.Hour,
-			CommandTimeout:    2 * time.Second,
+			// See TestSLO_CommandLatency_LocalNATS for the 10s rationale.
+			CommandTimeout: 10 * time.Second,
 		}, agentNATSAdapter{m: nc}, nc.Subjects(),
 			agent.NewGopsutilCollector(log), executor, enforcer, log)
 		if err != nil {
