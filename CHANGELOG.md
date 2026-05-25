@@ -25,6 +25,8 @@ Anchored on the reconstruction baseline (commit `14be1109`).
 
 ### Added
 
+- **Project logo** (commit `6cd4359d1`). Visible on the Codeberg repo header + ready
+  for the documentation site when the Hugo build lands at gate-v0.5.
 - **SPDX license headers on every hand-written source file**
   (`// SPDX-License-Identifier: Apache-2.0`): 1,332 `.go` files + 6
   `.sh` files. Generated `.pb.go` excluded (already `linters: all` in
@@ -34,6 +36,25 @@ Anchored on the reconstruction baseline (commit `14be1109`).
 
 ### Changed
 
+- **`trackerctl --repo` default flipped to Codeberg canonical**
+  (`Spicer-Creek-Solutions-LLC/keystone-core`, commit `22ad0fada`). The
+  CLI is now Codeberg-ready out of the box; the self-hosted Forgejo
+  test path is `--repo sbutts/keystone-core`. Same commit fixed a
+  drift in `tools/trackerctl/config/release-order.yaml` where the
+  Hugo / error-URL ROADMAP entries had not been mirrored from the
+  `e495fb5a` Hugo-pull-forward commit (caught by the trackerctl
+  test gate at `tools/trackerctl/tracker_test.go:128` which asserts
+  ROADMAP ↔ release-order parity).
+- **trackerctl umbrella label renamed `v1x-backlog` → `roadmap-backlog`**
+  (commit `7e42bbae3`); the legacy `v1.0-narrowing` marker label is
+  retired. Both names predated the v0.x rename (the document was
+  renamed `V1X-BACKLOG.md` → `docs/project/ROADMAP.md` earlier); the
+  umbrella now reflects the document name with no version pin.
+  Applied to the live Codeberg label set during the pre-public-launch
+  trackerctl provisioning sweep. The paired source label
+  `source/v1x-backlog` still carries the legacy name; renaming it
+  is tracked as a v0.x ROADMAP entry to avoid forcing a Forgejo-side
+  relabel migration once issues exist.
 - **Default gRPC server port moved from `9090` → `5397`** to avoid the
   Cockpit collision on Rocky 10 / RHEL 10 (commit `3d482fa1`). Cockpit's
   default `9090` made `apt install kscore-server` fail to start out-of-box
@@ -64,6 +85,41 @@ Anchored on the reconstruction baseline (commit `14be1109`).
 
 ### Docs
 
+- **FEATURES.md Domain Index status markers refreshed** (commit
+  `203cafa0b`). 15 of 20 domains were misleadingly marked `*(pending)*`
+  in the index — that marker was a pre-reset planning convention
+  meaning "rebuild has not started yet" relative to the reconstruction
+  baseline. Epics 01-19 closed and rebuilt 13 of those 15 domains;
+  the index now uses `*(landed)*` and `*(landed, with gaps)*` to
+  honestly reflect epic-close status, with a one-line preamble
+  pointing readers at `docs/project/ROADMAP.md` for the
+  authoritative gate-v1.0 deferral list. The §6 Agent Runtime body
+  has always described a working `kscore-agent` daemon; the index
+  now matches.
+- **Pre-public-launch hygiene** (commit `3328945bc`): all
+  `archive/v0` branch and `archive/v0-final` tag references dropped
+  from committed content. The reset-baseline acknowledgment in
+  AGENTS.md / README / CHANGELOG / PUBLIC-LAUNCH-CHECKLIST.md
+  remains, but no committed text points at deleted refs. Test
+  fixture IP `192.168.10.4` (in `internal/targeting/matcher_test.go`)
+  swapped for `192.0.2.4` (RFC5737 documentation range) — caught
+  during the gitleaks + internal-IP grep audit pass.
+- **Markdown lint coverage expanded to repo-root files** (commits
+  `c043ef41b`, `f50f6b6a8`). The `.markdownlint-cli2.yaml` glob was
+  `docs/**/*.md` only; root files accumulated ~1100 silent errors
+  over time. FEATURES.md (840 errors — mostly the
+  `_Reasoning: ..._` to `*Reasoning: ...*` MD049 emphasis-style
+  sweep, plus 2 broken Domain Index anchor fragments and
+  blockquote/list spacing), RELEASE-PLAYBOOK.md (31 errors, mostly
+  MD031 blanks-around-fences inside numbered-list steps), AGENTS.md,
+  CODE_OF_CONDUCT.md, and CONTRIBUTING.md (7 errors total) all
+  cleaned. The root `*.md` pattern added to the glob so future
+  drift is caught at PR time. Two carve-outs documented in config:
+  `CLAUDE.md` (incompatible with MD041 by design — the file's
+  entire content is `@AGENTS.md`, a Claude Code import directive)
+  and `PROJECT-DETAILS.md` (~210 deferred-cleanup errors tracked
+  as a v0.x ROADMAP entry, mainly MD032 list-spacing and MD029
+  ordered-list-prefix style call).
 - **First-impression doc pass** for the v0.1.x soft launch:
   - `README.md` Quickstart rewritten around the `apt install` /
     `systemctl` / `kscorectl` operator path (was `git clone`,
