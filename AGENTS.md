@@ -79,7 +79,7 @@ Keystone Core is the runtime operations control plane between deployment tooling
 
 Positioning: "GitOps deploys it. We keep it running."
 
-This repository was reset to a clean reconstruction baseline. The prior implementation is preserved at branch `archive/v0` and tag `archive/v0-final`. Do not import or copy from the archive without explicit user approval — the reset was intentional.
+This repository was reset to a clean reconstruction baseline on 2026-05-05. The prior implementation was substantial but unshippable as a coherent first release; it is not preserved in this repository. The current line starts fresh from the reconstruction baseline — there is no v0 history to import from.
 
 Do not duplicate volatile inventories (epic counts, feature matrices, binary lists) in this file. Those drift quickly.
 
@@ -102,8 +102,7 @@ Use these files instead of expanding AGENTS with mutable detail:
 - Release process and signing ceremony: `RELEASE-PLAYBOOK.md`
 - Release-incident response (yank / fast follow-up / public comms): `docs/project/RELEASE-INCIDENT.md`
 - Operational runbooks (carried from v0; rework in-flight): `docs/runbooks/`
-- Go vanity-import static-site source (`go.keystone-core.io` meta tag): `deploy/vanity/` (`vangen.json` + generated `dist/`; regen via `make vanity-regen`)
-- Prior implementation (read-only reference): `archive/v0` branch
+- Go vanity-import static-site source (`go.keystone-core.io` meta tag): `deploy/vanity/` (`vangen.json` + generated `site/`; regen via `make vanity-regen`)
 
 ## 8) Maintenance Rule for This File
 

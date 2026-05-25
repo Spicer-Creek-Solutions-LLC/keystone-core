@@ -119,7 +119,7 @@ Project sponsor: **Spicer Creek Solutions LLC** ([`OWNERSHIP.md`](OWNERSHIP.md))
 
 > **Pre-1.0. Reconstruction approaching v1.0.**
 
-This repository was reset to a clean reconstruction baseline on 2026-05-05. The prior implementation — substantial but unshippable as a coherent first release — is preserved on the `archive/v0` branch (tag `archive/v0-final`).
+This repository was reset to a clean reconstruction baseline on 2026-05-05. The prior implementation — substantial but unshippable as a coherent first release — is not preserved in this repository. The current line starts fresh from the reconstruction baseline.
 
 The 19 reconstruction epics in [`epics/`](epics/) sequence dependency-ordered v1.0 work. Track current progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md). The versioning scheme — three milestone tiers `v0.1` → `v0.5` (external-tester ready, all Linux) → `v1.0` (all 19 epics + SemVer stability) — is in [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md).
 

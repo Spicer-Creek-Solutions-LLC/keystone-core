@@ -28,7 +28,7 @@ func TestMatcher_Match(t *testing.T) {
 		Hostname:     "db-prod-02",
 		OS:           "linux",
 		Architecture: "arm64",
-		IPAddresses:  []string{"192.168.10.4"},
+		IPAddresses:  []string{"192.0.2.4"},
 		Labels:       map[string]string{"role": "db", "env": "prod"},
 		Status:       state.AgentStatusStale,
 	}

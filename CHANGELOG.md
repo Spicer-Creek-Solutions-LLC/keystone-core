@@ -166,9 +166,9 @@ a migration note). The formal external-tester milestone is the v0.5
 checklist; the SemVer stability commitment begins at v1.0.
 
 Implementation tracked in [`epics/`](epics/); ranked backlog in
-[`docs/project/ROADMAP.md`](docs/project/ROADMAP.md); the prior
-implementation is preserved on the `archive/v0` branch / `archive/v0-final`
-tag.
+[`docs/project/ROADMAP.md`](docs/project/ROADMAP.md). The prior
+implementation is not preserved in this repository — the reconstruction
+reset on 2026-05-05 was a clean break.
 
 ### Notable behavior — the policy engine is AUDIT-MODE-ONLY
 
@@ -269,9 +269,9 @@ first release.**
 
 **First release.** No upgrade path applies. Operators evaluating
 v0.1.0 should follow [`docs/project/GETTING-STARTED.md`](docs/project/GETTING-STARTED.md)
-end-to-end on a fresh VM; the `archive/v0` branch carries the
-pre-reset codebase for reference but is not a migration source — the
-reset was intentional.
+end-to-end on a fresh VM. The reconstruction reset on 2026-05-05 was
+a clean break from the prior implementation; the pre-reset code is
+not preserved in this repository and is not a migration source.
 
 ### Verification
 

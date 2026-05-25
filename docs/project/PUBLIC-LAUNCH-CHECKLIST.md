@@ -361,10 +361,8 @@ the kind of project landing-page a serious project needs.
 Details are deferred until this phase starts — pick the right tool then,
 not now. Worth knowing going in:
 
-- The `archive/v0` branch has a prior Hugo-based doc-site attempt; review
-  it for content structure, theme choices, what worked, what didn't.
 - Hugo is the obvious default (referenced throughout `docs/project/`
-  ROADMAP entries as the post-v1.0 docs target), but if a better option
+  ROADMAP entries as the v0.5 docs target), but if a better option
   emerged since then (MkDocs Material, Docusaurus, mdBook, …), pick that.
   The deciding factor is "what produces the slickest output for the time
   invested," not loyalty to any one tool.
@@ -374,10 +372,12 @@ not now. Worth knowing going in:
 - Content scope: every doc currently under `docs/project/` should land
   on the site, plus the auto-generated CLI / configuration / API
   references and at least one curated landing page.
+- No prior-art input from the pre-reset codebase is available — the
+  reconstruction reset was a clean break. Start from a fresh tool
+  evaluation against current options.
 
-- [ ] **G1. Survey + tool choice.** Read the `archive/v0` doc-site
-      attempt. Decide tool (Hugo / MkDocs / Docusaurus / mdBook / other).
-      Record the decision + rationale.
+- [ ] **G1. Survey + tool choice.** Decide tool (Hugo / MkDocs /
+      Docusaurus / mdBook / other). Record the decision + rationale.
 
 - [ ] **G2. Content structure.** Lay out the site information
       architecture: landing page, getting-started, architecture, CLI
