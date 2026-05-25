@@ -59,8 +59,10 @@ for the same bucket.
 below is the instance base URL — the public tracker is `https://codeberg.org`;
 a self-hosted Forgejo uses its own URL (and if it serves plain HTTP, give the
 `http://` URL with the port, e.g. `http://forge.internal:3000`). `--repo`
-defaults to the canonical `owner/repo`; pass it when targeting somewhere else.
-Run from the repo root so the default `--backlog` path resolves.
+defaults to the public Codeberg canonical (`Spicer-Creek-Solutions-LLC/keystone-core`);
+pass `--repo sbutts/keystone-core` when targeting the self-hosted test server,
+or any other `owner/name` when targeting somewhere else. Run from the repo
+root so the default `--backlog` path resolves.
 
 ```sh
 export FORGEJO_TOKEN=<application token with repo scope>
@@ -83,7 +85,7 @@ go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-tracker --version gate
 go run ./tools/trackerctl --host "$FORGE_URL" --apply --throttle 300ms gen-issues --versions gate-v0.5
 ```
 
-Flags: `--host` (required), `--repo` (default the canonical `owner/repo`),
+Flags: `--host` (required), `--repo` (default `Spicer-Creek-Solutions-LLC/keystone-core`),
 `--apply` (default off), `--backlog` (default `docs/project/ROADMAP.md`),
 `--versions` (gen-issues / reconcile-issues: comma-separated priority buckets
 to limit to, e.g. `gate-v0.5` or `gate-v0.5,gate-v1.0`; empty = all entries),

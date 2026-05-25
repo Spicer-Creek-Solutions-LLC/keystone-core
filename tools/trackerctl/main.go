@@ -45,7 +45,7 @@ import (
 
 func main() {
 	host := flag.String("host", "", "Forgejo base URL, e.g. https://codeberg.org (required)")
-	repo := flag.String("repo", "sbutts/keystone-core", "target repository, owner/name")
+	repo := flag.String("repo", "Spicer-Creek-Solutions-LLC/keystone-core", "target repository, owner/name (default is the public Codeberg canonical; pass `--repo sbutts/keystone-core` for the self-hosted test server)")
 	apply := flag.Bool("apply", false, "perform changes; without it the tool only reports a plan")
 	backlog := flag.String("backlog", "docs/project/ROADMAP.md", "path to ROADMAP.md (gen-issues)")
 	versions := flag.String("versions", "", "gen-issues / reconcile-issues: comma-separated priority buckets to limit to, e.g. gate-v0.5 or gate-v0.5,gate-v1.0 (empty = all)")

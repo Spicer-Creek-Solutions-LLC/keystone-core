@@ -30,6 +30,8 @@ gate-v0.5:
   - "`vlan` stdlib module — in-place attribute reconciliation, QinQ, VLAN ranges, persistent configuration"
   - "Cross-distro state stdlib docker matrix harness"
   - "Encrypt CA material at rest"
+  # Pulled forward from v1.x to gate-v0.5 in commit `e495fb5a`:
+  - "Hugo docs site"
 
 gate-v1.0:
   - "Module system boot wiring (loader PolicyChecker/Hosts/trust-policy + runtime registration)"
@@ -171,9 +173,9 @@ v1.x:
   - "Security baseline expansion"
   - "Release dry-run expansion"
   # Added by epic 19 task 9 (docs pass) and Phase G launch-checklist entry:
-  - "Hugo docs site"
+  # ("Hugo docs site" moved to gate-v0.5 in commit `e495fb5a`.)
   - "Expanded getting-started guides (per-domain tutorials)"
-  - "Error-message docs URLs (post Hugo site)"
+  - "Error-message docs URLs"
   - "Operations runbooks v1.x sweep"
   # Added by Phase B3 dependency audit (2026-05-23):
   - "Dependency posture re-audit"
