@@ -84,9 +84,13 @@ at the repo root.
 - [`DEVELOPMENT.md`](DEVELOPMENT.md) — build, test, contribute. The
   **Local Dev Topology** section covers the docker-compose dev
   harness for ad-hoc iteration.
-- [`INCIDENT-RESPONSE.md`](INCIDENT-RESPONSE.md) — internal incident-
-  response procedure (distinct from the operator runbooks under
-  [`../runbooks/`](../runbooks/)).
+- [`INCIDENT-RESPONSE.md`](INCIDENT-RESPONSE.md) — production
+  security-incident response (compromised agent, control plane,
+  data breach, supply chain).
+- [`RELEASE-INCIDENT.md`](RELEASE-INCIDENT.md) — what to do when a
+  *published* release reveals a critical problem (yank, fast
+  follow-up release, public communication). Companion to
+  [`../../RELEASE-PLAYBOOK.md`](../../RELEASE-PLAYBOOK.md) § 14.
 
 ## Project lifecycle
 

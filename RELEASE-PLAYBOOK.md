@@ -890,6 +890,14 @@ documents the deviation in the release record and the public
 advisory, and a follow-up release with full procedure is shipped
 within 14 days.
 
+**See also**: [`docs/project/RELEASE-INCIDENT.md`](docs/project/RELEASE-INCIDENT.md)
+covers what to do when a *published* release reveals a critical
+problem — the decision tree for yank-vs-patch-vs-communicate-only,
+the yank procedure, and the public-communication mechanics. This
+section (§14) covers the release-ceremony accommodations; the
+incident-response document covers the procedural and communication
+work around it.
+
 ---
 
 ## 15. Key Rotation and Revocation

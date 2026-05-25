@@ -321,11 +321,19 @@ intended posture; first-impression scan of the root file list is clean.
       (~72 hour ack via private channel per SECURITY.md). Cadences
       reassessed at v0.5; formal SLO possible from v0.5+.
 
-- [ ] **F4. Rollback / yank plan.** Procedure if the first hour of public
-      exposure reveals a critical bug. Cover: how to pull the latest tag;
-      how to push a fast v0.1.0-rc2; how to communicate the incident.
-      Lands in `docs/project/INCIDENT-RESPONSE.md` or alongside the
-      RELEASE-PLAYBOOK.
+- [x] **F4. Rollback / yank plan.** Documented in
+      [`docs/project/RELEASE-INCIDENT.md`](RELEASE-INCIDENT.md) as
+      a new standalone doc (kept separate from INCIDENT-RESPONSE.md
+      which covers production security incidents, and from
+      RELEASE-PLAYBOOK § 14 which covers the expedited release
+      ceremony). Covers: decision tree (yank vs patch vs
+      communicate-only), yank procedure (halt distribution, audit
+      recipients, cut advisory), fast follow-up release
+      (cross-references RELEASE-PLAYBOOK § 14), public
+      communication scaled to the launch posture, post-incident
+      steps (CHANGELOG, post-mortem, process changes). Cross-
+      referenced from RELEASE-PLAYBOOK § 14 + docs/project README
+      index.
 
 **Exit gate for Phase F**: every launch-day question has a documented
 answer. Repo is ready to flip.

@@ -86,6 +86,17 @@ Anchored on the reconstruction baseline (commit `14be1109`).
   Triage and Response. v0.1.x posture: best-effort, no formal SLO;
   rough cadences stated for issues / PRs / security reports;
   cadences reassessed at v0.5 (formal SLO possible from v0.5+).
+- **F4 release-incident response plan** lands at new
+  [`docs/project/RELEASE-INCIDENT.md`](docs/project/RELEASE-INCIDENT.md).
+  Covers the post-publication decision tree (yank vs patch vs
+  communicate-only), yank procedure, fast follow-up release
+  numbering + communication, and post-incident process (CHANGELOG,
+  post-mortem, process change). Kept distinct from
+  INCIDENT-RESPONSE.md (production security incidents) and
+  RELEASE-PLAYBOOK § 14 (expedited release ceremony) which it
+  cross-references. v0.1.x-specific: operator-distributed-package
+  reality shapes the "yank" mechanics (no public APT/DNF repo to
+  withdraw from yet).
 - **Hugo docs site pulled forward from v1.x to gate-v0.5**: updates
   AGENTS.md §5, FEATURES.md §1, VERSIONING.md (resolves the prior
   v1.0-gate-7-vs-v1.x-FEATURES contradiction — Hugo is now a v0.5
