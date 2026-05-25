@@ -18,26 +18,28 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 
 ## Domain Index
 
-1. [Foundations & Build System](#1-foundations--build-system)
-2. [NATS Messaging](#2-nats-messaging)
-3. [Storage Layer](#3-storage-layer)
-4. [Control Plane Core](#4-control-plane-core)
-5. [API Surface (gRPC + REST)](#5-api-surface-grpc--rest)
-6. [Agent Runtime](#6-agent-runtime) *(pending)*
-7. [Remote Execution & Targeting](#7-remote-execution--targeting) *(pending)*
-8. [State Management & Stdlib](#8-state-management--stdlib) *(pending)*
-9. [Event System](#9-event-system) *(pending)*
-10. [Identity & Auth](#10-identity--auth) *(pending)*
-11. [Secrets Management](#11-secrets-management) *(pending)*
-12. [Audit & Policy](#12-audit--policy) *(pending)*
-13. [GitOps Integration](#13-gitops-integration) *(pending)*
-14. [Outbound Webhooks](#14-outbound-webhooks) *(pending)*
-15. [Clustering & HA](#15-clustering--ha) *(pending)*
-16. [Observability](#16-observability) *(pending)*
-17. [Blueprints & Runbooks](#17-blueprints--runbooks) *(pending)*
-18. [Plugin / Module System](#18-plugin--module-system) *(pending)*
-19. [Multi-Environment](#19-multi-environment) *(pending)*
-20. [Specialized & Extension](#20-specialized--extension) *(pending)*
+> **Status markers** below reflect v0.1.x reconstruction state. `landed` = the v1.0-scope items in that section work; `landed, with gaps` = code is in place but specific gate-v1.0 boot-wiring or durable-store items remain (tracked in `docs/project/ROADMAP.md`). See each section's body for landed-item annotations.
+
+1. [Foundations & Build System](#1-foundations--build-system) *(landed)*
+2. [NATS Messaging](#2-nats-messaging) *(landed)*
+3. [Storage Layer](#3-storage-layer) *(landed)*
+4. [Control Plane Core](#4-control-plane-core) *(landed)*
+5. [API Surface (gRPC + REST)](#5-api-surface-grpc--rest) *(landed)*
+6. [Agent Runtime](#6-agent-runtime) *(landed)*
+7. [Remote Execution & Targeting](#7-remote-execution--targeting) *(landed)*
+8. [State Management & Stdlib](#8-state-management--stdlib) *(landed)*
+9. [Event System](#9-event-system) *(landed)*
+10. [Identity & Auth](#10-identity--auth) *(landed)*
+11. [Secrets Management](#11-secrets-management) *(landed)*
+12. [Audit & Policy](#12-audit--policy) *(landed)*
+13. [GitOps Integration](#13-gitops-integration) *(landed, with gaps)*
+14. [Outbound Webhooks](#14-outbound-webhooks) *(landed, with gaps)*
+15. [Clustering & HA](#15-clustering--ha) *(landed, with gaps)*
+16. [Observability](#16-observability) *(landed)*
+17. [Blueprints & Runbooks](#17-blueprints--runbooks) *(landed, with gaps)*
+18. [Plugin / Module System](#18-plugin--module-system) *(landed, with gaps)*
+19. [Multi-Environment](#19-multi-environment) *(landed)*
+20. [Specialized & Extension](#20-specialized--extension) *(landed)*
 
 ---
 
