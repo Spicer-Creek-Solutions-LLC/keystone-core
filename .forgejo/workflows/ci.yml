@@ -49,6 +49,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` (multi-threaded zstd, ~500
+      # MB/s) instead of single-threaded `tar -z` (gzip, ~30-50 MB/s).
+      # For a 2GB cache that's seconds-not-minutes. Idempotent.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       # Cache warmer: write the go module + build cache for the workflow.
       # Other jobs restore from this via actions/cache/restore@v4. See
       # header comment for the warmer/reader rationale.
@@ -104,6 +110,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -131,6 +143,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -170,6 +188,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -188,6 +212,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -215,6 +245,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -265,6 +301,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -302,6 +344,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -342,6 +390,12 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
         with:
           path: |

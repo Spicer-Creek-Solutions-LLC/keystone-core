@@ -50,6 +50,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      # Required to decompress the zstd-saved cache from ci.yml's lint
+      # warmer. See ci.yml for the parallel-zstd rationale.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
         with:
           path: |
@@ -89,6 +93,10 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
+      # Required to decompress the zstd-saved cache from ci.yml's lint
+      # warmer. See ci.yml for the parallel-zstd rationale.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
         with:
           path: |

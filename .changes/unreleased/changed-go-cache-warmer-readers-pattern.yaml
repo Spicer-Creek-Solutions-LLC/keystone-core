@@ -10,5 +10,10 @@ body: |-
   `actions/cache@v4`; every other Go job uses
   `actions/cache/restore@v4` (read-only) and pays no save cost.
   `docs` + `openapi` skip the cache entirely (neither runs Go code).
-  Expected savings: ~45-50 min per per-PR run; ~55 min per
-  push-to-main run (additional `ci-full.yml` readers benefit too).
+  Additionally, installs `zstd` in every cache-using job so
+  `actions/cache@v4` auto-detects it and uses
+  `tar --use-compress-program zstdmt` (parallel zstd, ~500 MB/s)
+  instead of single-threaded `tar -z` gzip (~30-50 MB/s) — a
+  ~20-40× speedup for the warmer's save step on a 2 GB cache
+  (seconds, not minutes). Total expected savings: ~45-55 min per
+  per-PR run; ~60-70 min per push-to-main run.
