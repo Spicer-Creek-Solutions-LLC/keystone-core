@@ -1,0 +1,13 @@
+kind: Docs
+body: |-
+  **Hugo docs site pulled forward from v1.x to gate-v0.5**: updates
+  AGENTS.md §5, FEATURES.md §1, VERSIONING.md (resolves the prior
+  v1.0-gate-7-vs-v1.x-FEATURES contradiction — Hugo is now a v0.5
+  gate; v1.0 gates renumbered 8/9/10 → 7/8/9), ROADMAP.md (Hugo
+  entry moved from v1.x to gate-v0.5; dependent v1.x entries
+  "Expanded getting-started guides" + "Error-message docs URLs"
+  re-framed against Hugo's new position). Rationale: a polished,
+  searchable doc experience benefits the v0.5 external-tester
+  audience; pre-v0.5 Markdown + subtree READMEs remain sufficient
+  for the v0.1.x invited-installer audience. PDF export stays
+  v1.x (FEATURES.md §1).

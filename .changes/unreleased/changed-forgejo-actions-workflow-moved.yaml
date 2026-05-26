@@ -1,0 +1,12 @@
+kind: Changed
+body: |-
+  **Forgejo Actions CI workflow moved from `.github/workflows/` to
+  `.forgejo/workflows/`** with `runs-on:` switched from `ubuntu-latest`
+  to `docker` across all 12 jobs. Triggered by the Codeberg-hosted
+  Actions runner coming online — Codeberg's pool advertises the
+  `docker` label, and `.forgejo/workflows/` is Forgejo's
+  first-preference workflow lookup path. Same workflow now drives both
+  the local Forgejo runner at `192.168.10.21` and Codeberg's hosted
+  runner. The GitHub mirror is code-only — no CI runs there. The
+  legacy `.woodpecker/` pipeline was retired in a follow-up (see the
+  `.woodpecker/` directory removed entry).

@@ -1,0 +1,6 @@
+kind: Changed
+body: |-
+  Debian/RPM packaging: postinst hooks create the `kscore` system user,
+  `/etc/kscore`, `/var/lib/kscore`, `/var/log/kscore`, `/run/kscore`;
+  auto-generate the HMAC secret; ship a default config so
+  `systemctl start kscore-server` works out-of-box (commit `4be8d19d`).

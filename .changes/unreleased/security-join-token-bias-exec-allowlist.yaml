@@ -1,0 +1,4 @@
+kind: Security
+body: |-
+  Join-token base62-prefix bias documented + exec capability allowlist
+  semantics tightened (Phase B5 M1+M2, commit `1f0164e0`).

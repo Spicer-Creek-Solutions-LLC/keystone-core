@@ -1,0 +1,18 @@
+kind: Docs
+body: |-
+  **Markdown lint coverage expanded to repo-root files** (commits
+  `c043ef41b`, `f50f6b6a8`). The `.markdownlint-cli2.yaml` glob was
+  `docs/**/*.md` only; root files accumulated ~1100 silent errors
+  over time. FEATURES.md (840 errors — mostly the
+  `_Reasoning: ..._` to `*Reasoning: ...*` MD049 emphasis-style
+  sweep, plus 2 broken Domain Index anchor fragments and
+  blockquote/list spacing), RELEASE-PLAYBOOK.md (31 errors, mostly
+  MD031 blanks-around-fences inside numbered-list steps), AGENTS.md,
+  CODE_OF_CONDUCT.md, and CONTRIBUTING.md (7 errors total) all
+  cleaned. The root `*.md` pattern added to the glob so future
+  drift is caught at PR time. Two carve-outs documented in config:
+  `CLAUDE.md` (incompatible with MD041 by design — the file's
+  entire content is `@AGENTS.md`, a Claude Code import directive)
+  and `PROJECT-DETAILS.md` (~210 deferred-cleanup errors tracked
+  as a v0.x ROADMAP entry, mainly MD032 list-spacing and MD029
+  ordered-list-prefix style call).

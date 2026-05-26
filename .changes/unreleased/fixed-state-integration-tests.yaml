@@ -1,0 +1,4 @@
+kind: Fixed
+body: |-
+  State integration tests: TRUNCATE + boundary + JSONB regressions
+  uncovered during clean-tree Phase C run (commit `dd7f03b4`).

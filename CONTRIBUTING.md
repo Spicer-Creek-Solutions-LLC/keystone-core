@@ -75,6 +75,57 @@ If you’re new:
 4. Ask questions if something is unclear
 5. Open a PR or RFC
 
+## Changelog entries
+
+Per-PR changelog entries live as YAML fragments under
+[`.changes/unreleased/`](.changes/unreleased/), not inline in
+`CHANGELOG.md`'s `[Unreleased]` section. The fragments roll up into
+`CHANGELOG.md` at release time via `make changelog-batch
+VERSION=v0.x.y`. This pattern (powered by [changie](https://changie.dev))
+exists because concurrent PRs editing the same `CHANGELOG.md` section
+caused mechanical merge conflicts; fragments give each PR its own
+file, and `git` auto-merges trivially.
+
+### Per-PR workflow
+
+1. Make your code change in the usual way.
+2. Draft a fragment: `make changelog-new` (interactive — prompts for
+   kind + body). Commits the new file under `.changes/unreleased/`.
+3. Edit the generated `.yaml` if you want to fine-tune wording; the
+   `body:` field is a YAML literal block, multi-line is supported.
+4. Include the fragment in your PR alongside the code change.
+
+To preview the accumulated `[Unreleased]` section that your fragment
+will land in, run `make changelog-preview`.
+
+### Fragment shape
+
+```yaml
+kind: Changed        # Security | Added | Changed | Fixed | Docs
+body: |-
+  **Short title.** One-line summary of the change.
+  Continuation paragraphs are fine; indent them 2 spaces in the YAML
+  literal so they render as bullet continuations after the leading
+  `- ` is prepended at batch time.
+```
+
+The `body` becomes a single bullet under `### <kind>` in the rendered
+changelog. The `**Short title.**` convention mirrors the keep-a-changelog
+style used in the rest of `CHANGELOG.md`.
+
+### At release time
+
+Maintainers run `make changelog-batch VERSION=v0.x.y`, which:
+
+1. Aggregates every fragment under `.changes/unreleased/` into a new
+   `## [v0.x.y] — <date>` section at the top of `CHANGELOG.md`.
+2. Moves the consumed fragments to `.changes/v0.x.y/` for archive.
+3. Updates the file's internal index so `[Unreleased]` reads empty
+   until the next PR drops a new fragment.
+
+See [`.changie.yaml`](.changie.yaml) for the exact templates that
+govern output formatting.
+
 ## Questions?
 
 - Open a GitHub Discussion

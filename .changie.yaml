@@ -1,0 +1,46 @@
+# changie config — https://changie.dev
+#
+# Per-PR changelog entries are drafted as YAML fragments under
+# .changes/unreleased/ instead of editing CHANGELOG.md directly.
+# At release time, `make changelog-batch VERSION=v0.x.y` aggregates
+# every unreleased fragment into CHANGELOG.md under that version
+# heading, then archives the fragments to .changes/v0.x.y/.
+#
+# Why fragments instead of editing CHANGELOG.md per-PR: every PR
+# editing the same section caused mechanical merge conflicts whenever
+# two PRs landed back-to-back. Fragments give each PR its own file;
+# git auto-merges trivially. See CONTRIBUTING.md § Changelog entries.
+
+changesDir: .changes
+unreleasedDir: unreleased
+changelogPath: CHANGELOG.md
+versionExt: md
+
+# Output formatting — keep aligned with the existing keep-a-changelog
+# style. The em-dash + date matches the [v0.1.0] header already in
+# CHANGELOG.md. The change template indents continuation lines by 2
+# spaces so multi-line bodies render as proper markdown bullet
+# continuations (single-line bodies are unaffected).
+versionFormat: '## [{{.Version}}] — {{.Time.Format "2006-01-02"}}'
+kindFormat: '### {{.Kind}}'
+changeFormat: '- {{.Body | replace "\n" "\n  "}}'
+
+kinds:
+  - label: Security
+  - label: Added
+  - label: Changed
+  - label: Fixed
+  - label: Docs
+
+newlines:
+  afterChangelogVersion: 1
+  beforeChangelogVersion: 1
+  afterKind: 1
+  beforeKind: 1
+  afterChange: 0
+  beforeChange: 0
+
+# Migration note: the .changes/unreleased/ tree at PR-merge time
+# represents the [Unreleased] section that previously lived inline
+# in CHANGELOG.md. Running `make changelog-preview` renders the
+# current accumulated set without writing CHANGELOG.md.

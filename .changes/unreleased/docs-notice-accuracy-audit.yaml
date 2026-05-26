@@ -1,0 +1,7 @@
+kind: Docs
+body: |-
+  NOTICE accuracy audit: dropped `wazero`, added 8 notable deps
+  (HashiCorp Vault, gRPC, OpenTelemetry, Prometheus client,
+  SPIFFE go-spiffe, minio-go, modernc.org/sqlite, go-git), reorganized
+  by domain, documented the `modernc.org/mathutil` "Unknown" license
+  exception inline (commit `33f19178`).
