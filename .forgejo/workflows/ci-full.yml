@@ -1,0 +1,83 @@
+# Heavy CI jobs that don't add signal on every PR. Runs on push to
+# main, nightly cron (05:00 UTC), and manual workflow_dispatch.
+#
+# The per-PR fast loop lives in ci.yml. Jobs here are too slow for
+# that loop (release-dry-run ~33min, 5-variant cross-build matrix
+# ~25min total on a single-concurrent runner) and rarely catch bugs
+# that wouldn't surface on the post-merge main run.
+#
+# Both workflows share `runs-on: docker` and the same Make targets.
+
+name: ci-full
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Daily at 05:00 UTC. Catches dep-bump / toolchain drift that
+    # didn't land via a code push (e.g., new CVE published against
+    # a pinned version since the last main push).
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-full-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Epic 19 task 13 — release dry-run. Builds the full goreleaser
+  # snapshot (5 archives, 12 nfpm packages, checksums.txt) and runs
+  # scripts/release-smoke.sh which asserts artifact shape + linux-side
+  # content via debian:12-slim + install smoke in debian:12-slim and
+  # rockylinux:9. The smoke uses Docker (preinstalled on ubuntu-latest
+  # runners) so no extra apt-install is needed.
+  release-dry-run:
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # goreleaser needs full history to compute the snapshot version.
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make install-tools
+      - name: release dry-run (full smoke incl. container install)
+        env:
+          RELEASE_SMOKE_CONTAINERS: "1"
+        run: make release-dry-run
+
+  # Five non-host build-matrix variants. The host (linux/amd64) build
+  # runs in ci.yml's per-PR loop; here we gate the cross-compile
+  # variants that take longer (especially the qemu-emulated arm64).
+  build:
+    runs-on: docker
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: make build

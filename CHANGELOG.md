@@ -50,6 +50,16 @@ Anchored on the reconstruction baseline (commit `14be1109`).
   the parallel measurement, catching subscription-not-yet-routable
   flakes as clean fatal errors instead of measurement noise. SLO
   assertion thresholds remain untouched (median <100ms, batch <2s).
+- **CI workflow split into per-PR fast loop + push-to-main full pipeline.**
+  `release-dry-run` (~33min) and 5 of 6 cross-build matrix variants
+  (`linux/arm64`, `darwin/amd64`, `darwin/arm64`, `windows/amd64`,
+  `windows/arm64`) moved from `ci.yml` into a new
+  `.forgejo/workflows/ci-full.yml` triggered by push-to-main +
+  nightly cron (05:00 UTC) + `workflow_dispatch`. `linux/amd64`
+  build stays in `ci.yml` as the per-PR smoke; the other five still
+  gate every main push. Triggered by single-runner serialization on
+  the Codeberg-hosted Actions pool — a per-PR run with 17 jobs took
+  ~2 hours wall-clock; the split cuts per-PR work to 11 jobs.
 - **Forgejo Actions CI workflow moved from `.github/workflows/` to
   `.forgejo/workflows/`** with `runs-on:` switched from `ubuntu-latest`
   to `docker` across all 12 jobs. Triggered by the Codeberg-hosted
