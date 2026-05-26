@@ -1,0 +1,14 @@
+kind: Changed
+body: |-
+  **CI Go cache restructured to warmer + readers pattern** in
+  `.forgejo/workflows/{ci,ci-full}.yml`. `actions/setup-go@v5`'s
+  built-in `cache: true` was uploading the Go module + build cache
+  at the end of every job — a 4-6 minute single-threaded
+  `tar -cf cache.tgz -z` step per job × 11 jobs = ~50 minutes of
+  cache-tar overhead per PR run on Codeberg's shared runner.
+  Restructured: `lint` (the warmer) writes the cache via
+  `actions/cache@v4`; every other Go job uses
+  `actions/cache/restore@v4` (read-only) and pays no save cost.
+  `docs` + `openapi` skip the cache entirely (neither runs Go code).
+  Expected savings: ~45-50 min per per-PR run; ~55 min per
+  push-to-main run (additional `ci-full.yml` readers benefit too).

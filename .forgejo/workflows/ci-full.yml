@@ -7,6 +7,11 @@
 # that wouldn't surface on the post-merge main run.
 #
 # Both workflows share `runs-on: docker` and the same Make targets.
+#
+# Go cache: both jobs use restore-only (`actions/cache/restore@v4`)
+# so they benefit from ci.yml's `lint` warmer when both workflows
+# run on the same push, but never pay the multi-minute tar/gzip
+# save cost themselves. See ci.yml header for the warmer rationale.
 
 name: ci-full
 
@@ -44,7 +49,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - run: make install-tools
       - name: release dry-run (full smoke incl. container install)
         env:
@@ -75,7 +88,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - name: build ${{ matrix.goos }}/${{ matrix.goarch }}
         env:
           GOOS: ${{ matrix.goos }}
