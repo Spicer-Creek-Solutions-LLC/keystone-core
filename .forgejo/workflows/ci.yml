@@ -10,9 +10,7 @@
 # All work runs through Make targets per PROJECT-DETAILS §5.4:
 # "CI never runs raw `go test`/`go build` — always Make targets."
 #
-# .woodpecker/ still targets the same Codeberg surface and will be
-# retired once this workflow has a green run on Codeberg. The GitHub
-# mirror is code-only — no CI runs there.
+# The GitHub mirror is code-only — no CI runs there.
 #
 # Security: every ${{ ... }} expansion below references either matrix
 # values defined in this file or github.ref (a refname, not user

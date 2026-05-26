@@ -46,8 +46,8 @@ What is *deterministically seamed* (and why):
 
 Build-tagged `integration`, so it is **excluded from
 `make test`**. CI runs it on every PR via `make test-integration`
-(the `integration:` job in `.woodpecker/ci.yml` and
-`.github/workflows/ci.yml`, which provides the sidecar Postgres).
+(the `integration:` job in `.forgejo/workflows/ci.yml`, which
+provides the sidecar Postgres).
 
 ```sh
 make test-integration                 # whole integration suite
@@ -78,8 +78,8 @@ go test -tags=slo ./test/e2e/ha/...       # same, directly
 ```
 
 `make slo` is its own required CI job (the `slo:` step in
-`.woodpecker/ci.yml` and `.github/workflows/ci.yml`) — no Postgres
-sidecar, runs on every PR, failures block merge. Bounds asserted:
+`.forgejo/workflows/ci.yml`) — no Postgres sidecar, runs on every
+PR, failures block merge. Bounds asserted:
 first leader `<3s`, cluster forms `<10s`, failover detection `<5s` /
 completion `<10s`, agent reassignment `<10s`, minority blocks writes
 `<1s`, recovery (restart) `<15s`, zero failover duplication. Each
