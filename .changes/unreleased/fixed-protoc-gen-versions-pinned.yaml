@@ -1,0 +1,4 @@
+kind: Fixed
+body: |-
+  CI: pinned `protoc-gen-go@v1.36.11` + `protoc-gen-go-grpc@v1.6.1` so
+  generated stubs don't drift from `@latest` (commit `cbc78351`).

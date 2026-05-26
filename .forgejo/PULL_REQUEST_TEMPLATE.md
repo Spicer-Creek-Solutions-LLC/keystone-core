@@ -65,7 +65,9 @@ it affects**. Confirm the surfaces touched:
 - [ ] `docs/project/{CLI,CONFIGURATION,API}-REFERENCE.md` — regenerated via `make docs-sync`
       if CLI flags / config keys / proto-defined RPCs / OpenAPI endpoints changed
 - [ ] `docs/runbooks/*.md` — if operational procedures shifted
-- [ ] `CHANGELOG.md` — `[Unreleased]` section updated
+- [ ] Changelog fragment added under `.changes/unreleased/` (via
+      `make changelog-new` — do NOT edit `CHANGELOG.md` directly;
+      see [CONTRIBUTING.md § Changelog entries](../CONTRIBUTING.md#changelog-entries))
 - [ ] No doc changes needed (justify in the description)
 
 ## Required: SPDX header on new Go / shell files

@@ -43,6 +43,7 @@ export CGO_ENABLED := 0
         proto proto-lint proto-breaking \
         openapi-lint \
         docs-lint docs-lint-fix docs-lint-container docs-links docs-links-online \
+        changelog-new changelog-preview changelog-batch \
         dev dev-server dev-agent \
         e2e-build e2e-up e2e-down e2e-logs e2e-test e2e-test-docker \
         release-snapshot release release-dry-run release-config-check release-smoke \
@@ -166,6 +167,7 @@ install-tools: ## Install dev tools (Go-installable + lychee binary)
 	@command -v gitleaks >/dev/null || go install github.com/zricethezav/gitleaks/v8@latest
 	@command -v go-licenses >/dev/null || go install github.com/google/go-licenses@latest
 	@command -v vangen >/dev/null || go install 4d63.com/vangen@latest
+	@command -v changie >/dev/null || go install github.com/miniscruff/changie@latest
 	@command -v lychee >/dev/null || $(MAKE) --no-print-directory install-lychee
 
 # Lychee is a Rust binary, not Go-installable. Pull the prebuilt release for
@@ -391,6 +393,40 @@ docs-links: ## Check internal/relative .md links via lychee (offline; CI gate)
 		echo "ERROR: docs-links needs lychee on PATH (run 'make install-tools') or docker/podman"; \
 		exit 1; \
 	fi
+
+# ---- Changelog (changie fragments) ---------------------------------------
+#
+# Per-PR entries live as YAML fragments under .changes/unreleased/ instead of
+# direct edits to CHANGELOG.md's [Unreleased] section. This eliminates the
+# mechanical merge conflicts that hit every concurrent PR touching the same
+# section anchor. See .changie.yaml + CONTRIBUTING.md § Changelog entries.
+
+changelog-new: ## Draft a new changelog fragment under .changes/unreleased/
+	@command -v changie >/dev/null || { \
+		echo "ERROR: changie not installed; run 'make install-tools'"; exit 1; }
+	@changie new
+
+changelog-preview: ## Preview the accumulated unreleased section (dry-run)
+	@command -v changie >/dev/null || { \
+		echo "ERROR: changie not installed; run 'make install-tools'"; exit 1; }
+	@# `minor` is the version-increment keyword for preview only — actual
+	@# release version is supplied via `make changelog-batch VERSION=...`.
+	@changie batch minor --dry-run
+
+# changelog-batch: invoked at release time. VERSION must be supplied
+# (e.g., make changelog-batch VERSION=v0.1.0). Writes the aggregated
+# section into CHANGELOG.md and archives the fragments under
+# .changes/<version>/. Re-stage CHANGELOG.md and the archived fragments
+# in the release-prep commit.
+changelog-batch: ## Aggregate fragments into CHANGELOG.md for a release. Requires VERSION=v0.x.y
+	@command -v changie >/dev/null || { \
+		echo "ERROR: changie not installed; run 'make install-tools'"; exit 1; }
+	@if [ -z "$(VERSION)" ]; then \
+		echo "ERROR: VERSION is required, e.g. make changelog-batch VERSION=v0.1.0"; \
+		exit 2; \
+	fi
+	@changie batch $(VERSION)
+	@changie merge
 
 docs-links-online: ## Check internal + external .md links via lychee (slow; not a CI gate)
 	@if command -v lychee >/dev/null 2>&1; then \

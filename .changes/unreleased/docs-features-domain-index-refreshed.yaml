@@ -1,0 +1,13 @@
+kind: Docs
+body: |-
+  **FEATURES.md Domain Index status markers refreshed** (commit
+  `203cafa0b`). 15 of 20 domains were misleadingly marked `*(pending)*`
+  in the index — that marker was a pre-reset planning convention
+  meaning "rebuild has not started yet" relative to the reconstruction
+  baseline. Epics 01-19 closed and rebuilt 13 of those 15 domains;
+  the index now uses `*(landed)*` and `*(landed, with gaps)*` to
+  honestly reflect epic-close status, with a one-line preamble
+  pointing readers at `docs/project/ROADMAP.md` for the
+  authoritative gate-v1.0 deferral list. The §6 Agent Runtime body
+  has always described a working `kscore-agent` daemon; the index
+  now matches.

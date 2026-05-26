@@ -1,0 +1,8 @@
+kind: Changed
+body: |-
+  **Default gRPC server port moved from `9090` → `5397`** to avoid the
+  Cockpit collision on Rocky 10 / RHEL 10 (commit `3d482fa1`). Cockpit's
+  default `9090` made `apt install kscore-server` fail to start out-of-box
+  on Rocky 10; 5397 has no known popular collision. Operators with old
+  `kscorectl` defaults pointing at `9090` get `connection refused` and
+  pass `--server localhost:5397` to recover.

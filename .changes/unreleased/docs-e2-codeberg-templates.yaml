@@ -1,0 +1,13 @@
+kind: Docs
+body: |-
+  **E2 Codeberg / Forgejo templates** land under
+  [`.forgejo/`](.forgejo/) (Forgejo's first-preference lookup path;
+  Codeberg picks them up automatically). Four issue templates
+  (bug, feature, documentation, security-redirect [new]) +
+  `config.yml` disabling blank issues + a PR template audited
+  against AGENTS.md § 5 (tests-required, docs-updated,
+  SPDX-header reminder, AI disclosure, DCO sign-off). The
+  parallel `.github/` template duplicates are deleted —
+  only a tightened `.github/ISSUE_TEMPLATE/config.yml` redirect
+  (now with `blank_issues_enabled: false`) is kept. Closes E2 in
+  the public-launch checklist.
