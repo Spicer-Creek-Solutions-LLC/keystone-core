@@ -12,6 +12,14 @@
 #
 # The GitHub mirror is code-only — no CI runs there.
 #
+# Go cache strategy: `setup-go`'s built-in cache is disabled everywhere
+# (`cache: false`). `lint` runs an explicit `actions/cache@v4` step
+# (the sole writer for the workflow); every other Go job runs
+# `actions/cache/restore@v4` (read-only). This eliminates the
+# per-job `tar -cf cache.tgz -z` save step (4-6 min on Codeberg's
+# shared runner) from every job except `lint`. `openapi` + `docs`
+# have no Go code and skip the cache entirely.
+#
 # Security: every ${{ ... }} expansion below references either matrix
 # values defined in this file or github.ref (a refname, not user
 # content). No issue/PR/commit body text is interpolated into shell.
@@ -40,7 +48,24 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` (multi-threaded zstd, ~500
+      # MB/s) instead of single-threaded `tar -z` (gzip, ~30-50 MB/s).
+      # For a 2GB cache that's seconds-not-minutes. Idempotent.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
+      # Cache warmer: write the go module + build cache for the workflow.
+      # Other jobs restore from this via actions/cache/restore@v4. See
+      # header comment for the warmer/reader rationale.
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       # Build golangci-lint with the runner's Go toolchain so the binary's
       # build-time Go version matches go.mod's `go` directive. Avoids the
       # "Go language version (goX.Y) used to build golangci-lint is lower
@@ -84,7 +109,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - name: test (race + coverage)
         run: make test-coverage
       # Epic 19 task 4 — per-package coverage gate. Critical >=70%,
@@ -103,7 +142,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - name: performance SLOs (no -race)
         run: make slo
 
@@ -134,7 +187,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - run: make test-integration
 
   smoke:
@@ -144,7 +211,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - run: make smoke
 
   # Epic 19 task 7 — security baseline. Four scans, one job:
@@ -163,7 +244,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - run: make install-tools
       - run: make security-secrets
       - run: make security-vulns
@@ -205,7 +300,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - run: make e2e-test
 
   openapi:
@@ -234,7 +343,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       # Install buf + protoc-gen-go + protoc-gen-go-grpc via Make rather
       # than bufbuild/buf-setup-action — the action isn't mirrored at
       # data.forgejo.org (the Forgejo runner's default action registry)
@@ -266,7 +389,21 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      # actions/cache@v4 auto-detects zstd on PATH and uses parallel
+      # `tar --use-compress-program zstdmt` instead of single-threaded
+      # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
+      # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
+      - name: install zstd for parallel cache compression
+        run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - name: build ${{ matrix.goos }}/${{ matrix.goarch }}
         env:
           GOOS: ${{ matrix.goos }}
