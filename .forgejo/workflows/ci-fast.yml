@@ -7,6 +7,17 @@
 # variants) live in ci-full.yml, which runs on push-to-main +
 # nightly cron + workflow_dispatch only.
 #
+# Filename note: this file is `ci-fast.yml` (was `ci.yml`) so that
+# Forgejo Actions' lexical workflow-file enumeration picks it BEFORE
+# `ci-full.yml` (`fast` sorts before `full` alphabetically). On a
+# push-to-main run both workflows fire; the runner picks them in
+# directory-listing order. Having `ci-fast` run first means the
+# `lint` cache warmer is populated by the time `ci-full`'s heavy
+# jobs (release-dry-run, the 5 build variants) start, so they
+# benefit from the warm cache instead of cold-missing. See the
+# `name:` field below — it's still `ci`, so the UI's "Checks"
+# display on PRs is unchanged.
+#
 # All work runs through Make targets per PROJECT-DETAILS §5.4:
 # "CI never runs raw `go test`/`go build` — always Make targets."
 #
