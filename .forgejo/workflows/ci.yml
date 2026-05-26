@@ -2,6 +2,11 @@
 # 192.168.10.21 and Codeberg's hosted runner pool. Both runner
 # environments advertise the `docker` label.
 #
+# This is the per-PR fast feedback loop. Heavy jobs that don't add
+# signal on every PR (release-dry-run, the 5 non-host cross-build
+# variants) live in ci-full.yml, which runs on push-to-main +
+# nightly cron + workflow_dispatch only.
+#
 # All work runs through Make targets per PROJECT-DETAILS §5.4:
 # "CI never runs raw `go test`/`go build` — always Make targets."
 #
@@ -144,29 +149,6 @@ jobs:
           cache: true
       - run: make smoke
 
-  # Epic 19 task 13 — release dry-run. Builds the full goreleaser
-  # snapshot (5 archives, 12 nfpm packages, checksums.txt) and runs
-  # scripts/release-smoke.sh which asserts artifact shape + linux-side
-  # content via debian:12-slim + install smoke in debian:12-slim and
-  # rockylinux:9. The smoke uses Docker (preinstalled on ubuntu-latest
-  # runners) so no extra apt-install is needed.
-  release-dry-run:
-    runs-on: docker
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # goreleaser needs full history to compute the snapshot version.
-          fetch-depth: 0
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - run: make install-tools
-      - name: release dry-run (full smoke incl. container install)
-        env:
-          RELEASE_SMOKE_CONTAINERS: "1"
-        run: make release-dry-run
-
   # Epic 19 task 7 — security baseline. Four scans, one job:
   #   - gitleaks: no secrets in the full git history (fetch-depth: 0).
   #   - govulncheck: no known CVEs in deps / toolchain.
@@ -269,6 +251,10 @@ jobs:
       - name: breaking-changes check vs previous commit
         run: make proto-breaking
 
+  # Per-PR build smoke: linux/amd64 only. The remaining five
+  # variants (linux/arm64, darwin/amd64, darwin/arm64, windows/amd64,
+  # windows/arm64) live in ci-full.yml so every main push still gates
+  # the full cross-build matrix; PRs only validate the host-arch build.
   build:
     runs-on: docker
     strategy:
@@ -277,16 +263,6 @@ jobs:
         include:
           - goos: linux
             goarch: amd64
-          - goos: linux
-            goarch: arm64
-          - goos: darwin
-            goarch: amd64
-          - goos: darwin
-            goarch: arm64
-          - goos: windows
-            goarch: amd64
-          - goos: windows
-            goarch: arm64
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
