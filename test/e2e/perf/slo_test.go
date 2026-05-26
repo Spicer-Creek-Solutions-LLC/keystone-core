@@ -101,13 +101,18 @@ func TestSLO_CommandLatency_LocalNATS(t *testing.T) {
 	// on serverNATS, which is the same embedded bus the agent
 	// subscribes to.
 	disp, err := controlplane.NewDispatcher(controlplane.DispatcherConfig{
-		Store:                 stubCommandStore{},
-		Agents:                newStubAgentLookup(agentID),
-		Publisher:             natsPublisherAdapter{m: serverNATS},
-		Subjects:              serverNATS.Subjects(),
-		Signer:                commandSignerAdapter{enf: enforcer},
-		Logger:                log,
-		DefaultTimeoutSeconds: 5,
+		Store:     stubCommandStore{},
+		Agents:    newStubAgentLookup(agentID),
+		Publisher: natsPublisherAdapter{m: serverNATS},
+		Subjects:  serverNATS.Subjects(),
+		Signer:    commandSignerAdapter{enf: enforcer},
+		Logger:    log,
+		// Server-side response-wait ceiling. Same 30s slack as the
+		// agent-side CommandTimeout — the SLO assertion (median <100ms)
+		// is what enforces the perf contract; this just keeps shared-
+		// CI NATS scheduling lag from tripping the gate before the
+		// measurement happens.
+		DefaultTimeoutSeconds: 30,
 	})
 	if err != nil {
 		t.Fatalf("NewDispatcher: %v", err)
@@ -135,9 +140,10 @@ func TestSLO_CommandLatency_LocalNATS(t *testing.T) {
 	// runner the server's ExecuteCommand RPC drives, so the measured
 	// latency matches what an operator would see.
 	exec, err := controlplane.NewNATSBatchExecutor(controlplane.NATSBatchExecutorConfig{
-		Dispatcher:     disp,
-		Router:         router,
-		DefaultTimeout: 5 * time.Second,
+		Dispatcher: disp,
+		Router:     router,
+		// Matches DispatcherConfig.DefaultTimeoutSeconds above.
+		DefaultTimeout: 30 * time.Second,
 	})
 	if err != nil {
 		t.Fatalf("NewNATSBatchExecutor: %v", err)
@@ -340,13 +346,14 @@ func TestSLO_BatchExec_10Agents(t *testing.T) {
 	}()
 
 	disp, err := controlplane.NewDispatcher(controlplane.DispatcherConfig{
-		Store:                 stubCommandStore{},
-		Agents:                newStubAgentLookup(agentIDs...),
-		Publisher:             natsPublisherAdapter{m: serverNATS},
-		Subjects:              serverNATS.Subjects(),
-		Signer:                commandSignerAdapter{enf: enforcer},
-		Logger:                log,
-		DefaultTimeoutSeconds: 5,
+		Store:     stubCommandStore{},
+		Agents:    newStubAgentLookup(agentIDs...),
+		Publisher: natsPublisherAdapter{m: serverNATS},
+		Subjects:  serverNATS.Subjects(),
+		Signer:    commandSignerAdapter{enf: enforcer},
+		Logger:    log,
+		// See TestSLO_CommandLatency_LocalNATS for the 30s rationale.
+		DefaultTimeoutSeconds: 30,
 	})
 	if err != nil {
 		t.Fatalf("NewDispatcher: %v", err)
@@ -371,13 +378,36 @@ func TestSLO_BatchExec_10Agents(t *testing.T) {
 	defer func() { _ = router.Stop() }()
 
 	exec, err := controlplane.NewNATSBatchExecutor(controlplane.NATSBatchExecutorConfig{
-		Dispatcher:     disp,
-		Router:         router,
-		DefaultTimeout: 5 * time.Second,
+		Dispatcher: disp,
+		Router:     router,
+		// See TestSLO_CommandLatency_LocalNATS for the 30s rationale.
+		DefaultTimeout: 30 * time.Second,
 	})
 	if err != nil {
 		t.Fatalf("NewNATSBatchExecutor: %v", err)
 	}
+
+	// Warmup barrier: serial probe-dispatch to each agent confirms
+	// end-to-end NATS plumbing is live before the parallel fan-out
+	// measurement. agent.Start guarantees the subscription is
+	// registered before it returns, but on shared CI hardware
+	// NATS-server message scheduling can lag the first dispatch
+	// to a never-pinged agent. Catching that here gives a clean
+	// "warmup Execute %s failed" failure instead of surfacing as
+	// a flaky measurement at the assertion stage.
+	warmupCtx, warmupCancel := context.WithTimeout(context.Background(), 60*time.Second)
+	for _, id := range agentIDs {
+		res, err := exec.Execute(warmupCtx, "slo-C-warmup", id, "/bin/true", nil)
+		if err != nil {
+			warmupCancel()
+			t.Fatalf("warmup Execute %s: %v", id, err)
+		}
+		if !res.Success {
+			warmupCancel()
+			t.Fatalf("warmup Execute %s: success=false error=%q", id, res.Error)
+		}
+	}
+	warmupCancel()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
