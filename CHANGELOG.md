@@ -36,6 +36,13 @@ Anchored on the reconstruction baseline (commit `14be1109`).
 
 ### Changed
 
+- **`.woodpecker/` directory removed.** With the Codeberg Actions
+  surface green on `main` (the `slo` flake fixed in this same
+  release), the legacy Woodpecker pipeline is no longer needed.
+  Removes `.woodpecker/build.yml` + `.woodpecker/ci.yml` and
+  updates the now-stale `.woodpecker/ci.yml` references in
+  `test/e2e/ha/README.md` and `PROJECT-DETAILS.md` § 4.15 to
+  point at the canonical `.forgejo/workflows/ci.yml`.
 - **`slo` test flake follow-up: server-side response timeouts bumped
   `5s → 30s` + 10-agent warmup barrier added** in
   `test/e2e/perf/slo_test.go`. The earlier 2s → 10s per-command bump
@@ -68,8 +75,8 @@ Anchored on the reconstruction baseline (commit `14be1109`).
   first-preference workflow lookup path. Same workflow now drives both
   the local Forgejo runner at `192.168.10.21` and Codeberg's hosted
   runner. The GitHub mirror is code-only — no CI runs there.
-  `.woodpecker/` is left in place for one push cycle and retired
-  once the Codeberg Actions surface has a green run on main.
+  The legacy `.woodpecker/` pipeline was retired in a follow-up
+  (see "`.woodpecker/` directory removed" entry above).
 - **Per-command response timeouts in `test/e2e/perf/slo_test.go` bumped
   `2s → 10s`** (3 sites: single-agent `CommandTimeout`, single-agent
   test-side `ctx` deadline, 10-agent batch `CommandTimeout`). The SLO
