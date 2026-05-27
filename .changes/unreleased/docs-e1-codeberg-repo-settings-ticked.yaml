@@ -1,0 +1,16 @@
+kind: Docs
+body: |-
+  **E1 (Codeberg repo settings) ticked in the public-launch
+  checklist — Phase E complete.** Branch protection on `main` applied
+  via the Codeberg UI: protected, status-check-required (all 11
+  `ci-fast.yml` job contexts), 0 required approvals,
+  `block_on_outdated_branch` enabled so PRs must rebase against
+  latest `main` before merge. 7 topics added
+  (`configuration-management`, `control-plane`, `day2-operations`,
+  `fleet-management`, `gitops`, `golang`, `linux`). Description +
+  website fields already populated. Wiki already disabled; Packages
+  + Projects kept on for optionality. Signed-commit requirement
+  and CI-level DCO enforcement both deferred to v0.5 — trailer-based
+  DCO via the PR template remains the gate for v0.1.x. Phase E
+  (E1–E5) entirely closed; only Phase G (documentation site)
+  remains on the public-launch checklist before launch.
