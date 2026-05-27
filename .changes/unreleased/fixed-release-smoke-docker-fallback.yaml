@@ -1,4 +1,0 @@
-kind: Fixed
-body: |-
-  CI release-smoke: native-execution fallback when Docker is absent on
-  the Forgejo runner image (commit `032219cc`).

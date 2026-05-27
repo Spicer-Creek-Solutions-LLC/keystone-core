@@ -1,5 +1,0 @@
-kind: Fixed
-body: |-
-  CI: musl `lychee` variant for the Forgejo runner's older glibc
-  (commit `af46bb52`); `install-tools` now pulls a pinned lychee binary
-  (commit `af4cb9e7`).

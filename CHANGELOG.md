@@ -17,10 +17,6 @@ Per-PR workflow: instead of editing this section directly, run `make
 changelog-new` (or `changie new`) to create a fragment file. See
 [CONTRIBUTING.md § Changelog entries](CONTRIBUTING.md#changelog-entries).
 
-<!-- Historical entries for the v0.1.0 release window were migrated to
-.changes/unreleased/ fragments on 2026-05-26; see git history for the
-prior inline format. -->
-
 ## [v1.0.0] — Planned
 
 Pending all 19 epics complete + the v1.0 gate checklist in
@@ -29,15 +25,17 @@ entry will land with the v1.0 cut; the in-progress feature inventory tracks
 under [`FEATURES.md`](FEATURES.md). Until then, v0.x is the active release
 line per the v0.1 → v0.5 → v1.0 ladder.
 
-## [v0.1.0] — Unreleased
+## [v0.1.0] — 2026-05-27
 
 First public release of the post-reset codebase. **Linux-only,
 `v0.x`-quality.** The reconstruction baseline established on 2026-05-05
-closed all 19 epics; v0.1.0 is the first release on the v0.x line —
-the "genuinely try-able" cut shipped to curious operators and early
-adopters per [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md).
-**Expect breaking changes between minor versions** (minimised, always with
-a migration note). The formal external-tester milestone is the v0.5
+landed Epics 01–18 in full and Epic 19's release-hardening tasks 1–13;
+the v1.0 rc cycle (Epic 19 tasks 14–16) is retargeted to v1.0.0.
+v0.1.0 is the first release on the v0.x line — the "genuinely try-able"
+cut shipped to curious operators and early adopters per
+[`docs/project/VERSIONING.md`](docs/project/VERSIONING.md). **Expect
+breaking changes between minor versions** (minimised, always with a
+migration note). The formal external-tester milestone is the v0.5
 checklist; the SemVer stability commitment begins at v1.0.
 
 Implementation tracked in [`epics/`](epics/); ranked backlog in
@@ -67,7 +65,7 @@ migration steps.
 The audit log itself is fully live: every sensitive op (auth, secret
 access, command exec, state apply, policy eval) writes an `AuditEntry`.
 
-### Added
+### Highlights — what shipped in v0.1.0
 
 Grouped by epic. Each entry names the deliverable; the linked epic file
 carries the per-task acceptance details. Some entries include a v0.1.0
@@ -97,7 +95,7 @@ graduation targets.
 
 - **Event system** ([epic 11](epics/11-events.md)) — `internal/events.JetStreamPublisher` (in-process embedded + external JetStream backed) with envelope + length-prefixed dedup + at-least-once delivery. Per-event-type retention policies. `internal/events.Subscriber` ships the pull-consumer side with at-most-once ACK + dead-letter on persistent failure. `EventService` REST + gRPC with `Publish` / `Subscribe` (streaming) / `Replay` / `Tail`.
 
-- **Audit log + policy engine** ([epic 12](epics/12-audit-policy.md)) — `internal/audit.Store` (Postgres + SQLite) records every sensitive op as an immutable `AuditEntry` chained to the prior via SHA-256. `PolicyService` evaluates OPA-style Rego or CEL policies in **audit-mode only** for v1.0; `WouldDeny` enriches the audit trail without blocking. `kscore-audit` + `kscore-policy` CLIs cover query + bundle / load / test workflows. See [`docs/project/POLICY-AUDIT.md`](docs/project/POLICY-AUDIT.md) for the v1.0 → v1.8 enforcement migration path.
+- **Audit log + policy engine** ([epic 12](epics/12-audit-policy.md)) — `internal/audit.Store` (Postgres + SQLite) records every sensitive op as an immutable `AuditEntry` chained to the prior via SHA-256. `PolicyService` evaluates OPA-style Rego or CEL policies in **audit-mode only** for v1.0; `WouldDeny` enriches the audit trail without blocking. `kscore-audit` + `kscore-policy` CLIs cover query + bundle / load / test workflows. See [`docs/project/POLICY-AUDIT.md`](docs/project/POLICY-AUDIT.md) for the v1.0 → enabling-enforcement migration path.
 
 - **Clustering & HA** ([epic 13](epics/13-clustering-ha.md)) — the v1.0 differentiator. `internal/cluster` ships embedded etcd v3 (`Manager.Mode = embedded`) + external etcd modes. `Membership`, `Leader`, `Shard`, `Routing`, `Health`, `Recovery` subsystems. Server-side `ClusterService` gRPC: `GetClusterStatus`, `ListMembers`, `AddMember`, `RemoveMember`, `GetLeader`, `TransferLeader`, `Rebalance`, `CreateBackup`, `RestoreBackup`, `WatchMembership` + `WatchLeadership` (streaming). `kscore-cluster` + `kscore-cluster-backup` CLIs. Wall-clock SLOs gate the build: first leader <3 s, failover <5 s/10 s, minority-block <1 s, recovery <15 s.
 
@@ -111,7 +109,343 @@ graduation targets.
 
 - **Self-management + file distribution + rate limiting** ([epic 18](epics/18-self-mgmt-files-ratelimit.md)) — `internal/selfmgmt` covers backup (`kscore-backup` CLI; SQLite + Postgres + JetStream snapshots), restore, upgrade-staging, and seed-bootstrap. `internal/files` is the chunked file-distribution transport with resumable GETs, ACL-gated PUTs, content-addressed cache, `kscore-files` CLI. Token-bucket rate-limit middleware on both HTTP and gRPC with `Retry-After` (delta-seconds) responses; per-key extractors (`api_key`, `principal`, `client_ip`).
 
-- **Test, harden, & release infrastructure** ([epic 19](epics/19-test-harden-release.md)) — the v1.0 release-quality gates: docker-compose E2E (`make e2e-test`; 11 scenarios), in-process module + secrets + blueprint + self-mgmt + webhook integration suites, in-process HA SLOs (cluster forms <10 s, leader <3 s, failover <10 s), perf SLOs (command latency <100 ms, event throughput >10k/s, batch-10 fan-out <2 s), per-package coverage gates (`make coverage-gate` — critical ≥70%, CLI ≥40%), race detector on every `go test` (`make race-policy`), `goleak` in every integration package (`make goleak-policy`), four-scan security baseline (`make security-{secrets,vulns,sast,licenses}` — gitleaks / govulncheck / gosec / go-licenses; CI-gated), hardening pass (audit tables in [`docs/project/HARDENING-BASELINE.md`](docs/project/HARDENING-BASELINE.md), pprof baseline in [`docs/project/PROFILING-BASELINE.md`](docs/project/PROFILING-BASELINE.md)), auto-generated reference docs (`make docs-sync` + `docs/project/{CLI,CONFIGURATION,API}-REFERENCE.md`), single-signer release ceremony (`RELEASE-PLAYBOOK.md` covers v0.x / v1.0 / v1.1 with the v1.2 multi-party graduation checklist).
+- **Test, harden, & release infrastructure** ([epic 19](epics/19-test-harden-release.md)) — release-quality gates for v0.1.0: docker-compose E2E (`make e2e-test`; 11 scenarios), in-process module + secrets + blueprint + self-mgmt + webhook integration suites, in-process HA SLOs (cluster forms <10 s, leader <3 s, failover <10 s), perf SLOs (command latency <100 ms, event throughput >10k/s, batch-10 fan-out <2 s), per-package coverage gates (`make coverage-gate` — critical ≥70%, CLI ≥40%), race detector on every `go test` (`make race-policy`), `goleak` in every integration package (`make goleak-policy`), four-scan security baseline (`make security-{secrets,vulns,sast,licenses}` — gitleaks / govulncheck / gosec / go-licenses; CI-gated), hardening pass (audit tables in [`docs/project/HARDENING-BASELINE.md`](docs/project/HARDENING-BASELINE.md), pprof baseline in [`docs/project/PROFILING-BASELINE.md`](docs/project/PROFILING-BASELINE.md)), auto-generated reference docs (`make docs-sync` + `docs/project/{CLI,CONFIGURATION,API}-REFERENCE.md`), single-signer release ceremony documented in `RELEASE-PLAYBOOK.md` (v0.1.0 ships unsigned as a one-time carve-out; signed releases begin v0.2.0 — see ROADMAP).
+
+### Security
+
+- Upgraded `golang.org/x/net` to v0.55.0 to close GO-2026-5026 (Phase B1,
+  commit `43c5590a`).
+- Empty `security.hmacsecret` now emits a loud production-mode warning
+  (Phase B5 C1, commit `03d511e0`) — operators must set this explicitly
+  in production; dev-mode bootstrap UX remains unchanged.
+- Join-token base62-prefix bias documented + exec capability allowlist
+  semantics tightened (Phase B5 M1+M2, commit `1f0164e0`).
+- Webhook handler error leakage, gRPC bypass on misrouted methods, and
+  HMAC hex-decode timing — three high-severity audit findings closed
+  (Phase B5 H1–H3, commit `7b46b28e`).
+
+### Added
+
+- **SPDX license headers on every hand-written source file**
+  (`// SPDX-License-Identifier: Apache-2.0`): 1,332 `.go` files + 6
+  `.sh` files. Generated `.pb.go` excluded (already `linters: all` in
+  `.golangci.yml`). Enforced going forward by enabling the `goheader`
+  linter — new files without the header fail lint. Ecosystem-standard
+  posture (Kubernetes / etcd / NATS / CoreDNS / Prometheus all do this).
+- **Project logo** (commit `6cd4359d1`). Visible on the Codeberg repo header + ready
+  for the documentation site when the Hugo build lands at gate-v0.5.
+
+### Changed
+
+- Debian/RPM packaging: postinst hooks create the `kscore` system user,
+  `/etc/kscore`, `/var/lib/kscore`, `/var/log/kscore`, `/run/kscore`;
+  auto-generate the HMAC secret; ship a default config so
+  `systemctl start kscore-server` works out-of-box (commit `4be8d19d`).
+- Binary install path moved from `/usr/local/bin/` to FHS-canonical
+  `/usr/bin/` for distro packages (commit `4be8d19d`).
+- **Forgejo Actions CI workflow moved from `.github/workflows/` to
+  `.forgejo/workflows/`** with `runs-on:` switched from `ubuntu-latest`
+  to `docker` across all 12 jobs. Triggered by the Codeberg-hosted
+  Actions runner coming online — Codeberg's pool advertises the
+  `docker` label, and `.forgejo/workflows/` is Forgejo's
+  first-preference workflow lookup path. Same workflow now drives both
+  the local Forgejo runner at `192.168.10.21` and Codeberg's hosted
+  runner. The GitHub mirror is code-only — no CI runs there. The
+  legacy `.woodpecker/` pipeline was retired in a follow-up (see the
+  `.woodpecker/` directory removed entry).
+- **CI Go cache restructured to warmer + readers pattern** in
+  `.forgejo/workflows/{ci,ci-full}.yml`. `actions/setup-go@v5`'s
+  built-in `cache: true` was uploading the Go module + build cache
+  at the end of every job — a 4-6 minute single-threaded
+  `tar -cf cache.tgz -z` step per job × 11 jobs = ~50 minutes of
+  cache-tar overhead per PR run on Codeberg's shared runner.
+  Restructured: `lint` (the warmer) writes the cache via
+  `actions/cache@v4`; every other Go job uses
+  `actions/cache/restore@v4` (read-only) and pays no save cost.
+  `docs` + `openapi` skip the cache entirely (neither runs Go code).
+  Additionally, installs `zstd` in every cache-using job so
+  `actions/cache@v4` auto-detects it and uses
+  `tar --use-compress-program zstdmt` (parallel zstd, ~500 MB/s)
+  instead of single-threaded `tar -z` gzip (~30-50 MB/s) — a
+  ~20-40× speedup for the warmer's save step on a 2 GB cache
+  (seconds, not minutes). Total expected savings: ~45-55 min per
+  per-PR run; ~60-70 min per push-to-main run.
+- **Per-command response timeouts in `test/e2e/perf/slo_test.go` bumped
+  `2s → 10s`** (3 sites: single-agent `CommandTimeout`, single-agent
+  test-side `ctx` deadline, 10-agent batch `CommandTimeout`). The SLO
+  assertion thresholds (`sloCommandLatency = 100ms`, `sloBatchExec =
+  2s`) are unchanged — the bump only widens the per-command response
+  ceiling so flaky shared-CI hardware doesn't trip the test before the
+  assertion stage can run. First seen on the initial Codeberg Actions
+  run (run #5, `slo` job) where one agent out of ten hit a 2s response
+  timeout while the batch wall-clock measured 18ms (well under the 2s
+  SLO).
+- **`slo` test flake follow-up: server-side response timeouts bumped
+  `5s → 30s` + 10-agent warmup barrier added** in
+  `test/e2e/perf/slo_test.go`. The earlier `2s → 10s` per-command
+  bump addressed the agent-side timeout but missed
+  `DispatcherConfig.DefaultTimeoutSeconds` and
+  `NATSBatchExecutorConfig.DefaultTimeout` — both at 5s on the
+  server side — which kept tripping on Codeberg's shared runner
+  (slo `Failing after 1m49s`, test wall-clock 5.03s matching the
+  5s ceiling exactly). All four server-side sites now 30s (two
+  per test). New warmup loop in `TestSLO_BatchExec_10Agents`
+  serially probes each of the 10 agents with `/bin/true` before
+  the parallel measurement, catching subscription-not-yet-routable
+  flakes as clean fatal errors instead of measurement noise. SLO
+  assertion thresholds remain untouched (median <100ms, batch <2s).
+- **`trackerctl --repo` default flipped to Codeberg canonical**
+  (`Spicer-Creek-Solutions-LLC/keystone-core`, commit `22ad0fada`). The
+  CLI is now Codeberg-ready out of the box; the self-hosted Forgejo
+  test path is `--repo sbutts/keystone-core`. Same commit fixed a
+  drift in `tools/trackerctl/config/release-order.yaml` where the
+  Hugo / error-URL ROADMAP entries had not been mirrored from the
+  `e495fb5a` Hugo-pull-forward commit (caught by the trackerctl
+  test gate at `tools/trackerctl/tracker_test.go:128` which asserts
+  ROADMAP ↔ release-order parity).
+- **trackerctl umbrella label renamed `v1x-backlog` → `roadmap-backlog`**
+  (commit `7e42bbae3`); the legacy `v1.0-narrowing` marker label is
+  retired. Both names predated the v0.x rename (the document was
+  renamed `V1X-BACKLOG.md` → `docs/project/ROADMAP.md` earlier); the
+  umbrella now reflects the document name with no version pin.
+  Applied to the live Codeberg label set during the pre-public-launch
+  trackerctl provisioning sweep. The paired source label
+  `source/v1x-backlog` still carries the legacy name; renaming it
+  is tracked as a v0.x ROADMAP entry to avoid forcing a Forgejo-side
+  relabel migration once issues exist.
+- **`.woodpecker/` directory removed.** With the Codeberg Actions
+  surface green on `main` (the `slo` flake fixed in this same
+  release), the legacy Woodpecker pipeline is no longer needed.
+  Removes `.woodpecker/build.yml` + `.woodpecker/ci.yml` and
+  updates the now-stale `.woodpecker/ci.yml` references in
+  `test/e2e/ha/README.md` and `PROJECT-DETAILS.md` § 4.15 to
+  point at the canonical `.forgejo/workflows/ci-fast.yml`.
+- **Default gRPC server port moved from `9090` → `5397`** to avoid the
+  Cockpit collision on Rocky 10 / RHEL 10 (commit `3d482fa1`). Cockpit's
+  default `9090` made `apt install kscore-server` fail to start out-of-box
+  on Rocky 10; 5397 has no known popular collision. Operators with old
+  `kscorectl` defaults pointing at `9090` get `connection refused` and
+  pass `--server localhost:5397` to recover.
+- **CI workflow split into per-PR fast loop + push-to-main full pipeline.**
+  `release-dry-run` (~33min) and 5 of 6 cross-build matrix variants
+  (`linux/arm64`, `darwin/amd64`, `darwin/arm64`, `windows/amd64`,
+  `windows/arm64`) moved from `ci-fast.yml` into a new
+  `.forgejo/workflows/ci-full.yml` triggered by push-to-main +
+  nightly cron (05:00 UTC) + `workflow_dispatch`. `linux/amd64`
+  build stays in `ci-fast.yml` as the per-PR smoke; the other five still
+  gate every main push. Triggered by single-runner serialization on
+  the Codeberg-hosted Actions pool — a per-PR run with 17 jobs took
+  ~2 hours wall-clock; the split cuts per-PR work to 11 jobs.
+- **`.forgejo/workflows/ci.yml` renamed to `ci-fast.yml`** so it sorts
+  lexically before `ci-full.yml`. Forgejo Actions enumerates workflow
+  files in directory order; with the previous naming, `ci-full.yml`
+  (the heavy push-to-main pipeline) was picked up first because `-`
+  (0x2D) sorts before `.` (0x2E). That meant `ci-full.yml`'s
+  release-dry-run + 5 cross-build variants ran BEFORE `ci-fast.yml`'s
+  `lint` cache warmer had a chance to save the Go module + build
+  cache, defeating the warmer-readers pattern across workflows. The
+  rename makes `ci-fast.yml` (lint + the 10 per-PR readers) sort
+  first; `lint` warms the cache; `ci-full.yml`'s readers then hit
+  the warm cache on the same push-to-main run. The workflow's
+  internal `name:` field stays `ci`, so the PR "Checks" UI is
+  unchanged. Cross-references in `ci-full.yml`,
+  `docs/project/PUBLIC-LAUNCH-CHECKLIST.md`, and
+  `PROJECT-DETAILS.md` § 4.15 updated to the new path.
+- **CHANGELOG workflow switched to per-PR YAML fragments** (powered by
+  [changie](https://changie.dev)). Per-PR entries now live as separate
+  files under `.changes/unreleased/` instead of editing
+  `CHANGELOG.md`'s `[Unreleased]` section directly. Eliminates the
+  mechanical merge conflicts that hit every concurrent PR touching the
+  same section anchor (observed multiple times during the post-Codeberg-
+  Actions push: each new PR required a rebase + manual CHANGELOG conflict
+  resolution). New Make targets: `make changelog-new` (interactive
+  fragment draft), `make changelog-preview` (dry-run accumulated
+  section), `make changelog-batch VERSION=v0.x.y` (release-time
+  aggregation). All existing `[Unreleased]` entries migrated to
+  fragments in this same PR; see
+  [CONTRIBUTING.md § Changelog entries](CONTRIBUTING.md#changelog-entries)
+  for the per-PR workflow.
+
+### Fixed
+
+- CI: musl `lychee` variant for the Forgejo runner's older glibc
+  (commit `af46bb52`); `install-tools` now pulls a pinned lychee binary
+  (commit `af4cb9e7`).
+- Three timing-sensitive test flakes exposed by the Forgejo runner —
+  queue-group `≥1` assumption, observer-vs-state race, NATS
+  subscription-flush race (commit `928874b5`).
+- State integration tests: TRUNCATE + boundary + JSONB regressions
+  uncovered during clean-tree Phase C run (commit `dd7f03b4`).
+- CI release-smoke: native-execution fallback when Docker is absent on
+  the Forgejo runner image (commit `032219cc`).
+- CI: pinned `protoc-gen-go@v1.36.11` + `protoc-gen-go-grpc@v1.6.1` so
+  generated stubs don't drift from `@latest` (commit `cbc78351`).
+
+### Docs
+
+- **E5 (repo-root inventory) ticked in the public-launch checklist.**
+  Inventory pass found every committed top-level file in scope —
+  required docs, Go project files, protobuf tooling, standard
+  dotfile configs, and `.safety-net.json` (project-wide AI-agent
+  guardrails, consistent with the AI-contributions posture). Local
+  dev artifacts (`.claude/`, `.idea/`, `.python-version`,
+  `build/`, `dist/`, `kscore-server` binary) verified properly
+  gitignored — none appear in clones. No cleanup needed.
+- **`docs/project/GETTING-STARTED.md` rewritten** as a guided
+  ~30-minute fresh-VM operator tutorial: package install, smoke
+  checks, agent online, run a command via `kscorectl exec`, apply
+  state via `kscorectl state apply`, browse audit via `kscorectl
+  audit log`. Closes the matching v0.x ROADMAP entry. Part of the
+  v0.1.x first-impression doc pass.
+- **Go vanity-import static-site source** added under
+  [`deploy/vanity/`](deploy/vanity/) using
+  [vangen](https://github.com/leighmcculloch/vangen) (canonical
+  module `4d63.com/vangen`): `vangen.json` config + generated
+  `site/keystone-core/index.html` carrying the `go-import` +
+  `go-source` meta tags pointing at the Codeberg primary. Two new
+  `make` targets (`vanity-regen` + `vanity-regen-check`); vangen
+  added to `make install-tools`. Closes the last remaining piece
+  of the `keystone-core.io` domain-provisioning story — DNS,
+  mailboxes, web hosting, TLS, and key-material hosting are
+  operator-side; this file is the code-side preparation. Once
+  deployed at `go.keystone-core.io`, the existing
+  `go.keystone-core.io/keystone-core` Go module path resolves
+  end-to-end for external `go get` users.
+- **Hugo docs site pulled forward from v1.x to gate-v0.5**: updates
+  AGENTS.md §5, FEATURES.md §1, VERSIONING.md (resolves the prior
+  v1.0-gate-7-vs-v1.x-FEATURES contradiction — Hugo is now a v0.5
+  gate; v1.0 gates renumbered 8/9/10 → 7/8/9), ROADMAP.md (Hugo
+  entry moved from v1.x to gate-v0.5; dependent v1.x entries
+  "Expanded getting-started guides" + "Error-message docs URLs"
+  re-framed against Hugo's new position). Rationale: a polished,
+  searchable doc experience benefits the v0.5 external-tester
+  audience; pre-v0.5 Markdown + subtree READMEs remain sufficient
+  for the v0.1.x invited-installer audience. PDF export stays
+  v1.x (FEATURES.md §1).
+- **Markdown lint coverage expanded to repo-root files** (commits
+  `c043ef41b`, `f50f6b6a8`). The `.markdownlint-cli2.yaml` glob was
+  `docs/**/*.md` only; root files accumulated ~1100 silent errors
+  over time. FEATURES.md (840 errors — mostly the
+  `_Reasoning: ..._` to `*Reasoning: ...*` MD049 emphasis-style
+  sweep, plus 2 broken Domain Index anchor fragments and
+  blockquote/list spacing), RELEASE-PLAYBOOK.md (31 errors, mostly
+  MD031 blanks-around-fences inside numbered-list steps), AGENTS.md,
+  CODE_OF_CONDUCT.md, and CONTRIBUTING.md (7 errors total) all
+  cleaned. The root `*.md` pattern added to the glob so future
+  drift is caught at PR time. Two carve-outs documented in config:
+  `CLAUDE.md` (incompatible with MD041 by design — the file's
+  entire content is `@AGENTS.md`, a Claude Code import directive)
+  and `PROJECT-DETAILS.md` (~210 deferred-cleanup errors tracked
+  as a v0.x ROADMAP entry, mainly MD032 list-spacing and MD029
+  ordered-list-prefix style call).
+- NOTICE accuracy audit: dropped `wazero`, added 8 notable deps
+  (HashiCorp Vault, gRPC, OpenTelemetry, Prometheus client,
+  SPIFFE go-spiffe, minio-go, modernc.org/sqlite, go-git), reorganized
+  by domain, documented the `modernc.org/mathutil` "Unknown" license
+  exception inline (commit `33f19178`).
+- **Pre-public-launch hygiene** (commit `3328945bc`): all
+  `archive/v0` branch and `archive/v0-final` tag references dropped
+  from committed content. The reset-baseline acknowledgment in
+  AGENTS.md / README / CHANGELOG / PUBLIC-LAUNCH-CHECKLIST.md
+  remains, but no committed text points at deleted refs. Test
+  fixture IP `192.168.10.4` (in `internal/targeting/matcher_test.go`)
+  swapped for `192.0.2.4` (RFC5737 documentation range) — caught
+  during the gitleaks + internal-IP grep audit pass.
+- Public-launch checklist Phases A–D ticked across 4 commits
+  (`524757a0` → `9622ed36`): code-vs-docs sync, link health, epic
+  acceptance audit, security baseline + dummy-report-flow doc, threat-
+  model refresh, clean-tree CI gates green, six-VM cross-distro
+  environment validation (debian12 / ubuntu22 / ubuntu24 / rocky8 /
+  rocky9 / rocky10).
+- **`README.md` Quickstart rewritten** around the `apt install` /
+  `systemctl` / `kscorectl` operator path (was `git clone`,
+  `make e2e-up`, and grpcurl). Mirrors
+  [`docs/runbooks/bootstrap-new-cluster.md`](docs/runbooks/bootstrap-new-cluster.md).
+  Part of the v0.1.x first-impression doc pass.
+- **FEATURES.md Domain Index status markers refreshed** (commit
+  `203cafa0b`). 15 of 20 domains were misleadingly marked `*(pending)*`
+  in the index — that marker was a pre-reset planning convention
+  meaning "rebuild has not started yet" relative to the reconstruction
+  baseline. Epics 01-19 closed and rebuilt 13 of those 15 domains;
+  the index now uses `*(landed)*` and `*(landed, with gaps)*` to
+  honestly reflect epic-close status, with a one-line preamble
+  pointing readers at `docs/project/ROADMAP.md` for the
+  authoritative gate-v1.0 deferral list. The §6 Agent Runtime body
+  has always described a working `kscore-agent` daemon; the index
+  now matches.
+- **F4 release-incident response plan** lands at new
+  [`docs/project/RELEASE-INCIDENT.md`](docs/project/RELEASE-INCIDENT.md).
+  Covers the post-publication decision tree (yank vs patch vs
+  communicate-only), yank procedure, fast follow-up release
+  numbering + communication, and post-incident process (CHANGELOG,
+  post-mortem, process change). Kept distinct from
+  INCIDENT-RESPONSE.md (production security incidents) and
+  RELEASE-PLAYBOOK § 14 (expedited release ceremony) which it
+  cross-references. v0.1.x-specific: operator-distributed-package
+  reality shapes the "yank" mechanics (no public APT/DNF repo to
+  withdraw from yet).
+- **F3 triage SLO commitment** documented in
+  [`docs/project/MAINTAINERS.md`](docs/project/MAINTAINERS.md) §
+  Triage and Response. v0.1.x posture: best-effort, no formal SLO;
+  rough cadences stated for issues / PRs / security reports;
+  cadences reassessed at v0.5 (formal SLO possible from v0.5+).
+- **F1 soft-launch decision** for v0.1.x recorded durably in
+  [`docs/project/GOVERNANCE.md`](docs/project/GOVERNANCE.md) § Launch
+  Posture; F1 ticked in the public-launch checklist; F2
+  (announcement draft) marked not-applicable for v0.1.x.
+- **NOTICE accuracy audit (E4 of public-launch checklist): MPL-2.0
+  attribution generalized to cover all 14 MPL-2.0 deps shipped with
+  the binaries.** Previous NOTICE called out only `hashicorp/vault/api`
+  by name; `go-licenses report ./cmd/...` confirmed 13 additional
+  MPL-2.0 deps require the same library-client attribution: Vault
+  auth submodules (approle / kubernetes / ldap), Vault transitive
+  HashiCorp utilities (errwrap, go-cleanhttp, go-multierror,
+  go-retryablehttp, go-rootcerts, go-secure-stdlib/{parseutil,strutil},
+  go-sockaddr, hcl), and the unrelated `cyphar/filepath-securejoin`.
+  Same library-consumer logic — referencing each upstream LICENSE
+  satisfies the MPL-2.0 attribution requirement. All 13 entries in
+  the "Notable dependencies" list verified present in the report
+  (no stale entries to remove). `modernc.org/mathutil` "Unknown"
+  exception unchanged (already documented).
+- **E2 Codeberg / Forgejo templates** land under
+  [`.forgejo/`](.forgejo/) (Forgejo's first-preference lookup path;
+  Codeberg picks them up automatically). Four issue templates
+  (bug, feature, documentation, security-redirect [new]) +
+  `config.yml` disabling blank issues + a PR template audited
+  against AGENTS.md § 5 (tests-required, docs-updated,
+  SPDX-header reminder, AI disclosure, DCO sign-off). The
+  parallel `.github/` template duplicates are deleted —
+  only a tightened `.github/ISSUE_TEMPLATE/config.yml` redirect
+  (now with `blank_issues_enabled: false`) is kept. Closes E2 in
+  the public-launch checklist.
+- **E1 (Codeberg repo settings) ticked — Phase E complete.** Audit
+  doc landed at `docs/project/CODEBERG-SETTINGS-AUDIT.md` as the
+  in-repo source of truth for Codeberg-side configuration (metadata,
+  feature toggles, merge methods, branch protection). Branch
+  protection on `main` enforces 11 required status-check contexts
+  (every `ci-fast.yml` job), blocks force-push + deletion, requires
+  up-to-date branches. DCO sign-off now enforced by a new
+  `dco-check` job in `.forgejo/workflows/ci-fast.yml` that walks
+  every non-merge PR commit and fails on a missing
+  `Signed-off-by:` trailer (replaces honor-system enforcement via
+  the PR template). Required-signed-commits enforcement deferred to
+  v0.x — tracked in `ROADMAP.md` "Phase E1: required signed commits".
+  Packages + Projects features disabled; merge methods tightened so
+  every PR landing on `main` produces a merge commit (squash and
+  plain rebase both off). Phase E (E1–E5) entirely closed; only
+  Phase G (documentation site) remains.
+- **`docs.keystone-core.io` placeholder site source** added under
+  [`deploy/docs/`](deploy/docs/) — small branded HTML page that
+  links visitors at the canonical Markdown docs in the source
+  repository, with a "polished site coming with v0.5" note. Hosted
+  same shape as the Go vanity-import site (catch-all rewrite to
+  `index.html` for any path under `/`). At gate-v0.5, this
+  placeholder is replaced by the full Hugo-generated output per
+  the matching ROADMAP entry.
+- **Docker-compose dev topology + grpcurl walkthrough relocated**
+  from `README.md` to `docs/project/DEVELOPMENT.md` § Local Dev
+  Topology, where it belongs as contributor onboarding. Part of the
+  v0.1.x first-impression doc pass.
 
 ### Known limitations for v0.1.0
 
@@ -119,13 +453,31 @@ The v0.5 + v1.0 gates in [`docs/project/VERSIONING.md`](docs/project/VERSIONING.
 are the graduation targets. Items shipping in v0.1.0 with reduced
 coverage or behind a v0.x flag:
 
+- **Release artifacts ship UNSIGNED.** v0.1.0 is a one-time carve-out:
+  no signed tag, no signed `checksums.txt`, no signed SBOM. Trust
+  model collapses to TLS-to-codeberg.org + Codeberg's auth + manual
+  `sha256sum -c` verification. **Signed releases land in v0.2.0**;
+  see the `Release signing ceremony` entry in
+  [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md) for the
+  graduation plan + the RELEASE-PLAYBOOK §6 v0.1.0-only callout.
+- **Native package repositories (APT / DNF / YUM) not hosted.** `.deb`
+  and `.rpm` packages are produced by the release ceremony and
+  attached to the Codeberg release page as direct downloads;
+  operators `dpkg -i` / `rpm -i` the file directly. A hosted apt /
+  dnf / zypper repo with signed indices lands before v1.0 — tracked
+  in [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md) as
+  `Native package repositories — APT, DNF/YUM`.
+- **No container images.** No `dockers:` section in
+  `.goreleaser.yaml`, no `Dockerfile` for the binaries. Operators
+  who want containers build their own from the `.deb` / `.rpm` or
+  the binary archives. Container shipping is post-v1.0.
 - **Cross-distro CI matrix is in-progress.** State stdlib runs against Debian 12 / Ubuntu 22.04+24.04 / Rocky 9 / Alpine 3.19 locally; the v0.5 checklist expands the matrix.
 - **`package` module ships apt + dnf** as the v0.1 backends; **apk + zypper** graduate at v0.5.
 - **Network base: firewalld rich-rule canonicalisation deferred** to v0.5 per [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md).
 - **Persistence renderers** for networking (NetworkManager, netplan, systemd-networkd) — limited coverage in v0.1; full set graduates at v0.5.
-- **Policy enforcement** is locked at audit-mode for the entire v0.x → v1.0 line per [`docs/project/POLICY-AUDIT.md`](docs/project/POLICY-AUDIT.md); enforcement flips at v1.8.
+- **Policy enforcement** is locked at audit-mode for the entire v0.x → v1.0 line per [`docs/project/POLICY-AUDIT.md`](docs/project/POLICY-AUDIT.md); enforcement flips post-v1.0.
 - **Hugo docs site** — planned for v0.5 (pulled forward from a former v1.x position; see [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md) § v0.5 gate § Documentation). v0.1.x ships Markdown references under `docs/project/` with curated subtree-index `README.md` files for navigation.
-- **Multi-party release signing** — v1.2 graduation per [`RELEASE-PLAYBOOK.md`](RELEASE-PLAYBOOK.md). v0.x / v1.0 / v1.1 ship under the single-signer ceremony.
+- **Multi-party release signing** — v1.2 graduation per [`RELEASE-PLAYBOOK.md`](RELEASE-PLAYBOOK.md). v0.x / v1.0 / v1.1 ship under the single-signer ceremony (v0.1.0 ships unsigned per above; v0.2.0+ ships single-signer-signed).
 - **Windows + macOS agents, WASM modules, full SPIRE, Kubernetes operator, federation, web UI, blueprint marketplace** — explicitly post-v1.0 (epic 19 §Scope out).
 - **gRPC server reflection disabled in dev** — the workaround (pass `-import-path api/proto -proto api/proto/keystone/core/v1/controlplane.proto` to grpcurl, or use the REST surface) is documented in [`docs/project/DEVELOPMENT.md`](docs/project/DEVELOPMENT.md) § Local Dev Topology.
 - **gosec G115 (integer overflow conversion) excluded project-wide** per [`docs/project/SECURITY-GOVERNANCE.md`](docs/project/SECURITY-GOVERNANCE.md) "Security Baseline Pipeline." v1.x ROADMAP entry "Security baseline expansion" tracks the per-site re-audit.
@@ -150,28 +502,37 @@ not preserved in this repository and is not a migration source.
 
 ### Verification
 
-v0.1.0 ships under the single-signer release ceremony documented in
-[`RELEASE-PLAYBOOK.md`](RELEASE-PLAYBOOK.md) (release lines: `v0.x`
-row of the matrix). End-user verification per
-[Appendix A "v0.x / v1.0 / v1.1 (single-signer)"](RELEASE-PLAYBOOK.md#v0x--v10--v11-single-signer):
+**v0.1.0 ships unsigned** as an explicit one-time carve-out. Signed
+releases begin v0.2.0 — see the `Release signing ceremony` entry in
+[`docs/project/ROADMAP.md`](docs/project/ROADMAP.md) for the
+graduation plan. RELEASE-PLAYBOOK §6 (Signing) carries a matching
+v0.1.0-only callout near the top.
 
-```bash
-# Import the Keystone Core release public key
-curl -sSL https://keys.keystone-core.io/release-pubkey.asc | gpg --import
+End-user verification for v0.1.0:
 
-# Verify the checksum signature
-gpg --verify checksums.txt.sig checksums.txt
+1. Download the archive (or `.deb` / `.rpm`) for your platform from
+   the [v0.1.0 release page](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases/tag/v0.1.0).
+2. Download the matching `checksums.txt` from the same release page.
+3. Verify artifact integrity against checksums:
 
-# Verify artifact integrity
-sha256sum -c checksums.txt
+   ```bash
+   sha256sum -c checksums.txt
+   ```
 
-# Verify container images
-cosign verify --key release-cosign.pub ghcr.io/kscore/kscore-server:v0.1.0
-```
+**Trust model for v0.1.0:** TLS connection to codeberg.org + Codeberg's
+own infrastructure authentication. The `checksums.txt` catches transport
+corruption and single-artifact-swap attacks, but without a signature it
+cannot authenticate against a forge-side compromise. v0.2.0 closes that
+gap with signed `checksums.txt` + signed tag + signed SBOM.
 
-Multi-party verification (`.sig.A` / `.sig.B` / `.sig.C` suffixes)
-applies from v1.2.0 onward — see the playbook's v1.2 graduation
-checklist for the onboarding path.
+Audience for v0.1.0 is curious operators and early adopters explicitly
+invited to install per the soft-launch posture in
+[`docs/project/GOVERNANCE.md`](docs/project/GOVERNANCE.md) § Launch
+Posture; the security tradeoff is documented and intentional.
+
+Multi-party verification (`.sig.A` / `.sig.B` / `.sig.C` suffixes) is
+deferred to v1.2 onward — see the playbook's v1.2 graduation checklist
+for the signer-onboarding path.
 
 ### Acknowledgments
 
@@ -188,6 +549,6 @@ GitHub mirror for discoverability: [`github.com/Spicer-Creek-Solutions-LLC/keyst
 
 Issues, RFCs, and discussion live on Codeberg.
 
-[Unreleased]: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/compare/14be1109...HEAD
+[Unreleased]: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/compare/v0.1.0...HEAD
 [v0.1.0]: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases/tag/v0.1.0
 [v1.0.0]: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases/tag/v1.0.0

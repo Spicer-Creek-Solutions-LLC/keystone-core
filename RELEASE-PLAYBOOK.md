@@ -275,6 +275,80 @@ ceremony, every participant signs the record with their signing key. The
 signed record is published as `release-record-vX.Y.Z.txt` and
 `release-record-vX.Y.Z.txt.asc` (detached signatures from each signer).
 
+### v0.1.0 release record (pre-filled — fill timestamps + verifications at tag time)
+
+Single-signer ceremony with the §6 signing carve-out (v0.1.0 ships
+unsigned, see §6 callout). The "every participant signs" step in
+the format above collapses to "no signing step for v0.1.0"; the
+release record itself is published unsigned. v0.2.0 onward resumes
+the standard signed-record flow.
+
+```
+====================================================================
+KEYSTONE CORE RELEASE RECORD
+Version:    v0.1.0
+Date:       <YYYY-MM-DD at tag time>
+Participants:
+  - shawnbutts <fingerprint-N/A-v0.1.0-unsigned> (Roles: Release Manager + Build Verifier; v0.x single-signer simplification per "Release lines at a glance")
+====================================================================
+
+[HH:MM UTC] PHASE 1 - RELEASE INITIATION
+  Action: Target commit = <SHA at tag time> on `main`, version v0.1.0.
+  Verification: HEAD matches expected; release branch frozen.
+  Vote (v1.0 simplification): Release Manager confirms ready to begin.
+  Result: PASS
+
+[HH:MM UTC] PHASE 2 - SOURCE VERIFICATION
+  Action: Clean-tree checkout at <SHA>; `make clean-all`; `git status` clean.
+  Verification: <evidence at tag time>.
+  Result: PASS
+
+[HH:MM UTC] PHASE 3 - DEPENDENCY AUDIT
+  Action: `make security-vulns` (govulncheck); `make security-licenses` (go-licenses); SBOM generation (syft, both SPDX + CycloneDX).
+  Verification: 0 called CVEs; license set clean per §6c; SBOM files present.
+  Result: PASS
+
+[HH:MM UTC] PHASE 4 - BUILD
+  Action: `make release` (calls `goreleaser release --skip=publish --clean`).
+  Output: dist/ contains 5 archives + 12 nfpm packages + checksums.txt.
+  Dual-machine reproducible-build cross-check: <second-workstation SHA-of-archives compared at tag time>.
+  Result: PASS
+
+[HH:MM UTC] PHASE 5 - ARTIFACT VERIFICATION
+  Action: `make release-smoke` (with RELEASE_SMOKE_CONTAINERS=1) — host-side checksum verify; container-side `--version` audit on all 20 binaries; .deb install in debian:12-slim; .rpm install in rockylinux:9.
+  Verification: every binary reports v0.1.0; both package installs land systemd units.
+  Result: PASS
+
+[HH:MM UTC] PHASE 6 - SIGNING
+  *** SKIPPED for v0.1.0 per §6 v0.1.0-only carve-out. ***
+  v0.2.0 resumes the signing flow.
+  Result: N/A
+
+[HH:MM UTC] PHASE 7 - POST-BUILD VERIFICATION
+  Action: re-run `make release-dry-run` on a second machine against the dist/ artifacts.
+  Verification: same checksums; same `--version` output; same package install outcomes.
+  Result: PASS
+
+[HH:MM UTC] PHASE 8 - CONTAINER IMAGES
+  *** N/A for v0.1.0: no container images shipped. Container distribution is post-v1.0. ***
+  Result: N/A
+
+[HH:MM UTC] PHASE 9 - PUBLICATION
+  Action: `git tag v0.1.0 <SHA>` (unsigned); `git push codeberg v0.1.0`; manual upload of dist/ contents to https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases/tag/v0.1.0 — archives + packages + checksums.txt + SBOMs + this release record + changelog excerpt.
+  Vote (v1.0 simplification): Release Manager confirms ready to publish (Codeberg Releases channel only — no container registry, no apt/dnf repo for v0.1.0; both tracked in ROADMAP).
+  Result: PASS
+
+[HH:MM UTC] PHASE 10 - POST-PUBLICATION VERIFICATION
+  Action: third-machine download of every published artifact from the Codeberg Release page; `sha256sum -c checksums.txt` against fresh downloads; install smoke in fresh debian:12-slim + rockylinux:9 containers.
+  Result: PASS
+====================================================================
+```
+
+The Release Manager fills in the bracketed timestamps + verification
+evidence at tag time and updates this section in-place; the
+finalized record is then attached to the v0.1.0 Codeberg release
+as `release-record-v0.1.0.txt`.
+
 ---
 
 ## 4. Phase 1: Release Initiation
@@ -596,6 +670,25 @@ release identity.
 
 Signing is performed on an air-gapped machine. The artifacts are
 transferred via read-only media (USB drive, SD card) from the build machine.
+
+> **v0.1.0-only carve-out (one-time):** v0.1.0 ships **unsigned** —
+> no signed tag, no signed `checksums.txt`, no signed SBOM, no signed
+> release record. The signing-key generation ceremony (§2) and the
+> signing steps in this phase are **skipped for v0.1.0 only**.
+> Operators verify v0.1.0 against `sha256sum -c checksums.txt`; trust
+> model collapses to TLS-to-codeberg.org + Codeberg's own
+> authentication infrastructure.
+>
+> **v0.2.0 onward**: §2 single-signer key ceremony runs; this phase
+> runs as written; the carve-out is removed.
+>
+> Rationale, graduation criteria, and tracking entry:
+> [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md) → "Release
+> signing ceremony — signed tags + checksums + SBOMs" (v0.x bucket,
+> target v0.2.0). Soft-launch posture for v0.1.0 (per
+> `docs/project/GOVERNANCE.md` § Launch Posture +
+> `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` F1) accepted the unsigned
+> trust gap for the first cut.
 
 ### 9a. Sign the Checksums File
 

@@ -1,5 +1,0 @@
-kind: Fixed
-body: |-
-  Three timing-sensitive test flakes exposed by the Forgejo runner —
-  queue-group `≥1` assumption, observer-vs-state race, NATS
-  subscription-flush race (commit `928874b5`).

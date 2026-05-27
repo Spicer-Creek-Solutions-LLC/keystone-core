@@ -1,0 +1,20 @@
+kind: Docs
+body: |-
+  **v0.1.0 release prep landed.** Aggregated 42 changie fragments into
+  `CHANGELOG.md`'s `[v0.1.0]` section via `make changelog-batch
+  VERSION=v0.1.0` and hand-merged the by-epic Highlights narrative +
+  audit-mode callout + Known limitations + Migration + Verification +
+  Acknowledgments sections (the changie `merge` step doesn't preserve
+  these; a follow-up `headerPath` ROADMAP entry tracks the fix).
+  Epic 19 acceptance criteria walked and reconciled against the v0.1.0
+  release line — most lines ticked, soak-test + cluster-round-trip
+  annotated as v1.0-scope, rc cycle (tasks 14/15/16) retargeted to
+  v1.0.0. Three new v0.x ROADMAP entries added with release-order
+  mirrors: "Release signing ceremony" (target v0.2.0; v0.1.0 ships
+  unsigned), "Native package repositories — APT, DNF/YUM", and
+  "Changie configuration: add headerPath" (so future `changie merge`
+  doesn't wipe the persistent top-of-file content). `RELEASE-PLAYBOOK.md`
+  §6 carries a v0.1.0-only carve-out callout for the unsigned posture
+  and §3 carries a pre-filled v0.1.0 release record template. `SECURITY.md`
+  "Supply Chain Security & Release Verification" updated for the
+  unsigned-v0.1.0 / signed-v0.2.0+ split.

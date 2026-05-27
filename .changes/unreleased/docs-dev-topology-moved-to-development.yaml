@@ -1,6 +1,0 @@
-kind: Docs
-body: |-
-  **Docker-compose dev topology + grpcurl walkthrough relocated**
-  from `README.md` to `docs/project/DEVELOPMENT.md` § Local Dev
-  Topology, where it belongs as contributor onboarding. Part of the
-  v0.1.x first-impression doc pass.

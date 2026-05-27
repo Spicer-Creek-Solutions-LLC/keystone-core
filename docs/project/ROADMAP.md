@@ -690,6 +690,30 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: contributor-key onboarding flow documented (probably in `CONTRIBUTING.md` or a new `docs/project/SIGNING-KEYS.md`); the `main` branch protection rule on Codeberg has `require_signed_commits: true`; this ROADMAP entry removed and the E1 landed-note in PUBLIC-LAUNCH-CHECKLIST.md updated to mark signed-commit enforcement as live.
 - **References**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` E1; `docs/project/CODEBERG-SETTINGS-AUDIT.md`; `RELEASE-PLAYBOOK.md` signing ceremony.
 
+#### Release signing ceremony — signed tags + checksums + SBOMs
+
+- **Priority**: v0.x (**target v0.2.0**)
+- **What**: v0.1.0 shipped as a one-time carve-out with **no signed tag, no signed checksums, no signed SBOM**. Trust model collapsed to TLS-to-codeberg.org + manual `sha256sum -c`. v0.2.0 lands the full single-signer signing flow per `RELEASE-PLAYBOOK.md` §6 (Signing) + §9 (Publication): signing-key generation ceremony (RELEASE-PLAYBOOK §2 v0.x simplification), `tag.gpgsign true` wired into git config, `goreleaser` configured to emit `.sig` sidecars for archives + packages + checksums + SBOM, RELEASE-PLAYBOOK §6 v0.1.0-only callout removed, CHANGELOG `[v0.2.0]` verification section updated to the signed flow.
+- **Why deferred (from v0.1.0)**: soft-launch posture for v0.1.0 (per `docs/project/GOVERNANCE.md` § Launch Posture + `PUBLIC-LAUNCH-CHECKLIST.md` F1) tolerated the unsigned trust gap; signing-key setup + the per-platform key-distribution story were not blocking the curious-operator audience. Recorded as the v0.1.0-only carve-out with v0.2.0 as the explicit graduation gate during v0.1.0 release prep on 2026-05-27.
+- **Acceptance**: signing key generated per `RELEASE-PLAYBOOK.md` §2 v0.x simplification; `git config tag.gpgsign true` wired into the release workstation; `make release` emits `.sig` files for `checksums.txt` + every SBOM (and ideally per-archive sidecars per `goreleaser` `signs:` block); `RELEASE-PLAYBOOK.md` §6 v0.1.0-only callout removed; `SECURITY.md` "Supply chain security & release verification" section updated; this ROADMAP entry removed when v0.2.0 ships signed.
+- **References**: `RELEASE-PLAYBOOK.md` §2 + §6 + §9 (v0.x single-signer); `CHANGELOG.md` v0.1.0 Verification section (unsigned trust-model callout); `SECURITY.md` "Supply chain security" subsection; `.goreleaser.yaml` (currently no `signs:` block).
+
+#### Native package repositories — APT, DNF/YUM
+
+- **Priority**: v0.x (pre-v1.0, no specific gate)
+- **What**: v0.1.0 ships `.deb` and `.rpm` packages attached as direct downloads on the Codeberg Release page; operators `dpkg -i` / `rpm -i` the file by hand. A hosted package-repo experience — signed `apt`/`dnf`/`zypper` indices on `apt.keystone-core.io` (or equivalent), `apt-get install kscore-cli` / `dnf install kscore-server` working out of the box — lands before v1.0. Includes: hosting story (Codeberg Pages vs Cloudflare R2 vs self-hosted), signed repo metadata (apt `Release.gpg` / dnf `repomd.xml` signatures), repo-signing key onboarding parallel to the [[release-signing-ceremony]], `goreleaser` integration (or post-release publish step), `docs/project/GETTING-STARTED.md` updated to use the repo-install path as the primary recipe.
+- **Why deferred (from v0.1.0)**: soft-launch audience tolerates direct-download `dpkg -i` / `rpm -i`; the formal external-tester milestone (v0.5) is when the convenience step pays off. Decision 2026-05-27 during v0.1.0 release prep.
+- **Acceptance**: signed apt repo serving `.deb` packages from at least one production-ready URL; signed dnf/yum repo serving `.rpm` packages from the same; install recipe in `docs/project/GETTING-STARTED.md` uses the repo path as the primary, with the direct-download path documented as a fallback; `RELEASE-PLAYBOOK.md` §9 "Publication" updated to include the publish-to-repo step; CHANGELOG entry on the release that lands it; this ROADMAP entry removed.
+- **References**: `.goreleaser.yaml` nfpms block (produces `.deb` + `.rpm`); `RELEASE-PLAYBOOK.md` §9 Publication; [[release-signing-ceremony]] (shared key-onboarding work).
+
+#### Changie configuration: add `headerPath` to `.changie.yaml`
+
+- **Priority**: v0.x
+- **What**: `.changie.yaml` has no `headerPath` field, so `changie merge` (invoked by `make changelog-batch`) writes a CHANGELOG.md containing **only** the concatenated per-version files — wiping the `# Changelog` header, the "All notable changes" preamble, the `[Unreleased]` section, the `[v1.0.0] — Planned` placeholder, and any prose sections inside `[v0.1.0]` (Highlights / Known limitations / Verification / Acknowledgments etc.) that aren't fragment-derived. Fix: create `.changes/header.tpl.md` containing the persistent top-of-file content, reference it via `headerPath: header.tpl.md` in `.changie.yaml`, and verify a `make changelog-batch` round-trip produces a clean merge instead of a wipe.
+- **Why deferred (from v0.1.0)**: discovered during v0.1.0 release prep when `make changelog-batch VERSION=v0.1.0` overwrote the CHANGELOG.md draft. Hand-merged for v0.1.0 to unblock the release. Not in scope of the v0.1.0 release-prep PR to keep that PR focused on the release itself.
+- **Acceptance**: `.changes/header.tpl.md` exists with the persistent top-of-file content (Changelog header + preamble + Unreleased + Planned-v1.0.0); `.changie.yaml` references it via `headerPath:`; `make changelog-batch VERSION=v0.x.y` on a synthetic next-release dry-run produces a CHANGELOG.md that retains the header + Unreleased + Planned sections and inserts the new version section in the correct position; verified by a round-trip test in the PR.
+- **References**: `.changie.yaml`; `CHANGELOG.md`; [changie docs](https://changie.dev/config/).
+
 #### Persist dispatch principal on CommandRecord for audit-log User field
 
 - **Priority**: v0.x

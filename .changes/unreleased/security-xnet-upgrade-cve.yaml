@@ -1,4 +1,0 @@
-kind: Security
-body: |-
-  Upgraded `golang.org/x/net` to v0.55.0 to close GO-2026-5026 (Phase B1,
-  commit `43c5590a`).
