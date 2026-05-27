@@ -264,11 +264,39 @@ HEAD that will be made public.
 
 **Goal**: the Codeberg project page reads like a project, not a sandbox.
 
-- [ ] **E1. Codeberg repo settings.** Branch protection on `main`
+- [x] **E1. Codeberg repo settings.** Branch protection on `main`
       (signed-commit requirement; DCO check; status-check requirement).
       Default branch confirmed as `main`. Topics, description, website
       fields set. Disable any unused features (wiki, packages) if not
       planned for v0.1.x.
+      *(landed: branch protection rule applied to `main` via the
+      Codeberg UI — `protected: true`, `enable_status_check: true`,
+      `required_approvals: 0`, 11 status-check contexts (all
+      `ci-fast.yml` job names — `ci / lint (pull_request)`,
+      `ci / test (pull_request)`, `ci / slo (pull_request)`,
+      `ci / integration (pull_request)`, `ci / smoke (pull_request)`,
+      `ci / security (pull_request)`, `ci / e2e (pull_request)`,
+      `ci / openapi (pull_request)`, `ci / docs (pull_request)`,
+      `ci / proto (pull_request)`, `ci / build (amd64, linux) (pull_request)`).
+      `block_on_outdated_branch` enabled so PRs must rebase against
+      latest `main` before merge (would have prevented the
+      CHANGELOG.md conflicts hit during the Codeberg-Actions PR
+      sequence). DCO sign-off remains trailer-based per the PR
+      template + AGENTS.md § 4; CI-level enforcement deferred to
+      v0.5 with the broader maintainer base (10-line Make target
+      when wanted). Signed commits (GPG/SSH) also deferred to v0.5
+      for the same reason — RELEASE-PLAYBOOK already covers signed
+      release tags. Default branch confirmed `main` via API.
+      Description (`GitOps deploys it. We keep it running. A runtime
+      operations control plane for Linux fleets — state, audit,
+      events, secrets. v0.x pre-stable.`), website
+      (`https://docs.keystone-core.io`), and 7 topics
+      (`configuration-management`, `control-plane`,
+      `day2-operations`, `fleet-management`, `gitops`, `golang`,
+      `linux`) all set. Wiki already disabled
+      (`has_wiki: false`); Packages + Projects features deliberately
+      kept on (`has_packages: true`, `has_projects: true`) so the
+      option to use them later doesn't require a settings flip.)*
 
 - [x] **E2. Issue + PR templates.** Canonical templates land under
       `.forgejo/` (Forgejo's first-preference lookup path per
