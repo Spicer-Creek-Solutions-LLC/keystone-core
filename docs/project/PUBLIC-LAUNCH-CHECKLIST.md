@@ -299,11 +299,34 @@ HEAD that will be made public.
       component requiring attribution is listed; nothing listed that
       isn't actually a dep.
 
-- [ ] **E5. Repo-root inventory.** Every top-level file is one a public
+- [x] **E5. Repo-root inventory.** Every top-level file is one a public
       reader would expect: `README`, `LICENSE`, `NOTICE`, `CONTRIBUTING`,
       `CODE_OF_CONDUCT`, `SECURITY`, `CHANGELOG`, `OWNERSHIP`, `AGENTS`,
       `CLAUDE`, `Makefile`, `go.{mod,sum}`, plus the standard dotfiles.
       Any dev-only / personal artifact at root gets moved or removed.
+      *(landed: inventory pass found every committed top-level file
+      in scope. Required docs (`README` / `LICENSE` / `NOTICE` /
+      `CONTRIBUTING` / `CODE_OF_CONDUCT` / `SECURITY` / `CHANGELOG` /
+      `OWNERSHIP` / `AGENTS` / `CLAUDE`) all present. Go project
+      files (`Makefile` / `go.mod` / `go.sum`) all present. Additional
+      defensible top-level docs `FEATURES.md` + `PROJECT-DETAILS.md`
+      + `RELEASE-PLAYBOOK.md` are canonical project surfaces per
+      AGENTS.md § 7. Protobuf tooling (`buf.yaml` / `buf.gen.yaml`)
+      is standard for a Go + gRPC project. Dotfiles are standard
+      tooling configs (`.gitignore`, `.golangci.yml`,
+      `.goreleaser.yaml`, `.gosec.yaml`, `.gitleaks.toml`,
+      `.markdownlint-cli2.yaml`, `.lychee.toml`,
+      `.pre-commit-config.yaml`, `.dockerignore`, `.changie.yaml`)
+      plus `.safety-net.json` (project-wide AI-agent guardrails via
+      [claude-code-safety-net](https://github.com/kenryu42/claude-code-safety-net) —
+      consistent with the project's AI-contributions posture, applies
+      to every Claude Code instance that touches the repo). Dot-dirs
+      `.changes/` / `.forgejo/` / `.github/` (issue-template redirect
+      only) are all in scope. Local dev artifacts present in working
+      trees (`.claude/`, `.idea/`, `.python-version`,
+      `.claude-session-context.md`, `build/`, `dist/`, the
+      `kscore-server` build binary) verified properly gitignored —
+      none appear in clones.)*
 
 **Exit gate for Phase E**: forge configuration matches the project's
 intended posture; first-impression scan of the root file list is clean.
