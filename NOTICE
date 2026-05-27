@@ -72,10 +72,18 @@ Notable dependencies:
   Identity + secrets:
   - SPIFFE go-spiffe (Apache 2.0) - https://spiffe.io
   - HashiCorp Vault API (Mozilla Public License 2.0) - https://www.vaultproject.io
-    The MPL-2.0 obligations apply to modifications of Vault source
+    MPL-2.0 obligations apply to modifications of upstream source
     files; this project consumes Vault as a library client without
     modifying its source, so the MPL-2.0 attribution requirement is
-    satisfied by referencing the upstream LICENSE.
+    satisfied by referencing the upstream LICENSE. The same applies
+    to the broader set of MPL-2.0 dependencies shipped with the
+    binaries — Vault auth submodules (api/auth/approle,
+    api/auth/kubernetes, api/auth/ldap), HashiCorp common utilities
+    transitive to Vault (errwrap, go-cleanhttp, go-multierror,
+    go-retryablehttp, go-rootcerts, go-secure-stdlib/parseutil,
+    go-secure-stdlib/strutil, go-sockaddr, hcl), and the unrelated
+    cyphar/filepath-securejoin. Each is enumerated with its
+    canonical LICENSE link by `make security-licenses`.
 
   Policy + scripting:
   - OPA (Apache 2.0) - https://www.openpolicyagent.org
