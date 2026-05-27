@@ -1,0 +1,10 @@
+kind: Docs
+body: |-
+  **E5 (repo-root inventory) ticked in the public-launch checklist.**
+  Inventory pass found every committed top-level file in scope —
+  required docs, Go project files, protobuf tooling, standard
+  dotfile configs, and `.safety-net.json` (project-wide AI-agent
+  guardrails, consistent with the AI-contributions posture). Local
+  dev artifacts (`.claude/`, `.idea/`, `.python-version`,
+  `build/`, `dist/`, `kscore-server` binary) verified properly
+  gitignored — none appear in clones. No cleanup needed.
