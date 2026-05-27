@@ -682,6 +682,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: a maintainer or named near-term contributor runs `make build && make test` (or `make check`) on macOS 14+ (Apple Silicon and/or Intel), reports the results, and either ticks D3 in PUBLIC-LAUNCH-CHECKLIST.md or files specific Darwin-runtime bugs as separate roadmap entries.
 - **References**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D3; `.goreleaser.yaml` darwin builds; `internal/statemgmt/stdlib/fs_unix.go` + `fs_windows.go`.
 
+#### Phase E1: required signed commits on `main` branch protection
+
+- **Priority**: v0.x
+- **What**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` E1 calls for a signed-commit requirement on the `main` branch protection rule (alongside the DCO check and required status checks). DCO landed as a CI gate (`.forgejo/workflows/ci-fast.yml` `dco-check` job, status-check-required on `main`) and the 11 `ci-fast.yml` jobs are required, but the "require signed commits" toggle on the `main` rule is left **off** for v0.1.x.
+- **Why deferred**: solo-maintainer v0.1.x posture. Mandatory signed commits requires a documented contributor-key onboarding flow (GPG/SSH key generation, Codeberg upload, verification cross-check) before it's reasonable to gate merges on it. `RELEASE-PLAYBOOK.md` already covers signed release tags, which is the higher-value signing surface for v0.1.x. Deferred 2026-05-27 with maintainer approval during the E1 close-out.
+- **Acceptance**: contributor-key onboarding flow documented (probably in `CONTRIBUTING.md` or a new `docs/project/SIGNING-KEYS.md`); the `main` branch protection rule on Codeberg has `require_signed_commits: true`; this ROADMAP entry removed and the E1 landed-note in PUBLIC-LAUNCH-CHECKLIST.md updated to mark signed-commit enforcement as live.
+- **References**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` E1; `docs/project/CODEBERG-SETTINGS-AUDIT.md`; `RELEASE-PLAYBOOK.md` signing ceremony.
+
 #### Persist dispatch principal on CommandRecord for audit-log User field
 
 - **Priority**: v0.x

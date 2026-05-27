@@ -100,6 +100,10 @@ at the repo root.
   gate-v1.0, v0.x, v1.x, v2.x+).
 - [`PUBLIC-LAUNCH-CHECKLIST.md`](PUBLIC-LAUNCH-CHECKLIST.md) — the
   pre-launch quality gate checklist (Phases A–G).
+- [`CODEBERG-SETTINGS-AUDIT.md`](CODEBERG-SETTINGS-AUDIT.md) —
+  in-repo source of truth for the Codeberg-side repository
+  configuration (metadata, feature toggles, merge methods, branch
+  protection). Closes E1 of the launch checklist.
 
 ## Related directories
 
