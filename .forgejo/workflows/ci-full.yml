@@ -1,7 +1,7 @@
 # Heavy CI jobs that don't add signal on every PR. Runs on push to
 # main, nightly cron (05:00 UTC), and manual workflow_dispatch.
 #
-# The per-PR fast loop lives in ci.yml. Jobs here are too slow for
+# The per-PR fast loop lives in ci-fast.yml. Jobs here are too slow for
 # that loop (release-dry-run ~33min, 5-variant cross-build matrix
 # ~25min total on a single-concurrent runner) and rarely catch bugs
 # that wouldn't surface on the post-merge main run.
@@ -9,9 +9,9 @@
 # Both workflows share `runs-on: docker` and the same Make targets.
 #
 # Go cache: both jobs use restore-only (`actions/cache/restore@v4`)
-# so they benefit from ci.yml's `lint` warmer when both workflows
+# so they benefit from ci-fast.yml's `lint` warmer when both workflows
 # run on the same push, but never pay the multi-minute tar/gzip
-# save cost themselves. See ci.yml header for the warmer rationale.
+# save cost themselves. See ci-fast.yml header for the warmer rationale.
 
 name: ci-full
 
@@ -50,8 +50,8 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      # Required to decompress the zstd-saved cache from ci.yml's lint
-      # warmer. See ci.yml for the parallel-zstd rationale.
+      # Required to decompress the zstd-saved cache from ci-fast.yml's lint
+      # warmer. See ci-fast.yml for the parallel-zstd rationale.
       - name: install zstd for parallel cache compression
         run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
@@ -69,7 +69,7 @@ jobs:
         run: make release-dry-run
 
   # Five non-host build-matrix variants. The host (linux/amd64) build
-  # runs in ci.yml's per-PR loop; here we gate the cross-compile
+  # runs in ci-fast.yml's per-PR loop; here we gate the cross-compile
   # variants that take longer (especially the qemu-emulated arm64).
   build:
     runs-on: docker
@@ -93,8 +93,8 @@ jobs:
         with:
           go-version-file: go.mod
           cache: false
-      # Required to decompress the zstd-saved cache from ci.yml's lint
-      # warmer. See ci.yml for the parallel-zstd rationale.
+      # Required to decompress the zstd-saved cache from ci-fast.yml's lint
+      # warmer. See ci-fast.yml for the parallel-zstd rationale.
       - name: install zstd for parallel cache compression
         run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4

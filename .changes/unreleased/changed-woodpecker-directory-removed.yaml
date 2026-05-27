@@ -6,4 +6,4 @@ body: |-
   Removes `.woodpecker/build.yml` + `.woodpecker/ci.yml` and
   updates the now-stale `.woodpecker/ci.yml` references in
   `test/e2e/ha/README.md` and `PROJECT-DETAILS.md` § 4.15 to
-  point at the canonical `.forgejo/workflows/ci.yml`.
+  point at the canonical `.forgejo/workflows/ci-fast.yml`.

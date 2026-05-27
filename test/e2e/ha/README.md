@@ -46,7 +46,7 @@ What is *deterministically seamed* (and why):
 
 Build-tagged `integration`, so it is **excluded from
 `make test`**. CI runs it on every PR via `make test-integration`
-(the `integration:` job in `.forgejo/workflows/ci.yml`, which
+(the `integration:` job in `.forgejo/workflows/ci-fast.yml`, which
 provides the sidecar Postgres).
 
 ```sh
@@ -78,7 +78,7 @@ go test -tags=slo ./test/e2e/ha/...       # same, directly
 ```
 
 `make slo` is its own required CI job (the `slo:` step in
-`.forgejo/workflows/ci.yml`) — no Postgres sidecar, runs on every
+`.forgejo/workflows/ci-fast.yml`) — no Postgres sidecar, runs on every
 PR, failures block merge. Bounds asserted:
 first leader `<3s`, cluster forms `<10s`, failover detection `<5s` /
 completion `<10s`, agent reassignment `<10s`, minority blocks writes
