@@ -113,6 +113,52 @@ jobs:
       # via the separate `make docs-links-online` target (not in CI).
       - run: make docs-links
 
+  # DCO sign-off gate. Every non-merge commit on a PR must carry a
+  # `Signed-off-by:` trailer per docs/project/DCO.md + AGENTS.md § 4.
+  # PR-only: direct pushes to `main` are already blocked by branch
+  # protection, and a DCO miss on an already-merged commit can't be
+  # retroactively fixed. Lenient v0.1.x policy — any well-formed
+  # trailer counts; trailer-email-matches-author-email tightening
+  # is deferred (see docs/project/ROADMAP.md).
+  dco-check:
+    runs-on: docker
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # PR head SHA (not the synthesized merge ref) so we lint
+          # the contributor's actual commits. fetch-depth: 0 so both
+          # BASE_SHA and HEAD_SHA are reachable for `git log A..B`.
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - name: verify Signed-off-by trailer on every PR commit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          missing=()
+          while IFS= read -r sha; do
+            [ -z "$sha" ] && continue
+            if ! git log -1 --format=%B "$sha" \
+                 | grep -qE '^Signed-off-by: .+ <.+@.+>$'; then
+              missing+=("$sha")
+            fi
+          done < <(git log --no-merges --format=%H "$BASE_SHA..$HEAD_SHA")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::DCO check failed: ${#missing[@]} commit(s) missing 'Signed-off-by:' trailer"
+            echo
+            echo "See docs/project/DCO.md. To fix:"
+            echo "  git commit --amend --signoff       # last commit"
+            echo "  git rebase --signoff <base>        # a range"
+            echo
+            for sha in "${missing[@]}"; do
+              echo "  - $(git log -1 --format='%h %s' "$sha")"
+            done
+            exit 1
+          fi
+          total=$(git rev-list --no-merges --count "$BASE_SHA..$HEAD_SHA")
+          echo "DCO check passed: all ${total} non-merge commit(s) carry a Signed-off-by trailer."
+
   test:
     runs-on: docker
     steps:
