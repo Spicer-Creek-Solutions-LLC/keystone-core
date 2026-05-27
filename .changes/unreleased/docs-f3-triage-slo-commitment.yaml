@@ -1,7 +1,0 @@
-kind: Docs
-body: |-
-  **F3 triage SLO commitment** documented in
-  [`docs/project/MAINTAINERS.md`](docs/project/MAINTAINERS.md) §
-  Triage and Response. v0.1.x posture: best-effort, no formal SLO;
-  rough cadences stated for issues / PRs / security reports;
-  cadences reassessed at v0.5 (formal SLO possible from v0.5+).

@@ -64,24 +64,52 @@ We aim to respond within 48 hours and will work with you to understand and addre
 
 ## Supply Chain Security & Release Verification
 
-Keystone Core releases are produced through a formal offline multi-party
-signing ceremony. No release artifacts are built or signed in CI/CD. This
-is a deliberate choice to minimize the attack surface of the release process.
+Keystone Core releases are produced through a formal offline signing
+ceremony documented in
+[RELEASE-PLAYBOOK.md](RELEASE-PLAYBOOK.md). No release artifacts are
+built or signed in CI/CD — this is a deliberate choice to minimize
+the attack surface of the release process. v0.x / v1.0 / v1.1 ship
+under the single-signer ceremony; v1.2+ adds multi-party quorum (see
+[RELEASE-PLAYBOOK.md "Release lines at a glance"](RELEASE-PLAYBOOK.md#release-lines-at-a-glance)).
 
-Every release ships with:
+### v0.1.0-only carve-out: unsigned release
 
-- **Signed checksums** — `checksums.txt` signed by one or more release signers (GPG detached signatures). v1.0 / v1.1 ship with a single signature; v1.2+ ships with a quorum of signatures (see [RELEASE-PLAYBOOK.md "Release lines at a glance"](RELEASE-PLAYBOOK.md#release-lines-at-a-glance)).
+**v0.1.0 ships unsigned** as an explicit one-time carve-out — no signed
+tag, no signed `checksums.txt`, no signed SBOM, no signed release
+record. The single-signer ceremony resumes from v0.2.0. Rationale and
+graduation criteria are tracked under "Release signing ceremony" in
+[`docs/project/ROADMAP.md`](docs/project/ROADMAP.md) (v0.x bucket,
+target v0.2.0).
+
+Trust model for v0.1.0 artifacts collapses to TLS-to-codeberg.org
+plus Codeberg's own infrastructure authentication. `checksums.txt`
+catches transport corruption and single-artifact-swap attacks, but
+cannot authenticate against a forge-side compromise. Verify with:
+
+```bash
+# 1. Download the archive (or .deb / .rpm) for your platform from
+#    https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases/tag/v0.1.0
+# 2. Download the matching checksums.txt from the same release page
+# 3. Verify integrity against checksums
+sha256sum -c checksums.txt
+```
+
+### v0.2.0 onward — signed releases
+
+Every release from v0.2.0 ships with:
+
+- **Signed checksums** — `checksums.txt` signed by the release signer (GPG detached signature). v0.x / v1.0 / v1.1 single-signer; v1.2+ adds multi-party quorum.
 - **SBOMs** — CycloneDX and SPDX format, signed.
-- **Release record** — A full audit log of the ceremony, signed by every participant.
-- **Container image signatures** — Cosign key-based signatures (not keyless).
+- **Release record** — A full audit log of the ceremony, signed.
+- **Container image signatures** — once container distribution is wired (post-v1.0); Cosign key-based signatures (not keyless) per playbook.
 
-### Verifying Release Artifacts
+#### Verifying signed release artifacts (v0.2.0+)
 
 Full step-by-step verification — including the per-release-line
 signature filename layout — lives in
 [RELEASE-PLAYBOOK.md Appendix A](RELEASE-PLAYBOOK.md#appendix-a-verification-instructions-for-users).
 
-The single-signer v1.0 / v1.1 short form:
+The single-signer v0.x / v1.0 / v1.1 short form:
 
 ```bash
 # Import the release public key
@@ -92,14 +120,11 @@ gpg --verify checksums.txt.sig checksums.txt
 
 # Verify artifact integrity
 sha256sum -c checksums.txt
-
-# Verify container images
-cosign verify --key release-cosign.pub ghcr.io/kscore/kscore-server:<VERSION>
 ```
 
 The complete release process — including key hierarchy, quorum
 rules (v1.2+), and threat model — is documented in
-[RELEASE-PLAYBOOK.md](RELEASE-PLAYBOOK.md); the v1.0 → v1.2
+[RELEASE-PLAYBOOK.md](RELEASE-PLAYBOOK.md); the v1.1 → v1.2
 graduation criteria live in
 [RELEASE-PLAYBOOK.md "v1.2 graduation checklist"](RELEASE-PLAYBOOK.md#v12-graduation-checklist).
 

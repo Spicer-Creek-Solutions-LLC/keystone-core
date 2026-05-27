@@ -1,7 +1,0 @@
-kind: Docs
-body: |-
-  **`README.md` Quickstart rewritten** around the `apt install` /
-  `systemctl` / `kscorectl` operator path (was `git clone`,
-  `make e2e-up`, and grpcurl). Mirrors
-  [`docs/runbooks/bootstrap-new-cluster.md`](docs/runbooks/bootstrap-new-cluster.md).
-  Part of the v0.1.x first-impression doc pass.

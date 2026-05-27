@@ -1,4 +1,0 @@
-kind: Changed
-body: |-
-  Binary install path moved from `/usr/local/bin/` to FHS-canonical
-  `/usr/bin/` for distro packages (commit `4be8d19d`).

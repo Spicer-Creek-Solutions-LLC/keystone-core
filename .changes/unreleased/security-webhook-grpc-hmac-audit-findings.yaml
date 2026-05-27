@@ -1,5 +1,0 @@
-kind: Security
-body: |-
-  Webhook handler error leakage, gRPC bypass on misrouted methods, and
-  HMAC hex-decode timing — three high-severity audit findings closed
-  (Phase B5 H1–H3, commit `7b46b28e`).

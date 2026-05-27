@@ -1,4 +1,0 @@
-kind: Added
-body: |-
-  **Project logo** (commit `6cd4359d1`). Visible on the Codeberg repo header + ready
-  for the documentation site when the Hugo build lands at gate-v0.5.

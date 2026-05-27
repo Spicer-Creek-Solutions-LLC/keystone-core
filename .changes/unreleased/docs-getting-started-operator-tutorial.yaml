@@ -1,8 +1,0 @@
-kind: Docs
-body: |-
-  **`docs/project/GETTING-STARTED.md` rewritten** as a guided
-  ~30-minute fresh-VM operator tutorial: package install, smoke
-  checks, agent online, run a command via `kscorectl exec`, apply
-  state via `kscorectl state apply`, browse audit via `kscorectl
-  audit log`. Closes the matching v0.x ROADMAP entry. Part of the
-  v0.1.x first-impression doc pass.

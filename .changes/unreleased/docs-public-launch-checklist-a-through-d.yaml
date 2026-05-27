@@ -1,8 +1,0 @@
-kind: Docs
-body: |-
-  Public-launch checklist Phases A–D ticked across 4 commits
-  (`524757a0` → `9622ed36`): code-vs-docs sync, link health, epic
-  acceptance audit, security baseline + dummy-report-flow doc, threat-
-  model refresh, clean-tree CI gates green, six-VM cross-distro
-  environment validation (debian12 / ubuntu22 / ubuntu24 / rocky8 /
-  rocky9 / rocky10).
