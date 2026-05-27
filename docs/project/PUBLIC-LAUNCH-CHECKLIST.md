@@ -294,10 +294,26 @@ HEAD that will be made public.
       via existing `linters: all` rule for generated proto). Enforced
       going forward by enabling `goheader` in `.golangci.yml`.
 
-- [ ] **E4. NOTICE accuracy.** Run `go-licenses report ./...` and
+- [x] **E4. NOTICE accuracy.** Run `go-licenses report ./...` and
       cross-check against the current `NOTICE` file. Every third-party
       component requiring attribution is listed; nothing listed that
       isn't actually a dep.
+      *(landed: audit pass found all 13 deps listed in "Notable
+      dependencies" present in the report (no stale entries). The
+      MPL-2.0 attribution note generalized to cover the full set of
+      14 MPL-2.0 deps shipped in the binaries — previously called
+      out only `hashicorp/vault/api`, now enumerates Vault auth
+      submodules (approle / kubernetes / ldap), Vault transitive
+      HashiCorp utilities (errwrap, go-cleanhttp, go-multierror,
+      go-retryablehttp, go-rootcerts, go-secure-stdlib/{parseutil,
+      strutil}, go-sockaddr, hcl), and the unrelated
+      `cyphar/filepath-securejoin`. Same library-client logic
+      applies to all; referencing each upstream LICENSE satisfies
+      the MPL-2.0 attribution requirement.
+      `modernc.org/mathutil` "Unknown" exception unchanged. One
+      BSD-2-Clause-FreeBSD dep (`rcrowley/go-metrics`, transitive)
+      accepted by go-licenses as part of the standard BSD family,
+      no NOTICE update needed.)*
 
 - [x] **E5. Repo-root inventory.** Every top-level file is one a public
       reader would expect: `README`, `LICENSE`, `NOTICE`, `CONTRIBUTING`,
