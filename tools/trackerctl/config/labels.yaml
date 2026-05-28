@@ -89,6 +89,9 @@
 - name: area/observability
   color: "0e8a16"
   description: "Area: observability"
+- name: area/docs
+  color: "0e8a16"
+  description: "Area: documentation"
 
 # --- umbrellas ---
 - name: roadmap-backlog
