@@ -228,6 +228,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `docs/` builds a Hugo site under `docs/public/` via `make docs-site`; auto-generated CLI / config / API references regenerate via `make docs-sync` into the Hugo content tree (one source of truth — edits go to the auto-gen source, not the Hugo content copy); the published site mirrors the structure of `docs/project/` with per-page navigation; site hosted under `keystone-core.io/docs` (or a documented alternative if the domain isn't yet provisioned at v0.5 cut); link-check CI gate (`lychee` already in pipeline) covers the rendered site in addition to the Markdown source.
 - **References**: epic 19 task 9 `_(landed)_` (auto-gen CLI/config/API references); `docs/project/{CLI,CONFIGURATION,API}-REFERENCE.md` + `GETTING-STARTED.md` (Hugo-content-tree sources); `docs/README.md` + `docs/project/README.md` + `docs/runbooks/README.md` (v0.1.x subtree indexes that the Hugo navigation will replace); AGENTS.md §5 (canonical-doc-surfaces pointer); FEATURES.md §1 v0.5 (pulled forward from v1.x).
 
+#### Expanded getting-started guides (per-domain tutorials)
+
+- **Priority**: gate-v0.5
+- **What**: Epic 19 §Documentation listed five getting-started guides (install, first cluster, first command, first state apply, first blueprint, first module). v0.1.x ships one consolidated ~30-minute walkthrough at `docs/project/GETTING-STARTED.md` that covers install + agent online + command + state + audit. The per-domain tutorials (blueprint authoring, module authoring + publishing, secrets, GitOps integration, audit/policy queries, HA cluster topology) round out the v0.5 external-tester doc experience.
+- **Why deferred**: One thorough walkthrough satisfied the epic-19 acceptance line ("Quick-start guide can be followed end-to-end on a fresh Ubuntu VM in <30 minutes"). The longer-form per-domain content benefits from the Hugo site (also gate-v0.5) being live so the new guides land into the proper site IA rather than as ad-hoc Markdown files — so it pairs with Hugo in the v0.5 gate.
+- **Acceptance**: Six guides under `docs/content/en/docs/getting-started/` in the Hugo content tree; each is runnable end-to-end on a fresh Ubuntu VM; each is link-checked.
+- **References**: epic 19 task 9 `_(landed)_`; `docs/project/GETTING-STARTED.md`; Hugo docs site entry under gate-v0.5.
+
 ## gate-v1.0 — blocks v1.0 SemVer-stability commitment
 
 #### Module system boot wiring (loader PolicyChecker/Hosts/trust-policy + runtime registration)
@@ -442,14 +450,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: Cross-table writes (agent + apikey + audit) commit/rollback atomically; tests verify rollback on mid-batch failure.
 - **References**: Epic 02 scope-out (line 24); `internal/controlplane/bootstrap.go:270` (API key issuance currently non-transactional).
 
-#### Auto-rotation of in-memory NATS creds
-
-- **Priority**: gate-v1.0
-- **What**: Agent rotates NATS credentials without restart.
-- **Why deferred**: Gates on the SPIRE provider (post-v1.0). v1.0 rotation = restart.
-- **Acceptance**: Agent re-issues NATS creds on cert rotation event without dropping the connection.
-- **References**: Epic 06 scope-out (line 33); PROJECT-DETAILS §4.6 (line 482).
-
 #### Rotation orchestrator
 
 - **Priority**: gate-v1.0
@@ -522,14 +522,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: gRPC clients author policies via the API; CLI subcommands `create|update|delete|activate|deactivate|remediate|monitor` wire to the new endpoints.
 - **References**: Epic 03 task spec (line 16); `pkg/api/policy/handler.go:5`; `pkg/api/v1/policy.pb.go:3`.
 
-#### `kscore-agent service start|stop` subcommands
-
-- **Priority**: gate-v1.0
-- **What**: PROJECT-DETAILS §4.6 lists `service install|uninstall|start|stop|status`. v1.0 ships `install|uninstall|status` only.
-- **Why now**: `systemctl start kscore-agent` / `systemctl stop kscore-agent` are universally known by Linux operators; wrapping them adds maintenance for zero ergonomic value. Picked up post-v1.0 because the Windows agent's SCM integration needs the same command shape and makes the wrapper worthwhile.
-- **Acceptance for unblock**: `kscore-agent service start|stop` exist and proxy to the platform service manager; documented as the cross-platform form. Additive — no change to existing subcommands.
-- **References**: Epic 06 task 9 `_(landed)_`; PROJECT-DETAILS §4.6 (line 473).
-
 #### Batch dispatcher: no orphan-job recovery
 
 - **Priority**: gate-v1.0
@@ -545,30 +537,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why now**: v1.0 doesn't have a multi-table tx wrapper (the multi-table-tx backlog entry above) — this is a pure consumer of that, so it tracks that work. Internal refactor, no external surface change.
 - **References**: `internal/controlplane/bootstrap.go:270`.
 
-#### Bootstrap: demo mode only (TUI + non-interactive)
-
-- **Priority**: gate-v1.0
-- **What**: Both `kscore-agent bootstrap` paths (TUI wizard from task 7 and `--non-interactive` flags from task 8) accept all three modes structurally but `bootstrap.ValidateForV10` rejects production / enterprise with a v1.x deferral message before the Engine reaches Validate.
-- **Why now**: Production mode needs TLS cert collection (gates on Identity/cert tooling); enterprise mode needs blueprint selection. Production-mode unblock lands with the SPIRE/cert-rotation cycle; enterprise/blueprint pieces (the wizard screens) trail into the blueprint-runtime cycle — see that entry. Lifting the gate is purely additive for existing demo-mode users.
-- **Acceptance for unblock**: TUI screens for cert paths + cert-generation toggle (production); equivalent `--generate-certs` CLI flag wired to the non-interactive path. Drop or no-op `bootstrap.ValidateForV10` for production.
-- **References**: Epic 06 tasks 7 + 8 `_(landed)_`; `internal/agent/bootstrap/configure.go` (search `ValidateForV10`); `cmd/kscore-agent/main.go` (search `buildConfigurer`).
-
-#### Bootstrap CLI flags dropped from v1.0 surface
-
-- **Priority**: gate-v1.0
-- **What**: The original Epic 06 task 8 spec listed `--postgres-*`, `--nats-*` beyond `--join`/`--join-token`, `--generate-certs`, and `--apply-blueprint`. v1.0 ships without them.
-- **Why now**: `--postgres-*` is server-only and belongs in the future unified `kscore-bootstrap` binary (the agent doesn't run a database). Extra `--nats-*` flags are unnecessary because v1.0 agents are external-mode only — embedded NATS is v2.x+. `--generate-certs` re-appears with the cert tooling; `--apply-blueprint` trails to the blueprint runtime. All additive flag additions.
-- **Acceptance for unblock**: Per-flag — when its blocking work lands, add the flag with appropriate plumbing. The `--state-path` flag added in task 8 stays.
-- **References**: Epic 06 task 8 `_(landed)_`; `cmd/kscore-agent/main.go` (search `registerBootstrapFlags`).
-
-#### Bootstrap auto-installs systemd unit (production mode)
-
-- **Priority**: gate-v1.0
-- **What**: When demo-only mode-gate lifts, the bootstrap Engine's Install phase should call `systemd.Install` automatically — operator runs `kscore-agent bootstrap` once, gets both config and unit installed/enabled.
-- **Why now**: Downstream of production mode (above); rides the same SPIRE/cert-rotation cycle. Convenience chaining, additive — the explicit two-step flow still works.
-- **Acceptance for unblock**: When `bootstrap.ValidateForV10` lifts for production, `bootstrap.NewDefaultInstaller` (or a production-mode wrapper) chains `systemd.Install` after the YAML render.
-- **References**: Epic 06 task 9 `_(landed)_`; `internal/agent/bootstrap/install.go`; `internal/agent/systemd/install.go`.
-
 #### Boostrap PSK consumption: in-memory tracking only
 
 - **Priority**: gate-v1.0
@@ -576,52 +544,99 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why now**: Persistence path needs the bootstrap-state-store work, which rides the bootstrap-hardening cycle. Bug-fix-shaped (makes restart behaviour correct), not a compatibility break.
 - **References**: `internal/config/nats.go:53`; Epic 05 task 9 `_(landed)_`.
 
-#### Type=notify systemd integration (sd_notify)
+#### Server boot-integration foundation (kscore-server lifecycle wiring)
 
 - **Priority**: gate-v1.0
-- **What**: v1.0 unit uses `Type=exec`. `Type=notify` would let systemd track agent readiness via `sd_notify("READY=1")` calls — useful for `Wants=kscore-agent.service` ordering and reliable health checks.
-- **Why now**: Requires the daemon to call into `coreos/go-systemd/v22/daemon`'s `SdNotify`, the dep explicitly skipped for v1.0. The telemetry-gateway work is the first real consumer of agent readiness signalling. New unit + daemon ship together, so no break for existing installs.
-- **Acceptance for unblock**: Daemon calls `SdNotify("READY=1")` after NATS connect + initial heartbeat publishes; unit flips to `Type=notify`; `systemctl is-active` reports `activating` until ready.
-- **References**: Epic 06 task 9 `_(landed)_`; `internal/agent/systemd/unit.go` (search `Type=exec`).
+- **What**: A single boot/server-lifecycle integration step in `cmd/kscore-server` that constructs and registers the components every "boot registration" entry below depends on. Epic 13 task 1 deliberately left boot wiring out, so clustering, the module loader, the GitOps webhook receiver + rollback engine, the outbound webhook Manager, and the blueprint/runbook gRPC+REST surfaces are all built as injected seams that nothing wires at server start. This entry is that wiring: construct the components from config, register the gRPC services + mTLS listener(s), mount the REST handlers, subscribe the event consumers, and hang it all on the Epic 04 server start/stop lifecycle (graceful shutdown included).
+- **Why deferred**: the recurring dependency-light / dark-until-boot pattern — each subsystem ships its seam unit-tested, and production construction was held for one coherent boot task so the wiring is not scattered. It is the critical-path prerequisite for the cluster, module, GitOps, webhook, and blueprint/runbook boot-registration entries; landing it first unblocks the rest.
+- **Acceptance for unblock**: kscore-server boot constructs + registers the clustering, module-loader, GitOps, outbound-webhook, and blueprint/runbook components from config on the server lifecycle; each companion boot-registration entry's surface lights up (no longer 503 / Unimplemented) once its component is wired here.
+- **References**: `cmd/kscore-server/main.go` (service-registration block); Epic 04 server lifecycle; Epic 13 task 1 (boot wiring left out); companions: the cluster / module / GitOps / outbound-webhook / blueprint-runbook boot-registration entries.
 
-#### Bootstrap wizard: storage backend + blueprint selection screens
-
-- **Priority**: gate-v1.0
-- **What**: PROJECT-DETAILS §4.6 + Epic 06 task 7 originally envisioned the agent wizard collecting storage backend and applying blueprints. Both were dropped from the v1.0 agent surface — storage is server-only (the future unified `kscore-bootstrap` binary's concern); blueprint apply gates on the blueprint runtime.
-- **Why now**: Blueprint apply needs the plugin/module system + the full blueprint catalogue, which is the blueprint-runtime cycle's headline. Storage screens still wait on the unified binary (no committed release) and may slip further. Additive wizard screens — existing wizard flows unchanged.
-- **Acceptance for unblock**: For blueprints — the blueprint runtime lands, then a "select blueprints to apply" screen feeds an installer-side blueprint apply step. For storage — `cmd/kscore-bootstrap` (unified server+agent binary) gains the storage screens.
-- **References**: Epic 06 task 7 `_(landed)_`; PROJECT-DETAILS §4.6 (line 451).
-
-#### Bootstrap: no rollback / transactional revert
+#### Soak-test infrastructure for fd / connection / goroutine leaks
 
 - **Priority**: gate-v1.0
-- **What**: Bootstrap engine resumes from checkpoint but doesn't revert side effects (config files, systemd units) on failure.
-- **Why now**: Rollback semantics need install-step inversion + snapshot tracking. Slotted with the compliance/scan-scheduler cycle's general hardening; new `--rollback` flag is additive.
-- **Acceptance**: Failed bootstrap re-runs cleanly; for true rollback, operator runs `kscore-agent bootstrap --rollback`.
-- **References**: Epic 06 task 6; `internal/agent/bootstrap/doc.go:19`.
+- **What**: Epic 19 §Acceptance line 109 asks for "no goroutine / connection / fd leaks in 1-hour soak test" — a v1.0 gate bar. Task 6 (goleak in integration tests) and task 8 (hardening pass — per-component lifecycle audit in `docs/project/HARDENING-BASELINE.md`) shipped the mechanisms; the 1-hour soak harness itself is the remaining gate-v1.0 deliverable. It adds: a soak target (`make soak` or similar) that runs the topology under representative load for N hours, captures `lsof` baselines + diffs, snapshots goroutine count via `runtime.NumGoroutine`, and asserts each is bounded.
+- **Why deferred**: The mechanism is in place (goleak under integration, lifecycle table for connections). Building the soak orchestration — load generator, time-boxed runner, lsof differ, goroutine snapshotter, CI integration with a long-running job — is dedicated scope.
+- **Acceptance**: `make soak` runs the docker-compose topology under sustained load for ≥1 hour, asserts: (a) `runtime.NumGoroutine` flat ±5%; (b) per-process `lsof` count flat ±5%; (c) per-process RSS flat ±10%. CI runs it nightly.
+- **References**: epic 19 task 6 `_(landed)_`; epic 19 task 8 `_(landed)_`; `docs/project/HARDENING-BASELINE.md`.
 
-#### Dedicated `keystone-core` system user auto-creation
-
-- **Priority**: gate-v1.0
-- **What**: v1.0 systemd unit defaults to root; `--user/--group` flags let operators run as a dedicated user, but the user must already exist (no auto-create).
-- **Why now**: User creation belongs in package-mgmt territory (rpm/deb post-install via `useradd --system`), and packaging is part of the air-gap / supply-chain work. The default-user flip is handled inside the package post-install (not as a surprise to in-place tarball upgrades), so it stays non-breaking.
-- **Acceptance for unblock**: Packaging creates the `keystone-core` system user as part of `apt install` / `dnf install`. After that, `service install` can default `--user keystone-core --group keystone-core` and update the rendered ReadWritePaths to match.
-- **References**: Epic 06 task 9 `_(landed)_`; the air-gap / supply-chain packaging work.
-
-#### Config: no per-endpoint TLS overrides
+#### Sustained-load profiling baseline
 
 - **Priority**: gate-v1.0
-- **What**: `cfg.NATS.Endpoints[]` use the cluster-wide TLS config; per-endpoint overrides are reserved schema fields.
-- **Why now**: v1.0 has one TLS strategy per cluster; mixed-TLS topologies become relevant alongside the v2.x+ multi-region work, but the override fields already exist and wiring them is additive (existing configs keep working), so it slots into later platform-polish rather than waiting for that v2.x+ work.
-- **References**: `internal/config/nats.go:126`.
+- **What**: Epic 19 task 8 captured a CPU + allocation baseline against the perf SLO workload (`make profile`; `docs/project/PROFILING-BASELINE.md`). That workload is ~250 ms total — useful for catching obvious hot spots, insufficient for production-shape profiling. The v1.0 gate's "performance + load test baseline passing" wants a sustained-load harness (10-minute-ish runs against a multi-agent topology with steady command + event + state-apply load) and a per-domain profile breakdown (state engine, blueprint, secrets, audit).
+- **Why deferred**: The initial baseline catches the bar the epic first asked for (>5% CPU / >50 MB alloc); the sustained-load form is the production-shape measurement the v1.0 gate needs on top.
+- **Acceptance**: `make profile-sustained` (or equivalent) runs the harness; per-domain profile files land next to `docs/project/PROFILING-BASELINE.md`'s baseline numbers; the doc gains a per-domain section.
+- **References**: epic 19 task 8 `_(landed)_`; `docs/project/PROFILING-BASELINE.md`.
 
-#### Cluster-wide HMAC secret (vs per-agent)
+#### Security baseline expansion
 
 - **Priority**: gate-v1.0
-- **What**: All agents share one HMAC secret in v1.0. Per-agent keys derived from the bootstrap exchange replace it.
-- **Why now**: Breaking change — it changes the agent↔server authentication model and needs a key-distribution mechanism still being designed; lands with the v2.x+ auth/security infra changes (cloud KMS, federation).
-- **Acceptance for unblock**: Bootstrap exchange establishes a per-agent key; server authenticates inbound by agent identity; cluster-wide secret removed (or relegated to a legacy compatibility window decided at design time).
-- **References**: Epic 06 task 6 `_(landed)_`; `internal/agent/security.go:71`; `internal/config/security.go:15`.
+- **What**: Epic 19 task 7 shipped the initial baseline pipeline: `make security-{secrets,vulns,sast,licenses}` running gitleaks, govulncheck, gosec (HIGH-only, G115 excluded), go-licenses (strict). The v1.0 gate's "security review complete" tightens the configuration + widens the scan set:
+  - **Re-enable G115 + per-site audit**. Currently ~84 G115 (integer-overflow conversion) findings sit at proto<->Go field-width boundaries, parser-checked archive headers, and range-validated config. Re-enabling the rule requires a per-site audit + `//#nosec G115` annotations (or, where the conversion is genuinely unbounded, a `range check + return error` fix).
+  - **semgrep** — cross-language SAST; catches patterns gosec doesn't (SSRF, template injection, regexp DoS).
+  - **trivy** / **grype** — container-image + lockfile scanning; lands with the v1.0 release-image build.
+  - **syft** — SBOM generation; lands with epic 19's release-artifact work.
+  - **hadolint** — Dockerfile linting (`test/e2e/single/Dockerfile.kscore` + the prod release Dockerfile when it lands).
+  - **gosec MEDIUM gate** — the initial baseline gates HIGH only per epic 19 acceptance; graduate MEDIUM to a required floor after a one-time triage pass.
+- **Why deferred**: The initial baseline ships the four scans the epic explicitly names; the broader suite is the v1.0 security-review expansion. The G115 re-enablement specifically requires a large triage PR with little signal-to-noise improvement for the current codebase.
+- **Acceptance**: Each sub-bullet adds its own Make target + CI step + brief docs entry under `docs/project/SECURITY-GOVERNANCE.md` "Security Baseline Pipeline." `make security` (or equivalent umbrella) runs all.
+- **References**: epic 19 task 7 `_(landed)_`; `Makefile` `security-*` targets; `docs/project/SECURITY-GOVERNANCE.md` "Security Baseline Pipeline" section.
+
+#### Dependency posture re-audit
+
+- **Priority**: gate-v1.0
+- **What**: A periodic deep-audit of the direct + indirect Go dependency tree. The v0.x baseline audit (2026-05-23, Phase B3 of [`PUBLIC-LAUNCH-CHECKLIST.md`](PUBLIC-LAUNCH-CHECKLIST.md)) flagged a small set of single-maintainer / lightly-maintained deps that are acceptable for v0.x but warrant explicit re-evaluation before v1.0 / v2.0. Specifically: (a) **`lib/pq` → `jackc/pgx` graduation** — lib/pq is in maintenance-only mode; pgx is the community-active Postgres driver; (b) **`gobwas/glob` re-audit** — minimal-scope glob matcher, feature-complete per maintainer, no known CVEs but worth re-validating; (c) **single-maintainer-but-active deps re-check** — `modernc.org/sqlite`, `santhosh-tekuri/jsonschema/v6`, `shirou/gopsutil/v4`.
+- **Why deferred**: No security signal warrants action at v0.x. The audit's purpose is to keep the dependency profile honest before SemVer stability kicks in at v1.0.
+- **Acceptance**: A timestamped re-audit lands in [`docs/project/SECURITY-GOVERNANCE.md`](SECURITY-GOVERNANCE.md) "Dependency posture" section with the new module count + license distribution + maintainer-health categorization. Any newly-introduced single-maintainer dep gets an explicit accept/replace decision.
+- **References**: `docs/project/SECURITY-GOVERNANCE.md` "Dependency posture" section (2026-05-23 baseline); `go.mod` direct + indirect blocks.
+
+#### Unbiased base62 for join-token generation
+
+- **Priority**: gate-v1.0
+- **What**: Epic 09 task 10's `randomBase62` (in `internal/identity/join_token_generate.go`) uses `byte % 62` for the cleartext-token body. `256 mod 62 = 8`, so values 0-7 are slightly more likely than the rest (≈4.3% vs ≈3.5%). At `joinTokenBodyLen = 40` chars the residual entropy is ≈ 235 bits — well above v0.1's threat model for one-time tokens — but a strict security audit would prefer rejection sampling for deterministic uniformity. Drop-in replacement; no wire-format change. Phase B5 (2026-05-23) audit additionally noted that the bias affects the **prefix** distribution (`token[:JoinTokenPrefixLen]` used as the store lookup key), which concentrates lookup keys toward characters early in the base62 alphabet — increases distinguishability for someone enumerating prefix space, though still below the operational risk threshold at v0.1.
+- **Why deferred**: real-world attack surface is dominated by the raw entropy of the output, not the alphabet ratio. v0.1 ships the simpler implementation; the v1.0 security-review hardening pass replaces it with rejection sampling alongside other crypto-shape improvements.
+- **Acceptance**: `randomBase62` uses rejection sampling (`crypto/rand.Int(rand.Reader, big.NewInt(62))`) per character; a statistical test over 1M samples shows no per-character bias > 0.1%; the existing alphabet + length tests continue to pass.
+- **References**: `internal/identity/join_token_generate.go` `randomBase62`; Epic 09 task 10 (landed).
+
+#### Policy enforcement (Enforce + Warn modes)
+
+- **Priority**: gate-v1.0
+- **What**: Flip `policy.enforcement_enabled=true`. v1.0 ships the policy engine in audit-mode-only; turning enforcement on is a v1.0 blocker that lands late in the path, after operators have built audit-mode confidence across the v0.x line.
+- **Why deferred**: A misconfigured policy blocks the fleet. Audit-mode lets operators build confidence first, which is why this lands late rather than early.
+- **Acceptance**: Policy in Enforce mode blocks command exec; Warn mode logs and allows.
+- **References**: Epic 03 task 6; Epic 12 (audit/policy); PROJECT-DETAILS §4.12 (line 859); companion: "Policy enforcement side-effects".
+
+#### Policy enforcement side-effects (Warn events + Enforce violation handlers)
+
+- **Priority**: gate-v1.0
+- **What**: Epic 12 task 10's `policy.Enforcer` ships the audit-mode gate plus the allow/deny *gate switch* behind `WithEnforcementEnabled` (Audit/Warn → allow, Enforce → block on a denying verdict). PROJECT-DETAILS §4.12's enforcement spec also requires the **side-effects**: `Warn` mode must emit a warn-level policy event; `Enforce` mode must invoke registered violation handlers before denying. The gate decision is in place; the side-effects still need infrastructure built (a policy-violation event type on the Epic 11 bus + a violation-handler registration/dispatch mechanism on the Enforcer).
+- **Why deferred**: the gate logic was testable on its own and proved the shape; the side-effects have no consumer until enforcement is turned on, so they land with the enforcement flip — the behavior-changing release the v1.0 path schedules late.
+- **Acceptance**: `policy.enforcement_enabled=true` is operator-settable (config plumbing); `Warn` mode emits a `policy.warn` (or §4.9-canonical) event through the events bus on a denying verdict and still allows; `Enforce` mode invokes each registered violation handler (new `Enforcer.RegisterViolationHandler` seam) before returning `Allowed=false`; release notes call out the enforcement behavior change loudly.
+- **References**: `internal/policy/enforcer.go` (`Enforce` gate switch — the `// Side-effects ... deferred` comment); PROJECT-DETAILS §4.12 "enforcement changes"; Epic 12 task 10 (landed); companion: "Policy enforcement (Enforce + Warn modes)".
+
+#### RunbookGRPCServer not registered at boot
+
+- **Priority**: gate-v1.0
+- **What**: `internal/controlplane/grpc_runbook_server.go::RunbookGRPCServer` is fully implemented (all four RPCs: `ListRunbooks`, `GetRunbook`, `ExecuteRunbook`, `GetRunbookExecution`) and has tests, but `cmd/kscore-server/main.go` never calls `srv.RegisterService(&v1.RunbookService_ServiceDesc, ...)` for it. The service is dark at runtime — a client that calls `RunbookService.ListRunbooks` gets `codes.Unimplemented`. Same shape as the Epic-13 ClusterService / CoordinationService boot-wiring entries already on the gate-v1.0 list.
+- **Why deferred**: surfaced during Phase E E-cleanup-2 dead-code audit. The implementation is there; what's missing is the boot-wiring decision (RunbookGRPCServer needs a configured `Engine` from `internal/runbook` to construct, and the production engine has no boot wiring yet).
+- **Acceptance**: `cmd/kscore-server/main.go` constructs a `runbook.Engine` from config + registers `RunbookGRPCServer`. Integration test verifies `RunbookService.ListRunbooks` returns 200 against a running server with a configured runbook catalog. The runbook-catalog config block (`config.RunbookConfig`?) is defined + validated like blueprint catalog is today.
+- **References**: `internal/controlplane/grpc_runbook_server.go`; `cmd/kscore-server/main.go` (service registration block, ~line 474-543); `internal/runbook` package; existing peer entries "Cluster gRPC services boot registration" and "Coordination gRPC services boot registration" on the gate-v1.0 list.
+
+#### Blueprint and runbook REST handler packages not mounted
+
+- **Priority**: gate-v1.0
+- **What**: `pkg/api/blueprint/handler.go` and `pkg/api/runbook/handler.go` exist (landed by Epic 15 task 11) but are imported by nothing outside their own `_test.go` files. `pkg/api/server/options.go` never wires them onto the HTTP mux. A reader browsing `pkg/api/` would reasonably expect these REST surfaces to work but they're unreachable at runtime. The gRPC `BlueprintGRPCServer` IS registered; only the REST companion is dark.
+- **Why deferred**: surfaced during Phase E E-cleanup-2 dead-code audit. The runbook REST mount depends on the same RunbookGRPCServer wiring above (so this could fold into that entry). The blueprint REST mount is standalone — the gRPC server is wired, just the REST handler is orphaned.
+- **Acceptance**: `pkg/api/server/options.go` (or equivalent registration site) mounts both `pkg/api/blueprint` and `pkg/api/runbook` handlers alongside the existing domain handlers. The orphaned-import audit (this very entry) returns zero hits. End-to-end smoke test invokes one route per handler via `curl` against a running server.
+- **References**: `pkg/api/blueprint/handler.go`, `pkg/api/runbook/handler.go`, `pkg/api/server/options.go` (where other handlers register); related to "RunbookGRPCServer not registered at boot" above.
+
+#### Zipkin tracing exporter: do not freeze into the v1.0 surface
+
+- **Priority**: gate-v1.0
+- **What**: Decide Zipkin's status in the frozen v1.0 config surface before the v1.0 contract freeze. `go.opentelemetry.io/otel/exporters/zipkin` is upstream-removed in early 2027; if v1.0 freezes `tracing.exporter: zipkin` as a supported value, removing it later is a breaking config change that SemVer would force into a v2.0 — but upstream removal lands well before a plausible v2.0. The v0.x line is the only window where dropping a config option is free. So: either remove the Zipkin exporter during v0.x, or ship v1.0 with `tracing.exporter: zipkin` explicitly marked deprecated/experimental (not a frozen contract) so it can be removed without a major bump.
+- **Why deferred**: v1.0 still names Zipkin (Epic 17 task 4); this is a contract-surface call that belongs at the v1.0 freeze, after the v0.x deprecation warning (companion below) has run for a while. The version-skew risk is real — a frozen, unmaintained exporter eventually stops compiling against newer OTel SDK releases, forcing a freeze-or-drop choice.
+- **Acceptance**: by the v1.0 contract freeze, `tracing.exporter: zipkin` is either removed (operators on OTLP) or documented as a non-frozen/experimental option exempt from the SemVer freeze; the OTLP exporters (gRPC + HTTP) are the supported, frozen tracing surface; release notes carry the migration note.
+- **References**: `internal/tracing/exporters.go`; `internal/config/tracing.go`; `docs/project/VERSIONING.md` (v1.0 contract freeze); companion: "Zipkin tracing exporter: deprecation warning → OTLP".
 
 ## v0.x — desirable pre-v1.0 (no specific gate)
 
@@ -640,22 +655,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why deferred**: surfaced as F5 during Phase D1 (docker-compose walkthrough); Phase E cleanup audit found two more peer-stubs (execution, maintenance) — same shape, same problem. The doc-claim portion is now resolved (GETTING-STARTED.md uses `kscorectl` instead of REST for the operator path); what remains is the question of whether the stubs themselves should become real or become explicit non-features. `/api/v1/agents` is a special case — it IS used in GETTING-STARTED.md step 3 because `kscorectl agent list` doesn't exist yet (see entry above); a real handler there would simplify the operator path.
 - **Acceptance**: pick a direction. If (a): `GET /api/v1/agents`, `POST /api/v1/state/apply`, plus the schedule / execution / maintenance routes return the same JSON shapes as their gRPC counterparts; existing 501-stub tests across `pkg/api/agents/handler_test.go` + `pkg/api/state/handler_test.go` + `pkg/api/schedule/handler_test.go` + `pkg/api/execution/handler_test.go` + `pkg/api/maintenance/handler_test.go` flip to 200 + content assertions. If (b): the 501 handlers move to a deliberate 410 Gone with `Not part of v0.1; use the gRPC RPC <name>` body, and the package-level doc comment on each handler.go calls the decision out.
 - **References**: `pkg/api/{agents,state,schedule,execution,maintenance}/handler.go` (five stub registrations); `docs/project/GETTING-STARTED.md` step 3 (uses `/api/v1/agents`); `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D1 evidence F5.
-
-#### RunbookGRPCServer not registered at boot
-
-- **Priority**: gate-v1.0
-- **What**: `internal/controlplane/grpc_runbook_server.go::RunbookGRPCServer` is fully implemented (all four RPCs: `ListRunbooks`, `GetRunbook`, `ExecuteRunbook`, `GetRunbookExecution`) and has tests, but `cmd/kscore-server/main.go` never calls `srv.RegisterService(&v1.RunbookService_ServiceDesc, ...)` for it. The service is dark at runtime — a client that calls `RunbookService.ListRunbooks` gets `codes.Unimplemented`. Same shape as the Epic-13 ClusterService / CoordinationService boot-wiring entries already on the gate-v1.0 list.
-- **Why deferred**: surfaced during Phase E E-cleanup-2 dead-code audit. The implementation is there; what's missing is the boot-wiring decision (RunbookGRPCServer needs a configured `Engine` from `internal/runbook` to construct, and the production engine has no boot wiring yet).
-- **Acceptance**: `cmd/kscore-server/main.go` constructs a `runbook.Engine` from config + registers `RunbookGRPCServer`. Integration test verifies `RunbookService.ListRunbooks` returns 200 against a running server with a configured runbook catalog. The runbook-catalog config block (`config.RunbookConfig`?) is defined + validated like blueprint catalog is today.
-- **References**: `internal/controlplane/grpc_runbook_server.go`; `cmd/kscore-server/main.go` (service registration block, ~line 474-543); `internal/runbook` package; existing peer entries "Cluster gRPC services boot registration" and "Coordination gRPC services boot registration" on the gate-v1.0 list.
-
-#### Blueprint and runbook REST handler packages not mounted
-
-- **Priority**: gate-v1.0
-- **What**: `pkg/api/blueprint/handler.go` and `pkg/api/runbook/handler.go` exist (landed by Epic 15 task 11) but are imported by nothing outside their own `_test.go` files. `pkg/api/server/options.go` never wires them onto the HTTP mux. A reader browsing `pkg/api/` would reasonably expect these REST surfaces to work but they're unreachable at runtime. The gRPC `BlueprintGRPCServer` IS registered; only the REST companion is dark.
-- **Why deferred**: surfaced during Phase E E-cleanup-2 dead-code audit. The runbook REST mount depends on the same RunbookGRPCServer wiring above (so this could fold into that entry). The blueprint REST mount is standalone — the gRPC server is wired, just the REST handler is orphaned.
-- **Acceptance**: `pkg/api/server/options.go` (or equivalent registration site) mounts both `pkg/api/blueprint` and `pkg/api/runbook` handlers alongside the existing domain handlers. The orphaned-import audit (this very entry) returns zero hits. End-to-end smoke test invokes one route per handler via `curl` against a running server.
-- **References**: `pkg/api/blueprint/handler.go`, `pkg/api/runbook/handler.go`, `pkg/api/server/options.go` (where other handlers register); related to "RunbookGRPCServer not registered at boot" above.
 
 <!-- "Select a different default gRPC port (avoid Cockpit collision on
      Rocky 10)" landed as part of the Phase-D rerun cycle: default
@@ -1007,47 +1006,71 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `markdownlint-cli2 PROJECT-DETAILS.md` returns 0 errors. The carve-out is removed from `.markdownlint-cli2.yaml`'s `ignores` block. `make docs-lint` (with the file no longer carved out) stays clean.
 - **References**: `PROJECT-DETAILS.md`; `.markdownlint-cli2.yaml` (the carve-out comment to delete); MD029 doc at <https://github.com/DavidAnson/markdownlint/blob/main/doc/md029.md> for the style call.
 
-## v1.x — post-v1.0 feature additions
+#### Operations runbooks accuracy sweep
 
-#### Expanded getting-started guides (per-domain tutorials)
-
-- **Priority**: v1.x
-- **What**: Epic 19 §Documentation listed five getting-started guides (install, first cluster, first command, first state apply, first blueprint, first module). v0.1.x ships one consolidated ~30-minute walkthrough at `docs/project/GETTING-STARTED.md` that covers install + agent online + command + state + audit. v1.x expands to per-domain tutorials covering blueprint authoring, module authoring + publishing, secrets, GitOps integration, audit/policy queries, HA cluster topology.
-- **Why deferred**: One thorough walkthrough satisfies the epic-19 acceptance line ("Quick-start guide can be followed end-to-end on a fresh Ubuntu VM in <30 minutes"). The longer-form per-domain content is editorial work that benefits from the Hugo site (gate-v0.5) being live so the new guides can land into the proper site IA rather than as ad-hoc Markdown files.
-- **Acceptance**: Six guides under `docs/content/en/docs/getting-started/` in the Hugo content tree; each is runnable end-to-end on a fresh Ubuntu VM; each is link-checked.
-- **References**: epic 19 task 9 `_(landed)_`; `docs/project/GETTING-STARTED.md`; Hugo docs site entry under gate-v0.5.
-
-#### Operations runbooks v1.x sweep
-
-- **Priority**: v1.x
-- **What**: `docs/runbooks/` carries pre-v1.0 operational content (`bootstrap-new-cluster.md`, `backup-restore.md`, `capacity-scaling.md`, `security-incident.md`). v1.x sweeps them for accuracy against the v1.0 release — current binary names, current CLI flags, current config keys, current REST/gRPC endpoints — and graduates them into the Hugo `docs/content/en/docs/operations/` tree.
-- **Why deferred**: The runbooks are correct in shape (procedures, decision trees, recovery steps) but contain references to interfaces that have since shifted during reconstruction. A sweep against the now-frozen v1.0 contracts is post-release work.
+- **Priority**: v0.x
+- **What**: `docs/runbooks/` carries pre-v1.0 operational content (`bootstrap-new-cluster.md`, `backup-restore.md`, `capacity-scaling.md`, `security-incident.md`). Sweep them for accuracy — current binary names, current CLI flags, current config keys, current REST/gRPC endpoints — and graduate them into the Hugo `docs/content/en/docs/operations/` tree (after the gate-v0.5 Hugo site lands).
+- **Why deferred**: The runbooks are correct in shape (procedures, decision trees, recovery steps) but reference interfaces that shifted during reconstruction. A sweep keeps them runnable for v0.5 external testers; a lighter re-verify happens again against the frozen v1.0 contracts before v1.0.
 - **Acceptance**: Each runbook step is verified against a fresh `make e2e-up` topology; commands run as documented; outputs match.
 - **References**: epic 19 task 9 `_(landed)_`; `docs/runbooks/*`.
 
-#### Soak-test infrastructure for fd / connection / goroutine leaks
-
-- **Priority**: v1.x
-- **What**: Epic 19 §Acceptance line 109 asks for "no goroutine / connection / fd leaks in 1-hour soak test." Task 6 (goleak in integration tests) and task 8 (hardening pass — per-component lifecycle audit in `docs/project/HARDENING-BASELINE.md`) shipped the v1.0 mechanisms; the 1-hour soak harness itself ships post-v1.0. v1.x adds: a soak target (`make soak` or similar) that runs the topology under representative load for N hours, captures `lsof` baselines + diffs, snapshots goroutine count via `runtime.NumGoroutine`, and asserts each is bounded.
-- **Why deferred**: The mechanism is in place (goleak under integration, lifecycle table for connections). Building the soak orchestration — load generator, time-boxed runner, lsof differ, goroutine snapshotter, CI integration with a long-running job — is dedicated scope.
-- **Acceptance**: `make soak` runs the docker-compose topology under sustained load for ≥1 hour, asserts: (a) `runtime.NumGoroutine` flat ±5%; (b) per-process `lsof` count flat ±5%; (c) per-process RSS flat ±10%. CI runs it nightly.
-- **References**: epic 19 task 6 `_(landed)_`; epic 19 task 8 `_(landed)_`; `docs/project/HARDENING-BASELINE.md`.
-
-#### Sustained-load profiling baseline
-
-- **Priority**: v1.x
-- **What**: Epic 19 task 8 captured a CPU + allocation baseline against the perf SLO workload (`make profile`; `docs/project/PROFILING-BASELINE.md`). That workload is ~250 ms total — useful for catching obvious hot spots, insufficient for production-shape profiling. v1.x adds a sustained-load harness (10-minute-ish runs against a multi-agent topology with steady command + event + state-apply load) and a per-domain profile breakdown (state engine, blueprint, secrets, audit).
-- **Why deferred**: The v1.0 baseline catches the bar the epic asked for (>5% CPU / >50 MB alloc). Production-shape profiling is operations-tuning work, not a v1.0 release blocker.
-- **Acceptance**: `make profile-sustained` (or equivalent) runs the harness; per-domain profile files land next to `docs/project/PROFILING-BASELINE.md`'s baseline numbers; the doc gains a per-domain section.
-- **References**: epic 19 task 8 `_(landed)_`; `docs/project/PROFILING-BASELINE.md`.
-
 #### Error-message docs URLs
 
-- **Priority**: v1.x
-- **What**: Many error messages would benefit from a docs URL (`See https://keystone-core.io/docs/errors/<slug>` style). Epic 19 §Hardening calls this out; epic 19 task 8 deferred it because the Hugo docs site was post-v1.0 at the time. With Hugo pulled forward to gate-v0.5 (above), this entry becomes opportunistically earlier-actionable — it can land any time after the Hugo site is live + the per-error slug pages exist — but v1.x remains its scheduled bucket because the per-error content work is editorial and bigger than the helper-plus-emitter scope.
-- **Why deferred**: URLs to a non-existent docs site would rot. Was v1.x-because-Hugo-was-v1.x; now v1.x because the per-error slug pages need to be written + maintained, and that content effort is post-v1.0 editorial work.
+- **Priority**: v0.x
+- **What**: Many error messages would benefit from a docs URL (`See https://keystone-core.io/docs/errors/<slug>` style). Epic 19 §Hardening calls this out; epic 19 task 8 deferred it because the Hugo docs site was post-v1.0 at the time. With Hugo pulled forward to gate-v0.5, this becomes actionable in the v0.x line — it can land any time after the Hugo site is live + the per-error slug pages exist.
+- **Why deferred**: URLs to a non-existent docs site would rot. It waits on the gate-v0.5 Hugo site + the per-error slug pages; once those exist, the helper-plus-emitter work is small and serves the v0.5 tester audience directly.
 - **Acceptance**: A `pkg/api/apierror` (or similar) helper produces "<message>. See <docs-url>" strings; the docs site has the matching slug pages; key user-facing errors (config validation, secrets read, command exec failures) carry the URLs.
 - **References**: epic 19 task 8 `_(landed)_`; the Hugo docs ROADMAP entry under gate-v0.5; `keystone-core.io` domain provisioning.
+
+#### kscore-events query subcommand (CEL post-filter)
+
+- **Priority**: v0.x
+- **What**: PROJECT-DETAILS §4.9 lists `query` alongside `list`. The intended distinction was a CEL-filtered post-fetch query — `kscore-events query --filter "tags.role == 'web' && severity.at_least('warn')"` runs ListEvents with the indexed filters, then applies the CEL filter client-side, then emits matching events. v1.0 task 7 ships `list` (structural filters) + `subscribe --replay <window>` (CEL on the streaming path); the standalone `query` subcommand is subsumed by `subscribe --replay <large-window>` for ad-hoc work.
+- **Why deferred**: 80%+ of `query`'s use cases are covered by `subscribe --replay`. A dedicated subcommand only adds value when (1) operators want a non-streaming, bounded-output exit-when-done flow against CEL, or (2) CEL push-down to SQL is implemented so the filter narrows the query rather than running post-fetch. Pulled to v0.x because it needs no new server surface (client-side CEL over existing ListEvents).
+- **Acceptance**: `kscore-events query --filter "..."` iterates ListEvents pages, applies CEL filter client-side, emits matching events as JSON lines, exits when the bound is exhausted. CEL syntax: `severity.at_least('warn')` form per Epic 11 task 5.
+- **References**: PROJECT-DETAILS §4.9 CLI list; `internal/events/filter.go` (CompileFilter, landed); Epic 11 task 7 (kscore-events CLI; landed).
+
+#### kscore-audit export `--redaction-config` file
+
+- **Priority**: v0.x
+- **What**: Epic 12 task 15 ships `kscore-audit export` with redaction driven by repeatable flags (`--redact-key`, `--redact-pattern`, `--redact-user`, `--redact-replacement`). Add a `--redaction-config <file>` that unmarshals a YAML/JSON `audit.RedactionConfigInput` so a vetted redaction policy is reusable + reviewable in source control rather than retyped as flags per invocation.
+- **Why deferred**: the flag form satisfies the §4.12 acceptance bar (`--redact-pattern 'password=\S+'`) and the export path already takes a `*RedactionConfig` (the file would just be a second constructor of the same struct). §4.12's risk note ("redaction regex must be reviewed before prod") makes a checked-in config the prod-grade ergonomic; pulled to v0.x because it is a tiny additive convenience over a complete redaction path.
+- **Acceptance**: `kscore-audit export --redaction-config redaction.yaml` loads `{redact_metadata_keys, redact_patterns, redact_user, replacement}` into `audit.NewRedactionConfig`; flags, when also given, layer over / override the file; a malformed file or bad regex fails loudly before the first entry is written.
+- **References**: `internal/cli/audit/export.go` (flag-driven `RedactionConfigInput`); `internal/audit/redaction.go` `NewRedactionConfig` (landed); Epic 12 task 15 (landed).
+
+#### kscore-cluster watch subcommand
+
+- **Priority**: v0.x
+- **What**: A `kscore-cluster watch` live membership/leadership tail over the existing `WatchMembership`/`WatchLeadership` server-streams (landed in Epic 13 task 15, not yet CLI-exposed). Split out of the `kscore-cluster-backup schedule` entry because it needs no new server surface — pure CLI sugar over RPCs that already exist.
+- **Why deferred**: not in the FEATURES/acceptance CLI list; the same stream-CLI gap deferred for kscore-events/kscore-audit. Cheap to add for operators who want a live cluster tail.
+- **Acceptance**: `kscore-cluster watch [--leadership]` consumes `ClusterServiceClient.WatchMembership`/`WatchLeadership` and renders events until interrupted, like `kscore-events watch`.
+- **References**: `pkg/api/v1` `ClusterServiceClient.WatchMembership`/`WatchLeadership` (landed in Epic 13 task 15); `internal/cli/cluster`; Epic 13 task 16 (landed).
+
+#### kscore-audit search subcommand
+
+- **Priority**: v0.x
+- **What**: `kscore-audit search` — richer ad-hoc filtered query over the audit log. Subsumed by `log`'s filter flags for v1.0, but a dedicated search surface is cheap (no new server surface) and friendly for operators. Split out of the `kscore-audit analyze/timeline/watch` entry because, unlike those, it needs nothing new server-side.
+- **Why deferred**: `search` is sugar over `log` until a distinct query model is demanded; pulled to v0.x because it is the cheap, no-new-surface half of the original four-subcommand entry.
+- **Acceptance**: `kscore-audit search <filters>` runs an ad-hoc filtered query over the audit store and renders matches; degenerates to the `log` filter set where they overlap.
+- **References**: PROJECT-DETAILS §4.12 `kscore-audit` CLI list; `internal/cli/audit` (log/report/stats landed); Epic 12 task 14 (landed).
+
+#### Backup destinations: Backblaze B2 documentation + smoke test
+
+- **Priority**: v0.x
+- **What**: Document Backblaze B2 as a first-class S3-compatible destination — it works today via `s3://` + `Endpoint: s3.<region>.backblazeb2.com` with no code change — and add an integration smoke test once an account is provisioned. Split out of the broader backup-destinations entry because, unlike SFTP/GCS/Azure, it needs no new code — only docs + a test.
+- **Why deferred**: Backblaze B2 is the next-priority compatible service per operator direction; pulled to v0.x because it is the no-code half (docs + smoke) of the original entry.
+- **Acceptance**: B2 documented in `internal/backup/dest/dest.go` package comment + README; a smoke test exercises a real B2 bucket via the `s3://` path + B2 endpoint.
+- **References**: Epic 18 Scope § (lines 26-28); `internal/backup/dest/`.
+
+#### Zipkin tracing exporter: deprecation warning → OTLP
+
+- **Priority**: v0.x
+- **What**: `go.opentelemetry.io/otel/exporters/zipkin` is upstream-deprecated with planned removal in early 2027. Start the operator migration now: make `tracing.exporter: zipkin` validate with a deprecation warning pointing at OTLP (HTTP or gRPC), and steer the tracing docs toward OTLP as the recommended exporter. OTLP is the OTel-blessed wire format and most backends (including Zipkin via a collector) accept it natively. This is the cheap half — no exporter removal yet.
+- **Why deferred (from v0.1)**: Epic 17 task 4 shipped Zipkin support because the epic explicitly listed it; the upstream deprecation surfaced afterward. Emitting the warning early gives operators the maximum runway to migrate before the gate-v1.0 freeze decision (companion above).
+- **Acceptance**: `tracing.exporter=zipkin` logs a deprecation warning at config-validation time naming OTLP as the replacement; tracing docs recommend OTLP; the exporter still works (no removal).
+- **References**: `internal/config/tracing.go` (`Validate`); `internal/tracing/exporters.go`; `internal/tracing/doc.go`; companion: "Zipkin tracing exporter: do not freeze into the v1.0 surface".
+
+## v1.x — post-v1.0 feature additions
 
 #### Logging: context-aware threading of deep helpers
 
@@ -1056,20 +1079,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why deferred**: Each site is small but the threading is cross-cutting; bundling it into task 8's hardening pass would balloon scope. Request-scoped logging already carries the correlation ID — the gap is only in deep helpers.
 - **Acceptance**: `tools/logaudit` (or `grep` audit) reports zero non-context `slog.*` calls outside an explicit allowList; allowList entries each name why the site can't take a ctx (e.g., process-wide init).
 - **References**: epic 19 task 8 `_(landed)_`; `docs/project/HARDENING-BASELINE.md` "Logging audit" section.
-
-#### Security baseline expansion
-
-- **Priority**: v1.x
-- **What**: Epic 19 task 7 shipped the v1.0 baseline pipeline: `make security-{secrets,vulns,sast,licenses}` running gitleaks, govulncheck, gosec (HIGH-only, G115 excluded), go-licenses (strict). v1.x expands the scan set + tightens the configuration:
-  - **Re-enable G115 + per-site audit**. Currently ~84 G115 (integer-overflow conversion) findings sit at proto<->Go field-width boundaries, parser-checked archive headers, and range-validated config. Re-enabling the rule requires a per-site audit + `//#nosec G115` annotations (or, where the conversion is genuinely unbounded, a `range check + return error` fix).
-  - **semgrep** — cross-language SAST; catches patterns gosec doesn't (SSRF, template injection, regexp DoS).
-  - **trivy** / **grype** — container-image + lockfile scanning; lands with the v1.0 release-image build.
-  - **syft** — SBOM generation; lands with epic 19's release-artifact work.
-  - **hadolint** — Dockerfile linting (`test/e2e/single/Dockerfile.kscore` + the prod release Dockerfile when it lands).
-  - **gosec MEDIUM gate** — current baseline gates HIGH only per epic 19 acceptance. v1.x graduates MEDIUM to a required floor after a one-time triage pass.
-- **Why deferred**: The v1.0 baseline ships the four scans the epic explicitly names. Expanding to the broader suite is post-v1.0 release-prep, not a v1.0 blocker. The G115 re-enablement specifically would require a large triage PR with little signal-to-noise improvement for the v1.0 codebase.
-- **Acceptance**: Each sub-bullet adds its own Make target + CI step + brief docs entry under `docs/project/SECURITY-GOVERNANCE.md` "Security Baseline Pipeline." `make security` (or equivalent umbrella) runs all.
-- **References**: epic 19 task 7 `_(landed)_`; `Makefile` `security-*` targets; `docs/project/SECURITY-GOVERNANCE.md` "Security Baseline Pipeline" section.
 
 #### Release dry-run expansion
 
@@ -1081,14 +1090,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why deferred**: The v1.0 smoke covers every artifact-shape failure mode that has shown up in practice (the task 13 implementation surfaced 15 binaries missing `--version` wiring + 6 regex anchor bugs in the smoke script itself; both fixed inline). The remaining gaps are belt-and-suspenders, not v1.0 blockers.
 - **Acceptance**: Each sub-bullet adds its own check function in `scripts/release-smoke.sh` (or the container companion) and a row in `docs/project/SECURITY-GOVERNANCE.md` "Release Dry-Run Smoke."
 - **References**: epic 19 task 13 `_(landed)_`; `scripts/release-smoke.sh`; `docs/project/SECURITY-GOVERNANCE.md` "Release Dry-Run Smoke" section.
-
-#### Dependency posture re-audit
-
-- **Priority**: v1.x
-- **What**: A periodic deep-audit of the direct + indirect Go dependency tree. The v0.x baseline audit (2026-05-23, Phase B3 of [`PUBLIC-LAUNCH-CHECKLIST.md`](PUBLIC-LAUNCH-CHECKLIST.md)) flagged a small set of single-maintainer / lightly-maintained deps that are acceptable for v0.x but warrant explicit re-evaluation before v1.0 / v2.0. Specifically: (a) **`lib/pq` → `jackc/pgx` graduation** — lib/pq is in maintenance-only mode; pgx is the community-active Postgres driver; (b) **`gobwas/glob` re-audit** — minimal-scope glob matcher, feature-complete per maintainer, no known CVEs but worth re-validating; (c) **single-maintainer-but-active deps re-check** — `modernc.org/sqlite`, `santhosh-tekuri/jsonschema/v6`, `shirou/gopsutil/v4`.
-- **Why deferred**: No security signal warrants action at v0.x. The audit's purpose is to keep the dependency profile honest before SemVer stability kicks in at v1.0.
-- **Acceptance**: A timestamped re-audit lands in [`docs/project/SECURITY-GOVERNANCE.md`](SECURITY-GOVERNANCE.md) "Dependency posture" section with the new module count + license distribution + maintainer-health categorization. Any newly-introduced single-maintainer dep gets an explicit accept/replace decision.
-- **References**: `docs/project/SECURITY-GOVERNANCE.md` "Dependency posture" section (2026-05-23 baseline); `go.mod` direct + indirect blocks.
 
 #### Rate-limit: `Retry-After` HTTP-date format alternative
 
@@ -1122,12 +1123,12 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: A PUT interrupted at chunk K resumed by the client with `FromChunk=K` completes without re-uploading chunks 0..K-1; server-side scratch state survives restart; per-transfer scratch is reaped on a configurable TTL.
 - **References**: `internal/files/transport/service.go::handlePut`; `internal/files/transport/doc.go` (Resume §); Epic 18 task 11.
 
-#### Backup destinations: Backblaze B2 smoke test + SFTP + GCS + Azure Blob + advanced S3 auth
+#### Backup destinations: SFTP + GCS + Azure Blob + advanced S3 auth
 
 - **Priority**: v1.x
-- **What**: (a) Document Backblaze B2 as a first-class S3-compatible destination — works today via `s3://` + `Endpoint: s3.<region>.backblazeb2.com` (no code change needed); add an integration smoke test once an account is provisioned. (b) Three NEW destination backends behind the Epic-18 task 5 `Destination` seam: SFTP (golang.org/x/crypto/ssh + go-sftp), Google Cloud Storage, Azure Blob. (c) Advanced S3 auth flavors not wired in v1.0 (IRSA, instance profiles, assumed roles, web identity) — reachable through minio-go's IAM credentials provider but not exposed via `Config` until needed.
-- **Why deferred**: v1.0 ships local filesystem + S3-compatible (AWS / MinIO / B2 / Wasabi / R2 / DigitalOcean Spaces via the same `s3://` scheme + endpoint). Backblaze B2 is the next-priority compatible service per operator direction. SFTP / GCS / Azure each need a new SDK + auth surface; bundling them now would balloon v1.0's dep graph. Epic 18 Scope § lists "SFTP, GCS, Azure for v1.5".
-- **Acceptance**: B2 documented in `internal/backup/dest/dest.go` package comment + README; `kscore-backup create --dest sftp://host/path/foo.tar` succeeds; same for `gs://` and `azblob://`; `AWS_WEB_IDENTITY_TOKEN_FILE` produces a valid S3 client on EKS.
+- **What**: (a) Three NEW destination backends behind the Epic-18 task 5 `Destination` seam: SFTP (golang.org/x/crypto/ssh + go-sftp), Google Cloud Storage, Azure Blob. (b) Advanced S3 auth flavors not wired in v1.0 (IRSA, instance profiles, assumed roles, web identity) — reachable through minio-go's IAM credentials provider but not exposed via `Config` until needed. (Backblaze B2 — which works today via `s3://` with no code change — was split out as a v0.x doc + smoke-test entry.)
+- **Why deferred**: v1.0 ships local filesystem + S3-compatible (AWS / MinIO / B2 / Wasabi / R2 / DigitalOcean Spaces via the same `s3://` scheme + endpoint). SFTP / GCS / Azure each need a new SDK + auth surface; bundling them now would balloon v1.0's dep graph. Epic 18 Scope § lists "SFTP, GCS, Azure for v1.5".
+- **Acceptance**: `kscore-backup create --dest sftp://host/path/foo.tar` succeeds; same for `gs://` and `azblob://`; `AWS_WEB_IDENTITY_TOKEN_FILE` produces a valid S3 client on EKS.
 - **References**: Epic 18 Scope § (lines 26-28); `internal/backup/dest/`.
 
 #### Backup encryption: AWS KMS + Vault key providers
@@ -1137,14 +1138,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why deferred**: v1.0 ships file-backed age keys only (`internal/backup/age.LoadIdentityFile` / `LoadRecipientsFile`). The KMS path needs the cloud-credential surface that arrives with the v1.x cloud-identity work; mixing the two now would force partial cloud-credential code into v1.0. Epic 18 Risks § names "v1.5 integrates KMS".
 - **Acceptance**: `kscore-backup create --key-provider=aws-kms:arn:...` writes an artifact whose age recipients are wrapped under the KMS key; restore unwraps via the same KMS. Same for `vault:transit:keystone-backup`.
 - **References**: Epic 18 Risks §; PROJECT-DETAILS §4.20 ("master key from env or KMS"); `internal/backup/age/`.
-
-#### Policy enforcement side-effects (Warn events + Enforce violation handlers)
-
-- **Priority**: v1.x
-- **What**: Epic 12 task 10's `policy.Enforcer` ships the v1.0 audit-mode gate plus the post-v1.0 allow/deny *gate switch* behind `WithEnforcementEnabled` (Audit/Warn → allow, Enforce → block on a denying verdict). PROJECT-DETAILS §4.12's enforcement spec also requires the **side-effects**: `Warn` mode must emit a warn-level policy event; `Enforce` mode must invoke registered violation handlers before denying. v1.0 implements only the gate decision — the side-effects are deferred because they need infrastructure that does not exist yet (a policy-violation event type on the Epic 11 bus + a violation-handler registration/dispatch mechanism on the Enforcer).
-- **Why deferred**: v1.0 ships the policy engine in audit-mode-only; enforcement is hardcoded off (`policy.enforcement_enabled=false`). The gate logic is testable today and proves the post-v1.0 shape; the side-effects have no v1.0 consumer and would be untested speculative infra. The enforcement flip is a separately-tracked behavior-changing release.
-- **Acceptance**: `policy.enforcement_enabled=true` is operator-settable (config plumbing); `Warn` mode emits a `policy.warn` (or §4.9-canonical) event through the events bus on a denying verdict and still allows; `Enforce` mode invokes each registered violation handler (new `Enforcer.RegisterViolationHandler` seam) before returning `Allowed=false`; release notes call out the enforcement behavior change loudly.
-- **References**: `internal/policy/enforcer.go` (`Enforce` gate switch — the `// Side-effects ... deferred` comment); PROJECT-DETAILS §4.12 "enforcement changes"; Epic 12 task 10 (landed).
 
 #### kscore-secrets backends subcommand
 
@@ -1202,14 +1195,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: TBD — gather operator pain points from v0.x trial deployments first; likely lands as one or more sub-subcommands under `kscore-events analyze`.
 - **References**: PROJECT-DETAILS §4.9 CLI list; Epic 11 task 7 (kscore-events CLI; landed).
 
-#### kscore-events query subcommand (CEL post-filter)
-
-- **Priority**: v1.x
-- **What**: PROJECT-DETAILS §4.9 lists `query` alongside `list`. The intended distinction was a CEL-filtered post-fetch query — `kscore-events query --filter "tags.role == 'web' && severity.at_least('warn')"` runs ListEvents with the indexed filters, then applies the CEL filter client-side, then emits matching events. v1.0 task 7 ships `list` (structural filters) + `subscribe --replay <window>` (CEL on the streaming path); the standalone `query` subcommand is subsumed by `subscribe --replay <large-window>` for ad-hoc work.
-- **Why deferred**: 80%+ of `query`'s use cases are covered by `subscribe --replay`. A dedicated subcommand only adds value when (1) operators want a non-streaming, bounded-output exit-when-done flow against CEL, or (2) CEL push-down to SQL is implemented so the filter narrows the query rather than running post-fetch. Until either lands, the subcommand is sugar.
-- **Acceptance**: `kscore-events query --filter "..."` iterates ListEvents pages, applies CEL filter client-side, emits matching events as JSON lines, exits when the bound is exhausted. CEL syntax: `severity.at_least('warn')` form per Epic 11 task 5.
-- **References**: PROJECT-DETAILS §4.9 CLI list; `internal/events/filter.go` (CompileFilter, landed); Epic 11 task 7 (kscore-events CLI; landed).
-
 #### kscore-policy check / test subcommands
 
 - **Priority**: v1.x
@@ -1218,29 +1203,21 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: TBD — gather authoring-workflow pain from v0.x trials; `test` likely lands as `kscore-policy test <dir>` running a fixtures directory of `{input, expect_allowed, expect_violations}` cases with a non-zero exit on mismatch; `check` likely folds into `validate --input`.
 - **References**: PROJECT-DETAILS §4.12 CLI v1.0 list; `internal/cli/policy` (validate/eval landed); Epic 12 task 14 (landed).
 
-#### kscore-audit search / analyze / timeline / watch subcommands
+#### kscore-audit analyze / timeline / watch subcommands
 
 - **Priority**: v1.x
-- **What**: PROJECT-DETAILS §4.12's `kscore-audit` v1.0 list is `log|report|export|stats|search|analyze|timeline|watch`. Epic 12 task 14 shipped `log|report|stats`; `export` is owned by task 15 (formatters + redaction). The remaining four are deferred: **search** (richer ad-hoc filtered query — subsumed by `log`'s filter flags for v1.0); **analyze** (fuzzy operator-analysis tool, no acceptance criteria — same shape as the deferred kscore-events `analyze`); **timeline** (all evaluations for a single resource over time — maps to `policy.ReportGenerator.ResourceAuditTrail`, which has **no gRPC RPC** on PolicyService); **watch** (live audit tail — needs an audit-tail **streaming RPC** + the `audit.BufferedAuditor` exposed over the wire; neither exists in v1.0).
-- **Why deferred**: `search` is sugar over `log` until a distinct query model is demanded; `analyze` is fuzzy-spec (gather demand first); `timeline` and `watch` require new server surface (a `ResourceAuditTrail` unary RPC and an audit-tail server-stream respectively) that is out of task 14's scope and not on the v1.0 critical path.
-- **Acceptance**: `timeline` — add `PolicyService.GetResourceAuditTrail` (or an audit-service RPC) wrapping `ReportGenerator.ResourceAuditTrail`, then `kscore-audit timeline <resource-type> --since …` renders it oldest-first. `watch` — add an audit-tail server-streaming RPC fed by `audit.BufferedAuditor`, then `kscore-audit watch` tails it like `kscore-events watch`. `search`/`analyze` — TBD from trial demand.
+- **What**: PROJECT-DETAILS §4.12's `kscore-audit` v1.0 list is `log|report|export|stats|search|analyze|timeline|watch`. Epic 12 task 14 shipped `log|report|stats`; `export` is owned by task 15; `search` was split out as a v0.x entry. The remaining three: **analyze** (fuzzy operator-analysis tool, no acceptance criteria — same shape as the deferred kscore-events `analyze`); **timeline** (all evaluations for a single resource over time — maps to `policy.ReportGenerator.ResourceAuditTrail`, which has **no gRPC RPC** on PolicyService); **watch** (live audit tail — needs an audit-tail **streaming RPC** + the `audit.BufferedAuditor` exposed over the wire; neither exists in v1.0).
+- **Why deferred**: `analyze` is fuzzy-spec (gather demand first); `timeline` and `watch` require new server surface (a `ResourceAuditTrail` unary RPC and an audit-tail server-stream respectively) that is out of task 14's scope and not on the v1.0 critical path.
+- **Acceptance**: `timeline` — add `PolicyService.GetResourceAuditTrail` (or an audit-service RPC) wrapping `ReportGenerator.ResourceAuditTrail`, then `kscore-audit timeline <resource-type> --since …` renders it oldest-first. `watch` — add an audit-tail server-streaming RPC fed by `audit.BufferedAuditor`, then `kscore-audit watch` tails it like `kscore-events watch`. `analyze` — TBD from trial demand.
 - **References**: PROJECT-DETAILS §4.12 `kscore-audit` CLI list; `internal/policy/compliance.go` `ResourceAuditTrail` (landed, no RPC); `internal/audit` `BufferedAuditor` (landed, not wire-exposed); Epic 12 task 14 (landed).
 
-#### kscore-audit export `--redaction-config` file
+#### kscore-cluster-backup schedule subcommand
 
 - **Priority**: v1.x
-- **What**: Epic 12 task 15 ships `kscore-audit export` with redaction driven by repeatable flags (`--redact-key`, `--redact-pattern`, `--redact-user`, `--redact-replacement`). Add a `--redaction-config <file>` that unmarshals a YAML/JSON `audit.RedactionConfigInput` so a vetted redaction policy is reusable + reviewable in source control rather than retyped as flags per invocation.
-- **Why deferred**: the flag form satisfies the §4.12 acceptance bar (`--redact-pattern 'password=\S+'`) and the export path already takes a `*RedactionConfig` (the file would just be a second constructor of the same struct). §4.12's risk note ("redaction regex must be reviewed before prod") makes a checked-in config the prod-grade ergonomic, but it's additive over a complete v1.0 redaction path — no behavior gap, pure convenience.
-- **Acceptance**: `kscore-audit export --redaction-config redaction.yaml` loads `{redact_metadata_keys, redact_patterns, redact_user, replacement}` into `audit.NewRedactionConfig`; flags, when also given, layer over / override the file; a malformed file or bad regex fails loudly before the first entry is written.
-- **References**: `internal/cli/audit/export.go` (flag-driven `RedactionConfigInput`); `internal/audit/redaction.go` `NewRedactionConfig` (landed); Epic 12 task 15 (landed).
-
-#### kscore-cluster-backup schedule + kscore-cluster watch subcommands
-
-- **Priority**: v1.x
-- **What**: Epic 13 task 16 shipped `kscore-cluster` (`status|members|leader|add|remove|transfer-leader|rebalance|backup|restore`) and `kscore-cluster-backup` (`backup|restore|list|verify`). Two subcommands from the §4.15 / epic surface are deferred: **`kscore-cluster-backup schedule`** (automated periodic snapshots) — the epic explicitly tags backup scheduling/automation as a future release (epic lines 47/60); and a **`kscore-cluster watch`** (live membership/leadership tail over the existing `WatchMembership`/`WatchLeadership` server-streams) — not in the FEATURES/acceptance CLI list, the same stream-CLI gap deferred for kscore-events/kscore-audit.
-- **Why deferred**: `schedule` is out of v1.0 epic scope by the epic's own wording (no acceptance line; needs a scheduler/retention design — overlaps the general backup-automation deferral); `watch` is pure CLI sugar over RPCs that already exist server-side (the stream handlers landed in task 15) — it earns its keep once operators ask for a live cluster tail, mirroring the kscore-audit `watch` rationale. The acceptance-critical surface (`status`, `backup --output`, `restore --input --force`) all shipped.
-- **Acceptance**: `watch` — `kscore-cluster watch [--leadership]` consumes `ClusterServiceClient.WatchMembership`/`WatchLeadership` and renders events until interrupted, like `kscore-events watch`. `schedule` — TBD from trial demand; likely `kscore-cluster-backup schedule add --cron … --output-dir …` registering a periodic snapshot job with retention.
-- **References**: `internal/cli/cluster` (landed: the 13 shipped subcommands); `pkg/api/v1` `ClusterServiceClient.WatchMembership`/`WatchLeadership` (landed in Epic 13 task 15, not yet CLI-exposed); Epic 13 task 16 (landed); companion: the general backup automation/scheduling deferral.
+- **What**: Epic 13 task 16 shipped `kscore-cluster-backup` (`backup|restore|list|verify`). The **`schedule`** subcommand (automated periodic snapshots) is deferred — the epic explicitly tags backup scheduling/automation as a future release (epic lines 47/60). (`kscore-cluster watch` was split out as a separate v0.x entry.)
+- **Why deferred**: `schedule` is out of v1.0 epic scope by the epic's own wording (no acceptance line; needs a scheduler/retention design — overlaps the general backup-automation deferral). The acceptance-critical surface (`status`, `backup --output`, `restore --input --force`) all shipped.
+- **Acceptance**: TBD from trial demand; likely `kscore-cluster-backup schedule add --cron … --output-dir …` registering a periodic snapshot job with retention.
+- **References**: `internal/cli/cluster` (landed: the 13 shipped subcommands); Epic 13 task 16 (landed); companion: the general backup automation/scheduling deferral.
 
 #### Strict audit-on-access via Auditor.Emit error return
 
@@ -1281,14 +1258,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why deferred**: federation needs a wire protocol for bundle distribution + cross-domain trust policy + a federated `Attest` path — its own design pass. v0.1 ships single-domain only.
 - **Acceptance**: `kscore-identity federation add-domain spiffe://peer.example.org/` registers + fetches the peer bundle; `kscore-identity federation list` shows registered domains + last-refresh timestamps; `kscore-identity federation fetch-bundle <domain>` retrieves it ad-hoc; the existing trust-federation v1.x ROADMAP entry covers the underlying provider work.
 - **References**: Epic 09 scope-out (line 23); `internal/cli/identity` (current CLI surface); the existing "Trust federation (cross-domain bundle endpoint)" entry below.
-
-#### Unbiased base62 for join-token generation
-
-- **Priority**: v1.x
-- **What**: Epic 09 task 10's `randomBase62` (in `internal/identity/join_token_generate.go`) uses `byte % 62` for the cleartext-token body. `256 mod 62 = 8`, so values 0-7 are slightly more likely than the rest (≈4.3% vs ≈3.5%). At `joinTokenBodyLen = 40` chars the residual entropy is ≈ 235 bits — well above v0.1's threat model for one-time tokens — but a strict security audit would prefer rejection sampling for deterministic uniformity. Drop-in replacement; no wire-format change. Phase B5 (2026-05-23) audit additionally noted that the bias affects the **prefix** distribution (`token[:JoinTokenPrefixLen]` used as the store lookup key), which concentrates lookup keys toward characters early in the base62 alphabet — increases distinguishability for someone enumerating prefix space, though still below the operational risk threshold at v0.1.
-- **Why deferred**: real-world attack surface is dominated by the raw entropy of the output, not the alphabet ratio. v0.1 ships the simpler implementation; v1.x replaces it during a routine hardening pass alongside other crypto-shape improvements.
-- **Acceptance**: `randomBase62` uses rejection sampling (`crypto/rand.Int(rand.Reader, big.NewInt(62))`) per character; a statistical test over 1M samples shows no per-character bias > 0.1%; the existing alphabet + length tests continue to pass.
-- **References**: `internal/identity/join_token_generate.go` `randomBase62`; Epic 09 task 10 (landed).
 
 #### Trust federation (cross-domain bundle endpoint)
 
@@ -1442,14 +1411,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: Operator installs Keystone Core in a fully air-gapped network; module updates flow through offline registry.
 - **References**: PROJECT-DETAILS §6.2 (line 1496).
 
-#### Policy enforcement (Enforce + Warn modes)
-
-- **Priority**: v1.x
-- **What**: Flip `policy.enforcement_enabled=true`. v1.0 ships policy engine in audit-mode-only.
-- **Why deferred**: A misconfigured policy blocks the fleet. Audit-mode lets operators build confidence first.
-- **Acceptance**: Policy in Enforce mode blocks command exec; Warn mode logs and allows.
-- **References**: Epic 03 task 6; Epic 12 (audit/policy); PROJECT-DETAILS §4.12 (line 859).
-
 #### Cloud workload identity (AWS IRSA, GCP WI, Azure MI)
 
 - **Priority**: v1.x
@@ -1466,6 +1427,78 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: A new gRPC method automatically gets REST + OpenAPI without hand-edits.
 - **References**: Epic 03 scope-out (line 30); PROJECT-DETAILS §4.5 (line 426).
 
+#### `kscore-agent service start|stop` subcommands
+
+- **Priority**: v1.x
+- **What**: PROJECT-DETAILS §4.6 lists `service install|uninstall|start|stop|status`. v1.0 ships `install|uninstall|status` only.
+- **Why now**: `systemctl start kscore-agent` / `systemctl stop kscore-agent` are universally known by Linux operators; wrapping them adds maintenance for zero ergonomic value. Picked up post-v1.0 because the Windows agent's SCM integration needs the same command shape and makes the wrapper worthwhile.
+- **Acceptance for unblock**: `kscore-agent service start|stop` exist and proxy to the platform service manager; documented as the cross-platform form. Additive — no change to existing subcommands.
+- **References**: Epic 06 task 9 `_(landed)_`; PROJECT-DETAILS §4.6 (line 473).
+
+#### Bootstrap: demo mode only (TUI + non-interactive)
+
+- **Priority**: v1.x
+- **What**: Both `kscore-agent bootstrap` paths (TUI wizard from task 7 and `--non-interactive` flags from task 8) accept all three modes structurally but `bootstrap.ValidateForV10` rejects production / enterprise with a v1.x deferral message before the Engine reaches Validate.
+- **Why now**: Production mode needs TLS cert collection (gates on Identity/cert tooling); enterprise mode needs blueprint selection. Production-mode unblock lands with the SPIRE/cert-rotation cycle; enterprise/blueprint pieces (the wizard screens) trail into the blueprint-runtime cycle — see that entry. Lifting the gate is purely additive for existing demo-mode users.
+- **Acceptance for unblock**: TUI screens for cert paths + cert-generation toggle (production); equivalent `--generate-certs` CLI flag wired to the non-interactive path. Drop or no-op `bootstrap.ValidateForV10` for production.
+- **References**: Epic 06 tasks 7 + 8 `_(landed)_`; `internal/agent/bootstrap/configure.go` (search `ValidateForV10`); `cmd/kscore-agent/main.go` (search `buildConfigurer`).
+
+#### Bootstrap CLI flags dropped from v1.0 surface
+
+- **Priority**: v1.x
+- **What**: The original Epic 06 task 8 spec listed `--postgres-*`, `--nats-*` beyond `--join`/`--join-token`, `--generate-certs`, and `--apply-blueprint`. v1.0 ships without them.
+- **Why now**: `--postgres-*` is server-only and belongs in the future unified `kscore-bootstrap` binary (the agent doesn't run a database). Extra `--nats-*` flags are unnecessary because v1.0 agents are external-mode only — embedded NATS is v2.x+. `--generate-certs` re-appears with the cert tooling; `--apply-blueprint` trails to the blueprint runtime. All additive flag additions.
+- **Acceptance for unblock**: Per-flag — when its blocking work lands, add the flag with appropriate plumbing. The `--state-path` flag added in task 8 stays.
+- **References**: Epic 06 task 8 `_(landed)_`; `cmd/kscore-agent/main.go` (search `registerBootstrapFlags`).
+
+#### Bootstrap auto-installs systemd unit (production mode)
+
+- **Priority**: v1.x
+- **What**: When demo-only mode-gate lifts, the bootstrap Engine's Install phase should call `systemd.Install` automatically — operator runs `kscore-agent bootstrap` once, gets both config and unit installed/enabled.
+- **Why now**: Downstream of production mode (above); rides the same SPIRE/cert-rotation cycle. Convenience chaining, additive — the explicit two-step flow still works.
+- **Acceptance for unblock**: When `bootstrap.ValidateForV10` lifts for production, `bootstrap.NewDefaultInstaller` (or a production-mode wrapper) chains `systemd.Install` after the YAML render.
+- **References**: Epic 06 task 9 `_(landed)_`; `internal/agent/bootstrap/install.go`; `internal/agent/systemd/install.go`.
+
+#### Type=notify systemd integration (sd_notify)
+
+- **Priority**: v1.x
+- **What**: v1.0 unit uses `Type=exec`. `Type=notify` would let systemd track agent readiness via `sd_notify("READY=1")` calls — useful for `Wants=kscore-agent.service` ordering and reliable health checks.
+- **Why now**: Requires the daemon to call into `coreos/go-systemd/v22/daemon`'s `SdNotify`, the dep explicitly skipped for v1.0. The telemetry-gateway work is the first real consumer of agent readiness signalling. New unit + daemon ship together, so no break for existing installs.
+- **Acceptance for unblock**: Daemon calls `SdNotify("READY=1")` after NATS connect + initial heartbeat publishes; unit flips to `Type=notify`; `systemctl is-active` reports `activating` until ready.
+- **References**: Epic 06 task 9 `_(landed)_`; `internal/agent/systemd/unit.go` (search `Type=exec`).
+
+#### Bootstrap wizard: storage backend + blueprint selection screens
+
+- **Priority**: v1.x
+- **What**: PROJECT-DETAILS §4.6 + Epic 06 task 7 originally envisioned the agent wizard collecting storage backend and applying blueprints. Both were dropped from the v1.0 agent surface — storage is server-only (the future unified `kscore-bootstrap` binary's concern); blueprint apply gates on the blueprint runtime.
+- **Why now**: Blueprint apply needs the plugin/module system + the full blueprint catalogue, which is the blueprint-runtime cycle's headline. Storage screens still wait on the unified binary (no committed release) and may slip further. Additive wizard screens — existing wizard flows unchanged.
+- **Acceptance for unblock**: For blueprints — the blueprint runtime lands, then a "select blueprints to apply" screen feeds an installer-side blueprint apply step. For storage — `cmd/kscore-bootstrap` (unified server+agent binary) gains the storage screens.
+- **References**: Epic 06 task 7 `_(landed)_`; PROJECT-DETAILS §4.6 (line 451).
+
+#### Bootstrap: no rollback / transactional revert
+
+- **Priority**: v1.x
+- **What**: Bootstrap engine resumes from checkpoint but doesn't revert side effects (config files, systemd units) on failure.
+- **Why now**: Rollback semantics need install-step inversion + snapshot tracking. Slotted with the compliance/scan-scheduler cycle's general hardening; new `--rollback` flag is additive.
+- **Acceptance**: Failed bootstrap re-runs cleanly; for true rollback, operator runs `kscore-agent bootstrap --rollback`.
+- **References**: Epic 06 task 6; `internal/agent/bootstrap/doc.go:19`.
+
+#### Dedicated `keystone-core` system user auto-creation
+
+- **Priority**: v1.x
+- **What**: v1.0 systemd unit defaults to root; `--user/--group` flags let operators run as a dedicated user, but the user must already exist (no auto-create).
+- **Why now**: User creation belongs in package-mgmt territory (rpm/deb post-install via `useradd --system`), and packaging is part of the air-gap / supply-chain work. The default-user flip is handled inside the package post-install (not as a surprise to in-place tarball upgrades), so it stays non-breaking.
+- **Acceptance for unblock**: Packaging creates the `keystone-core` system user as part of `apt install` / `dnf install`. After that, `service install` can default `--user keystone-core --group keystone-core` and update the rendered ReadWritePaths to match.
+- **References**: Epic 06 task 9 `_(landed)_`; the air-gap / supply-chain packaging work.
+
+#### Auto-rotation of in-memory NATS creds
+
+- **Priority**: v1.x
+- **What**: Agent rotates NATS credentials without restart.
+- **Why now**: Gates on the SPIRE provider (post-v1.0). v1.0 rotation = restart.
+- **Acceptance**: Agent re-issues NATS creds on cert rotation event without dropping the connection.
+- **References**: Epic 06 scope-out (line 33); PROJECT-DETAILS §4.6 (line 482).
+
 ## v2.x+ — architectural post-v1.0
 
 #### Adaptive sampling tied to error metrics
@@ -1476,14 +1509,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `tracing.sampler: adaptive` validates and constructs a sampler that increases sample rate on error spikes (>1% per-route 5xx) and decays back to baseline; integration test with a stub metric source.
 - **References**: Epic 17 Scope-out (line 82); PROJECT-DETAILS §4.16 line 1126; `internal/config/tracing.go` `Validate` adaptive branch.
 
-#### Zipkin exporter replacement — Zipkin module upstream-deprecated
-
-- **Priority**: v2.x+ (action well before early 2027)
-- **What**: `go.opentelemetry.io/otel/exporters/zipkin` is upstream-deprecated with planned removal in early 2027. Epic 17 task 4 ships Zipkin support because the epic explicitly lists it. Before the upstream removal lands, migrate operators currently using Zipkin to OTLP (HTTP or gRPC) — OTLP is the OTel-blessed wire format and most observability backends now accept it natively.
-- **Why deferred**: v1.0 still names Zipkin; switching defaults during a stability commitment is disruptive. The upstream deprecation gives a 2+ year runway.
-- **Acceptance**: Zipkin exporter removed from `internal/tracing/exporters.go`; migration note in release notes; `tracing.exporter=zipkin` validates with a deprecation warning pointing at OTLP.
-- **References**: `internal/tracing/exporters.go`; `go get` output noting `module go.opentelemetry.io/otel/exporters/zipkin is deprecated: The zipkin exporter is deprecated and will be removed in early 2027`.
-
 #### Embedded NATS / hybrid mode / leaf node / endpoint advertiser / supercluster / WebSocket
 
 - **Priority**: v2.x+
@@ -1491,3 +1516,18 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why deferred**: v1.0 ships agent-as-NATS-client only; hybrid topology + WebSocket multiply test surface.
 - **Acceptance**: Agent runs embedded NATS; reverse-leaf publishes its endpoint; supercluster gateway federates two clusters.
 - **References**: Epic 05 scope-out (lines 38-42); Epic 06 scope-out (lines 27-28).
+
+#### Config: no per-endpoint TLS overrides
+
+- **Priority**: v2.x+
+- **What**: `cfg.NATS.Endpoints[]` use the cluster-wide TLS config; per-endpoint overrides are reserved schema fields.
+- **Why now**: v1.0 has one TLS strategy per cluster; mixed-TLS topologies become relevant alongside the v2.x+ multi-region work, but the override fields already exist and wiring them is additive (existing configs keep working), so it slots into later platform-polish rather than waiting for that v2.x+ work.
+- **References**: `internal/config/nats.go:126`.
+
+#### Cluster-wide HMAC secret (vs per-agent)
+
+- **Priority**: v2.x+
+- **What**: All agents share one HMAC secret in v1.0. Per-agent keys derived from the bootstrap exchange replace it.
+- **Why now**: Breaking change — it changes the agent↔server authentication model and needs a key-distribution mechanism still being designed; lands with the v2.x+ auth/security infra changes (cloud KMS, federation).
+- **Acceptance for unblock**: Bootstrap exchange establishes a per-agent key; server authenticates inbound by agent identity; cluster-wide secret removed (or relegated to a legacy compatibility window decided at design time).
+- **References**: Epic 06 task 6 `_(landed)_`; `internal/agent/security.go:71`; `internal/config/security.go:15`.

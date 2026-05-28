@@ -22,9 +22,14 @@
 //	reconcile-issues update existing issues' milestone + managed labels to match the backlog
 //	gen-tracker      create/update the "<bucket> — tracker" issue (--version required)
 //
+// All flags must precede the subcommand (Go's flag package stops parsing at
+// the first positional argument); a flag placed after the subcommand is
+// silently ignored.
+//
 // gen-issues and reconcile-issues default to every backlog entry; pass
-// --versions to restrict them, e.g. --versions gate-v0.5 (the recommended way
-// to add tickets one bucket at a time) or --versions gate-v0.5,gate-v1.0.
+// --versions to restrict them, e.g. --versions gate-v0.5 gen-issues (the
+// recommended way to add tickets one bucket at a time) or
+// --versions gate-v0.5,gate-v1.0 gen-issues.
 // reconcile-issues is the counterpart to gen-issues: gen-issues only creates,
 // reconcile-issues only updates (milestone + source/kind/umbrella labels;
 // area/* labels are left alone). Run it after editing ROADMAP.md.
