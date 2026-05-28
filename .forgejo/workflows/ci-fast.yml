@@ -1,6 +1,5 @@
-# CI for Forgejo Actions — runs on the local Forgejo runner at
-# 192.168.10.21 and Codeberg's hosted runner pool. Both runner
-# environments advertise the `docker` label.
+# CI for Forgejo Actions — runs on Codeberg's hosted runner pool,
+# which advertises the `docker` label.
 #
 # This is the per-PR fast feedback loop. Heavy jobs that don't add
 # signal on every PR (release-dry-run, the 5 non-host cross-build
