@@ -94,7 +94,7 @@ v0.x:
   - "Phase E1: required signed commits on `main` branch protection"
   - "Release signing ceremony — signed tags + checksums + SBOMs"
   - "Native package repositories — APT, DNF/YUM"
-  - "Changie configuration: add `headerPath` to `.changie.yaml`"
+  - "Changie configuration: `replacements` for reference-link maintenance"
   - "Persist dispatch principal on CommandRecord for audit-log User field"
   - "Vault auto re-authentication on token expiry"
   - "Bootstrap protocol versioning"

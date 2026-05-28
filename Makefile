@@ -166,6 +166,11 @@ install-tools: ## Install dev tools (Go-installable + lychee binary)
 	@command -v goreleaser >/dev/null || go install github.com/goreleaser/goreleaser/v2@latest
 	@command -v gitleaks >/dev/null || go install github.com/zricethezav/gitleaks/v8@latest
 	@command -v go-licenses >/dev/null || go install github.com/google/go-licenses@latest
+	@# Syft is pinned because SBOM output drift across syft versions
+	@# would change the byte-content of `sbom-vX.Y.Z.{spdx,cyclonedx}.json`
+	@# release artifacts even when the dep tree is unchanged. Pin matches
+	@# the RELEASE-PLAYBOOK §3 v0.1.0 release record's syft version.
+	@command -v syft >/dev/null || go install github.com/anchore/syft/cmd/syft@v1.44.0
 	@command -v vangen >/dev/null || go install 4d63.com/vangen@latest
 	@command -v changie >/dev/null || go install github.com/miniscruff/changie@latest
 	@command -v lychee >/dev/null || $(MAKE) --no-print-directory install-lychee

@@ -16,6 +16,24 @@ unreleasedDir: unreleased
 changelogPath: CHANGELOG.md
 versionExt: md
 
+# headerPath restores the persistent top-of-file content (Changelog
+# header + Keep-a-Changelog preamble + [Unreleased] + [v1.0.0] —
+# Planned) that `changie merge` would otherwise wipe. Without this,
+# every `make changelog-batch VERSION=v0.x.y` rewrites CHANGELOG.md
+# with only the concatenated per-version files. Discovered + fixed
+# post-v0.1.0; see RELEASE-PLAYBOOK §3 v0.1.0 release record.
+# Path relative to changesDir.
+#
+# Markdown reference links ([Unreleased]: …, [v0.1.0]: …, etc.) live
+# at the END of the OLDEST per-version file (`.changes/v0.1.0.md`)
+# because changie has no file-level footer (only per-version footers
+# via `versionFooterPath`). When a new version ships, the
+# `[Unreleased]:` link inside v0.1.0.md needs its compare-base
+# updated by hand from v<prev>...HEAD to v<new>...HEAD, and the new
+# `[v<new>]:` link added; tracked as a v0.x ROADMAP entry for
+# `replacements:`-driven automation.
+headerPath: header.tpl.md
+
 # Output formatting — keep aligned with the existing keep-a-changelog
 # style. The em-dash + date matches the [v0.1.0] header already in
 # CHANGELOG.md. The change template indents continuation lines by 2

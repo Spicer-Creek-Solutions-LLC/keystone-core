@@ -1,0 +1,28 @@
+kind: Docs
+body: |-
+  **v0.1.0 release follow-ups landed.** Three items bundled in one PR
+  per the deferred-from-release-cut list:
+
+  1. **RELEASE-PLAYBOOK.md §3 v0.1.0 release record filled in** with
+     the actual timestamps and verification evidence from the v0.1.0
+     ceremony (build commit 8a48da100; tag pushed 00:00 UTC 2026-05-28;
+     release id 9667643; published 00:03:08 UTC; third-machine
+     verification with sha256sum -c + container install smoke in
+     debian:12-slim + rockylinux:9 — all PASS).
+  2. **`syft` v1.44.0 wired into `make install-tools`** alongside the
+     other supply-chain tools. Pinned to v1.44.0 (the version used for
+     the v0.1.0 SBOMs); future releases get syft via the standard
+     install-tools path instead of ad-hoc `go install`. Pin rationale
+     documented inline in the Makefile.
+  3. **Changie `headerPath` fix.** `.changie.yaml` now references
+     `.changes/header.tpl.md` containing the persistent top-of-file
+     content (Changelog header + Keep-a-Changelog preamble +
+     `[Unreleased]` + `[v1.0.0] — Planned`). Without this, every
+     `make changelog-batch VERSION=v0.x.y` rewrote CHANGELOG.md with
+     only the per-version files, losing the header. `.changes/v0.1.0.md`
+     now contains the complete v0.1.0 section including the
+     Markdown reference links at the bottom; the merge round-trips
+     to a byte-identical CHANGELOG.md (verified by diff vs pre-merge
+     backup). Reference-link automation via `replacements:` is the
+     remaining ROADMAP entry under "Changie configuration:
+     `replacements` for reference-link maintenance".

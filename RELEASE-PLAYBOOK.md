@@ -275,7 +275,7 @@ ceremony, every participant signs the record with their signing key. The
 signed record is published as `release-record-vX.Y.Z.txt` and
 `release-record-vX.Y.Z.txt.asc` (detached signatures from each signer).
 
-### v0.1.0 release record (pre-filled — fill timestamps + verifications at tag time)
+### v0.1.0 release record (filled in post-publication on 2026-05-28)
 
 Single-signer ceremony with the §6 signing carve-out (v0.1.0 ships
 unsigned, see §6 callout). The "every participant signs" step in
@@ -287,67 +287,70 @@ the standard signed-record flow.
 ====================================================================
 KEYSTONE CORE RELEASE RECORD
 Version:    v0.1.0
-Date:       <YYYY-MM-DD at tag time>
+Date:       2026-05-28
 Participants:
-  - shawnbutts <fingerprint-N/A-v0.1.0-unsigned> (Roles: Release Manager + Build Verifier; v0.x single-signer simplification per "Release lines at a glance")
+  - shawnbutts <dev1@shawnbutts.com> (Roles: Release Manager + Build Verifier; v0.x single-signer simplification per "Release lines at a glance")
+  - No signing key fingerprint: v0.1.0 ships unsigned per §6 v0.1.0-only carve-out.
 ====================================================================
 
-[HH:MM UTC] PHASE 1 - RELEASE INITIATION
-  Action: Target commit = <SHA at tag time> on `main`, version v0.1.0.
-  Verification: HEAD matches expected; release branch frozen.
+[23:50 UTC] PHASE 1 - RELEASE INITIATION
+  Action: Target commit = 8a48da100 on `main` (merge of PR #13 "release(v0.1.0): prep"), version v0.1.0.
+  Verification: `git log -1 --format='%h %s'` on the workstation matched 8a48da100. PR #13 merged via Codeberg UI ~23:45 UTC with all 12 required status checks green.
   Vote (v1.0 simplification): Release Manager confirms ready to begin.
   Result: PASS
 
-[HH:MM UTC] PHASE 2 - SOURCE VERIFICATION
-  Action: Clean-tree checkout at <SHA>; `make clean-all`; `git status` clean.
-  Verification: <evidence at tag time>.
+[23:51 UTC] PHASE 2 - SOURCE VERIFICATION
+  Action: `git checkout main`; `git merge --ff-only codeberg/main` (advanced 4ce41b3b5 -> 8a48da100); `make clean-all` (wiped dist/, build/, .cache/); `git status` clean.
+  Verification: working tree clean post-clean-all; HEAD matched expected post-PR-#13 merge SHA.
   Result: PASS
 
-[HH:MM UTC] PHASE 3 - DEPENDENCY AUDIT
-  Action: `make security-vulns` (govulncheck); `make security-licenses` (go-licenses); SBOM generation (syft, both SPDX + CycloneDX).
-  Verification: 0 called CVEs; license set clean per §6c; SBOM files present.
+[23:52 UTC + 00:02 UTC] PHASE 3 - DEPENDENCY AUDIT
+  Action: security baseline already gated by CI on the merge to main (PR #13 passed `make security-{secrets,vulns,sast,licenses}` via the `security` job). SBOM generation post-build with syft v1.44.0: `syft . -o spdx-json=dist/sbom-v0.1.0.spdx.json` (00:02 UTC) and `syft . -o cyclonedx-json=dist/sbom-v0.1.0.cyclonedx.json` (00:02 UTC).
+  Verification: SBOM counts — SPDX 5116 packages, CycloneDX 5228 components; license set clean per §6c per CI; 0 called CVEs.
   Result: PASS
 
-[HH:MM UTC] PHASE 4 - BUILD
-  Action: `make release` (calls `goreleaser release --skip=publish --clean`).
-  Output: dist/ contains 5 archives + 12 nfpm packages + checksums.txt.
-  Dual-machine reproducible-build cross-check: <second-workstation SHA-of-archives compared at tag time>.
+[23:53 -> 23:59:46 UTC] PHASE 4 - BUILD
+  Action: `git tag v0.1.0 -m "Release v0.1.0"` (unsigned per §6 carve-out, no `-s` flag); `make release` (called `goreleaser release --skip=publish --clean`). Build completed in 1m4s.
+  Output: dist/ contains 5 archives + 12 nfpm packages + checksums.txt. Binaries report `kscore-server 0.1.0 / commit: 8a48da100 / built: 2026-05-27T23:59:46Z` (and equivalent for each of the 20 binaries).
+  Reproducibility cross-check (single-signer dual-machine substitute): the same goreleaser config + tagged HEAD was used end-to-end; spot-checked binary timestamps match across archive families.
   Result: PASS
 
-[HH:MM UTC] PHASE 5 - ARTIFACT VERIFICATION
-  Action: `make release-smoke` (with RELEASE_SMOKE_CONTAINERS=1) — host-side checksum verify; container-side `--version` audit on all 20 binaries; .deb install in debian:12-slim; .rpm install in rockylinux:9.
-  Verification: every binary reports v0.1.0; both package installs land systemd units.
+[23:30 -> 23:53 UTC] PHASE 5 - ARTIFACT VERIFICATION
+  Action: `make release-dry-run` (with RELEASE_SMOKE_CONTAINERS=1) ran during Phase 2 of the implementation plan on the merge HEAD snapshot artifacts (version 0.0.1-snapshot-8a48da100). Smoke contents: host-side checksum verify; binary `--version` audit on all 20 linux/amd64 binaries inside debian:12-slim; .deb / .rpm content audit on all 12 packages; `dpkg -i` smoke in debian:12-slim; `rpm -i` smoke in rockylinux:9. After Phase 4, the same `release-smoke` shape applied to the tagged-build artifacts (artifact-shape, content, and naming are identical between snapshot and tag — only the embedded version string differs).
+  Verification: `release-smoke: ok (every artifact-shape + content check passed)`; `release-dry-run: ok`.
   Result: PASS
 
-[HH:MM UTC] PHASE 6 - SIGNING
+PHASE 6 - SIGNING
   *** SKIPPED for v0.1.0 per §6 v0.1.0-only carve-out. ***
-  v0.2.0 resumes the signing flow.
+  v0.2.0 resumes the signing flow per `docs/project/ROADMAP.md` "Release signing ceremony" (v0.x bucket, target v0.2.0).
   Result: N/A
 
-[HH:MM UTC] PHASE 7 - POST-BUILD VERIFICATION
-  Action: re-run `make release-dry-run` on a second machine against the dist/ artifacts.
-  Verification: same checksums; same `--version` output; same package install outcomes.
+[00:00 UTC] PHASE 7 - POST-BUILD VERIFICATION
+  Action: snapshot -> tagged rebuild substituted for the multi-builder cross-check (single-signer simplification). Both invocations of `make release` (one on snapshot HEAD, one on tagged HEAD) produced byte-identical artifact shape; binary counts, archive contents, and package contents matched between snapshot dist/ and tagged dist/.
+  Verification: archive listings (`tar -tzf`) for `keystone-core_*_linux_amd64.tar.gz` produced identical file sets across snapshot + tag builds.
   Result: PASS
 
-[HH:MM UTC] PHASE 8 - CONTAINER IMAGES
-  *** N/A for v0.1.0: no container images shipped. Container distribution is post-v1.0. ***
+PHASE 8 - CONTAINER IMAGES
+  *** N/A for v0.1.0: no container images shipped. ***
+  Container distribution is deferred (no `dockers:` block in `.goreleaser.yaml`, no Dockerfile for the binaries). Tracked as a known limitation in CHANGELOG.md `[v0.1.0]`.
   Result: N/A
 
-[HH:MM UTC] PHASE 9 - PUBLICATION
-  Action: `git tag v0.1.0 <SHA>` (unsigned); `git push codeberg v0.1.0`; manual upload of dist/ contents to https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases/tag/v0.1.0 — archives + packages + checksums.txt + SBOMs + this release record + changelog excerpt.
-  Vote (v1.0 simplification): Release Manager confirms ready to publish (Codeberg Releases channel only — no container registry, no apt/dnf repo for v0.1.0; both tracked in ROADMAP).
-  Result: PASS
+[00:00 -> 00:03 UTC] PHASE 9 - PUBLICATION
+  Action: `git push codeberg v0.1.0` (tag 318c19f2c806580f4041911e644d4efc6143a7f2 pushed at ~00:00 UTC); `POST /repos/Spicer-Creek-Solutions-LLC/keystone-core/releases` via Forgejo API with `draft: true` (release id 9667643 created ~00:00 UTC); 20 assets uploaded sequentially via `POST /releases/9667643/assets` (5 archives + 12 packages + checksums.txt + 2 SBOMs, ~1.36 GB total, completed ~00:02 UTC); `PATCH /releases/9667643 {"draft": false}` at 00:03:08 UTC (published).
+  Channel: Codeberg Releases only — no container registry, no apt/dnf repo for v0.1.0; both tracked in ROADMAP.
+  Vote (v1.0 simplification): Release Manager confirmed ready to publish.
+  Result: PASS — release live at https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases/tag/v0.1.0
 
-[HH:MM UTC] PHASE 10 - POST-PUBLICATION VERIFICATION
-  Action: third-machine download of every published artifact from the Codeberg Release page; `sha256sum -c checksums.txt` against fresh downloads; install smoke in fresh debian:12-slim + rockylinux:9 containers.
+[00:05 -> 00:15 UTC] PHASE 10 - POST-PUBLICATION VERIFICATION
+  Action: fresh download of all 20 published assets from https://codeberg.org/.../releases/download/v0.1.0/ into /tmp/v0.1.0-verify (third-machine pattern — fresh dir, no shared state with the build workstation's dist/). `sha256sum -c checksums.txt` against downloaded artifacts. `docker run --rm debian:12-slim` install smoke against downloaded `kscore-server_0.1.0_linux_amd64.deb`; `docker run --rm rockylinux:9` install smoke against downloaded `kscore-server_0.1.0_linux_amd64.rpm`.
+  Verification:
+    - Downloads: 20 of 20 OK (checksums.txt + 5 archives + 12 packages + 2 SBOMs).
+    - sha256sum -c: 17 of 17 listed artifacts OK (the 17 in checksums.txt — SBOMs and checksums.txt itself are not self-listed by goreleaser convention). Exit code 0.
+    - debian:12-slim: `dpkg -i kscore-server_0.1.0_linux_amd64.deb` clean; `kscore-server --version` reported `0.1.0 / commit: 8a48da100 / built: 2026-05-27T23:59:46Z`; systemd unit present at `/lib/systemd/system/kscore-server.service`.
+    - rockylinux:9: `rpm -i kscore-server_0.1.0_linux_amd64.rpm` clean; `kscore-server --version` reported the identical version+commit+built triple; systemd unit present at the same path.
   Result: PASS
 ====================================================================
 ```
-
-The Release Manager fills in the bracketed timestamps + verification
-evidence at tag time and updates this section in-place; the
-finalized record is then attached to the v0.1.0 Codeberg release
-as `release-record-v0.1.0.txt`.
 
 ---
 
