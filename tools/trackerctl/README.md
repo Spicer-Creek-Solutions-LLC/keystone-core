@@ -62,25 +62,32 @@ pass `--repo sbutts/keystone-core` when targeting the self-hosted test server,
 or any other `owner/name` when targeting somewhere else. Run from the repo
 root so the default `--backlog` path resolves.
 
+> **Flag ordering matters.** Every flag must come *before* the subcommand
+> (`--versions gate-v0.5 gen-issues`, never `gen-issues --versions gate-v0.5`).
+> The tool uses Go's `flag` package, which stops parsing at the first
+> positional argument, so a flag placed after the subcommand is silently
+> ignored — a misplaced `--versions` makes `gen-issues` fall back to *every*
+> backlog entry across all buckets.
+
 ```sh
 export FORGEJO_TOKEN=<application token with repo scope>
 export FORGE_URL=https://codeberg.org      # or your self-hosted Forgejo URL
 
 # dry-run (default): prints a plan, changes nothing
 go run ./tools/trackerctl --host "$FORGE_URL" sync
-go run ./tools/trackerctl --host "$FORGE_URL" gen-issues --versions gate-v0.5
+go run ./tools/trackerctl --host "$FORGE_URL" --versions gate-v0.5 gen-issues
 go run ./tools/trackerctl --host "$FORGE_URL" reconcile-issues
-go run ./tools/trackerctl --host "$FORGE_URL" gen-tracker --version gate-v0.5
+go run ./tools/trackerctl --host "$FORGE_URL" --version gate-v0.5 gen-tracker
 
 # apply (one bucket at a time)
 go run ./tools/trackerctl --host "$FORGE_URL" --apply sync
-go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-issues --versions gate-v0.5
-go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-issues --versions gate-v0.5,gate-v1.0
+go run ./tools/trackerctl --host "$FORGE_URL" --apply --versions gate-v0.5 gen-issues
+go run ./tools/trackerctl --host "$FORGE_URL" --apply --versions gate-v0.5,gate-v1.0 gen-issues
 go run ./tools/trackerctl --host "$FORGE_URL" --apply reconcile-issues   # after editing ROADMAP.md
-go run ./tools/trackerctl --host "$FORGE_URL" --apply gen-tracker --version gate-v0.5
+go run ./tools/trackerctl --host "$FORGE_URL" --apply --version gate-v0.5 gen-tracker
 
 # bulk create against a rate-limited host (e.g. Codeberg): pace the writes
-go run ./tools/trackerctl --host "$FORGE_URL" --apply --throttle 300ms gen-issues --versions gate-v0.5
+go run ./tools/trackerctl --host "$FORGE_URL" --apply --throttle 300ms --versions gate-v0.5 gen-issues
 ```
 
 Flags: `--host` (required), `--repo` (default `Spicer-Creek-Solutions-LLC/keystone-core`),
