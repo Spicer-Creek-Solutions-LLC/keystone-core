@@ -5,6 +5,7 @@ package identity
 import (
 	"crypto/rand"
 	"fmt"
+	"math/big"
 )
 
 // base62Alphabet is the URL-safe alphanumeric alphabet used by
@@ -29,23 +30,23 @@ const joinTokenSaltLen = 16
 
 // randomBase62 returns n base62 characters drawn from crypto/rand.
 //
-// Uses byte % 62, which carries a small bias (256 mod 62 = 8, so
-// values 0-7 are slightly more likely — ≈4.3% vs ≈3.5% for the
-// rest). At joinTokenBodyLen = 40 the residual entropy is ≈ 235
-// bits, far more than v0.1 needs for one-time tokens; an
-// unbiased rejection-sampling variant is logged under the v1.x
-// ROADMAP entry "Unbiased base62 for join-token generation."
+// Each character is selected with crypto/rand.Int over [0, 62), which
+// uses rejection sampling internally and is therefore unbiased — every
+// alphabet symbol (including the store-lookup prefix) is equiprobable.
+// A prior byte%62 implementation skewed values 0-7 slightly high
+// (256 mod 62 = 8); this avoids that.
 func randomBase62(n int) (string, error) {
 	if n <= 0 {
 		return "", fmt.Errorf("identity: randomBase62 n must be > 0, got %d", n)
 	}
-	buf := make([]byte, n)
-	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("identity: random source: %w", err)
-	}
+	radix := big.NewInt(int64(len(base62Alphabet)))
 	out := make([]byte, n)
-	for i, b := range buf {
-		out[i] = base62Alphabet[int(b)%62]
+	for i := range out {
+		idx, err := rand.Int(rand.Reader, radix)
+		if err != nil {
+			return "", fmt.Errorf("identity: random source: %w", err)
+		}
+		out[i] = base62Alphabet[idx.Int64()]
 	}
 	return string(out), nil
 }

@@ -590,14 +590,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: A timestamped re-audit lands in [`docs/project/SECURITY-GOVERNANCE.md`](SECURITY-GOVERNANCE.md) "Dependency posture" section with the new module count + license distribution + maintainer-health categorization. Any newly-introduced single-maintainer dep gets an explicit accept/replace decision.
 - **References**: `docs/project/SECURITY-GOVERNANCE.md` "Dependency posture" section (2026-05-23 baseline); `go.mod` direct + indirect blocks.
 
-#### Unbiased base62 for join-token generation
-
-- **Priority**: gate-v1.0
-- **What**: Epic 09 task 10's `randomBase62` (in `internal/identity/join_token_generate.go`) uses `byte % 62` for the cleartext-token body. `256 mod 62 = 8`, so values 0-7 are slightly more likely than the rest (≈4.3% vs ≈3.5%). At `joinTokenBodyLen = 40` chars the residual entropy is ≈ 235 bits — well above v0.1's threat model for one-time tokens — but a strict security audit would prefer rejection sampling for deterministic uniformity. Drop-in replacement; no wire-format change. Phase B5 (2026-05-23) audit additionally noted that the bias affects the **prefix** distribution (`token[:JoinTokenPrefixLen]` used as the store lookup key), which concentrates lookup keys toward characters early in the base62 alphabet — increases distinguishability for someone enumerating prefix space, though still below the operational risk threshold at v0.1.
-- **Why deferred**: real-world attack surface is dominated by the raw entropy of the output, not the alphabet ratio. v0.1 ships the simpler implementation; the v1.0 security-review hardening pass replaces it with rejection sampling alongside other crypto-shape improvements.
-- **Acceptance**: `randomBase62` uses rejection sampling (`crypto/rand.Int(rand.Reader, big.NewInt(62))`) per character; a statistical test over 1M samples shows no per-character bias > 0.1%; the existing alphabet + length tests continue to pass.
-- **References**: `internal/identity/join_token_generate.go` `randomBase62`; Epic 09 task 10 (landed).
-
 #### Policy enforcement (Enforce + Warn modes)
 
 - **Priority**: gate-v1.0
