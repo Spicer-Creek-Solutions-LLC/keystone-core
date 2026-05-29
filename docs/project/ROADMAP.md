@@ -944,14 +944,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: a `working_dir: /opt/app` + `user: app` decl installs `gunicorn` into the app user's venv; a `lockfile: package-lock.json` decl runs `npm ci` and is idempotent against the lockfile hash; `version: ">=2,<3"` matches any 2.x version; `manager_options: ["--index-url=https://internal.pypi/"]` round-trips; `manager: cargo` installs a Rust binary via `cargo install`.
 - **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/langpkg/langpkg.go` package comment; `internal/statemgmt/stdlib/langpkg/params.go`.
 
-#### PROJECT-DETAILS §4.8 DSL example uses plural module keys
-
-- **Priority**: v0.x
-- **What**: The state-file DSL example in `PROJECT-DETAILS.md §4.8` uses plural top-level keys (`packages:`, `files:`, `services:`) while its requisite references use singular module names (`[package: nginx]`, `[file: ...]`). Epic 08 task 2 ships the parser with **singular** top-level keys so one rule covers both surfaces. The doc example needs to be updated to match.
-- **Why deferred**: Pure doc cleanup; not blocking. Touching `PROJECT-DETAILS.md` mid-implementation muddies the diff for Epic 08 task 2 (the parser PR), which is the natural place to confirm the DSL shape. Easier to land the parser, get DSL examples committed to `internal/statemgmt/testdata/`, then sync the spec doc in a small follow-up.
-- **Acceptance**: §4.8's YAML example uses `package:`, `file:`, `service:` (singular) consistent with the parser and the requisite-reference syntax; testdata fixtures are referenced as the canonical examples.
-- **References**: Epic 08 task 2; `internal/statemgmt/parse.go`; `internal/statemgmt/testdata/webserver.yaml`; `PROJECT-DETAILS.md` §4.8 lines 580–605.
-
 #### Percentage-based / rolling batch execution
 
 - **Priority**: v0.x
