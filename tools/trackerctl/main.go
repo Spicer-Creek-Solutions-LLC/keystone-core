@@ -38,6 +38,11 @@
 // (falling back to ROADMAP.md file order) and preserves ticked checkboxes on
 // re-run.
 //
+// On a host with windowed issue-creation rate limits (Codeberg caps creation
+// at 5/5min, 7/10min, 11/30min and states the window in its 429 body), pass
+// --max-wait, e.g. --max-wait 45m, so a bulk gen-issues sleeps each window out
+// and self-paces through every tier in one invocation instead of failing fast.
+//
 // Without --apply the tool reports what it would do and changes nothing.
 package main
 
@@ -56,6 +61,7 @@ func main() {
 	versions := flag.String("versions", "", "gen-issues / reconcile-issues: comma-separated priority buckets to limit to, e.g. gate-v0.5 or gate-v0.5,gate-v1.0 (empty = all)")
 	version := flag.String("version", "", "gen-tracker: the priority bucket whose tracker issue to create/update, e.g. gate-v0.5 (required)")
 	throttle := flag.Duration("throttle", 0, "pause before each create/update request, e.g. 250ms — useful for rate-limited hosts during bulk gen-issues (rate-limit responses are retried with backoff regardless)")
+	maxWait := flag.Duration("max-wait", 0, "per-request budget for waiting out a server-stated rate-limit window (e.g. 45m); 0 = fail fast. Forgejo states the window in its 429 body (\"posted N issues in under M minutes\"); the tool sleeps it out and retries. Set this for a bulk gen-issues against a windowed-rate-limited host like Codeberg")
 	flag.Parse()
 
 	cmd := flag.Arg(0)
@@ -72,8 +78,11 @@ func main() {
 	if *throttle < 0 {
 		fail("--throttle must not be negative")
 	}
+	if *maxWait < 0 {
+		fail("--max-wait must not be negative")
+	}
 
-	c := newClient(*host, *repo, token, *throttle)
+	c := newClient(*host, *repo, token, *throttle, *maxWait)
 
 	var err error
 	switch cmd {
