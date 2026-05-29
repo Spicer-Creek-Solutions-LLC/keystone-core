@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -23,7 +24,29 @@ const (
 	// maxRetryWait caps how long a single Retry-After / backoff sleep can be,
 	// so a misbehaving server can't wedge the tool indefinitely.
 	maxRetryWait = 60 * time.Second
+	// rateLimitMargin is added to a parsed rate-limit window before retrying, so
+	// the retry lands just past the window boundary rather than on it.
+	rateLimitMargin = 15 * time.Second
 )
+
+// rateLimitWindowRe matches the window in Forgejo's issue-creation rate-limit
+// message, e.g. `posted 5 issues in under 5 minutes`. Forgejo does not send a
+// Retry-After header for this limit, but it states the window in the body.
+var rateLimitWindowRe = regexp.MustCompile(`in under (\d+) minute`)
+
+// parseRateLimitWindow extracts the rate-limit window from a 429 response body.
+// Returns false when the body carries no recognisable window.
+func parseRateLimitWindow(body []byte) (time.Duration, bool) {
+	m := rateLimitWindowRe.FindSubmatch(body)
+	if m == nil {
+		return 0, false
+	}
+	mins, err := strconv.Atoi(string(m[1]))
+	if err != nil || mins <= 0 {
+		return 0, false
+	}
+	return time.Duration(mins) * time.Minute, true
+}
 
 // client is a minimal Forgejo (Gitea-compatible) REST client scoped to one repo.
 type client struct {
@@ -31,16 +54,20 @@ type client struct {
 	repo     string // owner/name
 	token    string
 	http     *http.Client
-	throttle time.Duration // optional pause before each mutating request (POST/PATCH/DELETE)
+	throttle time.Duration       // optional pause before each mutating request (POST/PATCH/DELETE)
+	maxWait  time.Duration       // budget for waiting out server-stated rate-limit windows; 0 = fail fast
+	sleep    func(time.Duration) // pluggable for tests; defaults to time.Sleep
 }
 
-func newClient(host, repo, token string, throttle time.Duration) *client {
+func newClient(host, repo, token string, throttle, maxWait time.Duration) *client {
 	return &client{
 		base:     strings.TrimRight(host, "/"),
 		repo:     repo,
 		token:    token,
 		http:     &http.Client{Timeout: 30 * time.Second},
 		throttle: throttle,
+		maxWait:  maxWait,
+		sleep:    time.Sleep,
 	}
 }
 
@@ -96,9 +123,11 @@ func (c *client) do(method, path string, body, out any) error {
 	mutating := method != http.MethodGet && method != http.MethodHead
 
 	var lastErr error
-	for attempt := 0; attempt < maxAttempts; attempt++ {
+	var rateWaited time.Duration // cumulative time spent waiting out rate-limit windows this call
+	transient := 0               // count of transient (network / 5xx / headerless-429) retries
+	for {
 		if mutating && c.throttle > 0 {
-			time.Sleep(c.throttle)
+			c.sleep(c.throttle)
 		}
 		var rdr io.Reader
 		if bodyBytes != nil {
@@ -119,10 +148,11 @@ func (c *client) do(method, path string, body, out any) error {
 		if err != nil {
 			// network-level failure: retry a couple of times with backoff.
 			lastErr = err
-			if attempt < maxAttempts-1 {
-				wait := retryWait(nil, attempt)
-				fmt.Fprintf(os.Stderr, "trackerctl: %s %s failed (%v); retrying in %s (attempt %d/%d)\n", method, u, err, wait.Round(time.Millisecond), attempt+2, maxAttempts)
-				time.Sleep(wait)
+			if transient < maxAttempts-1 {
+				wait := retryWait(nil, transient)
+				fmt.Fprintf(os.Stderr, "trackerctl: %s %s failed (%v); retrying in %s (attempt %d/%d)\n", method, u, err, wait.Round(time.Millisecond), transient+2, maxAttempts)
+				c.sleep(wait)
+				transient++
 				continue
 			}
 			return lastErr
@@ -130,14 +160,33 @@ func (c *client) do(method, path string, body, out any) error {
 		data, _ := io.ReadAll(resp.Body)
 		resp.Body.Close()
 
-		if retryableStatus(resp.StatusCode) && attempt < maxAttempts-1 {
-			wait := retryWait(resp, attempt)
+		// Windowed rate limit: Forgejo states the window in the 429 body (no
+		// Retry-After header). When given a --max-wait budget, sleep the window
+		// out and retry — this is progress, not a transient failure, so it does
+		// not consume the bounded transient-retry budget.
+		if resp.StatusCode == http.StatusTooManyRequests && c.maxWait > 0 {
+			if win, ok := parseRateLimitWindow(data); ok {
+				wait := win + rateLimitMargin
+				if rateWaited+wait <= c.maxWait {
+					fmt.Fprintf(os.Stderr, "trackerctl: rate limited (%s window) — waiting %s then retrying %s %s (waited %s/%s)\n", win, wait.Round(time.Second), method, u, (rateWaited + wait).Round(time.Second), c.maxWait)
+					c.sleep(wait)
+					rateWaited += wait
+					transient = 0
+					continue
+				}
+				return fmt.Errorf("%s %s: rate limited, would exceed --max-wait %s: %s", method, u, c.maxWait, strings.TrimSpace(string(data)))
+			}
+		}
+
+		if retryableStatus(resp.StatusCode) && transient < maxAttempts-1 {
+			wait := retryWait(resp, transient)
 			reason := "rate limited"
 			if resp.StatusCode != http.StatusTooManyRequests {
 				reason = fmt.Sprintf("server returned %s", resp.Status)
 			}
-			fmt.Fprintf(os.Stderr, "trackerctl: %s — backing off %s then retrying %s %s (attempt %d/%d)\n", reason, wait.Round(time.Millisecond), method, u, attempt+2, maxAttempts)
-			time.Sleep(wait)
+			fmt.Fprintf(os.Stderr, "trackerctl: %s — backing off %s then retrying %s %s (attempt %d/%d)\n", reason, wait.Round(time.Millisecond), method, u, transient+2, maxAttempts)
+			c.sleep(wait)
+			transient++
 			continue
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -148,10 +197,6 @@ func (c *client) do(method, path string, body, out any) error {
 		}
 		return nil
 	}
-	if lastErr != nil {
-		return lastErr
-	}
-	return fmt.Errorf("%s %s: still rate limited / failing after %d attempts", method, u, maxAttempts)
 }
 
 // getPaged fetches a paginated collection, appending each page into out via the

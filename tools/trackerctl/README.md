@@ -86,8 +86,9 @@ go run ./tools/trackerctl --host "$FORGE_URL" --apply --versions gate-v0.5,gate-
 go run ./tools/trackerctl --host "$FORGE_URL" --apply reconcile-issues   # after editing ROADMAP.md
 go run ./tools/trackerctl --host "$FORGE_URL" --apply --version gate-v0.5 gen-tracker
 
-# bulk create against a rate-limited host (e.g. Codeberg): pace the writes
-go run ./tools/trackerctl --host "$FORGE_URL" --apply --throttle 300ms --versions gate-v0.5 gen-issues
+# bulk create against a windowed-rate-limited host (e.g. Codeberg): self-pace
+# through the tiered limits in one invocation (see "rate limiting" below)
+go run ./tools/trackerctl --host "$FORGE_URL" --apply --max-wait 45m --versions gate-v0.5 gen-issues
 ```
 
 Flags: `--host` (required), `--repo` (default `Spicer-Creek-Solutions-LLC/keystone-core`),
@@ -96,7 +97,9 @@ Flags: `--host` (required), `--repo` (default `Spicer-Creek-Solutions-LLC/keysto
 to limit to, e.g. `gate-v0.5` or `gate-v0.5,gate-v1.0`; empty = all entries),
 `--version` (gen-tracker: the single priority bucket whose tracker issue to
 create/update, e.g. `gate-v0.5` — required), `--throttle` (duration; pause
-before each create/update request — see "rate limiting" below; default 0).
+before each create/update request — see "rate limiting" below; default 0),
+`--max-wait` (duration; per-request budget for waiting out a server-stated
+rate-limit window, see "rate limiting" below; default 0 = fail fast).
 
 > `trackerctl` calls the Forgejo REST API directly — it does not shell out to
 > `fj`, so it isn't affected by `fj`'s plain-HTTP-vs-HTTPS quirk; just give
@@ -124,15 +127,22 @@ before each create/update request — see "rate limiting" below; default 0).
   discussion in issue comments, not the body. It omits, with a warning, any
   release-order entry that has no corresponding issue yet — run `gen-issues` for
   that release first.
-- **Rate limiting.** A `429 Too Many Requests` (or a transient `502/503/504`) is
-  retried automatically — up to 5 attempts total, honouring the server's
-  `Retry-After` header when present, otherwise exponential backoff with jitter
-  (capped at 60s); each backoff prints a one-line notice to stderr. A request
-  that never network-connects is retried the same way. On a host that throttles
-  bursts of writes (Codeberg does), `--throttle 200ms`–`500ms` paces the
-  create/update calls during a bulk `gen-issues` so the retries don't have to do
-  all the work; GET/list calls are never throttled. Everything is idempotent, so
-  a run that ultimately errors out mid-bulk can just be re-run.
+- **Rate limiting.** Transient failures (`502/503/504`, network drops) and a
+  `429 Too Many Requests` that carries a `Retry-After` header are retried
+  automatically, up to 5 attempts with exponential backoff + jitter (capped at
+  60s); each prints a one-line notice to stderr. **Windowed** rate limits are
+  different: Codeberg caps issue/PR creation in overlapping tiers (5 per 5 min,
+  7 per 10 min, 11 per 30 min) and returns a `429` whose *body* states the
+  window (`posted N issues in under M minutes`) with **no** `Retry-After`. For
+  those, pass `--max-wait <duration>` (e.g. `--max-wait 45m`): the tool parses
+  the window from the body, sleeps it out, and retries, so one `gen-issues
+  --apply --max-wait 45m` self-paces through every tier instead of giving up
+  after ~5 creates. `--max-wait` is a per-request budget (default 0 = fail
+  fast); set it larger than the biggest tier you expect (30 min on Codeberg).
+  `--throttle` still paces individual writes but does **not** help a windowed
+  limit (it is a per-request pause, not a per-window rate). GET/list calls are
+  never throttled or counted. Everything is idempotent, so an interrupted bulk
+  run can just be re-run.
 - **No project/board management** — the "Roadmap" Forgejo Project is maintained
   in the web UI; `trackerctl` only touches labels, milestones, and issues.
 - **Not a release artifact** — this lives under `tools/`, outside `cmd/`, so it
