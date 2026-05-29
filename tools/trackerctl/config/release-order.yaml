@@ -83,7 +83,6 @@ gate-v1.0:
   - "Sustained-load profiling baseline"
   - "Security baseline expansion"
   - "Dependency posture re-audit"
-  - "Unbiased base62 for join-token generation"
   # Contract-surface decision before the v1.0 freeze (upstream removes Zipkin early 2027):
   - "Zipkin tracing exporter: do not freeze into the v1.0 surface"
   # Lands late in the path, after audit-mode confidence:
@@ -119,7 +118,6 @@ v0.x:
   - "`iptables` stdlib module — structured rules, ordering, both-family, distro persistence"
   - "`nftables` stdlib module — structured rules, ordering, table/chain management, comment matching"
   - "`langpkg` stdlib module — per-user/per-project installs, lockfiles, semver ranges, more ecosystems"
-  - "PROJECT-DETAILS §4.8 DSL example uses plural module keys"
   - "Percentage-based / rolling batch execution"
   - "Active dial-time circuit breaker eviction"
   - "Glob matching: no `**` (double-star)"

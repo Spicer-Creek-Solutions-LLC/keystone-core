@@ -60,6 +60,33 @@ func TestRandomBase62_Distinct(t *testing.T) {
 	}
 }
 
+func TestRandomBase62_Unbiased(t *testing.T) {
+	t.Parallel()
+	// Regression for the old byte%62 skew (256 mod 62 = 8 made the
+	// first 8 symbols ~25% more likely). Rejection sampling makes every
+	// symbol equiprobable; assert each appears within ±13% of its
+	// expected share over a large sample. Random noise here is <6%, so
+	// the ~25% old bias is caught without false failures.
+	const perChar = 3000
+	s, err := randomBase62(len(base62Alphabet) * perChar)
+	if err != nil {
+		t.Fatalf("randomBase62: %v", err)
+	}
+	counts := make(map[rune]int, len(base62Alphabet))
+	for _, c := range s {
+		counts[c]++
+	}
+	if len(counts) != len(base62Alphabet) {
+		t.Fatalf("only %d distinct symbols, want %d", len(counts), len(base62Alphabet))
+	}
+	lo, hi := int(perChar*0.87), int(perChar*1.13)
+	for _, c := range base62Alphabet {
+		if n := counts[c]; n < lo || n > hi {
+			t.Errorf("symbol %q count %d outside [%d,%d] — biased distribution", string(c), n, lo, hi)
+		}
+	}
+}
+
 func TestRandomSalt(t *testing.T) {
 	t.Parallel()
 	a, err := randomSalt()
