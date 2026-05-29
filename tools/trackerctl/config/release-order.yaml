@@ -83,7 +83,6 @@ gate-v1.0:
   - "Sustained-load profiling baseline"
   - "Security baseline expansion"
   - "Dependency posture re-audit"
-  - "Unbiased base62 for join-token generation"
   # Contract-surface decision before the v1.0 freeze (upstream removes Zipkin early 2027):
   - "Zipkin tracing exporter: do not freeze into the v1.0 surface"
   # Lands late in the path, after audit-mode confidence:
