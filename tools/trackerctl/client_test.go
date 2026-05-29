@@ -53,7 +53,7 @@ func newTestClient(t *testing.T, h http.HandlerFunc) *client {
 	t.Helper()
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
-	return newClient(srv.URL, "owner/repo", "test-token", 0)
+	return newClient(srv.URL, "owner/repo", "test-token", 0, 0)
 }
 
 func TestDoRetriesOn429ThenSucceeds(t *testing.T) {
@@ -117,7 +117,7 @@ func TestDoThrottleAppliesToMutationsOnly(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
-	c := newClient(srv.URL, "owner/repo", "tok", 40*time.Millisecond)
+	c := newClient(srv.URL, "owner/repo", "tok", 40*time.Millisecond, 0)
 
 	start := time.Now()
 	_ = c.do(http.MethodGet, "/x", nil, nil)
@@ -131,5 +131,80 @@ func TestDoThrottleAppliesToMutationsOnly(t *testing.T) {
 	}
 	if lastMethod != http.MethodPost {
 		t.Errorf("unexpected last method %q", lastMethod)
+	}
+}
+
+func TestParseRateLimitWindow(t *testing.T) {
+	cases := []struct {
+		body string
+		want time.Duration
+		ok   bool
+	}{
+		{`{"message":"NewIssue: \"bot\" posted 5 issues in under 5 minutes: rate limited"}`, 5 * time.Minute, true},
+		{`{"message":"posted 11 issues in under 30 minutes: rate limited"}`, 30 * time.Minute, true},
+		{`{"message":"posted 1 issue in under 1 minute: rate limited"}`, time.Minute, true},
+		{`{"message":"some other error"}`, 0, false},
+		{`{"message":"in under 0 minutes"}`, 0, false},
+	}
+	for _, tc := range cases {
+		got, ok := parseRateLimitWindow([]byte(tc.body))
+		if ok != tc.ok || (ok && got != tc.want) {
+			t.Errorf("parseRateLimitWindow(%q) = (%v, %v), want (%v, %v)", tc.body, got, ok, tc.want, tc.ok)
+		}
+	}
+}
+
+func TestDoWaitsOutRateLimitWindowThenSucceeds(t *testing.T) {
+	var calls int32
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&calls, 1) == 1 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"message":"posted 5 issues in under 5 minutes: rate limited"}`))
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"number":1}`))
+	})
+	c.maxWait = 30 * time.Minute
+	var slept []time.Duration
+	c.sleep = func(d time.Duration) { slept = append(slept, d) }
+
+	var out struct {
+		Number int `json:"number"`
+	}
+	if err := c.do(http.MethodPost, "/issues", map[string]string{"title": "x"}, &out); err != nil {
+		t.Fatalf("do: %v", err)
+	}
+	if out.Number != 1 {
+		t.Error("response not decoded after waiting out the window")
+	}
+	if got := atomic.LoadInt32(&calls); got != 2 {
+		t.Errorf("expected 2 calls (1 rate-limited + 1 ok), got %d", got)
+	}
+	want := 5*time.Minute + rateLimitMargin
+	if len(slept) != 1 || slept[0] != want {
+		t.Errorf("expected a single window wait of %v, got %v", want, slept)
+	}
+}
+
+func TestDoRateLimitWindowExceedsBudget(t *testing.T) {
+	var calls int32
+	c := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(`{"message":"posted 11 issues in under 30 minutes: rate limited"}`))
+	})
+	c.maxWait = time.Minute // less than the 30-minute window
+	var slept []time.Duration
+	c.sleep = func(d time.Duration) { slept = append(slept, d) }
+
+	if err := c.do(http.MethodPost, "/issues", map[string]string{"title": "x"}, nil); err == nil {
+		t.Fatal("expected an error when the window exceeds --max-wait")
+	}
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Errorf("should not retry once the budget is blown; got %d calls", got)
+	}
+	if len(slept) != 0 {
+		t.Errorf("should not sleep when the budget is blown; slept %v", slept)
 	}
 }

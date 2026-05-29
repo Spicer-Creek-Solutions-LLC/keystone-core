@@ -261,6 +261,43 @@ func TestConnectionManager_ShutdownBeforeStart(t *testing.T) {
 	}
 }
 
+func TestConnectionManager_ShutdownDoesNotDeadlockUnderProbe(t *testing.T) {
+	// Regression: Shutdown held cm.mu while waiting for the RTT probe
+	// goroutine to exit, but probeOnce takes cm.mu.RLock(), so a probe
+	// tick in flight at shutdown deadlocked (seen as a 5-minute SLO-gate
+	// timeout). Drive the probe at a 1ms interval so one is almost always
+	// mid-flight, then assert Shutdown returns promptly each time.
+	oldInterval := rttProbeInterval
+	rttProbeInterval = time.Millisecond
+	t.Cleanup(func() { rttProbeInterval = oldInterval })
+
+	url := startSyntheticEndpoint(t)
+	for i := 0; i < 30; i++ {
+		cm, err := NewConnectionManager(externalCfg([]string{url}), testLogger())
+		if err != nil {
+			t.Fatalf("iter %d: NewConnectionManager: %v", i, err)
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := cm.Start(ctx); err != nil {
+			cancel()
+			t.Fatalf("iter %d: Start: %v", i, err)
+		}
+		cancel()
+		time.Sleep(2 * time.Millisecond) // let the probe loop reach probeOnce
+
+		done := make(chan error, 1)
+		go func() { done <- cm.Shutdown(context.Background()) }()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("iter %d: Shutdown: %v", i, err)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatalf("iter %d: Shutdown deadlocked (did not return within 10s)", i)
+		}
+	}
+}
+
 func TestConnectionManager_StartIdempotent(t *testing.T) {
 	url := startSyntheticEndpoint(t)
 	cm := startConnMgr(t, externalCfg([]string{url}))
