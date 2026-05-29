@@ -6,11 +6,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/nats-io/nats.go"
 
 	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
+
+// subscribeFlushTimeout bounds the post-Subscribe flush that confirms the
+// server has registered the subscription before Subscribe returns.
+const subscribeFlushTimeout = 5 * time.Second
 
 // MessageHandler receives one decoded envelope. The subject is passed
 // alongside because the wildcard subscription pattern (e.g.,
@@ -92,6 +97,17 @@ func (m *Manager) Subscribe(subject string, handler MessageHandler) (Subscriptio
 	})
 	if err != nil {
 		return nil, fmt.Errorf("nats: subscribe %q: %w", subject, err)
+	}
+	// Flush so the server has registered the subscription before we
+	// return. nats.go Subscribe only queues the SUB protocol frame; a
+	// publish on a *different* connection that races a just-returned
+	// Subscribe is otherwise silently dropped (core NATS has no matching
+	// subscriber yet). Callers depend on "Subscribe returned => ready to
+	// receive" — e.g. the agent before its first command lands, the
+	// response router before the first reply.
+	if err := conn.FlushTimeout(subscribeFlushTimeout); err != nil {
+		_ = sub.Unsubscribe()
+		return nil, fmt.Errorf("nats: subscribe %q: flush: %w", subject, err)
 	}
 	return &natsSubscription{sub: sub}, nil
 }

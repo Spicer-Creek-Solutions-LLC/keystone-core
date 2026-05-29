@@ -4,12 +4,52 @@ package nats
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
+
+func TestManager_SubscribeFlushesBeforeReturn(t *testing.T) {
+	// Regression: Subscribe must flush so the server has registered the
+	// SUB before returning. Cross-connection — subscriber on one conn,
+	// publisher on another — a publish that raced a just-returned
+	// Subscribe was silently dropped by core NATS (the SLO gate's
+	// "response timeout" flake). Publish immediately on the other conn,
+	// no sleep, looped to expose the window.
+	server := startManager(t, embeddedConfig(t))                         // embedded server + publisher conn
+	client := startManager(t, externalCfg([]string{server.ClientURL()})) // separate subscriber conn
+
+	base := server.Subjects().Prefix()
+	for i := 0; i < 50; i++ {
+		subject := fmt.Sprintf("%s.subflush.%d", base, i)
+		done := make(chan struct{}, 1)
+		sub, err := client.Subscribe(subject, func(context.Context, string, envelope.Envelope) error {
+			select {
+			case done <- struct{}{}:
+			default:
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("iter %d: Subscribe: %v", i, err)
+		}
+		env := envelope.New([]byte(`"x"`), base)
+		if err := server.PublishEnvelope(context.Background(), subject, env); err != nil {
+			t.Fatalf("iter %d: PublishEnvelope: %v", i, err)
+		}
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("iter %d: message dropped — Subscribe did not flush before returning", i)
+		}
+		if err := sub.Unsubscribe(); err != nil {
+			t.Fatalf("iter %d: Unsubscribe: %v", i, err)
+		}
+	}
+}
 
 func TestManager_SubscribeRoundTrip(t *testing.T) {
 	m := startManager(t, embeddedConfig(t))
@@ -65,7 +105,7 @@ func TestManager_SubscribeWildcardPattern(t *testing.T) {
 	pattern := m.Subjects().BootstrapRegisterPattern()
 
 	var (
-		mu      sync.Mutex
+		mu       sync.Mutex
 		subjects []string
 		done     = make(chan struct{}, 4)
 	)
