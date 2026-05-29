@@ -10,6 +10,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"go.keystone-core.io/keystone-core/internal/cli/backup"
@@ -17,6 +18,7 @@ import (
 
 func main() {
 	if err := backup.NewBackupCommand().Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }

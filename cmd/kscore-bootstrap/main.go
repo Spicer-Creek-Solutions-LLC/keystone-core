@@ -12,6 +12,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"go.keystone-core.io/keystone-core/internal/cli/bootstrap"
@@ -19,6 +20,7 @@ import (
 
 func main() {
 	if err := bootstrap.NewBootstrapCommand().Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }

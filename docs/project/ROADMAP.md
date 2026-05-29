@@ -657,14 +657,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
      now succeeds without intervention. Entry retired from this list;
      the change is visible in the code. -->
 
-#### kscore-server: surface fatal-init errors to stderr instead of silently exiting
-
-- **Priority**: v0.x
-- **What**: `internal/cli/cli.go` builds the cobra root command with `SilenceErrors: true`. When `kscore-server` fails during `run()` — e.g. gRPC bind conflict (the Rocky 10 cockpit case above), invalid config, metrics-registry collision — cobra swallows the wrapped error and `main()` does a bare `os.Exit(1)` with no message. The systemd journal shows only the routine `"stopped"` info line + `status=1/FAILURE` from systemd. Operators have to attach a debugger or read source to diagnose.
-- **Why deferred**: surfaced during Phase D rocky10 diagnosis. Easy fix (print the runErr to stderr before exiting in main()), but spans every cobra-rooted binary (kscore-server, kscore-agent, kscorectl, kscore-bootstrap, kscore-files, kscore-backup…) so wants a coordinated touch.
-- **Acceptance**: every `cmd/kscore-*/main.go` `main()` that calls `newCommand().Execute()` checks the returned error and writes it to stderr (`fmt.Fprintln(os.Stderr, "error:", err)`) before `os.Exit(1)`. The systemd journal shows `kscore-server: error: gRPC: listen tcp 127.0.0.1:5397: bind: address already in use` instead of just `stopped` then `status=1/FAILURE`.
-- **References**: `internal/cli/cli.go` `RootCommand` (SilenceErrors=true is appropriate — the wrapper is fine, main() just needs to print before exit); `cmd/kscore-server/main.go` `main()` `if err := newCommand().Execute(); err != nil { os.Exit(1) }`; `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D2 evidence (the half-day diagnosis to find Cockpit was the cost of the missing stderr message).
-
 #### Phase D3: macOS dev-build sanity test
 
 - **Priority**: v0.x

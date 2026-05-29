@@ -48,6 +48,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	c.SetOut(stdout)
 	c.SetErr(stderr)
 	if err := c.Execute(); err != nil {
+		_, _ = io.WriteString(stderr, "error: "+err.Error()+"\n")
 		return 1
 	}
 	return 0

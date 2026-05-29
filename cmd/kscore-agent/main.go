@@ -47,6 +47,7 @@ const shutdownTimeout = 30 * time.Second
 
 func main() {
 	if err := newCommand().Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
