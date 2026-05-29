@@ -584,11 +584,11 @@ metadata:
   version: "1.0"
 variables:
   nginx_user: www-data
-packages:
+package:
   nginx:
     state: installed
     version: ">=1.20"
-files:
+file:
   /etc/nginx/nginx.conf:
     state: present
     source: /path/to/nginx.conf
@@ -596,7 +596,7 @@ files:
     mode: "0644"
     require: [package: nginx]
     watch:   [package: nginx]
-services:
+service:
   nginx:
     state: running
     enable: true

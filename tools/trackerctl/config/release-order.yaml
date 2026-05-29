@@ -120,7 +120,6 @@ v0.x:
   - "`iptables` stdlib module — structured rules, ordering, both-family, distro persistence"
   - "`nftables` stdlib module — structured rules, ordering, table/chain management, comment matching"
   - "`langpkg` stdlib module — per-user/per-project installs, lockfiles, semver ranges, more ecosystems"
-  - "PROJECT-DETAILS §4.8 DSL example uses plural module keys"
   - "Percentage-based / rolling batch execution"
   - "Active dial-time circuit breaker eviction"
   - "Glob matching: no `**` (double-star)"
