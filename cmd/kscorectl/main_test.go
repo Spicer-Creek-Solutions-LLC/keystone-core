@@ -39,10 +39,15 @@ func TestRunCLI(t *testing.T) {
 		t.Fatalf("--help output missing usage: %q %q", out.String(), errb.String())
 	}
 
-	// Unknown subcommand with no plugin → cobra error, exit 1.
+	// Unknown subcommand with no plugin → cobra error, exit 1, and the
+	// error is surfaced to stderr rather than silently swallowed.
 	t.Setenv("PATH", t.TempDir()) // no kscore-* here
-	if code := runCLI([]string{"ghost"}, nil, &bytes.Buffer{}, &bytes.Buffer{}); code != 1 {
+	var ferr bytes.Buffer
+	if code := runCLI([]string{"ghost"}, nil, &bytes.Buffer{}, &ferr); code != 1 {
 		t.Fatalf("unknown subcommand exit = %d, want 1", code)
+	}
+	if !strings.Contains(ferr.String(), "error:") {
+		t.Fatalf("unknown subcommand stderr = %q, want it to contain %q", ferr.String(), "error:")
 	}
 
 	// Git-style plugin dispatch: kscore-demo on PATH → exit code

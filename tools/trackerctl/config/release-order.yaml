@@ -93,7 +93,6 @@ gate-v1.0:
 v0.x:
   - "`kscorectl agent list` subcommand"
   - "REST stubs for control-plane RPCs — decide: implement passthrough or mark gRPC-only"
-  - "kscore-server: surface fatal-init errors to stderr instead of silently exiting"
   - "Phase D3: macOS dev-build sanity test"
   - "Phase E1: required signed commits on `main` branch protection"
   - "Release signing ceremony — signed tags + checksums + SBOMs"

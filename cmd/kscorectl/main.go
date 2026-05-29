@@ -46,11 +46,13 @@ func runCLI(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if handled, code, err := plugin.Dispatch(ctx, root, args,
 		plugin.New(""), plugin.Executor{}, stdin, stdout, stderr); handled {
 		if err != nil {
+			_, _ = io.WriteString(stderr, "error: "+err.Error()+"\n")
 			return 1
 		}
 		return code
 	}
 	if err := root.Execute(); err != nil {
+		_, _ = io.WriteString(stderr, "error: "+err.Error()+"\n")
 		return 1
 	}
 	return 0

@@ -24,6 +24,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"go.keystone-core.io/keystone-core/internal/cli/events"
@@ -31,6 +32,7 @@ import (
 
 func main() {
 	if err := events.NewCommand(events.Deps{}).Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }

@@ -14,6 +14,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"go.keystone-core.io/keystone-core/internal/cli/cluster"
@@ -21,6 +22,7 @@ import (
 
 func main() {
 	if err := cluster.NewBackupCommand(cluster.Deps{}).Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 }
