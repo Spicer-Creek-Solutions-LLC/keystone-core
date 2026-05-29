@@ -71,6 +71,9 @@
 - name: area/server
   color: "0e8a16"
   description: "Area: server / gRPC"
+- name: area/cluster
+  color: "0e8a16"
+  description: "Area: clustering / HA / coordination"
 - name: area/schema
   color: "0e8a16"
   description: "Area: database schema & migrations"
