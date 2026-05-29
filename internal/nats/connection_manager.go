@@ -22,7 +22,11 @@ import (
 // 5s matches PROJECT-DETAILS §4.2's "default 5m" dedup window divided
 // by ~60 — enough resolution for P50/P99 stability under v1.0 load
 // without saturating the conn.
-const rttProbeInterval = 5 * time.Second
+//
+// A var, not a const, only so tests can shorten it to exercise the
+// probe/shutdown interleaving deterministically; production never
+// reassigns it.
+var rttProbeInterval = 5 * time.Second
 
 // rttProbeTimeout bounds a single RTT probe. nats.go RTT issues a
 // PING and waits for PONG; on a healthy LAN it returns in <1ms, on a
@@ -84,9 +88,9 @@ func NewConnectionManager(cfg config.NATSConfig, log *slog.Logger) (*ConnectionM
 		// math/rand/v2 is correct here — backoff jitter doesn't need
 		// cryptographic entropy. crypto/rand would be wasteful.
 		// #nosec G404 -- backoff jitter, not cryptographic.
-		rng: rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0xDEADBEEF)), //nolint:gosec // G404
-		states:    make(map[string]*EndpointState, len(endpoints)),
-		breakers:  make(map[string]Breaker, len(endpoints)),
+		rng:      rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), 0xDEADBEEF)), //nolint:gosec // G404
+		states:   make(map[string]*EndpointState, len(endpoints)),
+		breakers: make(map[string]Breaker, len(endpoints)),
 	}
 	for _, e := range cm.endpoints {
 		cm.states[e.URL] = newEndpointState(e.URL)
@@ -223,25 +227,32 @@ func (cm *ConnectionManager) Start(ctx context.Context) error {
 // before Start.
 func (cm *ConnectionManager) Shutdown(_ context.Context) error {
 	cm.mu.Lock()
-	defer cm.mu.Unlock()
-
 	if !cm.started || cm.stopped {
 		cm.stopped = true
+		cm.mu.Unlock()
 		return nil
 	}
-
-	if cm.probeStop != nil {
-		close(cm.probeStop)
-		<-cm.probeDone
-		cm.probeStop = nil
-		cm.probeDone = nil
-	}
-
-	if cm.conn != nil {
-		cm.conn.Close()
-		cm.conn = nil
-	}
+	// Claim shutdown and snapshot the probe channels + conn under the
+	// lock, then do the blocking work (waiting for the probe to exit,
+	// closing the conn) WITHOUT holding cm.mu. runRTTProbe's probeOnce
+	// takes cm.mu.RLock(), so waiting on <-probeDone under the write lock
+	// deadlocks whenever a probe tick is in flight at shutdown. The probe
+	// channels are left intact (runRTTProbe selects on cm.probeStop); the
+	// stopped flag makes a concurrent or repeat Shutdown a no-op, so the
+	// channel is closed exactly once.
 	cm.stopped = true
+	probeStop, probeDone := cm.probeStop, cm.probeDone
+	conn := cm.conn
+	cm.conn = nil
+	cm.mu.Unlock()
+
+	if probeStop != nil {
+		close(probeStop)
+		<-probeDone
+	}
+	if conn != nil {
+		conn.Close()
+	}
 	return nil
 }
 
