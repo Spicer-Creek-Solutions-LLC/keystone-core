@@ -87,7 +87,7 @@ go run ./tools/trackerctl --host "$FORGE_URL" --apply reconcile-issues   # after
 go run ./tools/trackerctl --host "$FORGE_URL" --apply --version gate-v0.5 gen-tracker
 
 # bulk create against a windowed-rate-limited host (e.g. Codeberg): self-pace
-# through the tiered limits in one invocation — see "rate limiting" below
+# through the tiered limits in one invocation (see "rate limiting" below)
 go run ./tools/trackerctl --host "$FORGE_URL" --apply --max-wait 45m --versions gate-v0.5 gen-issues
 ```
 
@@ -99,7 +99,7 @@ to limit to, e.g. `gate-v0.5` or `gate-v0.5,gate-v1.0`; empty = all entries),
 create/update, e.g. `gate-v0.5` — required), `--throttle` (duration; pause
 before each create/update request — see "rate limiting" below; default 0),
 `--max-wait` (duration; per-request budget for waiting out a server-stated
-rate-limit window — see "rate limiting" below; default 0 = fail fast).
+rate-limit window, see "rate limiting" below; default 0 = fail fast).
 
 > `trackerctl` calls the Forgejo REST API directly — it does not shell out to
 > `fj`, so it isn't affected by `fj`'s plain-HTTP-vs-HTTPS quirk; just give
@@ -129,13 +129,13 @@ rate-limit window — see "rate limiting" below; default 0 = fail fast).
   that release first.
 - **Rate limiting.** Transient failures (`502/503/504`, network drops) and a
   `429 Too Many Requests` that carries a `Retry-After` header are retried
-  automatically — up to 5 attempts with exponential backoff + jitter (capped at
+  automatically, up to 5 attempts with exponential backoff + jitter (capped at
   60s); each prints a one-line notice to stderr. **Windowed** rate limits are
   different: Codeberg caps issue/PR creation in overlapping tiers (5 per 5 min,
   7 per 10 min, 11 per 30 min) and returns a `429` whose *body* states the
   window (`posted N issues in under M minutes`) with **no** `Retry-After`. For
   those, pass `--max-wait <duration>` (e.g. `--max-wait 45m`): the tool parses
-  the window from the body, sleeps it out, and retries — so one `gen-issues
+  the window from the body, sleeps it out, and retries, so one `gen-issues
   --apply --max-wait 45m` self-paces through every tier instead of giving up
   after ~5 creates. `--max-wait` is a per-request budget (default 0 = fail
   fast); set it larger than the biggest tier you expect (30 min on Codeberg).
