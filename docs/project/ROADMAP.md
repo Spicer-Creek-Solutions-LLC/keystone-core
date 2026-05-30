@@ -632,14 +632,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v0.x — desirable pre-v1.0 (no specific gate)
 
-#### `kscorectl agent list` subcommand
-
-- **Priority**: v0.x
-- **What**: `kscorectl` ships with built-in `exec` and `state` subcommands plus the dispatcher pattern that routes to `kscore-<plugin>` binaries on PATH (audit, secrets, files, …). No `kscorectl agent list` exists; the only path to "show me the registered agents" today is grpcurl against `ControlPlaneService/ListAgents`. Add either a top-level `agent` subcommand in `internal/cli/` or a separate `kscore-agent-cli` binary that dispatches to it (distinct from the `kscore-agent` runtime binary).
-- **Why deferred**: surfaced as a gap during Phase D1 operator-path walkthrough; not blocking the .deb/.rpm install smoke, but operator can't see fleet state without grpcurl. The control-plane RPC is there + tested; just no CLI on top.
-- **Acceptance**: `kscorectl agent list` returns a table of registered agents with id / status / labels / last-heartbeat; `--output json` works; integrates with the standard `--server` / `--api-key` flag pattern from `internal/cli/exec/` + `state/`; smoke test under `internal/cli/agent/` matches the audit/state coverage bar.
-- **References**: `api/proto/keystone/core/v1/controlplane.proto` `ControlPlaneService.ListAgents` RPC; `internal/cli/cli.go` RootCommand pattern; `cmd/kscorectl/main.go` newCommand `AddCommand(exec.NewCommand(...))` + `AddCommand(state.NewCommand(...))`; `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D1 evidence (operator-path Pass B).
-
 #### REST stubs for control-plane RPCs — decide: implement passthrough or mark gRPC-only
 
 - **Priority**: v0.x
