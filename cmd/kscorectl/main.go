@@ -18,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"go.keystone-core.io/keystone-core/internal/cli"
+	"go.keystone-core.io/keystone-core/internal/cli/agent"
 	"go.keystone-core.io/keystone-core/internal/cli/exec"
 	"go.keystone-core.io/keystone-core/internal/cli/state"
 	"go.keystone-core.io/keystone-core/internal/config"
@@ -66,6 +67,7 @@ func newCommand() *cobra.Command {
 	})
 	root.AddCommand(exec.NewCommand(exec.Deps{}))
 	root.AddCommand(state.NewCommand(state.Deps{}))
+	root.AddCommand(agent.NewCommand(agent.Deps{}))
 	return root
 }
 
