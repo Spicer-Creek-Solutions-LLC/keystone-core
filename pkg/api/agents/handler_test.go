@@ -3,18 +3,22 @@
 package agents_test
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"go.keystone-core.io/keystone-core/pkg/api/agents"
 )
 
-func TestHandler_RoutesReturn501(t *testing.T) {
+func TestHandler_RoutesReturn410(t *testing.T) {
 	mux := http.NewServeMux()
 	agents.NewHandler().Register(mux)
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
+
+	wantBody := "Not part of v0.1; use the gRPC ControlPlaneService instead."
 
 	cases := []struct {
 		method, path string
@@ -34,8 +38,15 @@ func TestHandler_RoutesReturn501(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer resp.Body.Close()
-			if resp.StatusCode != http.StatusNotImplemented {
-				t.Errorf("status = %d, want 501", resp.StatusCode)
+			if resp.StatusCode != http.StatusGone {
+				t.Errorf("status = %d, want 410", resp.StatusCode)
+			}
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(body), wantBody) {
+				t.Errorf("body = %q, want substring %q", string(body), wantBody)
 			}
 		})
 	}

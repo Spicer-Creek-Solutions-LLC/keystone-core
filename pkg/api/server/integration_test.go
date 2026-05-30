@@ -133,17 +133,18 @@ func TestIntegration_FullLifecycle(t *testing.T) {
 	})
 
 	t.Run("HTTP per-domain handler reachable", func(t *testing.T) {
-		// Sample one domain to verify Epic 03 task 7 stubs are wired
-		// through the API mux. 501 is the expected response from the
-		// stub handler — anything else (404, 401, 500) indicates a
-		// regression in the routing tree.
+		// Sample one domain to verify the v0.x stub handlers are wired
+		// through the API mux. 410 Gone is the expected response per
+		// issue #89 (REST stubs intentionally not part of v0.1 — gRPC
+		// only); anything else (404, 401, 500) indicates a regression
+		// in the routing tree.
 		resp, err := http.Get("http://" + addrs.HTTP + "/api/v1/agents")
 		if err != nil {
 			t.Fatalf("GET: %v", err)
 		}
 		resp.Body.Close()
-		if resp.StatusCode != http.StatusNotImplemented {
-			t.Errorf("status = %d, want 501 (epic 03 stub)", resp.StatusCode)
+		if resp.StatusCode != http.StatusGone {
+			t.Errorf("status = %d, want 410 (gRPC-only stub per #89)", resp.StatusCode)
 		}
 	})
 
