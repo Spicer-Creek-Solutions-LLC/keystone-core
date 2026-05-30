@@ -90,7 +90,6 @@ gate-v1.0:
   - "Policy enforcement side-effects (Warn events + Enforce violation handlers)"
 
 v0.x:
-  - "REST stubs for control-plane RPCs — decide: implement passthrough or mark gRPC-only"
   - "Phase D3: macOS dev-build sanity test"
   - "Phase E1: required signed commits on `main` branch protection"
   - "Native package repositories — APT, DNF/YUM"

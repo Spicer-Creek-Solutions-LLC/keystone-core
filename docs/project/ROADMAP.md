@@ -632,13 +632,15 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 ## v0.x — desirable pre-v1.0 (no specific gate)
 
-#### REST stubs for control-plane RPCs — decide: implement passthrough or mark gRPC-only
-
-- **Priority**: v0.x
-- **What**: Five HTTP handler packages register routes that all return HTTP 501 via a shared `notImplemented`: `pkg/api/agents/handler.go`, `pkg/api/state/handler.go`, `pkg/api/schedule/handler.go`, `pkg/api/execution/handler.go`, `pkg/api/maintenance/handler.go`. The `/api/v1/agents` route is the only one currently surfaced to operators (used in the rewritten GETTING-STARTED.md to confirm agent registration); the other four are dark. Either (a) implement the REST→gRPC passthrough handlers so the surface matches the operator expectation, or (b) explicitly mark them as "intentionally not part of v0.1 — gRPC only" with a doc-comment + a deliberate 410-or-similar response.
-- **Why deferred**: surfaced as F5 during Phase D1 (docker-compose walkthrough); Phase E cleanup audit found two more peer-stubs (execution, maintenance) — same shape, same problem. The doc-claim portion is now resolved (GETTING-STARTED.md uses `kscorectl` instead of REST for the operator path); what remains is the question of whether the stubs themselves should become real or become explicit non-features. `/api/v1/agents` is a special case — it IS used in GETTING-STARTED.md step 3 because `kscorectl agent list` doesn't exist yet (see entry above); a real handler there would simplify the operator path.
-- **Acceptance**: pick a direction. If (a): `GET /api/v1/agents`, `POST /api/v1/state/apply`, plus the schedule / execution / maintenance routes return the same JSON shapes as their gRPC counterparts; existing 501-stub tests across `pkg/api/agents/handler_test.go` + `pkg/api/state/handler_test.go` + `pkg/api/schedule/handler_test.go` + `pkg/api/execution/handler_test.go` + `pkg/api/maintenance/handler_test.go` flip to 200 + content assertions. If (b): the 501 handlers move to a deliberate 410 Gone with `Not part of v0.1; use the gRPC RPC <name>` body, and the package-level doc comment on each handler.go calls the decision out.
-- **References**: `pkg/api/{agents,state,schedule,execution,maintenance}/handler.go` (five stub registrations); `docs/project/GETTING-STARTED.md` step 3 (uses `/api/v1/agents`); `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D1 evidence F5.
+<!-- "REST stubs for control-plane RPCs — decide" landed via path (b)
+     — the five stub handlers (agents/state/schedule/execution/
+     maintenance) now return 410 Gone with a "Not part of v0.1; use
+     the gRPC <Service> instead" body (schedule + maintenance get a
+     post-v1.0 marker since no gRPC alternative exists either).
+     Package-level doc comments on each handler.go record the
+     decision. If a concrete REST consumer surfaces later, revisit
+     and implement passthrough rather than silently un-410-ing the
+     routes. Entry retired; the decision is visible in the code. -->
 
 <!-- "Select a different default gRPC port (avoid Cockpit collision on
      Rocky 10)" landed as part of the Phase-D rerun cycle: default
