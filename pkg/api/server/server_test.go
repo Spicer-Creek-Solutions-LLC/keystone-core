@@ -319,10 +319,11 @@ func TestHTTP_PerDomainHandlersRegistered(t *testing.T) {
 		_ = srv.Stop(ctx)
 	}()
 
-	// Sample one route per domain. Most return 501 (epic 03 stubs);
-	// apikeys is the only domain with a real handler — its GET list
-	// path should also work but may need a Bearer to authorize. The
-	// list endpoint with no auth returns 401 from the handler middleware.
+	// Sample one route per domain. The agents + state stubs return
+	// 410 Gone per issue #89 (gRPC-only); the cluster/events/policy/
+	// secrets routes have real handlers that may return 401/503 in
+	// this minimal setup. The assertion below only cares the route is
+	// registered (not 404).
 	cases := []struct{ method, path string }{
 		{"GET", "/api/v1/agents"},
 		{"GET", "/api/v1/cluster/status"},
