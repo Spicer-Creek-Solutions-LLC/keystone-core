@@ -93,7 +93,6 @@ v0.x:
   - "REST stubs for control-plane RPCs — decide: implement passthrough or mark gRPC-only"
   - "Phase D3: macOS dev-build sanity test"
   - "Phase E1: required signed commits on `main` branch protection"
-  - "Release signing ceremony — signed tags + checksums + SBOMs"
   - "Native package repositories — APT, DNF/YUM"
   - "Changie configuration: `replacements` for reference-link maintenance"
   - "Persist dispatch principal on CommandRecord for audit-log User field"
@@ -132,6 +131,8 @@ v0.x:
   - "kscore-audit search subcommand"
   - "Backup destinations: Backblaze B2 documentation + smoke test"
   - "Zipkin tracing exporter: deprecation warning → OTLP"
+  # Held to the end of v0.x — last work before tagging v0.2.0 per planning decision 2026-05-30:
+  - "Release signing ceremony — signed tags + checksums + SBOMs"
 
 v1.x:
   - "Logging: context-aware threading of deep helpers"

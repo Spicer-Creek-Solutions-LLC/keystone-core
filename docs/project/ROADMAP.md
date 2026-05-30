@@ -665,14 +665,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: contributor-key onboarding flow documented (probably in `CONTRIBUTING.md` or a new `docs/project/SIGNING-KEYS.md`); the `main` branch protection rule on Codeberg has `require_signed_commits: true`; this ROADMAP entry removed and the E1 landed-note in PUBLIC-LAUNCH-CHECKLIST.md updated to mark signed-commit enforcement as live.
 - **References**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` E1; `docs/project/CODEBERG-SETTINGS-AUDIT.md`; `RELEASE-PLAYBOOK.md` signing ceremony.
 
-#### Release signing ceremony — signed tags + checksums + SBOMs
-
-- **Priority**: v0.x (**target v0.2.0**)
-- **What**: v0.1.0 shipped as a one-time carve-out with **no signed tag, no signed checksums, no signed SBOM**. Trust model collapsed to TLS-to-codeberg.org + manual `sha256sum -c`. v0.2.0 lands the full single-signer signing flow per `RELEASE-PLAYBOOK.md` §6 (Signing) + §9 (Publication): signing-key generation ceremony (RELEASE-PLAYBOOK §2 v0.x simplification), `tag.gpgsign true` wired into git config, `goreleaser` configured to emit `.sig` sidecars for archives + packages + checksums + SBOM, RELEASE-PLAYBOOK §6 v0.1.0-only callout removed, CHANGELOG `[v0.2.0]` verification section updated to the signed flow.
-- **Why deferred (from v0.1.0)**: soft-launch posture for v0.1.0 (per `docs/project/GOVERNANCE.md` § Launch Posture + `PUBLIC-LAUNCH-CHECKLIST.md` F1) tolerated the unsigned trust gap; signing-key setup + the per-platform key-distribution story were not blocking the curious-operator audience. Recorded as the v0.1.0-only carve-out with v0.2.0 as the explicit graduation gate during v0.1.0 release prep on 2026-05-27.
-- **Acceptance**: signing key generated per `RELEASE-PLAYBOOK.md` §2 v0.x simplification; `git config tag.gpgsign true` wired into the release workstation; `make release` emits `.sig` files for `checksums.txt` + every SBOM (and ideally per-archive sidecars per `goreleaser` `signs:` block); `RELEASE-PLAYBOOK.md` §6 v0.1.0-only callout removed; `SECURITY.md` "Supply chain security & release verification" section updated; this ROADMAP entry removed when v0.2.0 ships signed.
-- **References**: `RELEASE-PLAYBOOK.md` §2 + §6 + §9 (v0.x single-signer); `CHANGELOG.md` v0.1.0 Verification section (unsigned trust-model callout); `SECURITY.md` "Supply chain security" subsection; `.goreleaser.yaml` (currently no `signs:` block).
-
 #### Native package repositories — APT, DNF/YUM
 
 - **Priority**: v0.x (pre-v1.0, no specific gate)
@@ -1037,6 +1029,16 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why deferred (from v0.1)**: Epic 17 task 4 shipped Zipkin support because the epic explicitly listed it; the upstream deprecation surfaced afterward. Emitting the warning early gives operators the maximum runway to migrate before the gate-v1.0 freeze decision (companion above).
 - **Acceptance**: `tracing.exporter=zipkin` logs a deprecation warning at config-validation time naming OTLP as the replacement; tracing docs recommend OTLP; the exporter still works (no removal).
 - **References**: `internal/config/tracing.go` (`Validate`); `internal/tracing/exporters.go`; `internal/tracing/doc.go`; companion: "Zipkin tracing exporter: do not freeze into the v1.0 surface".
+
+<!-- Held to the end of v0.x — last work before tagging v0.2.0 per planning decision 2026-05-30. -->
+
+#### Release signing ceremony — signed tags + checksums + SBOMs
+
+- **Priority**: v0.x (**target v0.2.0**)
+- **What**: v0.1.0 shipped as a one-time carve-out with **no signed tag, no signed checksums, no signed SBOM**. Trust model collapsed to TLS-to-codeberg.org + manual `sha256sum -c`. v0.2.0 lands the full single-signer signing flow per `RELEASE-PLAYBOOK.md` §6 (Signing) + §9 (Publication): signing-key generation ceremony (RELEASE-PLAYBOOK §2 v0.x simplification), `tag.gpgsign true` wired into git config, `goreleaser` configured to emit `.sig` sidecars for archives + packages + checksums + SBOM, RELEASE-PLAYBOOK §6 v0.1.0-only callout removed, CHANGELOG `[v0.2.0]` verification section updated to the signed flow.
+- **Why deferred (from v0.1.0)**: soft-launch posture for v0.1.0 (per `docs/project/GOVERNANCE.md` § Launch Posture + `PUBLIC-LAUNCH-CHECKLIST.md` F1) tolerated the unsigned trust gap; signing-key setup + the per-platform key-distribution story were not blocking the curious-operator audience. Recorded as the v0.1.0-only carve-out with v0.2.0 as the explicit graduation gate during v0.1.0 release prep on 2026-05-27.
+- **Acceptance**: signing key generated per `RELEASE-PLAYBOOK.md` §2 v0.x simplification; `git config tag.gpgsign true` wired into the release workstation; `make release` emits `.sig` files for `checksums.txt` + every SBOM (and ideally per-archive sidecars per `goreleaser` `signs:` block); `RELEASE-PLAYBOOK.md` §6 v0.1.0-only callout removed; `SECURITY.md` "Supply chain security & release verification" section updated; this ROADMAP entry removed when v0.2.0 ships signed.
+- **References**: `RELEASE-PLAYBOOK.md` §2 + §6 + §9 (v0.x single-signer); `CHANGELOG.md` v0.1.0 Verification section (unsigned trust-model callout); `SECURITY.md` "Supply chain security" subsection; `.goreleaser.yaml` (currently no `signs:` block).
 
 ## v1.x — post-v1.0 feature additions
 
