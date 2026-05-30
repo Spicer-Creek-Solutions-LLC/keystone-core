@@ -547,6 +547,7 @@ Usage:
   kscorectl [command]
 
 Available Commands:
+  agent       Inspect registered agents
   completion  Generate the autocompletion script for the specified shell
   exec        Execute commands across agents
   help        Help about any command
