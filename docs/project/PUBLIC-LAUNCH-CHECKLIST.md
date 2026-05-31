@@ -244,16 +244,17 @@ HEAD that will be made public.
       succeeds with Cockpit still running). Rocky 8/9 don't enable
       Cockpit by default — no conflict observed there.)*
 
-- [ ] **D3. macOS dev-build sanity** (optional / deferrable).
-      If any maintainer or near-term contributor uses macOS:
-      `make build` + `make test` on a Mac. Confirms task 12's
-      `fs_unix.go` / `fs_windows.go` split holds cross-platform.
-      *(deferred: no Mac available to the current maintainer; ROADMAP
-      entry filed under v0.x for when a maintainer or near-term
-      contributor adds Mac access. Cross-platform CI matrix already
-      builds darwin amd64 + arm64 via goreleaser snapshot — this gate
-      is specifically about `make build` + `make test` on real
-      hardware, not just cross-compile.)*
+- [x] **D3. macOS dev-build sanity** — RETIRED 2026-05-31.
+      Original intent: validate the cross-platform code paths on a real
+      Mac so the v1.0 agent runs on macOS.
+      *(retired as part of the linux-only-server+agent+bootstrap
+      re-scope on 2026-05-31. v1.0 platform target is now linux-only
+      end-to-end for the server, agent, and bootstrap binaries; macOS
+      agent support moved to v2.x+. The CLI binaries still cross-compile
+      to darwin via goreleaser for desktop operators, but Go's
+      cross-compile is reliable enough that a dedicated macOS sanity-run
+      isn't load-bearing without an agent that actually runs there.
+      Revisit when macOS agent work resumes at v2.x+.)*
 
 **Exit gate for Phase D**: getting-started works on stock Ubuntu;
 .deb/.rpm install + uninstall clean on real systemd.

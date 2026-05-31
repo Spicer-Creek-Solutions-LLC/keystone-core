@@ -651,13 +651,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
      now succeeds without intervention. Entry retired from this list;
      the change is visible in the code. -->
 
-#### Phase D3: macOS dev-build sanity test
-
-- **Priority**: v0.x
-- **What**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` Phase D3 calls for `make build` + `make test` on real macOS hardware to validate the `internal/statemgmt/stdlib/fs_unix.go` / `fs_windows.go` split + the cross-platform code paths. The Phase D rerun for v0.1.x deferred D3 because no maintainer/contributor currently has Mac access. Cross-compile via goreleaser already produces darwin amd64 + arm64 archives; what's missing is running the tests on a real Mac kernel.
-- **Why deferred**: hardware availability. The build target compiles cleanly via cross-compile on every release; the test gap is specifically about runtime behavior on Darwin.
-- **Acceptance**: a maintainer or named near-term contributor runs `make build && make test` (or `make check`) on macOS 14+ (Apple Silicon and/or Intel), reports the results, and either ticks D3 in PUBLIC-LAUNCH-CHECKLIST.md or files specific Darwin-runtime bugs as separate roadmap entries.
-- **References**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D3; `.goreleaser.yaml` darwin builds; `internal/statemgmt/stdlib/fs_unix.go` + `fs_windows.go`.
+<!-- "Phase D3: macOS dev-build sanity test" retired 2026-05-31 as part
+     of the linux-only-server+agent+bootstrap re-scope. macOS agent
+     support moved to v2.x+; server/agent/bootstrap are linux-only at
+     v1.0 (release artifacts pruned in .goreleaser.yaml). The CLI
+     binaries still cross-compile to darwin/windows for desktop
+     operators, but Go cross-compile is reliable enough that a
+     dedicated macOS sanity-run isn't load-bearing for v0.x. Revisit
+     if/when macOS agent work resumes at v2.x+. -->
 
 #### Phase E1: required signed commits on `main` branch protection
 
@@ -1239,13 +1240,10 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `kscore-identity federation add-domain/list/fetch-bundle` works against a second cluster.
 - **References**: Epic 09 scope-out (line 23); PROJECT-DETAILS §4.10.
 
-#### Windows agent (native service)
-
-- **Priority**: v1.x
-- **What**: kscore-agent on Windows with `service install/uninstall/start/stop/status` subcommands and SCM integration.
-- **Why deferred**: v1.0 platform target = Linux amd64+arm64. Windows needs separate stdlib (`win_feature`, `win_firewall`, etc.) and user-switching — `internal/agent/exec_user_windows.go:15` is a stub returning `not supported in v1.0`.
-- **Acceptance**: kscore-agent runs as a Windows service; SIGTERM equivalent triggers clean shutdown; user switching works via `LogonUser` / `CreateProcessAsUser`.
-- **References**: PROJECT-DETAILS §4.6 (line 487), §4.8 (line 619); `internal/agent/exec_user_windows.go`.
+<!-- "Windows agent (native service)" moved to v2.x+ on 2026-05-31 as
+     part of the linux-only-server+agent+bootstrap re-scope. Block
+     relocated to the v2.x+ section below; see commit body / PR for
+     rationale. -->
 
 #### WASM module runtime
 
@@ -1311,13 +1309,9 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `kscore-monitor` opens, navigates between views, refreshes live.
 - **References**: PROJECT-DETAILS §4.16 (line 1123); Epic 17.
 
-#### macOS agent
-
-- **Priority**: v1.x
-- **What**: kscore-agent on macOS with launchd integration.
-- **Why deferred**: Linux is v1.0 target; macOS adds `launchd` stdlib + Keychain integration.
-- **Acceptance**: kscore-agent runs under launchd; agent identity stored in Keychain.
-- **References**: PROJECT-DETAILS §4.6 (line 487), §4.8 (line 619).
+<!-- "macOS agent" moved to v2.x+ on 2026-05-31 as part of the
+     linux-only-server+agent+bootstrap re-scope. Block relocated to
+     the v2.x+ section below. -->
 
 #### SPIRE-backed identity provider
 
@@ -1503,3 +1497,27 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why now**: Breaking change — it changes the agent↔server authentication model and needs a key-distribution mechanism still being designed; lands with the v2.x+ auth/security infra changes (cloud KMS, federation).
 - **Acceptance for unblock**: Bootstrap exchange establishes a per-agent key; server authenticates inbound by agent identity; cluster-wide secret removed (or relegated to a legacy compatibility window decided at design time).
 - **References**: Epic 06 task 6 `_(landed)_`; `internal/agent/security.go:71`; `internal/config/security.go:15`.
+
+<!-- Non-linux agent support — moved from v1.x to v2.x+ on 2026-05-31
+     (linux-only-server+agent+bootstrap re-scope). v1.0 targets linux
+     fleets only; the desktop CLIs stay cross-platform for operators
+     who use Mac/Windows workstations. macOS/Windows agent work
+     resumes here at v2.x+ along with the platform-specific stdlib
+     modules (launchd, win_feature, win_firewall, etc.) and the
+     Repository generation (DNF/APT/Windows MSI) packaging entry. -->
+
+#### Windows agent (native service)
+
+- **Priority**: v2.x+
+- **What**: kscore-agent on Windows with `service install/uninstall/start/stop/status` subcommands and SCM integration.
+- **Why deferred**: v1.0 platform target = Linux amd64+arm64. Windows needs separate stdlib (`win_feature`, `win_firewall`, etc.) and user-switching — `internal/agent/exec_user_windows.go:15` is a stub returning `not supported in v1.0`. Re-bucketed from v1.x to v2.x+ on 2026-05-31 when the v1.0 platform scope was clarified to be linux-only end-to-end (server + agent + bootstrap), making non-linux agent work explicitly post-v1.0 architectural change rather than a v1.x feature add.
+- **Acceptance**: kscore-agent runs as a Windows service; SIGTERM equivalent triggers clean shutdown; user switching works via `LogonUser` / `CreateProcessAsUser`.
+- **References**: PROJECT-DETAILS §4.6 (line 487), §4.8 (line 619); `internal/agent/exec_user_windows.go`.
+
+#### macOS agent
+
+- **Priority**: v2.x+
+- **What**: kscore-agent on macOS with launchd integration.
+- **Why deferred**: Linux is v1.0 target; macOS adds `launchd` stdlib + Keychain integration. Re-bucketed from v1.x to v2.x+ on 2026-05-31 alongside the Windows agent entry.
+- **Acceptance**: kscore-agent runs under launchd; agent identity stored in Keychain.
+- **References**: PROJECT-DETAILS §4.6 (line 487), §4.8 (line 619).

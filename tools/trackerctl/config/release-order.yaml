@@ -90,7 +90,6 @@ gate-v1.0:
   - "Policy enforcement side-effects (Warn events + Enforce violation handlers)"
 
 v0.x:
-  - "Phase D3: macOS dev-build sanity test"
   - "Phase E1: required signed commits on `main` branch protection"
   - "Native package repositories — APT, DNF/YUM"
   - "Changie configuration: `replacements` for reference-link maintenance"
@@ -158,7 +157,6 @@ v1.x:
   - "Encrypted-file per-secret TTL expiry"
   - "kscore-identity federation subcommands"
   - "Trust federation (cross-domain bundle endpoint)"
-  - "Windows agent (native service)"
   - "WASM module runtime"
   - "Module signing: cosign keyless / Rekor transparency / encrypted cosign keyfile interop"
   - "Module registry publish authentication"
@@ -167,7 +165,6 @@ v1.x:
   - "Module test framework: injectable record/replay http/exec/secrets test hosts"
   - "Module test framework: multi-file module tests via Starlark `load()`"
   - "TUI monitor (`kscore-monitor`)"
-  - "macOS agent"
   - "SPIRE-backed identity provider"
   - "K8s operator"
   - "Weighted endpoint load distribution + K8s endpoint discovery"
@@ -195,3 +192,8 @@ v2.x+:
   # Pushed back from gate-v1.0 (breaking auth/topology changes):
   - "Config: no per-endpoint TLS overrides"
   - "Cluster-wide HMAC secret (vs per-agent)"
+  # Pushed back from v1.x 2026-05-31 — linux-only-server+agent+bootstrap
+  # re-scope made non-linux agent support an architectural v2.x change
+  # rather than a v1.x feature add:
+  - "Windows agent (native service)"
+  - "macOS agent"

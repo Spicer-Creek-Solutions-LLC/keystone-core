@@ -48,7 +48,7 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 
 ### v1.0 (in scope)
 
-- **Cross-platform builds** (linux/darwin/windows × amd64/arm64) via Makefile. Source: `Makefile`. *Reasoning: required for any commercial trial.*
+- **Cross-platform CLI builds** (linux/darwin/windows × amd64/arm64) via Makefile. Source: `Makefile`. *Reasoning: operators on Mac/Windows desktops can run kscorectl + every kscore-* operator CLI against a linux fleet. Server, agent, and bootstrap binaries are linux-only at v1.0 (non-linux agent support is v2.x+).*
 - **Pure-Go build (CGO_ENABLED=0)**. Source: `Makefile`, `pkg/dbutil/`. *Reasoning: enables Alpine/scratch images, simple cross-compile; non-negotiable for distribution.*
 - **Buf-based proto codegen** (Go + gRPC plugins). Source: `buf.yaml`, `buf.gen.yaml`. *Reasoning: API surface depends on it.*
 - **Build-time version injection** (`pkg/version`: Version, GitCommit, BuildDate). Source: `pkg/version/`, `Makefile` LDFLAGS. *Reasoning: support window + bug reports require it.*
@@ -73,7 +73,7 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 - **PDF export of the docs site** (Hugo print pipeline). Source: `docs/`. **[v1.x]**. *Reasoning: web docs at v0.5 (above) satisfy the tester audience; PDF generation is a separate ceremony — toolchain, page-break tuning, archive-class freezing — not justified for the v0.5 milestone.*
 - **HA / IPv6 / HA+IPv6 E2E topologies** [v1.x]. *Reasoning: clustering ships in v0.1 but full topology matrix can land iteratively.*
 - **Hot-reload dev server (`air`)** [v1.0.x]. *Reasoning: dev-only, ship with v1.0 dot release.*
-- **Repository generation (DNF/APT/Windows MSI)** [v1.x]. *Reasoning: tarballs cover trial users; package repos require infra commitment.*
+- **Repository generation (DNF/APT)** [gate-v0.5]. *Reasoning: tarballs + direct-download .deb/.rpm cover v0.1.x trial users; hosted package repos pair with the gate-v0.5 signing batch. Windows MSI re-bucketed to v2.x+ with the Windows agent entry on 2026-05-31.*
 - **VM bootstrap test harness** [v1.x]. *Reasoning: container E2E sufficient for v1.0.*
 - **Full security scanning suite** (semgrep, trivy, syft, grype, hadolint) [v1.x]. *Reasoning: gitleaks + govulncheck + gosec sufficient for v1.0.*
 - **Goreleaser signing ceremony / multi-party release** [v1.x]. *Reasoning: heavy ceremony documented in current `RELEASE-PLAYBOOK.md`; single-signer release acceptable for v1.0.*
@@ -222,8 +222,8 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 
 - **Embedded NATS / hybrid mode (agent as host or leaf)** **[v2.x+]**. Source: `internal/agent/nats_server.go`, hybrid_mode_state_machine. *Reasoning: edge / disconnected scenarios; v1 assumes control plane is reachable. Carries significant FSM complexity.*
 - **Endpoint advertiser + reverse-leaf NAT traversal** **[v2.x+]**. *Reasoning: same — niche.*
-- **Windows agent** (native service) **[v1.x]**. *Reasoning: deferred per state-mgmt categorization; Windows stdlib lands together in v1.x.*
-- **macOS agent** **[v1.x]**. *Reasoning: low trial-population; defer behind Windows.*
+- **Windows agent** (native service) **[v2.x+]**. *Reasoning: re-bucketed from v1.x to v2.x+ on 2026-05-31. v1.0 platform target is linux-only end-to-end (server + agent + bootstrap); non-linux agent support is an architectural post-v1.0 change. Windows stdlib (`win_feature`, `win_firewall`, etc.) lands together.*
+- **macOS agent** **[v2.x+]**. *Reasoning: re-bucketed alongside Windows agent on 2026-05-31. macOS-specific scheduling (`launchd`) and Keychain integration land together.*
 - **Interactive shell sessions** **[v1.x]**. *Reasoning: nice-to-have, not core.*
 - **VM-based bootstrap test harness** **[v1.x]**. *Reasoning: Docker CI sufficient for v1.0.*
 - **Auto-rotation of NATS creds in memory** **[v1.x]**. *Reasoning: gates on SPIRE/identity rotation.*
@@ -289,16 +289,16 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 
 *Reasoning: this set covers ~90% of universal Linux sysadmin daily tasks. Sysadmin trial users can replace Salt formulas / Ansible playbooks for their core workflow.*
 
-### v1.x (deferred — Linux extended + Windows + containers + DBs)
+### v1.x (deferred — Linux extended + containers + DBs)
 
-- **Windows-native modules**: `win_feature`, `win_firewall`, `win_registry`, `win_service`, `win_package`. *Reasoning: ships with Windows agent in v1.x.*
 - **Container modules**: `docker_container`, `docker_image`, `docker_network`, `docker_volume`. *Reasoning: ops feature; not blocking sysadmin trial.*
 - **Web servers**: `web` (nginx/Apache abstraction). *Reasoning: same.*
 - **Database admin**: `postgres_database`, `mysql_database`, `redis`. *Reasoning: same.*
-- **macOS-specific scheduling**: `launchd`. *Reasoning: macOS agent is v1.x.*
 
 ### v2.x+ (deferred)
 
+- **Windows-native modules**: `win_feature`, `win_firewall`, `win_registry`, `win_service`, `win_package`. **[v2.x+]**. *Reasoning: ships with Windows agent — re-bucketed to v2.x+ on 2026-05-31 alongside the Windows agent entry.*
+- **macOS-specific scheduling**: `launchd`. **[v2.x+]**. *Reasoning: ships with macOS agent — re-bucketed to v2.x+ on 2026-05-31 alongside the macOS agent entry.*
 - **Kubernetes modules** (`k8s_deployment`, `k8s_statefulset`, `k8s_daemonset`, `k8s_job`, `k8s_cronjob`, `k8s_service`, `k8s_ingress`, `k8s_configmap`, `k8s_secret`, `k8s_namespace`, `k8s_pvc`, `k8s_hpa`). **[v2.x+]**. *Reasoning: cloud-native; depends on K8s operator (v1.x) maturing first.*
 - **DNS provider modules** (Route53, CloudFlare, Hetzner, etc.). **[v2.x+]**. *Reasoning: see DNS provider domain.*
 - **Niche networking** (`promisc`, `wifi`, `dot1x`, `scheduled_task` Windows). **[v2.x+]**. *Reasoning: niche.*
@@ -689,8 +689,8 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 
 ### v1.x (deferred)
 
-- **Windows agent** (native service via SCM, Event Log, PowerShell exec, registry, Chocolatey/winget). **[v1.x]**. *Reasoning: paired with Windows stdlib in state mgmt; meaningful subset of trial users.*
-- **macOS agent** **[v1.x]**. *Reasoning: low population; defer behind Windows.*
+- **Windows agent** (native service via SCM, Event Log, PowerShell exec, registry, Chocolatey/winget). **[v2.x+]**. *Reasoning: re-bucketed from v1.x on 2026-05-31. v1.0 platform target is linux-only; non-linux agent support is architectural post-v1.0 work.*
+- **macOS agent** **[v2.x+]**. *Reasoning: re-bucketed alongside Windows agent on 2026-05-31.*
 - **Container runtime detection** (Docker/containerd/Podman/CRI-O via socket + cgroup parsing). **[v1.x]**. *Reasoning: paired with v1.x container stdlib modules.*
 
 ### v1.x (deferred)
