@@ -256,6 +256,10 @@ archives:
   - id: default
     name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}_{{.Arch}}"
     formats: [tar.gz]
+    # Linux archives carry 20 binaries; darwin/windows carry 17
+    # (server/agent/bootstrap are linux-only at v1.0 per PR #142).
+    # Tell goreleaser the asymmetry is deliberate, not a misconfig.
+    allow_different_binary_count: true
     format_overrides:
       - goos: windows
         formats: [zip]
