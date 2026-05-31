@@ -276,8 +276,26 @@ func TestScheduler_ErrorsDoNotStopScheduler(t *testing.T) {
 			t.Fatalf("tick %d never fired (errors stopped scheduler?)", i)
 		}
 	}
-	if e.RunsFailed() < 3 {
-		t.Errorf("RunsFailed = %d, want >= 3", e.RunsFailed())
+	// runsFailed increments AFTER the stub's Apply returns
+	// (retention.go:196), but applySignaled fires INSIDE the stub
+	// BEFORE the production-side increment — so the third counter
+	// bump may not be visible the instant the third channel signal
+	// is consumed. Poll briefly so the increment lands; read once
+	// into got so the error message can't disagree with the branch
+	// condition (the pre-fix code called RunsFailed() twice and
+	// produced "RunsFailed = 3, want >= 3" because the counter
+	// incremented between the if and the Errorf format args).
+	var got int64
+	deadline := time.Now().Add(200 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		got = e.RunsFailed()
+		if got >= 3 {
+			break
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+	if got < 3 {
+		t.Errorf("RunsFailed = %d, want >= 3", got)
 	}
 }
 
