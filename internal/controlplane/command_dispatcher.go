@@ -351,6 +351,7 @@ func (d *CommandDispatcher) Dispatch(ctx context.Context, req DispatchRequest) (
 		Env:            req.Env,
 		WorkingDir:     req.WorkingDir,
 		User:           req.User,
+		Principal:      req.Principal,
 		TimeoutSeconds: timeoutSecs,
 		Status:         state.CommandStatusPending,
 		StartedAt:      now,
@@ -463,12 +464,9 @@ func (d *CommandDispatcher) RecordResult(ctx context.Context, id string, result 
 	d.mu.Lock()
 	delete(d.inflight, id)
 	d.mu.Unlock()
-	// Principal is empty for the agent-reported path — the dispatch
-	// principal isn't persisted on CommandRecord (v0.x ROADMAP entry
-	// tracks adding a principal column). For now the audit row's
-	// User field is filled from CommandRecord.User where present, or
-	// stays empty for kernel-initiated commands.
-	d.notifyTerminal(ctx, "", cur, result)
+	// Audit emission carries the dispatch-time principal that was
+	// persisted on CommandRecord at Dispatch time (issue #96).
+	d.notifyTerminal(ctx, cur.Principal, cur, result)
 	return nil
 }
 
@@ -542,11 +540,12 @@ func (d *CommandDispatcher) sweepTimeouts(ctx context.Context) {
 		d.logger.Info("controlplane: command timed out", "command_id", id)
 		if d.onTerminal != nil {
 			// Fetch the record on the audit path so the callback has
-			// command / args context — sweepTimeouts only keeps
-			// deadline+agent in its inflight map.
+			// command / args + the persisted dispatch principal —
+			// sweepTimeouts only keeps deadline+agent in its inflight
+			// map (issue #96).
 			rec, err := d.store.GetCommand(ctx, id)
 			if err == nil {
-				d.notifyTerminal(ctx, "", rec, timeoutResult)
+				d.notifyTerminal(ctx, rec.Principal, rec, timeoutResult)
 			}
 		}
 	}

@@ -36,14 +36,67 @@ func Schema(backend Backend) []string {
 }
 
 // applySchema runs every statement in Schema(backend) against db in
-// order. Used by SQLiteStore and PostgreSQLStore from their initSchema
-// methods. Each statement is idempotent — repeated calls are safe.
+// order, then runs the inline column-migrations (one-off ADD COLUMN
+// statements that cover databases created before a column was added
+// to the baseline CREATE TABLE). Used by SQLiteStore and
+// PostgreSQLStore from their initSchema methods. Both phases are
+// idempotent — repeated calls are safe.
+//
+// Inline migrations live here until the gate-v1.0 "Schema versioning
+// via golang-migrate" backlog entry replaces them with a proper
+// migration framework.
 func applySchema(ctx context.Context, db *sql.DB, backend Backend) error {
 	for _, stmt := range Schema(backend) {
 		if _, err := db.ExecContext(ctx, stmt); err != nil {
 			return fmt.Errorf("state: applySchema %q: %w",
 				schemaStmtSummary(stmt), err)
 		}
+	}
+	if err := migrateAddCommandsPrincipal(ctx, db, backend); err != nil {
+		return fmt.Errorf("state: applySchema migrate principal: %w", err)
+	}
+	return nil
+}
+
+// migrateAddCommandsPrincipal adds the `principal` column to the
+// commands table if it doesn't already exist. Idempotent on both
+// backends. Fresh installs get the column from the baseline CREATE
+// TABLE; this function exists to upgrade databases that pre-date
+// the column.
+//
+// SQLite doesn't support ADD COLUMN IF NOT EXISTS until very recent
+// versions and modernc/sqlite's bundled version isn't guaranteed —
+// so we probe via PRAGMA table_info and only add when missing.
+// Postgres has supported ADD COLUMN IF NOT EXISTS since 9.6.
+func migrateAddCommandsPrincipal(ctx context.Context, db *sql.DB, backend Backend) error {
+	switch backend {
+	case BackendPostgreSQL:
+		_, err := db.ExecContext(ctx,
+			`ALTER TABLE commands ADD COLUMN IF NOT EXISTS principal TEXT`)
+		return err
+	case BackendSQLite:
+		rows, err := db.QueryContext(ctx, `PRAGMA table_info(commands)`)
+		if err != nil {
+			return fmt.Errorf("pragma table_info: %w", err)
+		}
+		defer func() { _ = rows.Close() }()
+		for rows.Next() {
+			var cid int
+			var name, typ string
+			var notnull, pk int
+			var dfltValue sql.NullString
+			if err := rows.Scan(&cid, &name, &typ, &notnull, &dfltValue, &pk); err != nil {
+				return fmt.Errorf("scan table_info: %w", err)
+			}
+			if name == "principal" {
+				return rows.Err()
+			}
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		_, err = db.ExecContext(ctx, `ALTER TABLE commands ADD COLUMN principal TEXT`)
+		return err
 	}
 	return nil
 }
@@ -95,6 +148,7 @@ var sqliteSchema = []string{
     env             TEXT NOT NULL,
     working_dir     TEXT,
     "user"          TEXT,
+    principal       TEXT,
     timeout_seconds INTEGER NOT NULL DEFAULT 0,
     status          TEXT NOT NULL,
     exit_code       INTEGER,
@@ -292,6 +346,7 @@ var postgresSchema = []string{
     env             JSONB NOT NULL,
     working_dir     TEXT,
     "user"          TEXT,
+    principal       TEXT,
     timeout_seconds INTEGER NOT NULL DEFAULT 0,
     status          TEXT NOT NULL,
     exit_code       INTEGER,

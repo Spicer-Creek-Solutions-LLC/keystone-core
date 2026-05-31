@@ -47,6 +47,9 @@ func TestPg_CommandCRUD(t *testing.T) {
 	if got.ExitCode != 0 {
 		t.Errorf("ExitCode for pending: %d", got.ExitCode)
 	}
+	if got.Principal != "alice@example.com" {
+		t.Errorf("Principal round-trip: got %q, want %q", got.Principal, "alice@example.com")
+	}
 
 	result := CommandResult{
 		Status:      CommandStatusCompleted,

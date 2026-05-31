@@ -98,6 +98,12 @@ type AgentRecord struct {
 
 // CommandRecord is the persistent shape of a single command execution.
 // Maps to the `commands` table.
+//
+// User vs Principal: User is the OS-level user the command runs AS on
+// the target host (sudo-as-someone); Principal is the operator/SPIFFE
+// identity that requested the dispatch (the audit-log actor). The two
+// are unrelated — e.g., an operator alice@example.com may dispatch a
+// command that runs as root on the host.
 type CommandRecord struct {
 	ID             string
 	AgentID        string
@@ -106,6 +112,7 @@ type CommandRecord struct {
 	Env            map[string]string
 	WorkingDir     string
 	User           string
+	Principal      string
 	TimeoutSeconds int
 	Status         CommandStatus
 	ExitCode       int
