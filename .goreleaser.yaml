@@ -35,9 +35,13 @@ before:
 # Anchors live on the first build because goreleaser rejects unknown
 # top-level keys.
 builds:
-  - id: kscore-server
-    binary: kscore-server
-    main: ./cmd/kscore-server
+  # CLI binaries ship cross-platform (linux/darwin/windows × amd64/arm64).
+  # The server, agent, and bootstrap binaries are linux-only at v1.0
+  # (macOS/Windows agent support is v2.x+). They appear at the end of
+  # this list so the shared YAML anchors land on a cross-platform build.
+  - id: kscorectl
+    binary: kscorectl
+    main: ./cmd/kscorectl
     env: &env [CGO_ENABLED=0]
     flags: &flags [-trimpath]
     goos: &goos [linux, darwin, windows]
@@ -52,26 +56,6 @@ builds:
       - -X go.keystone-core.io/keystone-core/pkg/version.Version={{.Version}}
       - -X go.keystone-core.io/keystone-core/pkg/version.GitCommit={{.ShortCommit}}
       - -X go.keystone-core.io/keystone-core/pkg/version.BuildDate={{.Date}}
-
-  - id: kscore-agent
-    binary: kscore-agent
-    main: ./cmd/kscore-agent
-    env: *env
-    flags: *flags
-    goos: *goos
-    goarch: *goarch
-    ignore: *ignore
-    ldflags: *ldflags
-
-  - id: kscorectl
-    binary: kscorectl
-    main: ./cmd/kscorectl
-    env: *env
-    flags: *flags
-    goos: *goos
-    goarch: *goarch
-    ignore: *ignore
-    ldflags: *ldflags
 
   - id: kscore-audit
     binary: kscore-audit
@@ -96,16 +80,6 @@ builds:
   - id: kscore-blueprint
     binary: kscore-blueprint
     main: ./cmd/kscore-blueprint
-    env: *env
-    flags: *flags
-    goos: *goos
-    goarch: *goarch
-    ignore: *ignore
-    ldflags: *ldflags
-
-  - id: kscore-bootstrap
-    binary: kscore-bootstrap
-    main: ./cmd/kscore-bootstrap
     env: *env
     flags: *flags
     goos: *goos
@@ -243,9 +217,41 @@ builds:
     ignore: *ignore
     ldflags: *ldflags
 
-# One archive per (goos, goarch) bundling ALL 20 binaries plus the
-# project-level legal/text files. Archive name matches the
-# convention in RELEASE-PLAYBOOK.md §Phase 7 Package Construction.
+  # Linux-only mains. Server runs on linux production hosts; agent
+  # runs on managed linux hosts; bootstrap provisions a new linux
+  # agent host. macOS/Windows agent support is v2.x+ (see ROADMAP).
+  - id: kscore-server
+    binary: kscore-server
+    main: ./cmd/kscore-server
+    env: *env
+    flags: *flags
+    goos: [linux]
+    goarch: *goarch
+    ldflags: *ldflags
+
+  - id: kscore-agent
+    binary: kscore-agent
+    main: ./cmd/kscore-agent
+    env: *env
+    flags: *flags
+    goos: [linux]
+    goarch: *goarch
+    ldflags: *ldflags
+
+  - id: kscore-bootstrap
+    binary: kscore-bootstrap
+    main: ./cmd/kscore-bootstrap
+    env: *env
+    flags: *flags
+    goos: [linux]
+    goarch: *goarch
+    ldflags: *ldflags
+
+# One archive per (goos, goarch) bundling the binaries built for that
+# platform plus the project-level legal/text files. Linux archives
+# carry all 20 binaries; darwin/windows archives carry the 17
+# cross-platform CLIs (server, agent, bootstrap are linux-only).
+# Archive name matches RELEASE-PLAYBOOK.md §Phase 7.
 archives:
   - id: default
     name_template: "{{.ProjectName}}_{{.Version}}_{{.Os}}_{{.Arch}}"
