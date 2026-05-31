@@ -236,6 +236,39 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: Six guides under `docs/content/en/docs/getting-started/` in the Hugo content tree; each is runnable end-to-end on a fresh Ubuntu VM; each is link-checked.
 - **References**: epic 19 task 9 `_(landed)_`; `docs/project/GETTING-STARTED.md`; Hugo docs site entry under gate-v0.5.
 
+<!-- Signing batch (Phase E1 + Release signing ceremony + Native package
+     repos) re-bucketed from v0.x to gate-v0.5 per planning decision
+     2026-05-31. Rationale: pre-v0.5 there are essentially no external
+     consumers of binaries, so signing's actual security value is low.
+     gate-v0.5 is the external-tester milestone — coalescing signing
+     work with that gate means the "we're ready for external testers"
+     story lands with end-to-end trust (signed commits → signed tags
+     → signed packages → repo-served install path). -->
+
+#### Phase E1: required signed commits on `main` branch protection
+
+- **Priority**: gate-v0.5
+- **What**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` E1 calls for a signed-commit requirement on the `main` branch protection rule (alongside the DCO check and required status checks). DCO landed as a CI gate (`.forgejo/workflows/ci-fast.yml` `dco-check` job, status-check-required on `main`) and the 11 `ci-fast.yml` jobs are required, but the "require signed commits" toggle on the `main` rule is left **off** for v0.1.x.
+- **Why deferred**: solo-maintainer v0.1.x posture. Mandatory signed commits requires a documented contributor-key onboarding flow (GPG/SSH key generation, Codeberg upload, verification cross-check) before it's reasonable to gate merges on it. `RELEASE-PLAYBOOK.md` already covers signed release tags, which is the higher-value signing surface for v0.1.x. Deferred 2026-05-27 with maintainer approval during the E1 close-out; re-bucketed 2026-05-31 to coalesce with the gate-v0.5 signing batch.
+- **Acceptance**: contributor-key onboarding flow documented (probably in `CONTRIBUTING.md` or a new `docs/project/SIGNING-KEYS.md`); the `main` branch protection rule on Codeberg has `require_signed_commits: true`; this ROADMAP entry removed and the E1 landed-note in PUBLIC-LAUNCH-CHECKLIST.md updated to mark signed-commit enforcement as live.
+- **References**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` E1; `docs/project/CODEBERG-SETTINGS-AUDIT.md`; `RELEASE-PLAYBOOK.md` signing ceremony.
+
+#### Release signing ceremony — signed tags + checksums + SBOMs
+
+- **Priority**: gate-v0.5
+- **What**: v0.1.0 shipped as a one-time carve-out with **no signed tag, no signed checksums, no signed SBOM**. Trust model collapsed to TLS-to-codeberg.org + manual `sha256sum -c`. The first gate-v0.5 release lands the full single-signer signing flow per `RELEASE-PLAYBOOK.md` §6 (Signing) + §9 (Publication): signing-key generation ceremony (RELEASE-PLAYBOOK §2 v0.x simplification), `tag.gpgsign true` wired into git config, `goreleaser` configured to emit `.sig` sidecars for archives + packages + checksums + SBOM, RELEASE-PLAYBOOK §6 v0.1.0-only callout removed, CHANGELOG verification section updated to the signed flow.
+- **Why deferred (from v0.1.0)**: soft-launch posture for v0.1.0 (per `docs/project/GOVERNANCE.md` § Launch Posture + `PUBLIC-LAUNCH-CHECKLIST.md` F1) tolerated the unsigned trust gap; signing-key setup + the per-platform key-distribution story were not blocking the curious-operator audience. Recorded as the v0.1.0-only carve-out during v0.1.0 release prep on 2026-05-27; re-bucketed 2026-05-31 from a held-to-end-of-v0.x position to gate-v0.5 once it became clear that pre-v0.5 there are essentially no external consumers for signing to protect.
+- **Acceptance**: signing key generated per `RELEASE-PLAYBOOK.md` §2 v0.x simplification; `git config tag.gpgsign true` wired into the release workstation; `make release` emits `.sig` files for `checksums.txt` + every SBOM (and ideally per-archive sidecars per `goreleaser` `signs:` block); `RELEASE-PLAYBOOK.md` §6 v0.1.0-only callout removed; `SECURITY.md` "Supply chain security & release verification" section updated; this ROADMAP entry removed when the first gate-v0.5 release ships signed.
+- **References**: `RELEASE-PLAYBOOK.md` §2 + §6 + §9 (v0.x single-signer); `CHANGELOG.md` v0.1.0 Verification section (unsigned trust-model callout); `SECURITY.md` "Supply chain security" subsection; `.goreleaser.yaml` (currently no `signs:` block).
+
+#### Native package repositories — APT, DNF/YUM
+
+- **Priority**: gate-v0.5
+- **What**: v0.1.0 ships `.deb` and `.rpm` packages attached as direct downloads on the Codeberg Release page; operators `dpkg -i` / `rpm -i` the file by hand. A hosted package-repo experience — signed `apt`/`dnf`/`zypper` indices on `apt.keystone-core.io` (or equivalent), `apt-get install kscore-cli` / `dnf install kscore-server` working out of the box — lands at gate-v0.5 alongside the signing ceremony (shared key-onboarding). Includes: hosting story (Codeberg Pages vs Cloudflare R2 vs self-hosted), signed repo metadata (apt `Release.gpg` / dnf `repomd.xml` signatures), repo-signing key onboarding parallel to the release-signing ceremony, `goreleaser` integration (or post-release publish step), `docs/project/GETTING-STARTED.md` updated to use the repo-install path as the primary recipe.
+- **Why deferred (from v0.1.0)**: soft-launch audience tolerates direct-download `dpkg -i` / `rpm -i`; the formal external-tester milestone (gate-v0.5) is when the convenience step pays off. Decision 2026-05-27 during v0.1.0 release prep; explicitly bucketed to gate-v0.5 on 2026-05-31 as part of the signing-batch re-bucketing.
+- **Acceptance**: signed apt repo serving `.deb` packages from at least one production-ready URL; signed dnf/yum repo serving `.rpm` packages from the same; install recipe in `docs/project/GETTING-STARTED.md` uses the repo path as the primary, with the direct-download path documented as a fallback; `RELEASE-PLAYBOOK.md` §9 "Publication" updated to include the publish-to-repo step; CHANGELOG entry on the release that lands it; this ROADMAP entry removed.
+- **References**: `.goreleaser.yaml` nfpms block (produces `.deb` + `.rpm`); `RELEASE-PLAYBOOK.md` §9 Publication; companion: "Release signing ceremony" (shared key-onboarding work).
+
 ## gate-v1.0 — blocks v1.0 SemVer-stability commitment
 
 #### Module system boot wiring (loader PolicyChecker/Hosts/trust-policy + runtime registration)
@@ -659,22 +692,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: a maintainer or named near-term contributor runs `make build && make test` (or `make check`) on macOS 14+ (Apple Silicon and/or Intel), reports the results, and either ticks D3 in PUBLIC-LAUNCH-CHECKLIST.md or files specific Darwin-runtime bugs as separate roadmap entries.
 - **References**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` D3; `.goreleaser.yaml` darwin builds; `internal/statemgmt/stdlib/fs_unix.go` + `fs_windows.go`.
 
-#### Phase E1: required signed commits on `main` branch protection
-
-- **Priority**: v0.x
-- **What**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` E1 calls for a signed-commit requirement on the `main` branch protection rule (alongside the DCO check and required status checks). DCO landed as a CI gate (`.forgejo/workflows/ci-fast.yml` `dco-check` job, status-check-required on `main`) and the 11 `ci-fast.yml` jobs are required, but the "require signed commits" toggle on the `main` rule is left **off** for v0.1.x.
-- **Why deferred**: solo-maintainer v0.1.x posture. Mandatory signed commits requires a documented contributor-key onboarding flow (GPG/SSH key generation, Codeberg upload, verification cross-check) before it's reasonable to gate merges on it. `RELEASE-PLAYBOOK.md` already covers signed release tags, which is the higher-value signing surface for v0.1.x. Deferred 2026-05-27 with maintainer approval during the E1 close-out.
-- **Acceptance**: contributor-key onboarding flow documented (probably in `CONTRIBUTING.md` or a new `docs/project/SIGNING-KEYS.md`); the `main` branch protection rule on Codeberg has `require_signed_commits: true`; this ROADMAP entry removed and the E1 landed-note in PUBLIC-LAUNCH-CHECKLIST.md updated to mark signed-commit enforcement as live.
-- **References**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` E1; `docs/project/CODEBERG-SETTINGS-AUDIT.md`; `RELEASE-PLAYBOOK.md` signing ceremony.
-
-#### Native package repositories — APT, DNF/YUM
-
-- **Priority**: v0.x (pre-v1.0, no specific gate)
-- **What**: v0.1.0 ships `.deb` and `.rpm` packages attached as direct downloads on the Codeberg Release page; operators `dpkg -i` / `rpm -i` the file by hand. A hosted package-repo experience — signed `apt`/`dnf`/`zypper` indices on `apt.keystone-core.io` (or equivalent), `apt-get install kscore-cli` / `dnf install kscore-server` working out of the box — lands before v1.0. Includes: hosting story (Codeberg Pages vs Cloudflare R2 vs self-hosted), signed repo metadata (apt `Release.gpg` / dnf `repomd.xml` signatures), repo-signing key onboarding parallel to the [[release-signing-ceremony]], `goreleaser` integration (or post-release publish step), `docs/project/GETTING-STARTED.md` updated to use the repo-install path as the primary recipe.
-- **Why deferred (from v0.1.0)**: soft-launch audience tolerates direct-download `dpkg -i` / `rpm -i`; the formal external-tester milestone (v0.5) is when the convenience step pays off. Decision 2026-05-27 during v0.1.0 release prep.
-- **Acceptance**: signed apt repo serving `.deb` packages from at least one production-ready URL; signed dnf/yum repo serving `.rpm` packages from the same; install recipe in `docs/project/GETTING-STARTED.md` uses the repo path as the primary, with the direct-download path documented as a fallback; `RELEASE-PLAYBOOK.md` §9 "Publication" updated to include the publish-to-repo step; CHANGELOG entry on the release that lands it; this ROADMAP entry removed.
-- **References**: `.goreleaser.yaml` nfpms block (produces `.deb` + `.rpm`); `RELEASE-PLAYBOOK.md` §9 Publication; [[release-signing-ceremony]] (shared key-onboarding work).
-
 #### Changie configuration: `replacements` for reference-link maintenance
 
 - **Priority**: v0.x
@@ -1031,16 +1048,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why deferred (from v0.1)**: Epic 17 task 4 shipped Zipkin support because the epic explicitly listed it; the upstream deprecation surfaced afterward. Emitting the warning early gives operators the maximum runway to migrate before the gate-v1.0 freeze decision (companion above).
 - **Acceptance**: `tracing.exporter=zipkin` logs a deprecation warning at config-validation time naming OTLP as the replacement; tracing docs recommend OTLP; the exporter still works (no removal).
 - **References**: `internal/config/tracing.go` (`Validate`); `internal/tracing/exporters.go`; `internal/tracing/doc.go`; companion: "Zipkin tracing exporter: do not freeze into the v1.0 surface".
-
-<!-- Held to the end of v0.x — last work before tagging v0.2.0 per planning decision 2026-05-30. -->
-
-#### Release signing ceremony — signed tags + checksums + SBOMs
-
-- **Priority**: v0.x (**target v0.2.0**)
-- **What**: v0.1.0 shipped as a one-time carve-out with **no signed tag, no signed checksums, no signed SBOM**. Trust model collapsed to TLS-to-codeberg.org + manual `sha256sum -c`. v0.2.0 lands the full single-signer signing flow per `RELEASE-PLAYBOOK.md` §6 (Signing) + §9 (Publication): signing-key generation ceremony (RELEASE-PLAYBOOK §2 v0.x simplification), `tag.gpgsign true` wired into git config, `goreleaser` configured to emit `.sig` sidecars for archives + packages + checksums + SBOM, RELEASE-PLAYBOOK §6 v0.1.0-only callout removed, CHANGELOG `[v0.2.0]` verification section updated to the signed flow.
-- **Why deferred (from v0.1.0)**: soft-launch posture for v0.1.0 (per `docs/project/GOVERNANCE.md` § Launch Posture + `PUBLIC-LAUNCH-CHECKLIST.md` F1) tolerated the unsigned trust gap; signing-key setup + the per-platform key-distribution story were not blocking the curious-operator audience. Recorded as the v0.1.0-only carve-out with v0.2.0 as the explicit graduation gate during v0.1.0 release prep on 2026-05-27.
-- **Acceptance**: signing key generated per `RELEASE-PLAYBOOK.md` §2 v0.x simplification; `git config tag.gpgsign true` wired into the release workstation; `make release` emits `.sig` files for `checksums.txt` + every SBOM (and ideally per-archive sidecars per `goreleaser` `signs:` block); `RELEASE-PLAYBOOK.md` §6 v0.1.0-only callout removed; `SECURITY.md` "Supply chain security & release verification" section updated; this ROADMAP entry removed when v0.2.0 ships signed.
-- **References**: `RELEASE-PLAYBOOK.md` §2 + §6 + §9 (v0.x single-signer); `CHANGELOG.md` v0.1.0 Verification section (unsigned trust-model callout); `SECURITY.md` "Supply chain security" subsection; `.goreleaser.yaml` (currently no `signs:` block).
 
 ## v1.x — post-v1.0 feature additions
 
