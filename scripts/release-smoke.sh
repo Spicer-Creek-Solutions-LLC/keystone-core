@@ -45,17 +45,29 @@ fi
 # Resolve to an absolute path so docker -v always sees the right dir.
 dist=$(cd "$dist" && pwd)
 
-# 20 binaries (every cmd/kscore-* + kscorectl). Source of truth:
-# .goreleaser.yaml builds: section. Used here only for the archive
-# content check; the in-container script repeats the list for the
-# binary --version check.
-BINARIES=(
-  kscore-server kscore-agent kscorectl
-  kscore-audit kscore-backup kscore-blueprint kscore-bootstrap
+# Binaries split into linux-only (server, agent, bootstrap) and
+# cross-platform (everything else). Source of truth:
+# .goreleaser.yaml builds: section. Linux archives carry all 20;
+# darwin/windows archives carry only the 17 cross-platform CLIs
+# (per PR #142 — server/agent/bootstrap are linux-only at v1.0;
+# macOS/Windows agent support is v2.x+).
+LINUX_ONLY_BINARIES=(
+  kscore-server kscore-agent kscore-bootstrap
+)
+CROSS_PLATFORM_BINARIES=(
+  kscorectl
+  kscore-audit kscore-backup kscore-blueprint
   kscore-cluster kscore-cluster-backup kscore-events kscore-files
   kscore-gitops kscore-identity kscore-migrate kscore-module
   kscore-policy kscore-registry kscore-runbook kscore-secrets
   kscore-webhook
+)
+# Backwards-compat alias used by the in-container linux-side script
+# (which only runs on linux artifacts, so the full list is what it
+# expects).
+BINARIES=(
+  "${LINUX_ONLY_BINARIES[@]}"
+  "${CROSS_PLATFORM_BINARIES[@]}"
 )
 
 # (goos goarch ext archive-ext) — drives the archive check.
@@ -112,19 +124,40 @@ check_archives() {
     else
       listing=$(tar -tzf "$file")
     fi
+
+    # Linux archives carry all 20 binaries; darwin/windows carry the
+    # 17 cross-platform CLIs only (server/agent/bootstrap linux-only).
+    local expected_binaries=("${CROSS_PLATFORM_BINARIES[@]}")
+    if [ "$plat" = "linux" ]; then
+      expected_binaries=("${LINUX_ONLY_BINARIES[@]}" "${CROSS_PLATFORM_BINARIES[@]}")
+    fi
+    local expected_count=${#expected_binaries[@]}
+
     local count=0
-    for bin in "${BINARIES[@]}"; do
+    for bin in "${expected_binaries[@]}"; do
       echo "$listing" | grep -qE "(^|/)${bin}${ext}$" \
         || fail "$file missing binary: ${bin}${ext}"
       count=$((count+1))
     done
-    [ "$count" -eq 20 ] || fail "$file: expected 20 binaries, found $count"
+    [ "$count" -eq "$expected_count" ] \
+      || fail "$file: expected $expected_count binaries, found $count"
+
+    # Linux-only binaries MUST NOT appear in darwin/windows archives —
+    # catches regressions where a goreleaser change accidentally
+    # re-cross-compiles them.
+    if [ "$plat" != "linux" ]; then
+      for bin in "${LINUX_ONLY_BINARIES[@]}"; do
+        if echo "$listing" | grep -qE "(^|/)${bin}${ext}$"; then
+          fail "$file unexpectedly contains linux-only binary: ${bin}${ext}"
+        fi
+      done
+    fi
 
     for doc in LICENSE NOTICE README.md CHANGELOG.md; do
       echo "$listing" | grep -qE "(^|/)${doc}$" \
         || fail "$file missing bundled file: $doc"
     done
-    pass "$(basename "$file"): 20 binaries + LICENSE/NOTICE/README/CHANGELOG"
+    pass "$(basename "$file"): $expected_count binaries + LICENSE/NOTICE/README/CHANGELOG"
   done
 }
 
