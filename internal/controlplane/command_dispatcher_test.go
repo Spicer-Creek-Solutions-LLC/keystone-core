@@ -690,6 +690,12 @@ func TestDispatcher_OnCommandTerminal_RecordResult(t *testing.T) {
 	if captured[0].status != state.CommandStatusCompleted {
 		t.Errorf("status = %v", captured[0].status)
 	}
+	// Issue #96: the dispatch principal must flow through the
+	// persisted CommandRecord into the agent-reported RecordResult
+	// terminal callback — pre-fix this was always empty.
+	if captured[0].principal != "user:alice" {
+		t.Errorf("principal = %q, want user:alice (persisted dispatch principal)", captured[0].principal)
+	}
 }
 
 func TestDispatcher_OnCommandTerminal_PublishFailure(t *testing.T) {
@@ -733,7 +739,7 @@ func TestDispatcher_OnCommandTerminal_Timeout(t *testing.T) {
 		c.OnCommandTerminal = captureTerminal(&captured, &mu)
 	})
 	id, err := f.disp.Dispatch(context.Background(), controlplane.DispatchRequest{
-		AgentID: "agent-1", Command: "sleep", TimeoutSeconds: 1,
+		AgentID: "agent-1", Command: "sleep", TimeoutSeconds: 1, Principal: "user:alice",
 	})
 	if err != nil {
 		t.Fatalf("Dispatch: %v", err)
@@ -757,6 +763,11 @@ func TestDispatcher_OnCommandTerminal_Timeout(t *testing.T) {
 	}
 	if captured[0].recordID != id || captured[0].status != state.CommandStatusTimeout {
 		t.Errorf("captured = %+v", captured[0])
+	}
+	// Issue #96: sweepTimeouts re-fetches the record and now passes
+	// the persisted principal to the callback (pre-fix was empty).
+	if captured[0].principal != "user:alice" {
+		t.Errorf("principal = %q, want user:alice (persisted dispatch principal)", captured[0].principal)
 	}
 }
 

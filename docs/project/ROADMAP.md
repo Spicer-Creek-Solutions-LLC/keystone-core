@@ -701,14 +701,6 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: `.changie.yaml` has a `replacements:` block that, when `make changelog-batch VERSION=v0.2.0` runs against a CHANGELOG.md currently pointing at `[Unreleased]: …compare/v0.1.0...HEAD`, produces a CHANGELOG.md whose bottom reads `[v0.2.0]: …releases/tag/v0.2.0\n[Unreleased]: …compare/v0.2.0...HEAD\n[v0.1.0]: …\n[v1.0.0]: …`; verified by a round-trip test. The reference-link maintenance note in `.changie.yaml` is removed when this lands.
 - **References**: `.changie.yaml` headerPath comment block; `.changes/v0.1.0.md` end-of-file ref-link section; [changie replacements docs](https://changie.dev/config/#config-replacements).
 
-#### Persist dispatch principal on CommandRecord for audit-log User field
-
-- **Priority**: v0.x
-- **What**: Epic 12 task 4 wired `controlplane.TerminalCommandFunc` audit emission for command exec. The agent-reported terminal path (`CommandDispatcher.RecordResult`) emits with empty `User` because `state.CommandRecord` has no `Principal` column — the dispatch-time principal in `DispatchRequest.Principal` is stamped into the NATS `CommandMessage` but isn't persisted. The dispatch-time error paths (marshal-fail, publish-fail) and the sweepTimeouts path that fetches the record still emit with the correct principal because those callers have the request in scope; only the agent-reported success path lands a blank actor.
-- **Why deferred**: schema change (add `principal TEXT` column to `commands` in both SQLite + Postgres schemas, plus types + sqlite_commands.go + postgres_commands.go) is outside Epic 12 task 4's touched scope. The audit row is still useful without it — `agent_id` + `command` + `status` identify the op; the missing field is the human/SPIFFE actor for compliance review.
-- **Acceptance**: `state.CommandRecord.Principal` field landed; `commands.principal` column in both schemas; `Dispatch` writes the principal at `CreateCommand` time; the audit row for a `RecordResult`-driven terminal carries the dispatch principal in `User`.
-- **References**: `internal/state/types.go` CommandRecord; `internal/controlplane/command_dispatcher.go` Dispatch + RecordResult + sweepTimeouts; `cmd/kscore-server/command_emitter.go` user fallback to `record.User`; Epic 12 task 4 (landed).
-
 <!-- "`service` stdlib module — make systemdRunDir test-mutable
      without a package-level global" landed during Phase C1
      gauntlet (public-launch checklist): defaultProvider now takes

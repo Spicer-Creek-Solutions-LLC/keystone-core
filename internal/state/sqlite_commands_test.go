@@ -26,6 +26,7 @@ func sampleCommand(id, agentID string) *CommandRecord {
 		Env:            map[string]string{"FOO": "bar"},
 		WorkingDir:     "/tmp",
 		User:           "root",
+		Principal:      "alice@example.com",
 		TimeoutSeconds: 30,
 		Status:         CommandStatusPending,
 		StartedAt:      time.Date(2026, 5, 6, 14, 0, 0, 0, time.UTC),
@@ -57,6 +58,9 @@ func TestSQLiteStore_CommandCRUD(t *testing.T) {
 	}
 	if got.Status != CommandStatusPending {
 		t.Errorf("Status = %q, want %q", got.Status, CommandStatusPending)
+	}
+	if got.Principal != "alice@example.com" {
+		t.Errorf("Principal round-trip: got %q, want %q", got.Principal, "alice@example.com")
 	}
 	if !got.StartedAt.Equal(c.StartedAt) {
 		t.Errorf("StartedAt: got %v, want %v", got.StartedAt, c.StartedAt)

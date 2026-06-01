@@ -12,7 +12,7 @@ import (
 
 const commandSelect = `SELECT
     id, agent_id, command, args, env,
-    COALESCE(working_dir, ''), COALESCE("user", ''),
+    COALESCE(working_dir, ''), COALESCE("user", ''), COALESCE(principal, ''),
     timeout_seconds, status,
     exit_code, COALESCE(stdout, ''), COALESCE(stderr, ''),
     started_at, completed_at
@@ -34,11 +34,11 @@ func (s *SQLiteStore) CreateCommand(ctx context.Context, c *CommandRecord) error
 
 	_, err = s.db.ExecContext(ctx, `INSERT INTO commands (
     id, agent_id, command, args, env,
-    working_dir, "user", timeout_seconds, status,
+    working_dir, "user", principal, timeout_seconds, status,
     exit_code, stdout, stderr, started_at, completed_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		c.ID, c.AgentID, c.Command, args, env,
-		nullableString(c.WorkingDir), nullableString(c.User),
+		nullableString(c.WorkingDir), nullableString(c.User), nullableString(c.Principal),
 		c.TimeoutSeconds, string(c.Status),
 		nullableExitCode(c.ExitCode, c.Status),
 		nullableString(c.Stdout), nullableString(c.Stderr),
@@ -190,7 +190,7 @@ func scanCommand(r rowLike) (*CommandRecord, error) {
 	)
 	if err := r.Scan(
 		&c.ID, &c.AgentID, &c.Command, &argsJSON, &envJSON,
-		&c.WorkingDir, &c.User,
+		&c.WorkingDir, &c.User, &c.Principal,
 		&c.TimeoutSeconds, &statusRaw,
 		&exitCode, &c.Stdout, &c.Stderr,
 		&startedAt, &doneAt,
