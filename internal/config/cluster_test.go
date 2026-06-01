@@ -51,6 +51,10 @@ func TestClusterConfig_Validate(t *testing.T) {
 		},
 		{"heartbeat zero", func(c *ClusterConfig) { c.Membership.HeartbeatInterval = 0 }, "heartbeat_interval must be > 0"},
 		{"empty key prefix", func(c *ClusterConfig) { c.Membership.KeyPrefix = "" }, "key_prefix is required"},
+		{"node advertise_addr empty ok", func(c *ClusterConfig) { c.Node.AdvertiseAddr = "" }, ""},
+		{"node advertise_addr valid host:port ok", func(c *ClusterConfig) { c.Node.AdvertiseAddr = "10.0.0.1:7000" }, ""},
+		{"node advertise_addr missing port", func(c *ClusterConfig) { c.Node.AdvertiseAddr = "10.0.0.1" }, "advertise_addr must be host:port"},
+		{"node advertise_addr missing host", func(c *ClusterConfig) { c.Node.AdvertiseAddr = ":7000" }, "must include both host and port"},
 		{
 			"anti-flap: ttl < 3x heartbeat",
 			func(c *ClusterConfig) { c.Etcd.LeaseTTLSeconds = 10; c.Membership.HeartbeatInterval = 5 * time.Second },

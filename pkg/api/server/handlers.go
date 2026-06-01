@@ -165,10 +165,9 @@ func (s *Server) registerDomainHandlers(mux *http.ServeMux) {
 	agents.NewHandler().Register(mux)
 	apikeys.NewHandler(s.store).Register(mux)
 	blueprintapi.NewHandler(blueprintapi.Providers{}).Register(mux)
-	// Real providers are wired when clustering is constructed at
-	// boot (deferred — see the "Cluster gRPC services boot
-	// registration" ROADMAP entry); until then routes 503.
-	cluster.NewHandler(cluster.ClusterProviders{}).Register(mux)
+	// Providers are wired when clustering is constructed at boot
+	// (Epic 13); the zero value leaves every cluster route at 503.
+	cluster.NewHandler(s.clusterProviders).Register(mux)
 	events.NewHandler(s.eventStore, s.eventPublisher).Register(mux)
 	execution.NewHandler().Register(mux)
 	gitops.NewHandler(s.gitopsProviders).Register(mux)

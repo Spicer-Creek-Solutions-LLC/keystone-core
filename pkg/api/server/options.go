@@ -18,6 +18,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/secrets"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
+	clusterapi "go.keystone-core.io/keystone-core/pkg/api/cluster"
 	"go.keystone-core.io/keystone-core/pkg/api/gitops"
 	"go.keystone-core.io/keystone-core/pkg/api/webhooks"
 )
@@ -170,6 +171,11 @@ type Options struct {
 	// transitions + verification history. Epic 19 task 2c boot-wiring;
 	// when zero the routes return 503.
 	GitOpsProviders gitops.Providers
+
+	// ClusterProviders backs /api/v1/cluster/* — topology + leader +
+	// backup. Wired when clustering is constructed at boot (Epic 13);
+	// the zero value leaves every cluster route at 503.
+	ClusterProviders clusterapi.ClusterProviders
 }
 
 // validate returns an error if required fields are missing or

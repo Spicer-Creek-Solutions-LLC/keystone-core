@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"time"
 )
 
@@ -12,6 +13,9 @@ import (
 //
 //	cluster:
 //	  enabled: false
+//	  node:
+//	    name: ""                  # empty → derived from etcd.name
+//	    advertise_addr: ""        # host:port peers dial (server↔server)
 //	  etcd:
 //	    mode: embedded            # embedded | external
 //	    name: kscore-1
@@ -62,6 +66,7 @@ import (
 // Epic 13 task; Task 1 ships the config surface + validation.
 type ClusterConfig struct {
 	Enabled      bool                      `koanf:"enabled"`
+	Node         ClusterNodeConfig         `koanf:"node"`
 	Etcd         ClusterEtcdConfig         `koanf:"etcd"`
 	Membership   ClusterMembershipConfig   `koanf:"membership"`
 	Election     ClusterElectionConfig     `koanf:"election"`
@@ -72,6 +77,23 @@ type ClusterConfig struct {
 	Fencing      ClusterFencingConfig      `koanf:"fencing"`
 	Coordination ClusterCoordinationConfig `koanf:"coordination"`
 	Shutdown     ClusterShutdownConfig     `koanf:"shutdown"`
+}
+
+// ClusterNodeConfig identifies this server within the cluster
+// (Epic 13 boot wiring). Distinct from cluster.etcd.name (the etcd
+// member name): Name is this node's stable Keystone member identity,
+// recorded in the membership record and reused across restarts so
+// RecoveryManager can reclaim this node's shards.
+type ClusterNodeConfig struct {
+	// Name is this member's stable cluster identity. Empty → derived
+	// from cluster.etcd.name at boot.
+	Name string `koanf:"name"`
+	// AdvertiseAddr is the host:port peers use to reach this node's
+	// server↔server coordination channel. It is recorded in the
+	// member record now; the CoordinationClient that dials it is a
+	// later Epic 13 task. Empty is allowed (no peer can dial this
+	// node yet); when set it must be a valid host:port.
+	AdvertiseAddr string `koanf:"advertise_addr"`
 }
 
 // ClusterShutdownConfig is the operator-facing graceful-shutdown
@@ -277,6 +299,17 @@ func (c *ClusterConfig) Validate() error {
 		return fmt.Errorf("cluster.etcd.mode must be %q or %q, got %q",
 			clusterModeEmbedded, clusterModeExternal, c.Etcd.Mode)
 	}
+	if c.Node.AdvertiseAddr != "" {
+		host, port, err := net.SplitHostPort(c.Node.AdvertiseAddr)
+		if err != nil {
+			return fmt.Errorf("cluster.node.advertise_addr must be host:port, got %q: %w",
+				c.Node.AdvertiseAddr, err)
+		}
+		if host == "" || port == "" {
+			return fmt.Errorf("cluster.node.advertise_addr must include both host and port, got %q",
+				c.Node.AdvertiseAddr)
+		}
+	}
 	if c.Etcd.LeaseTTLSeconds < minLeaseTTLSeconds {
 		return fmt.Errorf("cluster.etcd.lease_ttl_seconds must be >= %d, got %d",
 			minLeaseTTLSeconds, c.Etcd.LeaseTTLSeconds)
@@ -394,6 +427,10 @@ func (c *ClusterConfig) Validate() error {
 // fields), matching the disabled-by-default opt-in contract.
 func applyClusterDefaults(c *ClusterConfig) {
 	c.Enabled = false
+	c.Node = ClusterNodeConfig{
+		Name:          "", // derived from etcd.name at boot when empty
+		AdvertiseAddr: "", // set once the coordination listener exists
+	}
 	c.Etcd = ClusterEtcdConfig{
 		Mode:             clusterModeEmbedded,
 		Name:             "kscore-1",
