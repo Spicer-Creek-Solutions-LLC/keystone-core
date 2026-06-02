@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"go.keystone-core.io/keystone-core/internal/config"
+	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 )
 
 // freeClusterPort grabs an ephemeral loopback port for the embedded
@@ -62,7 +63,7 @@ func enabledClusterConfig(t *testing.T, name string) config.ClusterConfig {
 }
 
 func TestStartCluster_Disabled(t *testing.T) {
-	rt, err := startCluster(context.Background(), config.ClusterConfig{Enabled: false}, nil, silentLogger())
+	rt, err := startCluster(context.Background(), config.ClusterConfig{Enabled: false}, nil, nil, silentLogger())
 	if err != nil {
 		t.Fatalf("startCluster(disabled) error: %v", err)
 	}
@@ -84,7 +85,7 @@ func TestStartCluster_EnabledLifecycle(t *testing.T) {
 			ctx := context.Background()
 			cfg := enabledClusterConfig(t, fmt.Sprintf("itest-%d", i))
 
-			rt, err := startCluster(ctx, cfg, nil, silentLogger())
+			rt, err := startCluster(ctx, cfg, nil, nil, silentLogger())
 			if err != nil {
 				t.Fatalf("startCluster: %v", err)
 			}
@@ -103,6 +104,30 @@ func TestStartCluster_EnabledLifecycle(t *testing.T) {
 			waitForCond(t, 10*time.Second, "node becomes leader", leaderCheck)
 
 			rest := rt.restProviders()
+
+			// Status provider is live (HealthMonitor-backed): a single
+			// node that reaches its embedded etcd has quorum, and the
+			// gRPC GetClusterStatus reports it as the one healthy member.
+			if rest.Status == nil {
+				t.Fatal("Status provider nil; HealthMonitor not wired")
+			}
+			if !rest.Status.Quorate() {
+				t.Fatal("Status.Quorate() = false on a single node reaching etcd")
+			}
+			if rest.Status.ClusterName() != cfg.Node.Name {
+				t.Fatalf("Status.ClusterName() = %q, want %q", rest.Status.ClusterName(), cfg.Node.Name)
+			}
+			st, err := rt.grpcServer().GetClusterStatus(ctx, &v1.GetClusterStatusRequest{})
+			if err != nil {
+				t.Fatalf("GetClusterStatus: %v", err)
+			}
+			if !st.GetQuorum() {
+				t.Fatal("GetClusterStatus Quorum = false, want true")
+			}
+			if st.GetMemberCount() != 1 || st.GetHealthyCount() != 1 {
+				t.Fatalf("GetClusterStatus members=%d healthy=%d, want 1/1",
+					st.GetMemberCount(), st.GetHealthyCount())
+			}
 
 			// Leader provider reflects the won election.
 			if !rest.Leader.IsLeader() {

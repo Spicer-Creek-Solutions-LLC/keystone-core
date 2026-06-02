@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"go.keystone-core.io/keystone-core/internal/cluster"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/identity"
 	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
@@ -93,7 +94,7 @@ func TestStartCoordination_MTLSListenerAndShutdown(t *testing.T) {
 	provider := startTestIdentityProvider(t)
 	cfg := coordClusterConfig(t, "coord-itest")
 
-	rt, err := startCluster(ctx, cfg, provider, silentLogger())
+	rt, err := startCluster(ctx, cfg, provider, nil, silentLogger())
 	if err != nil {
 		t.Fatalf("startCluster: %v", err)
 	}
@@ -139,6 +140,20 @@ func TestStartCoordination_MTLSListenerAndShutdown(t *testing.T) {
 		t.Fatalf("LookupLeader = %+v, want this node as leader", resp)
 	}
 
+	// ClusterHealth now answers over the channel (HealthMonitor wired):
+	// before this PR the Health seam was nil and the RPC returned
+	// Unavailable. A single node reaching etcd is healthy + quorate.
+	health, err := v1.NewCoordinationServiceClient(conn).ClusterHealth(dialCtx, &v1.ClusterHealthRequest{})
+	if err != nil {
+		t.Fatalf("ClusterHealth over mTLS coordination channel: %v", err)
+	}
+	if health.GetMemberStatus() == "" {
+		t.Fatal("ClusterHealth returned empty member status; HealthMonitor not wired")
+	}
+	if health.GetQuorum() != string(cluster.QuorumOK) {
+		t.Fatalf("ClusterHealth quorum = %q, want %q", health.GetQuorum(), cluster.QuorumOK)
+	}
+
 	// A non-mTLS (plaintext) caller must be rejected.
 	insecureConn, err := grpc.NewClient(cfg.Coordination.ListenAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -178,7 +193,7 @@ func TestStartCoordination_DisabledWhenNoListenAddr(t *testing.T) {
 	provider := startTestIdentityProvider(t)
 	cfg := enabledClusterConfig(t, "no-coord-itest") // no Coordination.ListenAddr
 
-	rt, err := startCluster(ctx, cfg, provider, silentLogger())
+	rt, err := startCluster(ctx, cfg, provider, nil, silentLogger())
 	if err != nil {
 		t.Fatalf("startCluster: %v", err)
 	}
@@ -198,7 +213,7 @@ func TestStartCoordination_RequiresIdentity(t *testing.T) {
 
 	// listen_addr set but identity provider nil ⇒ the mTLS-only channel
 	// must refuse to start (and the whole boot fails loudly).
-	rt, err := startCluster(ctx, cfg, nil, silentLogger())
+	rt, err := startCluster(ctx, cfg, nil, nil, silentLogger())
 	if err == nil {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		rt.stop(stopCtx)

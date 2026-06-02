@@ -22,19 +22,20 @@ import (
 	"go.keystone-core.io/keystone-core/internal/agent"
 	"go.keystone-core.io/keystone-core/internal/audit"
 	"go.keystone-core.io/keystone-core/internal/cli"
+	"go.keystone-core.io/keystone-core/internal/cluster"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/events"
 	"go.keystone-core.io/keystone-core/internal/health"
 	"go.keystone-core.io/keystone-core/internal/identity"
 	"go.keystone-core.io/keystone-core/internal/metrics"
+	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/internal/profiling"
 	"go.keystone-core.io/keystone-core/internal/secrets"
-	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
-	"go.keystone-core.io/keystone-core/internal/tracing"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib"
+	"go.keystone-core.io/keystone-core/internal/tracing"
 	"go.keystone-core.io/keystone-core/pkg/api/apikeys"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
 	"go.keystone-core.io/keystone-core/pkg/api/server"
@@ -237,7 +238,19 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	// starts the dedicated mTLS server↔server CoordinationService
 	// listener + the peer-dialing client (needs the identity provider).
 	// FailoverManager + the HealthMonitor-backed status remain deferred.
-	clusterRT, err := startCluster(ctx, cfg.Cluster, identityProvider, log)
+	// §4.15 health checkers supplied to the cluster HealthMonitor from
+	// boot (the etcd + heartbeat checkers are built in internal/cluster
+	// from the etcd client). storage + NATS are non-critical: an outage
+	// surfaces this node as DEGRADED, not UNHEALTHY (only etcd-quorum
+	// loss fences). Reuses the same JetStream probe as /health/ready.
+	clusterHealthCheckers := []cluster.HealthChecker{
+		cluster.PingChecker("storage", store.Ping),
+		cluster.PingChecker("nats", func(context.Context) error {
+			_, err := natsManager.JetStream()
+			return err
+		}),
+	}
+	clusterRT, err := startCluster(ctx, cfg.Cluster, identityProvider, clusterHealthCheckers, log)
 	if err != nil {
 		return fmt.Errorf("cluster: %w", err)
 	}
@@ -439,7 +452,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		// running without identity keep working.
 		var (
 			bootstrapValidator controlplane.BootstrapValidator
-			credentialIssuer  controlplane.CredentialIssuer
+			credentialIssuer   controlplane.CredentialIssuer
 		)
 		if identityProvider != nil {
 			attestor, err := identity.NewJoinTokenAttestor(identity.JoinTokenAttestorConfig{

@@ -93,12 +93,13 @@ func (r *clusterRuntime) startCoordination(ctx context.Context, cfg config.Clust
 		Leader:      r.election,
 		Members:     r.membership,
 		Shards:      r.shardStore,
+		Health:      r.health,
 		SelfID:      r.memberID,
 		SelfVersion: version.Get().Version,
-		// Health + NATS are left nil until the HealthMonitor-backed
-		// quorum status lands (a later PR): ClusterHealth then returns
-		// Unavailable and NATSStatus reports "unknown", which is the
-		// correct best-effort answer on the recovery channel.
+		// NATS is left nil: the nats Manager exposes no Connected()/
+		// Detail() seam yet, so NATSStatus reports "unknown" (the
+		// correct best-effort answer on the recovery channel) until
+		// that seam is added.
 	}
 	v1.RegisterCoordinationServiceServer(gs, coordSrv)
 
