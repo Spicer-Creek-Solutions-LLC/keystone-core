@@ -1,0 +1,24 @@
+kind: Added
+body: |-
+  **Cluster health monitoring + `/cluster/status` (Epic 13, PR-C).**
+  When clustering is enabled, `kscore-server` now runs the cluster
+  `HealthMonitor` at boot: built-in etcd + heartbeat checkers (the
+  canonical quorum signal) plus non-critical `storage` and `nats` ping
+  checkers, so a database or NATS outage surfaces this node as
+  `degraded` while only loss of etcd quorum drives it `unhealthy`.
+
+  The monitor's status + quorum verdict now back three previously-dark
+  surfaces: `GET /api/v1/cluster/status` returns the cluster identity,
+  leader, member/healthy counts and quorum (was 503); the
+  `ClusterService.GetClusterStatus` gRPC reports quorum; and the
+  server↔server `CoordinationService.ClusterHealth` RPC answers instead
+  of `Unavailable`. The monitor also drives each member's lifecycle
+  status (`healthy`/`degraded`/`unhealthy`) in the membership record.
+
+  No new configuration — the monitor reads the existing
+  `cluster.health` block (`check_interval`, `failure_threshold`,
+  `latency_window`).
+
+  Deferred to follow-ups: the coordination `NATSStatus` field (needs a
+  connectivity seam on the NATS manager), the `FencingManager`
+  write-path guard, and `FailoverManager` wiring.

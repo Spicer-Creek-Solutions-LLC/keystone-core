@@ -24,15 +24,16 @@ import (
 // internal/cluster managers and exposes them as the ClusterService
 // gRPC seams + cluster REST providers.
 //
-// Scope (PR-A — "Cluster gRPC services boot registration" +
-// "Cluster leader-check boot wiring", partial): membership, election,
-// the SingletonTaskManager leader gate, the shard store + manager,
-// and the ClusterService operator surface. Deferred to later PRs:
-//   - the dedicated mTLS CoordinationService listener + CoordinationClient
-//     (needs cfg.Node.AdvertiseAddr wired to a real server↔server listener),
+// Scope: membership, election, the SingletonTaskManager leader gate,
+// the shard store + manager, and the ClusterService operator surface
+// (PR-A); the dedicated mTLS CoordinationService listener +
+// CoordinationClient + graceful shutdown (PR-B); the HealthMonitor
+// driving member status + quorum, exposed on the ClusterService /
+// CoordinationService Health seams + the REST status provider (this
+// PR). Deferred to later PRs:
 //   - FailoverManager (no production AgentReassigner/JobReassigner exists
 //     yet — gating a no-op would be meaningless),
-//   - HealthMonitor-backed quorum status (the REST StatusProvider).
+//   - the FencingManager guard around server write paths.
 type clusterRuntime struct {
 	log *slog.Logger
 
@@ -42,6 +43,7 @@ type clusterRuntime struct {
 	singleton  *cluster.SingletonTaskManager
 	shardStore *cluster.ShardStore
 	shards     *cluster.ShardManager
+	health     *cluster.HealthMonitor
 
 	memberID        string
 	clusterName     string
@@ -74,7 +76,7 @@ func (r *clusterRuntime) leaderCheck() func() bool {
 // operator config. Caller guards on cfg.Enabled; this returns
 // (nil, nil) for the disabled case so the call site stays nil-ladder
 // free.
-func startCluster(ctx context.Context, cfg config.ClusterConfig, identityProvider *identity.EmbeddedProvider, log *slog.Logger) (*clusterRuntime, error) {
+func startCluster(ctx context.Context, cfg config.ClusterConfig, identityProvider *identity.EmbeddedProvider, extraCheckers []cluster.HealthChecker, log *slog.Logger) (*clusterRuntime, error) {
 	if !cfg.Enabled {
 		return nil, nil
 	}
@@ -185,8 +187,35 @@ func startCluster(ctx context.Context, cfg config.ClusterConfig, identityProvide
 		return nil, etcdStopErr(ctx, etcd, fmt.Errorf("shard manager start: %w", err))
 	}
 
+	// HealthMonitor: the built-in etcd checker is the canonical quorum
+	// signal (critical → UNHEALTHY + QuorumMinority on loss), the
+	// heartbeat checker watches the membership lease, and the boot-
+	// supplied storage/NATS ping checkers (non-critical → DEGRADED)
+	// round out the §4.15 set. It drives this node's MemberStatus via
+	// MembershipManager.SetStatus and backs the cluster/coordination
+	// Health seams + the REST status provider.
+	checkers := append([]cluster.HealthChecker{
+		cluster.NewEtcdChecker(etcd),
+		cluster.NewHeartbeatChecker(etcd),
+	}, extraCheckers...)
+	hm, err := cluster.NewHealthMonitor(cluster.HealthMonitorConfig{
+		Membership:       mm,
+		Checkers:         checkers,
+		Interval:         cfg.Health.CheckInterval,
+		FailureThreshold: cfg.Health.FailureThreshold,
+		LatencyWindow:    cfg.Health.LatencyWindow,
+		Logger:           log,
+	})
+	if err != nil {
+		return nil, etcdStopErr(ctx, etcd, fmt.Errorf("health monitor: %w", err))
+	}
+	if err := hm.Start(ctx); err != nil {
+		return nil, etcdStopErr(ctx, etcd, fmt.Errorf("health monitor start: %w", err))
+	}
+
 	configJSON, err := json.Marshal(cfg)
 	if err != nil {
+		_ = hm.Stop(ctx)
 		return nil, etcdStopErr(ctx, etcd, fmt.Errorf("marshal cluster config: %w", err))
 	}
 
@@ -198,6 +227,7 @@ func startCluster(ctx context.Context, cfg config.ClusterConfig, identityProvide
 		singleton:       stm,
 		shardStore:      ss,
 		shards:          sm,
+		health:          hm,
 		memberID:        memberID,
 		clusterName:     memberName,
 		memberKeyPrefix: strings.TrimRight(cfg.Membership.KeyPrefix, "/") + "/members/",
@@ -223,9 +253,8 @@ func startCluster(ctx context.Context, cfg config.ClusterConfig, identityProvide
 }
 
 // grpcServer returns the ClusterService implementation wired to the
-// live managers. Health + LeaderWatch streams that need the
-// coordination stack are left for the mTLS-listener PR; Evictor is the
-// admin member-key delete.
+// live managers. Health is the HealthMonitor (so GetClusterStatus
+// reports quorum); Evictor is the admin member-key delete.
 func (r *clusterRuntime) grpcServer() *controlplane.ClusterGRPCServer {
 	return &controlplane.ClusterGRPCServer{
 		Leader:      r.election,
@@ -233,17 +262,20 @@ func (r *clusterRuntime) grpcServer() *controlplane.ClusterGRPCServer {
 		Rebalancer:  r.shards,
 		ShardStore:  r.shardStore,
 		LeaderWatch: r.election,
+		Health:      r.health,
 		Evictor:     r.evict,
 		ClusterName: r.clusterName,
 		ConfigJSON:  r.configJSON,
 	}
 }
 
-// restProviders returns the cluster-domain REST backends. Status is
-// left nil (quorum reporting needs the HealthMonitor, a later PR), so
-// GET /cluster/status returns 503 until then; the rest are live.
+// restProviders returns the cluster-domain REST backends, all live:
+// Status is the HealthMonitor-backed quorum/cluster summary, so GET
+// /cluster/status reports the cluster identity, leader, member counts
+// and quorum.
 func (r *clusterRuntime) restProviders() clusterapi.ClusterProviders {
 	return clusterapi.ClusterProviders{
+		Status:    statusRESTAdapter{r: r},
 		Leader:    leaderRESTAdapter{le: r.election},
 		Members:   membersRESTAdapter{mm: r.membership, evict: r.evict},
 		Rebalance: rebalanceRESTAdapter{sm: r.shards},
@@ -275,14 +307,10 @@ func (r *clusterRuntime) gracefulShutdown(ctx context.Context, timeout time.Dura
 	if timeout <= 0 {
 		timeout = shutdownTimeout
 	}
-	var stopAccepting func(context.Context) error
-	if r.coord != nil {
-		stopAccepting = r.coord.stopAccepting
-	}
 	gs, err := cluster.NewGracefulShutdown(cluster.GracefulShutdownConfig{
 		Membership:    r.membership,
 		Leadership:    r.election,
-		StopAccepting: stopAccepting,
+		StopAccepting: r.stopAccepting,
 		Timeout:       timeout,
 		Logger:        r.log,
 	})
@@ -294,6 +322,23 @@ func (r *clusterRuntime) gracefulShutdown(ctx context.Context, timeout time.Dura
 	return gs.Shutdown(sctx)
 }
 
+// stopAccepting is the GracefulShutdown DRAINING hook: stop the
+// HealthMonitor BEFORE the sequence marks this member LEAVING (so the
+// monitor's status reconcile can't race the LEAVING write), then stop
+// the coordination channel from serving + dialing peers. Both are
+// idempotent — stop runs them again on the final teardown.
+func (r *clusterRuntime) stopAccepting(ctx context.Context) error {
+	if r.health != nil {
+		if err := r.health.Stop(ctx); err != nil {
+			r.log.Warn("health monitor stop (drain)", "err", err)
+		}
+	}
+	if r.coord != nil {
+		return r.coord.stopAccepting(ctx)
+	}
+	return nil
+}
+
 func (r *clusterRuntime) stop(ctx context.Context) {
 	if r == nil {
 		return
@@ -302,6 +347,14 @@ func (r *clusterRuntime) stop(ctx context.Context) {
 	// managers it reads from go away. Idempotent (graceful shutdown
 	// may have already run it).
 	r.coord.stop(ctx)
+	// HealthMonitor next: stop it driving member status / reading etcd
+	// before the managers below. Idempotent (the graceful StopAccepting
+	// hook may have already stopped it).
+	if r.health != nil {
+		if err := r.health.Stop(ctx); err != nil {
+			r.log.Warn("health monitor stop", "err", err)
+		}
+	}
 	if err := r.shards.Stop(ctx); err != nil {
 		r.log.Warn("shard manager stop", "err", err)
 	}
@@ -337,6 +390,26 @@ func etcdStopErr(ctx context.Context, etcd *cluster.EtcdClient, cause error) err
 // managers take a context and richer return types. These thin adapters
 // bridge the two with a background context (REST request scoping is
 // handled upstream by the HTTP server).
+
+// statusRESTAdapter backs GET /cluster/status: the cluster identity,
+// current leader, the member list (the handler derives total/healthy
+// counts), and the HealthMonitor quorum verdict.
+type statusRESTAdapter struct{ r *clusterRuntime }
+
+func (a statusRESTAdapter) ClusterName() string { return a.r.clusterName }
+func (a statusRESTAdapter) Quorate() bool {
+	return a.r.health.Quorum() == cluster.QuorumOK
+}
+func (a statusRESTAdapter) LeaderID() string {
+	id, err := a.r.election.LeaderID(context.Background())
+	if err != nil {
+		return ""
+	}
+	return id
+}
+func (a statusRESTAdapter) Members() ([]cluster.Member, error) {
+	return a.r.membership.LoadMembers(context.Background())
+}
 
 type leaderRESTAdapter struct{ le *cluster.LeaderElector }
 
