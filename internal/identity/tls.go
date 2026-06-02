@@ -164,6 +164,176 @@ func spiffeIDForServerRole(td string, role ServerTLSRole) (SPIFFEID, error) {
 	return SPIFFEID{}, fmt.Errorf("unknown ServerTLSRole %d", role)
 }
 
+// ClientTLSOptions tunes the [BuildClientTLSConfig] result. The zero
+// value applies sensible v0.1 defaults.
+type ClientTLSOptions struct {
+	// MinVersion is the minimum TLS version. Defaults to
+	// tls.VersionTLS13 per the §4.10 "TLS 1.3 default minimum"
+	// requirement.
+	MinVersion uint16
+
+	// ClientSVIDLifetime sets the TTL of the issued client SVID.
+	// Defaults to identity.MaxSVIDTTL (24h). The watcher reissues
+	// when the cert reaches ShouldRotate (50% lifetime).
+	ClientSVIDLifetime time.Duration
+
+	// Logger receives rotation + watcher messages. nil falls back
+	// to slog.Default.
+	Logger *slog.Logger
+}
+
+func (o *ClientTLSOptions) withDefaults() *ClientTLSOptions {
+	out := *o
+	if out.MinVersion == 0 {
+		out.MinVersion = tls.VersionTLS13
+	}
+	if out.ClientSVIDLifetime == 0 {
+		out.ClientSVIDLifetime = maxSVIDTTLDefault
+	}
+	if out.Logger == nil {
+		out.Logger = slog.Default()
+	}
+	return &out
+}
+
+// BuildClientTLSConfig issues a client SVID for the control-plane
+// role and returns a *tls.Config that presents it on dial and
+// verifies the peer (server) against the provider's trust bundle.
+// It is the dial-side counterpart of [BuildServerTLSConfig] — the
+// Epic 13 server↔server CoordinationService channel needs both: each
+// node runs a strict-mTLS listener AND dials its peers, so it needs
+// a client cert chaining to the same trust domain.
+//
+// Peer verification is SPIFFE-style rather than DNS-hostname based:
+// a peer advertises an arbitrary host:port, so the standard
+// ServerName/DNS-SAN check cannot apply. Instead the returned config
+// sets InsecureSkipVerify (disabling the default DNS check) and
+// supplies a [tls.Config.VerifyPeerCertificate] that chains the
+// peer's leaf to the current trust bundle and requires its URI SAN
+// to be a `server/*` SPIFFE ID in this node's trust domain. The
+// rotation watcher refreshes both the presented client cert and the
+// verification pool on signing-CA rotation, exactly like the server
+// path.
+//
+// The returned cancel function tears down the background watcher
+// goroutine; callers MUST invoke it on shutdown.
+//
+// Returns [ErrTLSConfig] when the provider isn't running or when the
+// initial SVID issuance fails.
+func BuildClientTLSConfig(ctx context.Context, p *EmbeddedProvider, opts *ClientTLSOptions) (*tls.Config, func(), error) {
+	if p == nil {
+		return nil, noopCancel, fmt.Errorf("%w: nil provider", ErrTLSConfig)
+	}
+	if err := p.Health(ctx); err != nil {
+		return nil, noopCancel, fmt.Errorf("%w: %w", ErrTLSConfig, err)
+	}
+	if opts == nil {
+		opts = &ClientTLSOptions{}
+	}
+	opts = opts.withDefaults()
+
+	id, err := spiffeIDForServerRole(p.TrustDomain(), ServerRoleControlPlane)
+	if err != nil {
+		return nil, noopCancel, fmt.Errorf("%w: %v", ErrTLSConfig, err)
+	}
+
+	// Reuse the server cert/bundle state machinery: it already issues
+	// the control-plane SVID, holds the trust-bundle pool atomically,
+	// and refreshes both on rotation. The client cert needs no DNS/IP
+	// SANs (client certs aren't hostname-matched); the URI SAN from
+	// the SVID id is what the peer verifies.
+	state := newServerCertState(p, id, &ServerTLSOptions{
+		ServerSVIDLifetime: opts.ClientSVIDLifetime,
+		Logger:             opts.Logger,
+		MinVersion:         opts.MinVersion,
+	})
+	if err := state.refreshCert(ctx); err != nil {
+		return nil, noopCancel, fmt.Errorf("%w: initial issuance: %w", ErrTLSConfig, err)
+	}
+	if err := state.refreshBundle(ctx); err != nil {
+		return nil, noopCancel, fmt.Errorf("%w: initial bundle: %w", ErrTLSConfig, err)
+	}
+
+	watchCtx, cancel := context.WithCancel(context.Background())
+	state.startWatcher(watchCtx)
+
+	trustDomain := p.TrustDomain()
+	// #nosec G402 -- InsecureSkipVerify disables ONLY the default
+	// DNS-SAN hostname check, which cannot apply to SPIFFE peers that
+	// advertise arbitrary host:port. VerifyConnection below does the
+	// real verification: chain to the trust bundle + SPIFFE URI SAN
+	// check. VerifyConnection (not VerifyPeerCertificate) runs on
+	// resumed TLS 1.3 sessions too, so resumption can't bypass it.
+	// MinVersion is operator-supplied (TLS 1.3 default).
+	tlsCfg := &tls.Config{
+		MinVersion:         opts.MinVersion,
+		InsecureSkipVerify: true,
+		GetClientCertificate: func(_ *tls.CertificateRequestInfo) (*tls.Certificate, error) {
+			return state.currentCert(), nil
+		},
+		VerifyConnection: func(cs tls.ConnectionState) error {
+			return state.verifyPeerAsServer(cs.PeerCertificates, trustDomain)
+		},
+	}
+	return tlsCfg, func() {
+		cancel()
+		state.wait()
+	}, nil
+}
+
+// verifyPeerAsServer chains the peer's presented certificates to the
+// current trust bundle and requires the leaf to carry a `server/*`
+// SPIFFE URI SAN in trustDomain. Used by [BuildClientTLSConfig] in
+// place of the default DNS-hostname verification. Driven from
+// VerifyConnection so it also covers resumed TLS 1.3 sessions.
+func (s *serverCertState) verifyPeerAsServer(peerChain []*x509.Certificate, trustDomain string) error {
+	if len(peerChain) == 0 {
+		return fmt.Errorf("%w: peer presented no certificate", ErrTLSConfig)
+	}
+	leaf := peerChain[0]
+	intermediates := x509.NewCertPool()
+	for _, ic := range peerChain[1:] {
+		intermediates.AddCert(ic)
+	}
+	roots := s.pool.Load()
+	if roots == nil {
+		return fmt.Errorf("%w: no trust bundle available", ErrTLSConfig)
+	}
+	if _, err := leaf.Verify(x509.VerifyOptions{
+		Roots:         roots,
+		Intermediates: intermediates,
+		KeyUsages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}); err != nil {
+		return fmt.Errorf("%w: peer cert does not chain to trust bundle: %v", ErrTLSConfig, err)
+	}
+	return verifyServerSPIFFEID(leaf, trustDomain)
+}
+
+// verifyServerSPIFFEID requires cert's URI SAN to be a `server/*`
+// SPIFFE ID in trustDomain — so a coordination client only completes
+// a handshake with a control-plane peer, never an agent/service
+// identity that happens to chain to the same CA.
+func verifyServerSPIFFEID(cert *x509.Certificate, trustDomain string) error {
+	for _, u := range cert.URIs {
+		if u.Scheme != "spiffe" {
+			continue
+		}
+		id, err := ParseSPIFFEID(u.String())
+		if err != nil {
+			return fmt.Errorf("%w: peer URI SAN %q: %v", ErrTLSConfig, u, err)
+		}
+		if id.TrustDomain() != trustDomain {
+			return fmt.Errorf("%w: peer trust domain %q != %q", ErrTLSConfig, id.TrustDomain(), trustDomain)
+		}
+		segs := id.Segments()
+		if len(segs) == 0 || segs[0] != pathPrefixServer {
+			return fmt.Errorf("%w: peer SPIFFE ID %q is not a server identity", ErrTLSConfig, id)
+		}
+		return nil
+	}
+	return fmt.Errorf("%w: peer cert has no spiffe:// URI SAN", ErrTLSConfig)
+}
+
 // noopCancel is the cancel func returned when BuildServerTLSConfig
 // errors before spawning the watcher — keeps the caller's `defer
 // cancel()` safe.

@@ -1,0 +1,27 @@
+kind: Added
+body: |-
+  **Server↔server coordination channel + graceful shutdown (Epic 13,
+  PR-B).** Setting `cluster.coordination.listen_addr` now starts a
+  dedicated mTLS-only `CoordinationService` gRPC listener (separate
+  from the agent/operator surface) and the peer-dialing
+  `CoordinationClient`, whose dial pool is reconciled from cluster
+  membership. Peers exchange health/leader/recovery over this channel
+  when NATS is unavailable. The channel is mTLS-only by contract, so it
+  requires `identity.enabled: true` — a listener configured without
+  identity fails the boot loudly.
+
+  `kscore-server` now also drives the §4.15 graceful-shutdown sequence
+  on SIGTERM when clustering is enabled: the node is marked `LEAVING`
+  (peers rebalance its shards off before it exits), leadership is
+  transferred if held, then the member deregisters — before the API
+  server stops.
+
+  A new client-side mTLS builder (`identity.BuildClientTLSConfig`)
+  issues this node's control-plane SVID for dialing and verifies peers
+  against the trust bundle by SPIFFE ID (not DNS), with the same
+  signing-CA rotation watcher as the server path.
+
+  Deferred to follow-ups: the HealthMonitor-backed quorum status
+  (`/cluster/status` stays 503; the coordination `ClusterHealth`/NATS
+  status report best-effort until then), the `FencingManager` in-flight
+  drain, and `FailoverManager` wiring.

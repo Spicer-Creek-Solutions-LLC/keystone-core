@@ -14,6 +14,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/cluster"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
+	"go.keystone-core.io/keystone-core/internal/identity"
 	clusterapi "go.keystone-core.io/keystone-core/pkg/api/cluster"
 )
 
@@ -42,9 +43,15 @@ type clusterRuntime struct {
 	shardStore *cluster.ShardStore
 	shards     *cluster.ShardManager
 
+	memberID        string
 	clusterName     string
 	memberKeyPrefix string // KeyPrefix/members/ — for the admin Evictor
 	configJSON      []byte // opaque operator config embedded in backups
+
+	// coord is the server↔server CoordinationService stack (PR-B):
+	// the dedicated mTLS listener + the peer-dialing client. nil when
+	// cluster.coordination.listen_addr is empty (no channel served).
+	coord *coordinationRuntime
 }
 
 // alwaysLeader is the single-node default: every leader-only
@@ -67,7 +74,7 @@ func (r *clusterRuntime) leaderCheck() func() bool {
 // operator config. Caller guards on cfg.Enabled; this returns
 // (nil, nil) for the disabled case so the call site stays nil-ladder
 // free.
-func startCluster(ctx context.Context, cfg config.ClusterConfig, log *slog.Logger) (*clusterRuntime, error) {
+func startCluster(ctx context.Context, cfg config.ClusterConfig, identityProvider *identity.EmbeddedProvider, log *slog.Logger) (*clusterRuntime, error) {
 	if !cfg.Enabled {
 		return nil, nil
 	}
@@ -183,10 +190,7 @@ func startCluster(ctx context.Context, cfg config.ClusterConfig, log *slog.Logge
 		return nil, etcdStopErr(ctx, etcd, fmt.Errorf("marshal cluster config: %w", err))
 	}
 
-	log.Info("clustering started",
-		"member_id", memberID, "member_name", memberName, "etcd_mode", cfg.Etcd.Mode)
-
-	return &clusterRuntime{
+	r := &clusterRuntime{
 		log:             log,
 		etcd:            etcd,
 		membership:      mm,
@@ -194,10 +198,28 @@ func startCluster(ctx context.Context, cfg config.ClusterConfig, log *slog.Logge
 		singleton:       stm,
 		shardStore:      ss,
 		shards:          sm,
+		memberID:        memberID,
 		clusterName:     memberName,
 		memberKeyPrefix: strings.TrimRight(cfg.Membership.KeyPrefix, "/") + "/members/",
 		configJSON:      configJSON,
-	}, nil
+	}
+
+	// Server↔server CoordinationService channel (PR-B). Started only
+	// when an operator opts in via cluster.coordination.listen_addr;
+	// on failure the partially-started stack is torn down via stop so
+	// a failed boot leaves no orphan etcd/managers.
+	if err := r.startCoordination(ctx, cfg, identityProvider, log); err != nil {
+		stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		r.stop(stopCtx)
+		cancel()
+		return nil, fmt.Errorf("coordination: %w", err)
+	}
+
+	log.Info("clustering started",
+		"member_id", memberID, "member_name", memberName, "etcd_mode", cfg.Etcd.Mode,
+		"coordination", r.coord != nil)
+
+	return r, nil
 }
 
 // grpcServer returns the ClusterService implementation wired to the
@@ -237,10 +259,49 @@ func (r *clusterRuntime) evict(ctx context.Context, memberID string) error {
 	return err
 }
 
+// gracefulShutdown runs the Epic 13 §4.15 graceful-shutdown sequence
+// on SIGTERM, before the API server stops: mark this member LEAVING
+// (peers rebalance our shards off before we exit), transfer leadership
+// if we hold it, then deregister (revoke the membership lease). nil-
+// safe so the single-node path (clustering disabled) is a no-op. The
+// coordination stop-accepting hook (drain the server↔server channel)
+// is wired when the coordination stack is running; the in-flight
+// Drainer is left nil until the FencingManager graceful drain is
+// wired (same deferral family as FailoverManager).
+func (r *clusterRuntime) gracefulShutdown(ctx context.Context, timeout time.Duration) error {
+	if r == nil {
+		return nil
+	}
+	if timeout <= 0 {
+		timeout = shutdownTimeout
+	}
+	var stopAccepting func(context.Context) error
+	if r.coord != nil {
+		stopAccepting = r.coord.stopAccepting
+	}
+	gs, err := cluster.NewGracefulShutdown(cluster.GracefulShutdownConfig{
+		Membership:    r.membership,
+		Leadership:    r.election,
+		StopAccepting: stopAccepting,
+		Timeout:       timeout,
+		Logger:        r.log,
+	})
+	if err != nil {
+		return err
+	}
+	sctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	return gs.Shutdown(sctx)
+}
+
 func (r *clusterRuntime) stop(ctx context.Context) {
 	if r == nil {
 		return
 	}
+	// Coordination first: stop serving + dialing peers before the
+	// managers it reads from go away. Idempotent (graceful shutdown
+	// may have already run it).
+	r.coord.stop(ctx)
 	if err := r.shards.Stop(ctx); err != nil {
 		r.log.Warn("shard manager stop", "err", err)
 	}
