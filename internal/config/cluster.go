@@ -49,6 +49,7 @@ import (
 //	  fencing:
 //	    mode: read_only           # strict | read_only | graceful
 //	  coordination:
+//	    listen_addr: ""           # host:port mTLS listener bind; empty → none
 //	    heartbeat_interval: 5s
 //	    heartbeat_timeout: 2s
 //	    failure_threshold: 3
@@ -107,10 +108,19 @@ type ClusterShutdownConfig struct {
 }
 
 // ClusterCoordinationConfig is the operator-facing server↔server
-// CoordinationClient config (Epic 13 task 13). The runtime
-// equivalent is controlplane.CoordinationClientConfig; boot wiring
-// (later task) maps onto it.
+// CoordinationService/Client config (Epic 13 tasks 12/13). The
+// runtime equivalents are the dedicated mTLS coordination listener +
+// controlplane.CoordinationClientConfig; boot wiring maps onto them.
 type ClusterCoordinationConfig struct {
+	// ListenAddr is the host:port the dedicated mTLS coordination
+	// gRPC listener binds (the server↔server channel, separate from
+	// the agent/operator surface). Distinct from node.advertise_addr
+	// (what peers dial): ListenAddr is the local bind (e.g.
+	// "0.0.0.0:9443") while advertise_addr is the routable address
+	// recorded in the member record. Empty ⇒ no coordination
+	// listener is started (this node serves no server↔server
+	// channel); when set it must be a valid host:port.
+	ListenAddr string `koanf:"listen_addr"`
 	// HeartbeatInterval is how often each peer is NodeHeartbeat'd.
 	HeartbeatInterval time.Duration `koanf:"heartbeat_interval"`
 	// HeartbeatTimeout bounds each heartbeat RPC.
@@ -383,6 +393,18 @@ func (c *ClusterConfig) Validate() error {
 		return fmt.Errorf("cluster.fencing.mode must be %q, %q or %q, got %q",
 			fenceModeStrict, fenceModeReadOnly, fenceModeGraceful, c.Fencing.Mode)
 	}
+	if c.Coordination.ListenAddr != "" {
+		host, port, err := net.SplitHostPort(c.Coordination.ListenAddr)
+		if err != nil {
+			return fmt.Errorf("cluster.coordination.listen_addr must be host:port, got %q: %w",
+				c.Coordination.ListenAddr, err)
+		}
+		if port == "" {
+			return fmt.Errorf("cluster.coordination.listen_addr must include a port, got %q",
+				c.Coordination.ListenAddr)
+		}
+		_ = host // empty host is valid here (bind all interfaces, e.g. ":9443")
+	}
 	if c.Coordination.HeartbeatInterval <= 0 {
 		return fmt.Errorf("cluster.coordination.heartbeat_interval must be > 0, got %v",
 			c.Coordination.HeartbeatInterval)
@@ -472,6 +494,7 @@ func applyClusterDefaults(c *ClusterConfig) {
 		Mode: fenceModeReadOnly, // §4.15 acceptance: minority blocks writes, reads continue
 	}
 	c.Coordination = ClusterCoordinationConfig{
+		ListenAddr:        "", // set once the operator opts into the server↔server channel
 		HeartbeatInterval: 5 * time.Second,
 		HeartbeatTimeout:  2 * time.Second,
 		FailureThreshold:  3,

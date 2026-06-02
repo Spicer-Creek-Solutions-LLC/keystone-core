@@ -443,7 +443,7 @@ EventsSubscriberConfig drives the JetStreamSubscriber (Epic 11 task 4). - Enable
 
 ## `cluster`
 
-ClusterConfig drives the Epic 13 clustering/HA boot in kscore-server (PROJECT-DETAILS §4.15). cluster: enabled: false node: name: "" # empty → derived from etcd.name advertise_addr: "" # host:port peers dial (server↔server) etcd: mode: embedded # embedded \| external name: kscore-1 data_dir: ./data/etcd client_urls: ["<http://127.0.0.1:2379>"] peer_urls: ["<http://127.0.0.1:2380>"] endpoints: [] # external mode only lease_ttl_seconds: 15 dial_timeout: 5s auto_sync_interval: 5m membership: heartbeat_interval: 5s key_prefix: /kscore/cluster election: session_ttl_seconds: 3 recampaign_delay: 1s shard: virtual_nodes: 150 rebalance_cooldown: 5s health: check_interval: 5s failure_threshold: 3 latency_window: 100 failover: cooldown: 10s agent_batch: 100 job_batch: 50 recovery: connect_timeout: 5s connect_retries: 3 fencing: mode: read_only # strict \| read_only \| graceful coordination: heartbeat_interval: 5s heartbeat_timeout: 2s failure_threshold: 3 retry_max: 4 retry_base_delay: 100ms retry_max_delay: 2s shutdown: timeout: 30s Enabled defaults to false: the single-node path stays the default and clustering is strictly opt-in. When disabled, no etcd is started and the ClusterService/CoordinationService are not registered (later Epic 13 tasks). The wiring that translates this into a running internal/cluster.EtcdClient lands with a later Epic 13 task; Task 1 ships the config surface + validation.
+ClusterConfig drives the Epic 13 clustering/HA boot in kscore-server (PROJECT-DETAILS §4.15). cluster: enabled: false node: name: "" # empty → derived from etcd.name advertise_addr: "" # host:port peers dial (server↔server) etcd: mode: embedded # embedded \| external name: kscore-1 data_dir: ./data/etcd client_urls: ["<http://127.0.0.1:2379>"] peer_urls: ["<http://127.0.0.1:2380>"] endpoints: [] # external mode only lease_ttl_seconds: 15 dial_timeout: 5s auto_sync_interval: 5m membership: heartbeat_interval: 5s key_prefix: /kscore/cluster election: session_ttl_seconds: 3 recampaign_delay: 1s shard: virtual_nodes: 150 rebalance_cooldown: 5s health: check_interval: 5s failure_threshold: 3 latency_window: 100 failover: cooldown: 10s agent_batch: 100 job_batch: 50 recovery: connect_timeout: 5s connect_retries: 3 fencing: mode: read_only # strict \| read_only \| graceful coordination: listen_addr: "" # host:port mTLS listener bind; empty → none heartbeat_interval: 5s heartbeat_timeout: 2s failure_threshold: 3 retry_max: 4 retry_base_delay: 100ms retry_max_delay: 2s shutdown: timeout: 30s Enabled defaults to false: the single-node path stays the default and clustering is strictly opt-in. When disabled, no etcd is started and the ClusterService/CoordinationService are not registered (later Epic 13 tasks). The wiring that translates this into a running internal/cluster.EtcdClient lands with a later Epic 13 task; Task 1 ships the config surface + validation.
 
 | Key | Type | Description |
 |-----|------|-------------|
@@ -462,13 +462,14 @@ ClusterConfig drives the Epic 13 clustering/HA boot in kscore-server (PROJECT-DE
 
 ## `cluster.coordination`
 
-ClusterCoordinationConfig is the operator-facing server↔server CoordinationClient config (Epic 13 task 13). The runtime equivalent is controlplane.CoordinationClientConfig; boot wiring (later task) maps onto it.
+ClusterCoordinationConfig is the operator-facing server↔server CoordinationService/Client config (Epic 13 tasks 12/13). The runtime equivalents are the dedicated mTLS coordination listener + controlplane.CoordinationClientConfig; boot wiring maps onto them.
 
 | Key | Type | Description |
 |-----|------|-------------|
 | `cluster.coordination.failure_threshold` | `int` | FailureThreshold is the consecutive heartbeat failures after which a peer is marked unreachable. |
 | `cluster.coordination.heartbeat_interval` | `time.Duration` | HeartbeatInterval is how often each peer is NodeHeartbeat'd. |
 | `cluster.coordination.heartbeat_timeout` | `time.Duration` | HeartbeatTimeout bounds each heartbeat RPC. |
+| `cluster.coordination.listen_addr` | `string` | ListenAddr is the host:port the dedicated mTLS coordination gRPC listener binds (the server↔server channel, separate from the agent/operator surface). Distinct from node.advertise_addr (what peers dial): ListenAddr is the local bind (e.g. "0.0.0.0:9443") while advertise_addr is the routable address recorded in the member record. Empty ⇒ no coordination listener is started (this node serves no server↔server channel); when set it must be a valid host:port. |
 | `cluster.coordination.retry_base_delay` | `time.Duration` | RetryBaseDelay / RetryMaxDelay bound the exponential backoff. |
 | `cluster.coordination.retry_max` | `int` | RetryMax is the max attempts per coordination RPC. |
 | `cluster.coordination.retry_max_delay` | `time.Duration` |  |

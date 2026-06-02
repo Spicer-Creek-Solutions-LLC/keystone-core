@@ -233,9 +233,11 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	// surface then stays at Unavailable/503. Constructed here — after
 	// identity/TLS, before events/audit — so its canonical leader-check
 	// gates the events retention enforcer (only the leader prunes in a
-	// cluster). The dedicated mTLS coordination listener + failover
-	// wiring land in a later PR.
-	clusterRT, err := startCluster(ctx, cfg.Cluster, log)
+	// cluster). When cluster.coordination.listen_addr is set, this also
+	// starts the dedicated mTLS server↔server CoordinationService
+	// listener + the peer-dialing client (needs the identity provider).
+	// FailoverManager + the HealthMonitor-backed status remain deferred.
+	clusterRT, err := startCluster(ctx, cfg.Cluster, identityProvider, log)
 	if err != nil {
 		return fmt.Errorf("cluster: %w", err)
 	}
@@ -604,6 +606,15 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	cpGRPC.SetExecutor(natsExec)
 
 	<-ctx.Done()
+
+	// Epic 13 — drive the cluster graceful-shutdown sequence on
+	// SIGTERM before the API server stops: LEAVING → peers rebalance
+	// our shards off, leadership transfers if held, then we deregister.
+	// Best-effort: a cluster shutdown error must not block the server
+	// stop. No-op when clustering is disabled.
+	if err := clusterRT.gracefulShutdown(context.Background(), cfg.Cluster.Shutdown.Timeout); err != nil {
+		log.Warn("cluster graceful shutdown", "err", err)
+	}
 
 	stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
