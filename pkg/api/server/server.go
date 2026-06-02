@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"go.keystone-core.io/keystone-core/internal/agent"
+	"go.keystone-core.io/keystone-core/internal/audit"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/events"
@@ -25,7 +26,6 @@ import (
 	metricspkg "go.keystone-core.io/keystone-core/internal/metrics"
 	"go.keystone-core.io/keystone-core/internal/policy"
 	"go.keystone-core.io/keystone-core/internal/secrets"
-	"go.keystone-core.io/keystone-core/internal/audit"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
 	clusterapi "go.keystone-core.io/keystone-core/pkg/api/cluster"
@@ -83,6 +83,7 @@ type Server struct {
 	bootstrapValidator controlplane.BootstrapValidator
 	credentialIssuer   controlplane.CredentialIssuer
 	authInterceptor    *auth.InterceptorConfig
+	fencer             Fencer
 	tlsConfig          *tls.Config
 	now                func() time.Time
 	version            string
@@ -136,16 +137,17 @@ type Server struct {
 }
 
 // New executes the §4.4 init steps that don't require serving:
-//  3-4   NATS start + verify
-//  5     Store ping
-//  6     ConnectionManager start
-//  7     CommandDispatcher start
-//  8     BatchDispatcher (lazy)
-//  9-12  TLS / interceptor / gRPC server / service registration
-//  13    bind gRPC listener
-//  15-16 build HTTP mux + register endpoints
-//  17    wrap HTTP middleware
-//  18    bind HTTP listener
+//
+//	3-4   NATS start + verify
+//	5     Store ping
+//	6     ConnectionManager start
+//	7     CommandDispatcher start
+//	8     BatchDispatcher (lazy)
+//	9-12  TLS / interceptor / gRPC server / service registration
+//	13    bind gRPC listener
+//	15-16 build HTTP mux + register endpoints
+//	17    wrap HTTP middleware
+//	18    bind HTTP listener
 //
 // Steps 1-2 (config validate + logger) are the caller's job; step 14
 // (start gRPC serving) and 19-21 (optional components, banner, ticker)
@@ -177,6 +179,7 @@ func New(opts Options) (*Server, error) {
 		bootstrapValidator:   opts.BootstrapValidator,
 		credentialIssuer:     opts.CredentialIssuer,
 		authInterceptor:      opts.AuthInterceptor,
+		fencer:               opts.Fencer,
 		tlsConfig:            opts.TLSConfig,
 		now:                  clock,
 		version:              version.Get().Version,
@@ -409,12 +412,13 @@ func (s *Server) initStep8() error {
 // services, bind gRPC listener.
 //
 // Task 4 places minimal scaffolding here:
-//   step 9  — TLS not yet supported (nil); task 8/Epic 13 wire real TLS.
-//   step 10 — interceptor chain placeholder; task 6 builds the real one.
-//   step 11 — grpc.NewServer with whatever interceptors are wired.
-//   step 12 — service registration loop is empty (services land with
-//             their epics; nil-guarded).
-//   step 13 — single-stack net.Listen; task 5 swaps to dual-stack.
+//
+//	step 9  — TLS not yet supported (nil); task 8/Epic 13 wire real TLS.
+//	step 10 — interceptor chain placeholder; task 6 builds the real one.
+//	step 11 — grpc.NewServer with whatever interceptors are wired.
+//	step 12 — service registration loop is empty (services land with
+//	          their epics; nil-guarded).
+//	step 13 — single-stack net.Listen; task 5 swaps to dual-stack.
 func (s *Server) initSteps9to13() error {
 	var grpcOpts []grpc.ServerOption
 	if s.cfg.Server.TLS.Enabled {
@@ -464,6 +468,14 @@ func (s *Server) initSteps9to13() error {
 		}
 		unaryChain = append(unaryChain, unary)
 		streamChain = append(streamChain, stream)
+	}
+	// Epic 13 — fencing sits innermost (after auth), closest to the
+	// handler: an authenticated write on a fenced (minority/deposed)
+	// node is rejected with Unavailable before it reaches the handler.
+	// nil fencer (single-node / clustering disabled) ⇒ no interceptor.
+	if s.fencer != nil {
+		unaryChain = append(unaryChain, fencingUnaryInterceptor(s.fencer))
+		streamChain = append(streamChain, fencingStreamInterceptor(s.fencer))
 	}
 	if len(unaryChain) > 0 {
 		grpcOpts = append(grpcOpts, grpc.ChainUnaryInterceptor(unaryChain...))
@@ -550,18 +562,18 @@ func (s *Server) Start(ctx context.Context) error {
 
 // Stop runs the §4.4 reverse-of-init shutdown sequence:
 //
-//	1. log "shutdown begin"
-//	2. gRPC.GracefulStop  (forcible Stop fallback if it hangs)
-//	3. CommandDispatcher.Stop  (added: keeps the task-2 dispatcher's
-//	    retention/timeout loops from outliving the server)
-//	4. ConnectionManager.Stop
-//	5. Store.Close
-//	6. NATSManager.Shutdown
-//	7. HTTP.Shutdown (per spec: AFTER NATS so /health/ready signals
-//	    503 to load balancers before HTTP itself stops accepting)
-//	8. tracing/profiling cleanup placeholder (Epic 17 wires the real
-//	    teardown; the 5s budget is in place from day one)
-//	9. log "shutdown complete"
+//  1. log "shutdown begin"
+//  2. gRPC.GracefulStop  (forcible Stop fallback if it hangs)
+//  3. CommandDispatcher.Stop  (added: keeps the task-2 dispatcher's
+//     retention/timeout loops from outliving the server)
+//  4. ConnectionManager.Stop
+//  5. Store.Close
+//  6. NATSManager.Shutdown
+//  7. HTTP.Shutdown (per spec: AFTER NATS so /health/ready signals
+//     503 to load balancers before HTTP itself stops accepting)
+//  8. tracing/profiling cleanup placeholder (Epic 17 wires the real
+//     teardown; the 5s budget is in place from day one)
+//  9. log "shutdown complete"
 //
 // Bounded by ctx; idempotent; safe to call before Start. Each step
 // uses contextWithTimeoutMin(ctx, stepCeiling) so a stuck step
@@ -865,4 +877,3 @@ func contextWithTimeoutMin(parent context.Context, fallback time.Duration) (cont
 	}
 	return context.WithTimeout(parent, fallback)
 }
-

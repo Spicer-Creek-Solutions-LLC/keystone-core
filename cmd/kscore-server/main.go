@@ -435,6 +435,10 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	}
 	if clusterRT != nil {
 		opts.ClusterProviders = clusterRT.restProviders()
+		// Epic 13 — split-brain fencing guard around the server write
+		// paths (gRPC interceptor + REST middleware). nil when fencing
+		// isn't constructed, leaving requests unfenced.
+		opts.Fencer = clusterRT.fencer()
 	}
 
 	if cfg.NATS.Bootstrap.Enabled {

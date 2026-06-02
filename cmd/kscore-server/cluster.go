@@ -16,6 +16,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/identity"
 	clusterapi "go.keystone-core.io/keystone-core/pkg/api/cluster"
+	"go.keystone-core.io/keystone-core/pkg/api/server"
 )
 
 // clusterRuntime bundles the Epic 13 clustering components constructed
@@ -44,6 +45,7 @@ type clusterRuntime struct {
 	shardStore *cluster.ShardStore
 	shards     *cluster.ShardManager
 	health     *cluster.HealthMonitor
+	fencing    *cluster.FencingManager
 
 	memberID        string
 	clusterName     string
@@ -213,8 +215,36 @@ func startCluster(ctx context.Context, cfg config.ClusterConfig, identityProvide
 		return nil, etcdStopErr(ctx, etcd, fmt.Errorf("health monitor start: %w", err))
 	}
 
+	// FencingManager: the split-brain enforcement layer (HealthMonitor
+	// only detects QuorumMinority). It observes quorum loss + the etcd
+	// leader epoch and self-fences a minority/deposed node; Guard then
+	// rejects writes per cfg.Fencing.Mode (default read_only) at the
+	// server request paths. Constructed after the HealthMonitor +
+	// LeaderElector it observes.
+	// Mode is validated at config load (ClusterConfig.Validate enforces
+	// the strict/read_only/graceful enum); pass it through, and an
+	// empty value (e.g. a hand-built config) defaults to read_only via
+	// the manager's own fillDefaults.
+	fm, err := cluster.NewFencingManager(cluster.FencingManagerConfig{
+		Quorum:     hm,
+		Leadership: le,
+		Etcd:       etcd,
+		KeyPrefix:  cfg.Membership.KeyPrefix,
+		Mode:       cluster.FenceMode(cfg.Fencing.Mode),
+		Logger:     log,
+	})
+	if err != nil {
+		_ = hm.Stop(ctx)
+		return nil, etcdStopErr(ctx, etcd, fmt.Errorf("fencing manager: %w", err))
+	}
+	if err := fm.Start(ctx); err != nil {
+		_ = hm.Stop(ctx)
+		return nil, etcdStopErr(ctx, etcd, fmt.Errorf("fencing manager start: %w", err))
+	}
+
 	configJSON, err := json.Marshal(cfg)
 	if err != nil {
+		_ = fm.Stop(ctx)
 		_ = hm.Stop(ctx)
 		return nil, etcdStopErr(ctx, etcd, fmt.Errorf("marshal cluster config: %w", err))
 	}
@@ -228,6 +258,7 @@ func startCluster(ctx context.Context, cfg config.ClusterConfig, identityProvide
 		shardStore:      ss,
 		shards:          sm,
 		health:          hm,
+		fencing:         fm,
 		memberID:        memberID,
 		clusterName:     memberName,
 		memberKeyPrefix: strings.TrimRight(cfg.Membership.KeyPrefix, "/") + "/members/",
@@ -283,6 +314,27 @@ func (r *clusterRuntime) restProviders() clusterapi.ClusterProviders {
 	}
 }
 
+// fencer adapts the cluster FencingManager onto the server.Fencer
+// seam, mapping the request-layer write bool onto cluster.OpType. Nil
+// (clustering disabled, or fencing not constructed) ⇒ the caller wires
+// no Fencer and every request is unfenced.
+func (r *clusterRuntime) fencer() server.Fencer {
+	if r == nil || r.fencing == nil {
+		return nil
+	}
+	return fencingGuardAdapter{fm: r.fencing}
+}
+
+type fencingGuardAdapter struct{ fm *cluster.FencingManager }
+
+func (a fencingGuardAdapter) Guard(write bool) (func(), error) {
+	op := cluster.OpRead
+	if write {
+		op = cluster.OpWrite
+	}
+	return a.fm.Guard(op)
+}
+
 // evict administratively removes a member by deleting its etcd
 // membership key (the §13 admin evict — members otherwise self-register
 // with an ephemeral lease).
@@ -294,12 +346,12 @@ func (r *clusterRuntime) evict(ctx context.Context, memberID string) error {
 // gracefulShutdown runs the Epic 13 §4.15 graceful-shutdown sequence
 // on SIGTERM, before the API server stops: mark this member LEAVING
 // (peers rebalance our shards off before we exit), transfer leadership
-// if we hold it, then deregister (revoke the membership lease). nil-
-// safe so the single-node path (clustering disabled) is a no-op. The
-// coordination stop-accepting hook (drain the server↔server channel)
-// is wired when the coordination stack is running; the in-flight
-// Drainer is left nil until the FencingManager graceful drain is
-// wired (same deferral family as FailoverManager).
+// if we hold it, drain in-flight guarded operations, then deregister
+// (revoke the membership lease). nil-safe so the single-node path
+// (clustering disabled) is a no-op. The coordination stop-accepting
+// hook drains the server↔server channel; the Drainer waits for
+// in-flight FencingManager-guarded requests to release before the
+// member key is removed.
 func (r *clusterRuntime) gracefulShutdown(ctx context.Context, timeout time.Duration) error {
 	if r == nil {
 		return nil
@@ -307,13 +359,20 @@ func (r *clusterRuntime) gracefulShutdown(ctx context.Context, timeout time.Dura
 	if timeout <= 0 {
 		timeout = shutdownTimeout
 	}
-	gs, err := cluster.NewGracefulShutdown(cluster.GracefulShutdownConfig{
+	gscfg := cluster.GracefulShutdownConfig{
 		Membership:    r.membership,
 		Leadership:    r.election,
 		StopAccepting: r.stopAccepting,
 		Timeout:       timeout,
 		Logger:        r.log,
-	})
+	}
+	// Drain in-flight FencingManager-guarded requests before
+	// deregistering. Set only when non-nil — the Drainer field is an
+	// interface, so a typed-nil *FencingManager would panic on Drain.
+	if r.fencing != nil {
+		gscfg.Drainer = r.fencing
+	}
+	gs, err := cluster.NewGracefulShutdown(gscfg)
 	if err != nil {
 		return err
 	}
@@ -347,9 +406,14 @@ func (r *clusterRuntime) stop(ctx context.Context) {
 	// managers it reads from go away. Idempotent (graceful shutdown
 	// may have already run it).
 	r.coord.stop(ctx)
-	// HealthMonitor next: stop it driving member status / reading etcd
-	// before the managers below. Idempotent (the graceful StopAccepting
-	// hook may have already stopped it).
+	// FencingManager + HealthMonitor next: stop them observing/reading
+	// etcd before the managers below. Fencing observes health, so stop
+	// it first. Idempotent.
+	if r.fencing != nil {
+		if err := r.fencing.Stop(ctx); err != nil {
+			r.log.Warn("fencing manager stop", "err", err)
+		}
+	}
 	if r.health != nil {
 		if err := r.health.Stop(ctx); err != nil {
 			r.log.Warn("health monitor stop", "err", err)
