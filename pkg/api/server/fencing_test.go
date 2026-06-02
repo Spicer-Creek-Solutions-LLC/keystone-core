@@ -52,8 +52,10 @@ func (f *fakeFencer) liveCount() int {
 func TestIsWriteMethod(t *testing.T) {
 	writes := []string{
 		"/keystone.core.v1.StateService/ApplyState",
+		"/keystone.core.v1.StateService/RollbackState",
 		"/keystone.core.v1.ControlPlaneService/ExecuteCommand",
 		"/keystone.core.v1.ControlPlaneService/BatchExecuteCommand",
+		"/keystone.core.v1.ControlPlaneService/CancelBatchJob",
 		"/keystone.core.v1.SecretsService/WriteSecret",
 		"/keystone.core.v1.ClusterService/TransferLeader",
 	}

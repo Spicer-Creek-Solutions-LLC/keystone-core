@@ -36,18 +36,24 @@ type Fencer interface {
 const fencedMessage = "node fenced: cluster quorum lost or leadership superseded (split-brain protection)"
 
 // writeMethods is the set of fully-qualified gRPC methods that mutate
-// shared cluster state and are therefore guarded as writes. Methods
-// absent from this set are treated as reads, so they continue to be
-// served by a read-only-fenced minority node (the §4.15 "reads
-// continue" contract); correctness for any unlisted write is still
-// backstopped by etcd quorum at the storage layer. CoordinationService
-// is intentionally absent — it runs on its own listener (never this
-// chain) and is the recovery channel that must work during a
-// partition.
+// shared state and are therefore guarded as writes. Methods absent
+// from this set are treated as reads, so a read-only-fenced minority
+// node keeps serving them (the §4.15 "reads continue" contract).
+//
+// This set MUST be kept in sync as mutating RPCs are added: an omitted
+// write is not fenced. etcd-backed writes (cluster topology) would
+// still be gated by quorum at the storage layer, but the SQL-store
+// mutations (state apply/rollback, command dispatch, batch-job cancel,
+// secret writes, event emit) have no such backstop, so every one must
+// be listed here explicitly. CoordinationService is intentionally
+// absent — it runs on its own listener (never this chain) and is the
+// recovery channel that must work during a partition.
 var writeMethods = map[string]bool{
 	"/keystone.core.v1.StateService/ApplyState":                 true,
+	"/keystone.core.v1.StateService/RollbackState":              true,
 	"/keystone.core.v1.ControlPlaneService/ExecuteCommand":      true,
 	"/keystone.core.v1.ControlPlaneService/BatchExecuteCommand": true,
+	"/keystone.core.v1.ControlPlaneService/CancelBatchJob":      true,
 	"/keystone.core.v1.EventService/EmitEvent":                  true,
 	"/keystone.core.v1.SecretsService/WriteSecret":              true,
 	"/keystone.core.v1.SecretsService/DeleteSecret":             true,
