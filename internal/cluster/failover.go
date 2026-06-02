@@ -42,9 +42,13 @@ type JobRef struct {
 	ID string
 }
 
-// AgentReassigner enacts agent ownership handoff (the agent runtime
-// reconnecting to the new shard owner). Injected by boot so
-// internal/cluster does not import the controlplane/agent layers.
+// AgentReassigner moves responsibility for a failed member's agents to
+// their new shard owner. This is a control-plane ownership handoff
+// recorded in the shard map, NOT an agent transport reconnect: the
+// agent↔server channel is NATS pub/sub keyed on agent ID, so it is
+// node-agnostic and unaffected by which member owns the shard. Injected
+// by boot so internal/cluster does not import the controlplane/agent
+// layers.
 type AgentReassigner interface {
 	ReassignAgents(ctx context.Context, moves []ShardMove) error
 }
