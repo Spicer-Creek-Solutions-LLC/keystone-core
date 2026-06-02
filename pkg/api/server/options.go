@@ -65,6 +65,13 @@ type Options struct {
 	// task 4 leaves this optional; task 6 pins it on by default.
 	AuthInterceptor *auth.InterceptorConfig
 
+	// Fencer wires the Epic 13 split-brain fencing guard around the
+	// gRPC + REST write paths when non-nil. cmd/kscore-server injects
+	// an adapter over the cluster FencingManager when clustering is
+	// enabled; nil (the single-node / clustering-disabled path) leaves
+	// every request unfenced.
+	Fencer Fencer
+
 	// TLSConfig wires gRPC TLS / mTLS when non-nil (Epic 09 task 13).
 	// Required when cfg.Server.TLS.Enabled. cmd/kscore-server
 	// derives this from the identity provider; tests inject a

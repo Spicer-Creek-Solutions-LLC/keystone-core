@@ -1,0 +1,25 @@
+kind: Added
+body: |-
+  **Split-brain fencing enforced at the server write paths (Epic 13,
+  PR-D).** When clustering is enabled, `kscore-server` now constructs
+  the `FencingManager` at boot and guards both request surfaces through
+  it: a gRPC interceptor rejects write RPCs with `Unavailable`, and an
+  HTTP middleware rejects mutating REST requests
+  (`POST`/`PUT`/`PATCH`/`DELETE`) with `503`, whenever this node is
+  fenced — i.e. it has lost etcd quorum (a minority partition) or been
+  superseded as leader (a stale epoch).
+
+  The fence mode follows `cluster.fencing.mode` (default `read_only`:
+  reads continue, writes are blocked; `strict` blocks reads too). Reads
+  and unlisted methods keep flowing on a minority node, with
+  storage-layer etcd quorum backstopping correctness. The
+  `CoordinationService` is never fenced — it is the server↔server
+  recovery channel that must work during a partition.
+
+  Graceful shutdown now also drains in-flight guarded operations (via
+  `FencingManager.Drain`) before the member deregisters.
+
+  No new configuration — `cluster.fencing.mode` already existed.
+
+  Deferred: the `ValidEpoch`-at-commit refinement for the narrow window
+  where an operation begins before a fence and commits after.

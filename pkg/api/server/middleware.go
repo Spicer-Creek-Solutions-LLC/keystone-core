@@ -30,12 +30,19 @@ func (s *Server) buildHTTPHandler() (http.Handler, error) {
 	s.registerDomainHandlers(apiMux)
 
 	var apiHandler http.Handler = apiMux
+	// Epic 13 — fencing wraps the domain API (but not /health or
+	// /metrics, which must answer while fenced) and sits inside auth:
+	// an authenticated write on a fenced node is rejected with 503.
+	// nil fencer (single-node / clustering disabled) ⇒ no middleware.
+	if s.fencer != nil {
+		apiHandler = fencingHTTPMiddleware(s.fencer)(apiHandler)
+	}
 	if s.authInterceptor != nil {
 		mw, err := s.authInterceptor.HTTPMiddleware()
 		if err != nil {
 			return nil, fmt.Errorf("server: build auth HTTP middleware: %w", err)
 		}
-		apiHandler = mw(apiMux)
+		apiHandler = mw(apiHandler)
 	}
 
 	router := http.NewServeMux()

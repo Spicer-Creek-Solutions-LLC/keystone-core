@@ -129,6 +129,24 @@ func TestStartCluster_EnabledLifecycle(t *testing.T) {
 					st.GetMemberCount(), st.GetHealthyCount())
 			}
 
+			// Fencing is wired: a healthy single node holds quorum and
+			// leadership, so it is not fenced and a write Guard succeeds.
+			if rt.fencing == nil {
+				t.Fatal("FencingManager not constructed")
+			}
+			if rt.fencing.Fenced() {
+				t.Fatal("healthy single node reports fenced")
+			}
+			fencer := rt.fencer()
+			if fencer == nil {
+				t.Fatal("fencer() returned nil despite fencing constructed")
+			}
+			release, err := fencer.Guard(true) // OpWrite
+			if err != nil {
+				t.Fatalf("Guard(write) on a healthy node: %v", err)
+			}
+			release()
+
 			// Leader provider reflects the won election.
 			if !rest.Leader.IsLeader() {
 				t.Fatal("Leader.IsLeader() = false after becoming leader")
