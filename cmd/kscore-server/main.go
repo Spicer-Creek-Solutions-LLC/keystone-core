@@ -228,6 +228,24 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	}
 	defer tlsCancel()
 
+	// Epic 13 — start the clustering stack when enabled. Returns
+	// (nil, nil) when cluster.enabled is false; the cluster gRPC + REST
+	// surface then stays at Unavailable/503. Constructed here — after
+	// identity/TLS, before events/audit — so its canonical leader-check
+	// gates the events retention enforcer (only the leader prunes in a
+	// cluster). The dedicated mTLS coordination listener + failover
+	// wiring land in a later PR.
+	clusterRT, err := startCluster(ctx, cfg.Cluster, log)
+	if err != nil {
+		return fmt.Errorf("cluster: %w", err)
+	}
+	defer func() {
+		stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+		defer cancel()
+		clusterRT.stop(stopCtx)
+	}()
+	leaderCheck := clusterRT.leaderCheck()
+
 	// Epic 11 task 6 — start the events runtime when enabled.
 	// Returns nil + nil error when events.enabled is false; the
 	// EventService gRPC + REST surface then returns Unavailable.
@@ -237,7 +255,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	// Boot order: events BEFORE secrets per Epic 11 task 10 so the
 	// secrets audit pipeline can fan out through the events bus.
 	// Events depends only on state + NATS (no secrets dep).
-	eventsRT, err := startEvents(ctx, cfg.Events, cfg.NATS, store, natsManager, eventsMetrics, log)
+	eventsRT, err := startEvents(ctx, cfg.Events, cfg.NATS, store, natsManager, eventsMetrics, leaderCheck, log)
 	if err != nil {
 		return fmt.Errorf("events: %w", err)
 	}
@@ -400,6 +418,9 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		opts.EventPublisher = eventsRT.Publisher
 		opts.EventSubscriber = eventsRT.Subscriber
 	}
+	if clusterRT != nil {
+		opts.ClusterProviders = clusterRT.restProviders()
+	}
 
 	if cfg.NATS.Bootstrap.Enabled {
 		apiKeyIssuer, err := controlplane.NewAPIKeyIssuer(controlplane.APIKeyIssuerConfig{
@@ -543,6 +564,13 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	}
 	if blueprintGRPC != nil {
 		srv.RegisterService(&v1.BlueprintService_ServiceDesc, blueprintGRPC)
+	}
+
+	// Epic 13 — register ClusterService when clustering is constructed.
+	// nil clusterRT (disabled) leaves the gRPC service Unimplemented and
+	// the REST surface at 503.
+	if clusterRT != nil {
+		srv.RegisterService(&v1.ClusterService_ServiceDesc, clusterRT.grpcServer())
 	}
 
 	if err := srv.Start(ctx); err != nil {

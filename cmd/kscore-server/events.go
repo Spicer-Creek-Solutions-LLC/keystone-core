@@ -74,7 +74,7 @@ func (r *eventsRuntime) stop(ctx context.Context, log *slog.Logger) {
 // ensures NATS+JetStream is enabled when events is enabled, so this
 // function reports a hard error if the manager refuses to hand back
 // a JetStream context.
-func startEvents(ctx context.Context, cfg config.EventsConfig, natsCfg config.NATSConfig, store state.Store, nm *natsmgr.Manager, em *events.Metrics, log *slog.Logger) (*eventsRuntime, error) {
+func startEvents(ctx context.Context, cfg config.EventsConfig, natsCfg config.NATSConfig, store state.Store, nm *natsmgr.Manager, em *events.Metrics, leaderCheck events.LeaderCheck, log *slog.Logger) (*eventsRuntime, error) {
 	if !cfg.Enabled {
 		log.LogAttrs(ctx, slog.LevelInfo, "events: disabled in config; skipping")
 		return nil, nil
@@ -160,8 +160,10 @@ func startEvents(ctx context.Context, cfg config.EventsConfig, natsCfg config.NA
 			events.WithRetentionInterval(cfg.Retention.Interval),
 			events.WithRetentionJitter(cfg.Retention.Jitter),
 			events.WithRetentionLogger(log),
-			// Epic 13 swaps this for a real leader-election check.
-			// v1.0 single-node runs the enforcer unconditionally.
+			// Leader-gated: in a cluster only the leader prunes; a
+			// single-node deployment passes alwaysLeader and runs the
+			// enforcer unconditionally.
+			events.WithRetentionLeaderCheck(leaderCheck),
 		)
 		if err != nil {
 			if rt.Subscriber != nil {

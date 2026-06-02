@@ -28,6 +28,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/audit"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/pkg/api/auth"
+	clusterapi "go.keystone-core.io/keystone-core/pkg/api/cluster"
 	"go.keystone-core.io/keystone-core/pkg/api/gitops"
 	"go.keystone-core.io/keystone-core/pkg/api/webhooks"
 	"go.keystone-core.io/keystone-core/pkg/envelope"
@@ -104,6 +105,7 @@ type Server struct {
 
 	webhookProviders webhooks.Providers
 	gitopsProviders  gitops.Providers
+	clusterProviders clusterapi.ClusterProviders
 
 	metrics             *Metrics
 	controlPlaneMetrics *controlplane.Metrics
@@ -193,6 +195,7 @@ func New(opts Options) (*Server, error) {
 		policyAuditor:        opts.PolicyAuditor,
 		webhookProviders:     opts.WebhookProviders,
 		gitopsProviders:      opts.GitOpsProviders,
+		clusterProviders:     opts.ClusterProviders,
 		metrics:              opts.Metrics,
 		controlPlaneMetrics:  opts.ControlPlaneMetrics,
 		metricsRegistry:      opts.MetricsRegistry,
