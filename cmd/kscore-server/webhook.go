@@ -72,8 +72,13 @@ func startOutboundWebhook(
 	}
 
 	mgr := &outbound.Manager{
-		Store:                   store,
-		Dispatcher:              &outbound.HTTPDispatcher{DefaultTimeout: cfg.Timeout},
+		Store: store,
+		// §4.14 — wrap the HTTP dispatcher in the per-endpoint circuit
+		// breaker (defaults 5 failures / 30s open / 2 half-open) so a
+		// persistently-failing receiver is short-circuited instead of
+		// retried every delivery. The breaker is a transparent
+		// Dispatcher decorator; normal delivery is unaffected.
+		Dispatcher:              &outbound.CircuitBreaker{Inner: &outbound.HTTPDispatcher{DefaultTimeout: cfg.Timeout}},
 		Logger:                  log,
 		MaxConcurrentDeliveries: cfg.MaxConcurrentDeliveries,
 		MaxPayloadBytes:         cfg.MaxPayloadSize,
