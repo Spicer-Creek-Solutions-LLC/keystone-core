@@ -208,9 +208,11 @@ func (o *ClientTLSOptions) withDefaults() *ClientTLSOptions {
 // a peer advertises an arbitrary host:port, so the standard
 // ServerName/DNS-SAN check cannot apply. Instead the returned config
 // sets InsecureSkipVerify (disabling the default DNS check) and
-// supplies a [tls.Config.VerifyPeerCertificate] that chains the
+// supplies a [tls.Config.VerifyConnection] callback that chains the
 // peer's leaf to the current trust bundle and requires its URI SAN
-// to be a `server/*` SPIFFE ID in this node's trust domain. The
+// to be a `server/*` SPIFFE ID in this node's trust domain
+// (VerifyConnection, unlike VerifyPeerCertificate, also runs on
+// resumed TLS 1.3 sessions, so resumption cannot bypass it). The
 // rotation watcher refreshes both the presented client cert and the
 // verification pool on signing-CA rotation, exactly like the server
 // path.
