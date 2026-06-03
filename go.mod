@@ -1,6 +1,6 @@
 module go.keystone-core.io/keystone-core
 
-go 1.26.3
+go 1.26.4
 
 require (
 	filippo.io/age v1.3.1
