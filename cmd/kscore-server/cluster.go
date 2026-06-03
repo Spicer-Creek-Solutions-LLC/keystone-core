@@ -15,6 +15,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/identity"
+	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	clusterapi "go.keystone-core.io/keystone-core/pkg/api/cluster"
 	"go.keystone-core.io/keystone-core/pkg/api/server"
 )
@@ -78,7 +79,7 @@ func (r *clusterRuntime) leaderCheck() func() bool {
 // operator config. Caller guards on cfg.Enabled; this returns
 // (nil, nil) for the disabled case so the call site stays nil-ladder
 // free.
-func startCluster(ctx context.Context, cfg config.ClusterConfig, identityProvider *identity.EmbeddedProvider, extraCheckers []cluster.HealthChecker, log *slog.Logger) (*clusterRuntime, error) {
+func startCluster(ctx context.Context, cfg config.ClusterConfig, identityProvider *identity.EmbeddedProvider, natsManager *natsmgr.Manager, extraCheckers []cluster.HealthChecker, log *slog.Logger) (*clusterRuntime, error) {
 	if !cfg.Enabled {
 		return nil, nil
 	}
@@ -269,7 +270,7 @@ func startCluster(ctx context.Context, cfg config.ClusterConfig, identityProvide
 	// when an operator opts in via cluster.coordination.listen_addr;
 	// on failure the partially-started stack is torn down via stop so
 	// a failed boot leaves no orphan etcd/managers.
-	if err := r.startCoordination(ctx, cfg, identityProvider, log); err != nil {
+	if err := r.startCoordination(ctx, cfg, identityProvider, natsManager, log); err != nil {
 		stopCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		r.stop(stopCtx)
 		cancel()

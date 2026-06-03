@@ -163,6 +163,41 @@ func TestManager_EmbeddedStartHealthPublishShutdown(t *testing.T) {
 	}
 }
 
+func TestManager_ConnectedAndDetail(t *testing.T) {
+	m := startManager(t, embeddedConfig(t))
+
+	if !m.Connected() {
+		t.Error("Connected() = false after Start, want true")
+	}
+	detail := m.Detail()
+	if !strings.Contains(detail, "connected") || !strings.Contains(detail, "embedded") {
+		t.Errorf("Detail() = %q, want it to mention connected + embedded", detail)
+	}
+
+	if err := m.Shutdown(context.Background()); err != nil {
+		t.Fatalf("Shutdown: %v", err)
+	}
+	if m.Connected() {
+		t.Error("Connected() = true after Shutdown, want false")
+	}
+	if d := m.Detail(); strings.Contains(d, "connected (") {
+		t.Errorf("Detail() after Shutdown = %q, want a not-connected reason", d)
+	}
+}
+
+func TestManager_ConnectedBeforeStart(t *testing.T) {
+	m, err := New(embeddedConfig(t), testLogger())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if m.Connected() {
+		t.Error("Connected() = true before Start, want false")
+	}
+	if d := m.Detail(); !strings.Contains(d, "not started") {
+		t.Errorf("Detail() before Start = %q, want 'not started'", d)
+	}
+}
+
 func TestManager_StartIdempotent(t *testing.T) {
 	m := startManager(t, embeddedConfig(t))
 	if err := m.Start(context.Background()); err != nil {
@@ -229,11 +264,11 @@ func TestManager_PublishRejectsUnprefixed(t *testing.T) {
 	cases := []string{
 		"",
 		"random.subject",
-		"kscore.other.agent.register",      // wrong cluster
-		"kscoredev.test.x",                 // wrong root
-		"kscore.test.agent.*",              // wildcard
-		"kscore.test.agent.>",              // wildcard
-		"kscore.test.agent foo",            // whitespace
+		"kscore.other.agent.register", // wrong cluster
+		"kscoredev.test.x",            // wrong root
+		"kscore.test.agent.*",         // wildcard
+		"kscore.test.agent.>",         // wildcard
+		"kscore.test.agent foo",       // whitespace
 	}
 	for _, subject := range cases {
 		err := m.PublishEnvelope(context.Background(), subject, mkEnv([]byte("ok")))

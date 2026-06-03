@@ -18,6 +18,7 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	"go.keystone-core.io/keystone-core/internal/identity"
+	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 	"go.keystone-core.io/keystone-core/pkg/version"
 )
@@ -52,7 +53,7 @@ type coordinationRuntime struct {
 // cluster.coordination.listen_addr. Empty listen_addr ⇒ no channel
 // (returns nil, leaving r.coord nil). The channel is mTLS-only by
 // contract, so identityProvider must be non-nil.
-func (r *clusterRuntime) startCoordination(ctx context.Context, cfg config.ClusterConfig, identityProvider *identity.EmbeddedProvider, log *slog.Logger) error {
+func (r *clusterRuntime) startCoordination(ctx context.Context, cfg config.ClusterConfig, identityProvider *identity.EmbeddedProvider, natsManager *natsmgr.Manager, log *slog.Logger) error {
 	if cfg.Coordination.ListenAddr == "" {
 		return nil
 	}
@@ -96,10 +97,12 @@ func (r *clusterRuntime) startCoordination(ctx context.Context, cfg config.Clust
 		Health:      r.health,
 		SelfID:      r.memberID,
 		SelfVersion: version.Get().Version,
-		// NATS is left nil: the nats Manager exposes no Connected()/
-		// Detail() seam yet, so NATSStatus reports "unknown" (the
-		// correct best-effort answer on the recovery channel) until
-		// that seam is added.
+	}
+	// NATS reachability for NATSStatus / ClusterHealth.NatsHealthy.
+	// Guarded: assigning a typed-nil *Manager to the interface field
+	// would make it non-nil and panic on call.
+	if natsManager != nil {
+		coordSrv.NATS = natsManager
 	}
 	v1.RegisterCoordinationServiceServer(gs, coordSrv)
 

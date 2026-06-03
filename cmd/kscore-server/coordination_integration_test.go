@@ -16,6 +16,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -27,8 +28,46 @@ import (
 	"go.keystone-core.io/keystone-core/internal/cluster"
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/identity"
+	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 )
+
+// startTestNATS starts an embedded NATS Manager for the coordination
+// NATSStatus / ClusterHealth assertions. Stopped via t.Cleanup.
+func startTestNATS(t *testing.T) *natsmgr.Manager {
+	t.Helper()
+	cfg := config.NATSConfig{
+		Mode:          config.NATSModeEmbedded,
+		ClusterName:   "coord-itest",
+		MaxReconnects: 1,
+		ReconnectWait: 100 * time.Millisecond,
+		JetStream: config.JetStreamConfig{
+			Enabled:        true,
+			StoreDir:       filepath.Join(t.TempDir(), "js"),
+			MaxStorage:     10 * 1024 * 1024,
+			StreamMaxAge:   time.Hour,
+			StreamMaxBytes: 1024 * 1024,
+			StreamMaxMsgs:  1000,
+			StreamReplicas: 1,
+		},
+		Embedded: config.EmbeddedNATSConfig{Host: "127.0.0.1", Port: freeClusterPort(t)},
+	}
+	m, err := natsmgr.New(cfg, silentLogger())
+	if err != nil {
+		t.Fatalf("nats New: %v", err)
+	}
+	sctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := m.Start(sctx); err != nil {
+		t.Fatalf("nats Start: %v", err)
+	}
+	t.Cleanup(func() {
+		c, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = m.Shutdown(c)
+	})
+	return m
+}
 
 // startTestIdentityProvider builds + starts an embedded identity
 // provider with in-memory join tokens, for tests that need real mTLS
@@ -93,8 +132,9 @@ func TestStartCoordination_MTLSListenerAndShutdown(t *testing.T) {
 	ctx := context.Background()
 	provider := startTestIdentityProvider(t)
 	cfg := coordClusterConfig(t, "coord-itest")
+	natsMgr := startTestNATS(t)
 
-	rt, err := startCluster(ctx, cfg, provider, nil, silentLogger())
+	rt, err := startCluster(ctx, cfg, provider, natsMgr, nil, silentLogger())
 	if err != nil {
 		t.Fatalf("startCluster: %v", err)
 	}
@@ -153,6 +193,21 @@ func TestStartCoordination_MTLSListenerAndShutdown(t *testing.T) {
 	if health.GetQuorum() != string(cluster.QuorumOK) {
 		t.Fatalf("ClusterHealth quorum = %q, want %q", health.GetQuorum(), cluster.QuorumOK)
 	}
+	// NATS seam is wired (embedded nats is up): ClusterHealth reports it
+	// healthy and NATSStatus answers with real reachability, not "unknown".
+	if !health.GetNatsHealthy() {
+		t.Fatal("ClusterHealth NatsHealthy = false, want true (embedded nats up)")
+	}
+	nstat, err := v1.NewCoordinationServiceClient(conn).NATSStatus(dialCtx, &v1.NATSStatusRequest{})
+	if err != nil {
+		t.Fatalf("NATSStatus over mTLS coordination channel: %v", err)
+	}
+	if !nstat.GetConnected() {
+		t.Fatal("NATSStatus Connected = false, want true")
+	}
+	if d := nstat.GetDetail(); d == "" || d == "unknown" {
+		t.Fatalf("NATSStatus Detail = %q, want a real connection detail", d)
+	}
 
 	// A non-mTLS (plaintext) caller must be rejected.
 	insecureConn, err := grpc.NewClient(cfg.Coordination.ListenAddr,
@@ -193,7 +248,7 @@ func TestStartCoordination_DisabledWhenNoListenAddr(t *testing.T) {
 	provider := startTestIdentityProvider(t)
 	cfg := enabledClusterConfig(t, "no-coord-itest") // no Coordination.ListenAddr
 
-	rt, err := startCluster(ctx, cfg, provider, nil, silentLogger())
+	rt, err := startCluster(ctx, cfg, provider, nil, nil, silentLogger())
 	if err != nil {
 		t.Fatalf("startCluster: %v", err)
 	}
@@ -213,7 +268,7 @@ func TestStartCoordination_RequiresIdentity(t *testing.T) {
 
 	// listen_addr set but identity provider nil ⇒ the mTLS-only channel
 	// must refuse to start (and the whole boot fails loudly).
-	rt, err := startCluster(ctx, cfg, nil, nil, silentLogger())
+	rt, err := startCluster(ctx, cfg, nil, nil, nil, silentLogger())
 	if err == nil {
 		stopCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		rt.stop(stopCtx)

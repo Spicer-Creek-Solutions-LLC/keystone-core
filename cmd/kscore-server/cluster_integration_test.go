@@ -63,7 +63,7 @@ func enabledClusterConfig(t *testing.T, name string) config.ClusterConfig {
 }
 
 func TestStartCluster_Disabled(t *testing.T) {
-	rt, err := startCluster(context.Background(), config.ClusterConfig{Enabled: false}, nil, nil, silentLogger())
+	rt, err := startCluster(context.Background(), config.ClusterConfig{Enabled: false}, nil, nil, nil, silentLogger())
 	if err != nil {
 		t.Fatalf("startCluster(disabled) error: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestStartCluster_EnabledLifecycle(t *testing.T) {
 			ctx := context.Background()
 			cfg := enabledClusterConfig(t, fmt.Sprintf("itest-%d", i))
 
-			rt, err := startCluster(ctx, cfg, nil, nil, silentLogger())
+			rt, err := startCluster(ctx, cfg, nil, nil, nil, silentLogger())
 			if err != nil {
 				t.Fatalf("startCluster: %v", err)
 			}

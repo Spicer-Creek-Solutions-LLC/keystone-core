@@ -250,7 +250,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 			return err
 		}),
 	}
-	clusterRT, err := startCluster(ctx, cfg.Cluster, identityProvider, clusterHealthCheckers, log)
+	clusterRT, err := startCluster(ctx, cfg.Cluster, identityProvider, natsManager, clusterHealthCheckers, log)
 	if err != nil {
 		return fmt.Errorf("cluster: %w", err)
 	}

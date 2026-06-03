@@ -293,6 +293,30 @@ func (m *Manager) Health(ctx context.Context) error {
 	return nil
 }
 
+// Connected reports whether NATS is currently reachable — a thin,
+// non-blocking wrapper over Health for status surfaces (the Epic 13
+// CoordinationService NATSStatus / ClusterHealth seams). "Not
+// reachable" is a valid answer, not an error.
+func (m *Manager) Connected() bool {
+	return m.Health(context.Background()) == nil
+}
+
+// Detail returns a short human-readable connection description for the
+// same status surfaces: the reachability error when down, else
+// "connected (<mode>, <url>)".
+func (m *Manager) Detail() string {
+	if err := m.Health(context.Background()); err != nil {
+		return err.Error()
+	}
+	m.mu.Lock()
+	mode := "external"
+	if m.embedded != nil {
+		mode = "embedded"
+	}
+	m.mu.Unlock()
+	return fmt.Sprintf("connected (%s, %s)", mode, m.ClientURL())
+}
+
 // PublishEnvelope marshals env and publishes on subject. The
 // SubjectBuilder interceptor (Task 4) rejects non-prefixed subjects;
 // envelope.Marshal validates required fields (MessageID, Priority,
