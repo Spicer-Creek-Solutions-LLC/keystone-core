@@ -121,6 +121,25 @@ func (r *Runtime) Init(_ context.Context, m *manifest.Manifest, entrypoint []byt
 	}, nil
 }
 
+// threadCtxKey keys the per-execution context.Context stored on the
+// Starlark thread (Thread.SetLocal/Local take a string key). Capability
+// builtins (the BuiltinProvider shims) read it via [ContextFromThread]
+// so their host calls inherit the execution deadline + cancellation.
+const threadCtxKey = "kscore.module.ctx"
+
+// ContextFromThread returns the execution context stored on a Starlark
+// thread during [instance.Execute], or context.Background() if none is
+// set. Capability-builtin implementations use this to propagate the
+// caller's deadline/cancellation into host (HTTP/exec/secrets) calls.
+func ContextFromThread(t *star.Thread) context.Context {
+	if t != nil {
+		if ctx, ok := t.Local(threadCtxKey).(context.Context); ok && ctx != nil {
+			return ctx
+		}
+	}
+	return context.Background()
+}
+
 // instance is one loaded module.
 type instance struct {
 	name     string
@@ -159,6 +178,9 @@ func (i *instance) Execute(ctx context.Context, input map[string]any) (*loader.E
 		cctx, cancelTimeout = context.WithTimeout(ctx, i.timeout)
 	}
 	defer cancelTimeout()
+	// Expose the (timeout-bounded) execution context to capability
+	// builtins via ContextFromThread so their host calls inherit it.
+	thread.SetLocal(threadCtxKey, cctx)
 
 	type res struct {
 		v   star.Value
