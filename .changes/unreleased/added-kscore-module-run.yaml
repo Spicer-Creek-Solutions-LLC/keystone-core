@@ -1,0 +1,22 @@
+kind: Added
+body: |-
+  **`kscore-module run` executes modules end-to-end (Epic 14).** The
+  module CLI gains a `run` subcommand that loads a module (a directory
+  is packaged on the fly, or pass a built `.zip`), verifies its
+  signature against trusted keys (`--key` + `--sig`, or
+  `--skip-verification` for local development), and executes
+  `main(input)` — printing the returned object as JSON.
+
+  Module capability calls are now live: the Epic 14 task-12
+  capability→Starlark builtin shims landed, so a module can call
+  `fs_read`, `fs_write`, `http_get`, `http_post`, `exec_run`,
+  `secret_read`, `secret_write`, `kv_get`/`kv_set`/`kv_delete`, and
+  `log` — each routed through the manifest-declared, scope-enforced
+  capability backend (path globs, domain allowlists, command
+  allowlists, size/rate/timeout limits). A capability a module did not
+  declare is simply absent from its namespace.
+
+  For the standalone CLI the security boundary is signature
+  verification plus the capability layer; server-side module execution
+  (and the policy-engine / secrets-broker host adapters) is a separate
+  follow-up.

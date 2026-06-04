@@ -101,7 +101,7 @@ func NewCommand(d Deps) *cobra.Command {
 	root.AddCommand(
 		initCmd(), validateCmd(), buildCmd(), signCmd(), verifyCmd(),
 		resolveCmd(d), publishCmd(d), installCmd(d), updateCmd(d), treeCmd(d),
-		testCmd(d), cleanCmd(),
+		testCmd(d), cleanCmd(), runCmd(d),
 	)
 	cli.AddVersion(root)
 	return root

@@ -381,6 +381,7 @@ Available Commands:
   install     Resolve, download, verify, and lock a module + its deps
   publish     Upload a built (and optionally signed) module to a registry
   resolve     Resolve a module's dependency graph
+  run         Load, verify, and execute a module
   sign        Produce a detached Cosign-compatible signature
   test        Run a module's Starlark unit tests
   tree        Print the resolved dependency tree
