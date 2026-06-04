@@ -11,20 +11,27 @@ import (
 
 // defaultProvider auto-detects the host's package manager by
 // probing for each backend's primary binary in order of preference.
-// v1.0 supports only apt; future PRs add dnf / apk branches.
+// Supports apt (Debian/Ubuntu) and dnf (RHEL 8+/Rocky/Fedora); apk is
+// a follow-up branch.
 //
 // Detection is binary-presence based rather than reading
 // /etc/os-release: distros that mix package managers (e.g., RHEL
 // with EPEL providing apt) are rare but real, and what matters at
-// runtime is which binary is present.
+// runtime is which binary is present. apt is probed first so that on
+// such a mixed host the native+apt combination resolves to apt rather
+// than splitting across two managers.
 func defaultProvider() Provider {
 	aptGet, aptErr := exec.LookPath("apt-get")
 	dpkgQuery, dpkgErr := exec.LookPath("dpkg-query")
 	if aptErr == nil && dpkgErr == nil {
 		return newAptProvider(aptGet, dpkgQuery)
 	}
+	dnf, dnfErr := exec.LookPath("dnf")
+	rpm, rpmErr := exec.LookPath("rpm")
+	if dnfErr == nil && rpmErr == nil {
+		return newDnfProvider(dnf, rpm)
+	}
 	// Future:
-	// if _, err := exec.LookPath("dnf"); err == nil { return newDnfProvider(...) }
 	// if _, err := exec.LookPath("apk"); err == nil { return newApkProvider(...) }
 	return &undetectedProvider{}
 }
