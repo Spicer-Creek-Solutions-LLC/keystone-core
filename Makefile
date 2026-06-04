@@ -165,7 +165,14 @@ install-tools: ## Install dev tools (Go-installable + lychee binary)
 	@command -v protoc-gen-go-grpc >/dev/null || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
 	@command -v goreleaser >/dev/null || go install github.com/goreleaser/goreleaser/v2@latest
 	@command -v gitleaks >/dev/null || go install github.com/zricethezav/gitleaks/v8@latest
-	@command -v go-licenses >/dev/null || go install github.com/google/go-licenses@latest
+	@# Pinned to go-licenses v2 (the /v2 module path): the v1 @latest
+	@# (v1.6.0) fails to load a Go 1.26 project — every stdlib package
+	@# reports "does not have module info" (google/go-licenses#128) and the
+	@# check aborts. CI is green only because its runners cache an older v1
+	@# binary; a fresh runner would pull the broken @latest. v2.0.1 is the
+	@# current release and loads cleanly under Go 1.26 with the same check
+	@# flags (the binary is still named go-licenses).
+	@command -v go-licenses >/dev/null || go install github.com/google/go-licenses/v2@v2.0.1
 	@# Syft is pinned because SBOM output drift across syft versions
 	@# would change the byte-content of `sbom-vX.Y.Z.{spdx,cyclonedx}.json`
 	@# release artifacts even when the dep tree is unchanged. Pin matches
