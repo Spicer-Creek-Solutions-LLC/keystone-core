@@ -15,6 +15,14 @@
 
 name: ci-full
 
+# Email the repo owner when a run fails (or recovers). This workflow runs
+# unattended — nightly cron + push-to-main — so a failure (a freshly
+# published CVE, a toolchain/dep break, the deps-outdated issue step
+# hitting a token problem) would otherwise go unnoticed. Failure/recovery
+# only; successful runs send nothing. For scheduled runs the mail goes to
+# the repository owner / org contact.
+enable-email-notifications: true
+
 on:
   push:
     branches: [main]
@@ -116,19 +124,32 @@ jobs:
   # major bumps), so drift surfaces proactively — e.g. nats-server
   # v2.14.0→v2.14.2 would have shown here before it bit us in e2e.
   #
-  # Informational only (make deps-outdated always exits 0; no auto-bump
-  # — deps still change via reviewed PRs per the comparison-plan rule).
+  # Informational only (the tool always exits 0; no auto-bump — deps
+  # still change via reviewed PRs per the comparison-plan rule).
   # Restricted to the nightly cron + manual dispatch so it doesn't add
   # noise to every push-to-main run; the proxy lookups want fresh state
   # anyway, which the nightly cadence provides.
+  #
+  # `deps-outdated-issue` also maintains a single tracking issue (create
+  # when deps drift, update each run, close when clear) so the findings
+  # surface as an issue notification instead of living only in this log.
+  # That needs issue-write, hence the job-scoped permissions + token env;
+  # the issue sync is best-effort, so a token problem warns but never
+  # fails the job (it would instead show up via enable-email-notifications
+  # if the whole run went red for another reason).
   deps-outdated:
     runs-on: docker
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
           cache: false
-      - name: report outdated direct dependencies
-        run: make deps-outdated
+      - name: report outdated direct dependencies + sync tracking issue
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: make deps-outdated-issue

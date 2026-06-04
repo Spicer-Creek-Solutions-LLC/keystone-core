@@ -21,6 +21,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -41,6 +42,11 @@ type module struct {
 }
 
 func main() {
+	syncIssueFlag := flag.Bool("issue", false,
+		"after printing the report, create/update/close a single tracking issue "+
+			"via the Forgejo API (best-effort; needs GITHUB_API_URL/REPOSITORY/TOKEN)")
+	flag.Parse()
+
 	cmd := exec.Command("go", "list", "-m", "-u", "-json", "all")
 	cmd.Stderr = os.Stderr
 	stdout, err := cmd.StdoutPipe()
@@ -75,29 +81,41 @@ func main() {
 
 	sort.Strings(minor)
 	sort.Strings(major)
-	report(minor, major)
+	text := report(minor, major)
+	fmt.Print(text)
 	if warn != nil {
 		fmt.Fprintln(os.Stderr, "depsoutdated: go list reported:", warn)
 	}
+
+	if *syncIssueFlag {
+		// Best-effort: API errors are logged but never fail this
+		// informational tool (the report already printed above, and a
+		// red nightly over a token hiccup would just be noise).
+		syncIssue(len(minor)+len(major) > 0, text)
+	}
 }
 
-func report(minor, major []string) {
+// report renders the freshness summary as a string (so the same text
+// feeds both stdout and the --issue tracking-issue body).
+func report(minor, major []string) string {
+	var b strings.Builder
 	if len(minor) == 0 && len(major) == 0 {
-		fmt.Println("deps-outdated: all direct dependencies are on their latest release.")
-		return
+		fmt.Fprintln(&b, "deps-outdated: all direct dependencies are on their latest release.")
+		return b.String()
 	}
 	if len(minor) > 0 {
-		fmt.Printf("deps-outdated: %d minor/patch update(s) available (same major — low-risk):\n", len(minor))
+		fmt.Fprintf(&b, "deps-outdated: %d minor/patch update(s) available (same major — low-risk):\n", len(minor))
 		for _, l := range minor {
-			fmt.Println(l)
+			fmt.Fprintln(&b, l)
 		}
 	}
 	if len(major) > 0 {
-		fmt.Printf("deps-outdated: %d new MAJOR version(s) available (review per the comparison-plan rule before bumping):\n", len(major))
+		fmt.Fprintf(&b, "deps-outdated: %d new MAJOR version(s) available (review per the comparison-plan rule before bumping):\n", len(major))
 		for _, l := range major {
-			fmt.Println(l)
+			fmt.Fprintln(&b, l)
 		}
 	}
+	return b.String()
 }
 
 // sameMajor reports whether two module versions share a major version.
