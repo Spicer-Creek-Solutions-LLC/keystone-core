@@ -38,7 +38,7 @@ export CGO_ENABLED := 0
 
 .PHONY: help \
         build build-all-platforms clean clean-all clean-check deps install-tools install-lychee \
-        test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check test-integration slo profile test-cross-distro check \
+        test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check test-integration slo profile test-cross-distro check deps deps-outdated deps-outdated-issue \
         fmt lint lint-fix smoke test-packaging \
         proto proto-lint proto-breaking \
         openapi-lint \
@@ -151,6 +151,12 @@ clean-check: ## Assert repo is free of stray build artifacts (CI lint gate)
 deps: ## Download and verify Go module dependencies
 	go mod download
 	go mod verify
+
+deps-outdated: ## Report direct deps with newer releases (informational; runs nightly in ci-full)
+	@go run ./tools/depsoutdated
+
+deps-outdated-issue: ## deps-outdated + sync a tracking issue via the Forgejo API (ci-full nightly; needs GITHUB_* env)
+	@go run ./tools/depsoutdated --issue
 
 install-tools: ## Install dev tools (Go-installable + lychee binary)
 	@command -v golangci-lint >/dev/null || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest

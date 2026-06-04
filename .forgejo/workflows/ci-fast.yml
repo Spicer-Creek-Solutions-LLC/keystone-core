@@ -36,6 +36,11 @@
 
 name: ci
 
+# Email the run's author when their push/PR run fails (or recovers from
+# a previous failure). Failure/recovery only — green runs send nothing.
+# The heavier unattended coverage lives in ci-full.yml's nightly cron.
+enable-email-notifications: true
+
 on:
   push:
     branches: [main]
