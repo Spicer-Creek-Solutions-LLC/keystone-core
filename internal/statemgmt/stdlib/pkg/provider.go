@@ -12,10 +12,10 @@ import (
 var ErrUnsupportedOS = errors.New("pkg: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoBackend is returned by Apply paths when no supported
-// package manager binary was detected on the host. v1.0 ships apt
-// only; dnf / apk / zypper / pacman are tracked in V1X for 11e2
-// / 11e3 / post-v1.0 follow-ups.
-var ErrNoBackend = errors.New("pkg: no supported package manager detected on this host (apt-get not found; dnf / apk / zypper / pacman are v1.x)")
+// package manager binary was detected on the host. Supported: apt
+// (Debian/Ubuntu) and dnf (RHEL/Rocky/Fedora); apk / zypper / pacman
+// are tracked for 11e3 / post-v1.0 follow-ups.
+var ErrNoBackend = errors.New("pkg: no supported package manager detected on this host (neither apt-get nor dnf found; apk / zypper / pacman are v1.x)")
 
 // PkgInfo is the on-system shape the module compares against the
 // declaration. Version is empty when Installed is false; a present
