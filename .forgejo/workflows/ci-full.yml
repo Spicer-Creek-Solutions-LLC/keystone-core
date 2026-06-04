@@ -110,3 +110,25 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: make build
+
+  # Dependency-freshness report. Lists direct go.mod deps with a newer
+  # release available (splitting low-risk minor/patch from review-worthy
+  # major bumps), so drift surfaces proactively — e.g. nats-server
+  # v2.14.0→v2.14.2 would have shown here before it bit us in e2e.
+  #
+  # Informational only (make deps-outdated always exits 0; no auto-bump
+  # — deps still change via reviewed PRs per the comparison-plan rule).
+  # Restricted to the nightly cron + manual dispatch so it doesn't add
+  # noise to every push-to-main run; the proxy lookups want fresh state
+  # anyway, which the nightly cadence provides.
+  deps-outdated:
+    runs-on: docker
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: report outdated direct dependencies
+        run: make deps-outdated
