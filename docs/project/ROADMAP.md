@@ -34,11 +34,11 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 - **Priority**: gate-v0.5
 - **What**: Epic 08 task 11f ships the `service` module with systemd-only. Hosts with a different init system (Alpine's default OpenRC, Gentoo OpenRC/sysvinit, older RHEL/CentOS sysvinit, macOS launchd) get `service.ErrNoBackend` from mutating ops. Add provider implementations:
-  - `openrc` (Alpine / Gentoo) — task 11f2
+  - `openrc` (Alpine / Gentoo) — task 11f2 — **landed**: `internal/statemgmt/stdlib/service/openrc.go` (rc-service for exists/status/start/stop + rc-update for the default-runlevel enable/disable & show; Lookup runs the three queries since OpenRC has no `systemctl show` equivalent), wired in `defaultProvider` after systemd via a `/run/openrc` marker + rc-service/rc-update presence
   - `sysvinit` — post-v1.0
   - `launchd` (macOS) — post-v1.0
 - **Why deferred**: systemd covers the whole Epic 08 cross-distro Docker matrix (Debian 12, Ubuntu 22.04/24.04, RHEL 9, Rocky 9 — Alpine 3.19 defaults to OpenRC but a systemd variant exists). One backend at a time keeps PRs reviewable; the Provider interface + detection skeleton is in place.
-- **Acceptance**: openrc backend added (rc-service / rc-update wrappers); auto-detect picks the right init system per host; the `service` module's idempotency tests pass on Alpine 3.19 (OpenRC) in addition to the systemd distros.
+- **Acceptance**: openrc backend added (rc-service / rc-update wrappers); auto-detect picks the right init system per host; the `service` module's idempotency tests pass on Alpine 3.19 (OpenRC) in addition to the systemd distros. **openrc landed** (the only gate-v0.5 backend; sysvinit/launchd are post-v1.0) — the remaining gate is the cross-distro matrix harness (separate gate-v0.5 entry) exercising the Alpine idempotency tests end-to-end.
 - **References**: Epic 08 task 11f; `internal/statemgmt/stdlib/service/detect_linux.go` `defaultProvider`; `internal/statemgmt/stdlib/service/systemd.go` as the template.
 
 #### `package` stdlib module — dnf, apk, zypper, pacman backends

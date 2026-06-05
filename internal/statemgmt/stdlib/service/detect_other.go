@@ -11,14 +11,17 @@ import (
 
 type otherProvider struct{}
 
-// The linux variant of defaultProvider takes a systemdRunDir to
-// satisfy the test-mutable-without-global requirement; the non-
-// linux variant ignores it.
-func defaultProvider(_ string) Provider { return &otherProvider{} }
+// The linux variant of defaultProvider takes systemd / OpenRC run-dir
+// paths to satisfy the test-mutable-without-global requirement; the
+// non-linux variant ignores them.
+func defaultProvider(_, _ string) Provider { return &otherProvider{} }
 
-// defaultSystemdRunDir is unused on non-linux builds but kept for
-// API parity so callers don't need build tags.
-const defaultSystemdRunDir = "/run/systemd/system"
+// defaultSystemdRunDir / defaultOpenrcRunDir are unused on non-linux
+// builds but kept for API parity so callers don't need build tags.
+const (
+	defaultSystemdRunDir = "/run/systemd/system"
+	defaultOpenrcRunDir  = "/run/openrc"
+)
 
 func (*otherProvider) Lookup(name string) (*ServiceInfo, error) {
 	return &ServiceInfo{Name: name, Exists: false}, nil

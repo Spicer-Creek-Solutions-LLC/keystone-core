@@ -242,7 +242,7 @@ func TestRealShowLookup_BinaryNotFound(t *testing.T) {
 
 func TestDefaultProvider_ReturnsProvider(t *testing.T) {
 	t.Parallel()
-	if defaultProvider(defaultSystemdRunDir) == nil {
+	if defaultProvider(defaultSystemdRunDir, defaultOpenrcRunDir) == nil {
 		t.Fatal("defaultProvider returned nil")
 	}
 }
@@ -276,11 +276,12 @@ func TestUndetectedProvider_MutatingOpsNoBackend(t *testing.T) {
 
 func TestDetect_SystemdRunDirMissing_FallsBackToLookPath(t *testing.T) {
 	t.Parallel()
-	// Pass a missing path; defaultProvider should still try
-	// LookPath("systemctl"). On a CI host with systemctl installed
-	// it returns a systemdProvider; without, undetected. Either way
-	// it's a Provider.
-	if defaultProvider("/no/such/run/systemd/system") == nil {
+	// Pass missing paths; defaultProvider should still try
+	// LookPath("systemctl") then the OpenRC binaries. On a CI host
+	// with systemctl installed it returns a systemdProvider; without,
+	// undetected (or openrc if those binaries exist). Either way it's
+	// a Provider.
+	if defaultProvider("/no/such/run/systemd/system", "/no/such/run/openrc") == nil {
 		t.Fatal("defaultProvider returned nil with missing run dir")
 	}
 }
