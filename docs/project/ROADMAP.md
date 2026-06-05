@@ -46,11 +46,11 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Priority**: gate-v0.5
 - **What**: Epic 08 task 11e ships the `package` module with apt-only (Debian / Ubuntu). On hosts where no supported package manager is detected the module returns `pkg.ErrNoBackend` ("no supported package manager detected on this host") rather than silently doing nothing. Add provider implementations for the other Linux package managers:
   - `dnf` (RHEL 8+ / Rocky / Fedora) — task 11e2 — **landed**: `internal/statemgmt/stdlib/pkg/dnf.go` (dnf install/remove + rpm query; name-version pinning; rpm exit-1 → not-installed), wired in `defaultProvider` (apt probed first, then dnf+rpm)
-  - `apk` (Alpine) — task 11e3 — remaining
+  - `apk` (Alpine) — task 11e3 — **landed**: `internal/statemgmt/stdlib/pkg/apk.go` (single apk binary: add/del + `apk list --installed` query; name=version pinning; digit-led-token disambiguation against name-glob over-match), wired in `defaultProvider` after dnf
   - `zypper` (openSUSE / SLES) — post-v1.0
   - `pacman` (Arch) — post-v1.0
 - **Why deferred**: One backend at a time keeps PRs reviewable; the Provider interface + detection skeleton is in place, so adding a backend is a new file + a branch in `detect_linux.go` + per-backend tests.
-- **Acceptance**: dnf (done) + apk backends added (with appropriate command-line parsers); auto-detect picks the right backend per host; the Epic 08 cross-distro Docker matrix (Debian 12, Ubuntu 22.04/24.04, RHEL 9, Rocky 9, Alpine 3.19) passes the `package` module's idempotency tests. **dnf landed**; this entry stays open until `apk` lands and the matrix harness (separate gate-v0.5 entry) exercises RHEL/Rocky/Alpine.
+- **Acceptance**: dnf + apk backends added (with appropriate command-line parsers); auto-detect picks the right backend per host; the Epic 08 cross-distro Docker matrix (Debian 12, Ubuntu 22.04/24.04, RHEL 9, Rocky 9, Alpine 3.19) passes the `package` module's idempotency tests. **All three v0.5 backends (apt/dnf/apk) landed.** The only remaining gate is the cross-distro matrix harness (separate gate-v0.5 entry) actually exercising RHEL/Rocky/Alpine idempotency end-to-end; the per-backend implementation work for `package` is complete.
 - **References**: Epic 08 task 11e; `internal/statemgmt/stdlib/pkg/detect_linux.go` `defaultProvider`; `internal/statemgmt/stdlib/pkg/apt.go` as the template.
 
 #### `firewalld` stdlib module — whole-zone management, masquerade/forward-port, direct rules

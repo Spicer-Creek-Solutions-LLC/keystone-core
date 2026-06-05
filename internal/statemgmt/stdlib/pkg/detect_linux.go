@@ -11,8 +11,8 @@ import (
 
 // defaultProvider auto-detects the host's package manager by
 // probing for each backend's primary binary in order of preference.
-// Supports apt (Debian/Ubuntu) and dnf (RHEL 8+/Rocky/Fedora); apk is
-// a follow-up branch.
+// Supports apt (Debian/Ubuntu), dnf (RHEL 8+/Rocky/Fedora), and apk
+// (Alpine).
 //
 // Detection is binary-presence based rather than reading
 // /etc/os-release: distros that mix package managers (e.g., RHEL
@@ -31,8 +31,9 @@ func defaultProvider() Provider {
 	if dnfErr == nil && rpmErr == nil {
 		return newDnfProvider(dnf, rpm)
 	}
-	// Future:
-	// if _, err := exec.LookPath("apk"); err == nil { return newApkProvider(...) }
+	if apk, err := exec.LookPath("apk"); err == nil {
+		return newApkProvider(apk)
+	}
 	return &undetectedProvider{}
 }
 
