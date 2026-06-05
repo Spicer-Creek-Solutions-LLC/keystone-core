@@ -1,0 +1,42 @@
+# Epic 08 cross-distro matrix — OpenRC-distro smoke fixture (Alpine 3.19).
+#
+# Mirrors smoke.systemd.yaml but for OpenRC. The service is declared
+# state=stopped + enable=true rather than running: OpenRC's service
+# supervision does not function reliably in an unprivileged-process
+# container (rc-service start cannot daemonise cleanly), whereas the
+# runlevel (enable/disable via rc-update) and status/exists queries are
+# fully reliable — so the smoke asserts the enable path + the stopped
+# Lookup, which is what the OpenRC backend most needs validated
+# cross-distro. A freshly apk-installed daemon is stopped by default,
+# so state=stopped converges with no action and stays idempotent.
+#
+# Placeholders substituted by smoke.sh before apply:
+#   ${ROOT} → a writable scratch dir
+#   ${PKG}  → dcron (Alpine's cron implementation)
+#   ${SVC}  → dcron
+
+metadata:
+  name: kscore-cross-distro-smoke-openrc
+  version: "0.1"
+
+file:
+  ${ROOT}/smoke-dir:
+    state: directory
+    mode: "0755"
+  ${ROOT}/smoke-dir/hello.txt:
+    state: present
+    content: "cross-distro smoke ok\n"
+    mode: "0644"
+    require:
+      - file: ${ROOT}/smoke-dir
+
+package:
+  ${PKG}:
+    state: installed
+
+service:
+  ${SVC}:
+    state: stopped
+    enable: true
+    require:
+      - package: ${PKG}

@@ -1,0 +1,42 @@
+# Epic 08 cross-distro matrix — systemd-distro smoke fixture
+# (Debian 12, Ubuntu 22.04/24.04, Rocky 9).
+#
+# Applied twice by the in-container harness (test/e2e/state/harness):
+# the first pass converges, the second must report zero changes
+# (idempotency). It exercises the modules whose behaviour varies
+# across distros — package (apt/dnf) and service (systemd) — alongside
+# the cross-distro-stable file module. user/group/hostname join the
+# fixture as their own cross-distro backends land (they currently shell
+# out to shadow-utils, absent on Alpine).
+#
+# Placeholders substituted by smoke.sh before apply:
+#   ${ROOT} → a writable scratch dir
+#   ${PKG}  → the distro's name for a small package that ships a
+#             service (cron on Debian/Ubuntu, cronie on Rocky)
+#   ${SVC}  → that package's service unit (cron / crond)
+
+metadata:
+  name: kscore-cross-distro-smoke-systemd
+  version: "0.1"
+
+file:
+  ${ROOT}/smoke-dir:
+    state: directory
+    mode: "0755"
+  ${ROOT}/smoke-dir/hello.txt:
+    state: present
+    content: "cross-distro smoke ok\n"
+    mode: "0644"
+    require:
+      - file: ${ROOT}/smoke-dir
+
+package:
+  ${PKG}:
+    state: installed
+
+service:
+  ${SVC}:
+    state: running
+    enable: true
+    require:
+      - package: ${PKG}
