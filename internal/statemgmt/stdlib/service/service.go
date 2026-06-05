@@ -37,9 +37,9 @@ type Module struct {
 }
 
 // New selects the platform's real Provider via auto-detection
-// against the canonical systemd run-dir path.
+// against the canonical systemd / OpenRC run-dir paths.
 func New() statemgmt.Module {
-	return &Module{provider: defaultProvider(defaultSystemdRunDir)}
+	return &Module{provider: defaultProvider(defaultSystemdRunDir, defaultOpenrcRunDir)}
 }
 
 // NewWithProvider is the test injection point.

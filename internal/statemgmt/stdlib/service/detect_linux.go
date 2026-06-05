@@ -20,21 +20,31 @@ import (
 // run-dir through the parameter removes the global.
 const defaultSystemdRunDir = "/run/systemd/system"
 
-// defaultProvider auto-detects the init system. systemdRunDir is the
-// path to test for "systemd is the active init"; pass
-// defaultSystemdRunDir for production, or a test-controlled path
+// defaultOpenrcRunDir is the canonical "OpenRC is the active init"
+// marker (created when OpenRC boots). Threaded through defaultProvider
+// like defaultSystemdRunDir so tests can point it at a path of their
+// choosing without a package-level mutable global.
+const defaultOpenrcRunDir = "/run/openrc"
+
+// defaultProvider auto-detects the init system. systemdRunDir /
+// openrcRunDir are the paths to test for "<init> is the active init";
+// pass the default* consts for production, or test-controlled paths
 // from a unit test. Preference order:
 //
 //  1. systemdRunDir exists → systemd is PID 1 → systemdProvider.
 //  2. systemctl is on PATH (chroot / container without
 //     /run/systemd/system but the binary still works) →
 //     systemdProvider.
-//  3. Otherwise → undetectedProvider (returns ErrNoBackend on
+//  3. openrcRunDir exists + rc-service/rc-update on PATH → openrc.
+//  4. rc-service/rc-update on PATH (container without /run/openrc) →
+//     openrc.
+//  5. Otherwise → undetectedProvider (returns ErrNoBackend on
 //     mutating ops; Lookup reports the unit as not-existing so
 //     state=stopped decls don't false-drift).
 //
-// OpenRC / sysvinit branches land in 11f2 + post-v1.0.
-func defaultProvider(systemdRunDir string) Provider {
+// systemd is preferred over OpenRC so a host that somehow has both
+// resolves to systemd. sysvinit / launchd branches are post-v1.0.
+func defaultProvider(systemdRunDir, openrcRunDir string) Provider {
 	if fi, err := os.Stat(systemdRunDir); err == nil && fi.IsDir() {
 		if sc, err := exec.LookPath("systemctl"); err == nil {
 			return newSystemdProvider(sc)
@@ -43,7 +53,27 @@ func defaultProvider(systemdRunDir string) Provider {
 	if sc, err := exec.LookPath("systemctl"); err == nil {
 		return newSystemdProvider(sc)
 	}
+	if fi, err := os.Stat(openrcRunDir); err == nil && fi.IsDir() {
+		if rs, ru, ok := lookOpenRC(); ok {
+			return newOpenrcProvider(rs, ru)
+		}
+	}
+	if rs, ru, ok := lookOpenRC(); ok {
+		return newOpenrcProvider(rs, ru)
+	}
 	return &undetectedProvider{}
+}
+
+// lookOpenRC resolves the OpenRC control binaries; ok is true only
+// when both are present (the backend needs rc-service for status/
+// start/stop and rc-update for the runlevel/enable operations).
+func lookOpenRC() (rcService, rcUpdate string, ok bool) {
+	rs, err1 := exec.LookPath("rc-service")
+	ru, err2 := exec.LookPath("rc-update")
+	if err1 != nil || err2 != nil {
+		return "", "", false
+	}
+	return rs, ru, true
 }
 
 type undetectedProvider struct{}
