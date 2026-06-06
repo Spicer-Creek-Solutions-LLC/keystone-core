@@ -5,9 +5,9 @@
 # the first pass converges, the second must report zero changes
 # (idempotency). It exercises the modules whose behaviour varies
 # across distros — package (apt/dnf) and service (systemd) — alongside
-# the cross-distro-stable file module. user/group/hostname join the
-# fixture as their own cross-distro backends land (they currently shell
-# out to shadow-utils, absent on Alpine).
+# the cross-distro-stable file module, plus user/group (shadow-utils on
+# the systemd distros, BusyBox adduser/addgroup on Alpine). hostname
+# joins the fixture as its own cross-distro backend lands.
 #
 # Placeholders substituted by smoke.sh before apply:
 #   ${ROOT} → a writable scratch dir
@@ -40,3 +40,20 @@ service:
     enable: true
     require:
       - package: ${PKG}
+
+# A system group + system user (primary group = the group). No home or
+# shell is declared so there is no cross-distro path drift; the user
+# requires the group so it is created first. Routes to shadow-utils on
+# the systemd distros and BusyBox adduser/addgroup on Alpine.
+group:
+  ksmoke:
+    state: present
+    system: true
+
+user:
+  ksmoke:
+    state: present
+    system: true
+    group: ksmoke
+    require:
+      - group: ksmoke

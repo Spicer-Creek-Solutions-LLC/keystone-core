@@ -19,6 +19,18 @@ import (
 // works cross-platform via os/user.
 var ErrUnsupportedOS = errors.New("user: unsupported OS for mutating operations in v1.0 (Linux only)")
 
+// ErrNoBackend is returned on a Linux host where no supported
+// user-management toolchain was detected — neither shadow-utils
+// (useradd/usermod/userdel) nor BusyBox (adduser/deluser).
+var ErrNoBackend = errors.New("user: no supported user toolchain detected on this host (neither shadow-utils useradd nor BusyBox adduser found)")
+
+// ErrModUnsupported is returned by the BusyBox backend's Mod path.
+// BusyBox ships no usermod equivalent, so changing an existing
+// account's scalar fields (UID/GID/shell/comment/home) is not
+// possible without shadow-utils. The operator should install the
+// shadow package or recreate the account.
+var ErrModUnsupported = errors.New("user: modifying an existing account is unavailable on BusyBox (no usermod); install the shadow package or recreate the account")
+
 // UserInfo is the on-system shape the module compares against the
 // declaration. Groups is sorted so set-equality comparisons are
 // deterministic.
@@ -59,6 +71,17 @@ type ModOptions struct {
 	Shell   string
 	Comment string
 }
+
+// commandRunner is the injection point that lets the BusyBox
+// backend's tests pin arg formation without invoking adduser. The
+// production wiring is runManaged.
+type commandRunner func(ctx context.Context, bin string, args []string) error
+
+// IsNoBackend / IsModUnsupported expose the new sentinel matchers so
+// the gRPC server + CLI can render friendlier messages on the
+// operator-facing surface. (IsUnsupportedOS lives in user.go.)
+func IsNoBackend(err error) bool      { return errors.Is(err, ErrNoBackend) }
+func IsModUnsupported(err error) bool { return errors.Is(err, ErrModUnsupported) }
 
 // Provider abstracts the OS-level user operations. Production code
 // uses the platform-specific real impl returned by defaultProvider();

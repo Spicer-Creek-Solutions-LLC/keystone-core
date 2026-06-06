@@ -35,14 +35,14 @@ func TestRunManaged_BinaryNotFound(t *testing.T) {
 	}
 }
 
-func TestLinuxProvider_AddDelegatesToGroupadd(t *testing.T) {
+func TestShadowProvider_AddDelegatesToGroupadd(t *testing.T) {
 	t.Parallel()
 	// We can't actually create groups without root. But we can
 	// confirm the path-resolution + error-bubbling flow by calling
 	// Add with a name `groupadd` is guaranteed to reject: an empty
 	// name. groupadd exits non-zero; the error must be reported
 	// through runManaged's formatting.
-	p := linuxProvider{}
+	p := shadowProvider{}
 	err := p.Add(context.Background(), "", nil, false)
 	if err == nil {
 		t.Fatal("groupadd with empty name should fail")
@@ -52,13 +52,13 @@ func TestLinuxProvider_AddDelegatesToGroupadd(t *testing.T) {
 	}
 }
 
-func TestLinuxProvider_AddWithGIDAndSystem(t *testing.T) {
+func TestShadowProvider_AddWithGIDAndSystem(t *testing.T) {
 	t.Parallel()
 	// Confirms the gid + system branches of Add wire through to
 	// groupadd's argv. groupadd will refuse without root; we assert
 	// the wrapped error path fired (proving args were assembled and
 	// the binary executed).
-	p := linuxProvider{}
+	p := shadowProvider{}
 	gid := 1
 	err := p.Add(context.Background(), "kscore-coverage-test-system", &gid, true)
 	if err == nil {
@@ -69,12 +69,12 @@ func TestLinuxProvider_AddWithGIDAndSystem(t *testing.T) {
 	}
 }
 
-func TestLinuxProvider_ModDelegatesToGroupmod(t *testing.T) {
+func TestShadowProvider_ModDelegatesToGroupmod(t *testing.T) {
 	t.Parallel()
 	// groupmod on a group that almost certainly doesn't exist will
 	// exit non-zero; the wrapped error must cite groupmod so the
 	// dispatch + error-format path is exercised.
-	p := linuxProvider{}
+	p := shadowProvider{}
 	err := p.Mod(context.Background(), "zzz-no-such-group-zzz", 12345)
 	if err == nil {
 		t.Fatal("groupmod on missing group should fail")
@@ -84,9 +84,9 @@ func TestLinuxProvider_ModDelegatesToGroupmod(t *testing.T) {
 	}
 }
 
-func TestLinuxProvider_DelDelegatesToGroupdel(t *testing.T) {
+func TestShadowProvider_DelDelegatesToGroupdel(t *testing.T) {
 	t.Parallel()
-	p := linuxProvider{}
+	p := shadowProvider{}
 	err := p.Del(context.Background(), "zzz-no-such-group-zzz")
 	if err == nil {
 		t.Fatal("groupdel on missing group should fail")
@@ -96,23 +96,16 @@ func TestLinuxProvider_DelDelegatesToGroupdel(t *testing.T) {
 	}
 }
 
-func TestLinuxProvider_LookupNotFound(t *testing.T) {
+func TestShadowProvider_LookupNotFound(t *testing.T) {
 	t.Parallel()
-	// linuxProvider embeds osLookup; this round-trips the embedding
+	// shadowProvider embeds osLookup; this round-trips the embedding
 	// in case future restructuring shadows Lookup.
-	p := linuxProvider{}
+	p := shadowProvider{}
 	info, err := p.Lookup("zzz-no-such-group-zzz")
 	if err != nil {
 		t.Fatalf("Lookup: %v", err)
 	}
 	if info != nil {
 		t.Errorf("expected nil for missing group; got %+v", info)
-	}
-}
-
-func TestDefaultProvider_ReturnsLinuxProvider(t *testing.T) {
-	t.Parallel()
-	if defaultProvider() == nil {
-		t.Fatal("nil")
 	}
 }
