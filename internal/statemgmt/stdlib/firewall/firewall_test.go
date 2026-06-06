@@ -6,9 +6,11 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/iptables"
 )
 
 func decl(name, state string, params map[string]any) *statemgmt.Declaration {
@@ -34,21 +36,50 @@ func (d *fakeDetector) Detect(_ context.Context) (string, error) { return d.name
 // it received and returns canned Check/Apply results.
 type recordingModule struct {
 	name        string
-	received    *statemgmt.Declaration
+	received    *statemgmt.Declaration   // most recent (single-sub backends)
+	receivedAll []*statemgmt.Declaration // every decl received (dual-stack iptables)
 	checkResult *statemgmt.ModuleCheckResult
 	checkErr    error
 	applyResult *statemgmt.StateResult
 	applyErr    error
+
+	// errFor, when set, decides the per-decl error (overriding
+	// check/applyErr). Used to make only the IPv6 iptables sub fail
+	// with ErrNoIptables in the graceful-skip test.
+	errFor func(*statemgmt.Declaration) error
+	// resultFor, when set, decides the per-decl apply result so a test
+	// can give the two iptables families distinct Changed/Diff/Comment.
+	resultFor func(*statemgmt.Declaration) *statemgmt.StateResult
+	// checkResultFor is the Check analogue of resultFor.
+	checkResultFor func(*statemgmt.Declaration) *statemgmt.ModuleCheckResult
 }
 
 func (m *recordingModule) Name() string          { return m.name }
 func (m *recordingModule) ValidStates() []string { return []string{StatePresent, StateAbsent} }
 func (m *recordingModule) Check(_ context.Context, d *statemgmt.Declaration) (*statemgmt.ModuleCheckResult, error) {
 	m.received = d
+	m.receivedAll = append(m.receivedAll, d)
+	if m.errFor != nil {
+		if err := m.errFor(d); err != nil {
+			return nil, err
+		}
+	}
+	if m.checkResultFor != nil {
+		return m.checkResultFor(d), nil
+	}
 	return m.checkResult, m.checkErr
 }
 func (m *recordingModule) Apply(_ context.Context, d *statemgmt.Declaration) (*statemgmt.StateResult, error) {
 	m.received = d
+	m.receivedAll = append(m.receivedAll, d)
+	if m.errFor != nil {
+		if err := m.errFor(d); err != nil {
+			return nil, err
+		}
+	}
+	if m.resultFor != nil {
+		return m.resultFor(d), nil
+	}
 	return m.applyResult, m.applyErr
 }
 func (m *recordingModule) Test(_ context.Context, _ *statemgmt.Declaration) (bool, error) {
@@ -303,19 +334,28 @@ func TestDispatch_Iptables_Translation_PortRange(t *testing.T) {
 	if _, err := m.Apply(context.Background(), d); err != nil {
 		t.Fatal(err)
 	}
-	got := r[BackendIptables].received
-	if got == nil {
-		t.Fatal("iptables backend was not invoked")
-	}
-	if got.State != StateAbsent {
-		t.Errorf("state should propagate: %q", got.State)
-	}
-	if got.Params["table"] != "filter" || got.Params["chain"] != "INPUT" || got.Params["family"] != "ipv4" {
-		t.Errorf("iptables defaults: %v", got.Params)
+	// Dual-stack: the iptables backend is invoked twice — once per
+	// address family — with the same translated rule body.
+	all := r[BackendIptables].receivedAll
+	if len(all) != 2 {
+		t.Fatalf("iptables backend should be invoked twice (ipv4+ipv6), got %d", len(all))
 	}
 	wantRule := []any{"-p", "udp", "--dport", "1000:2000", "-j", "ACCEPT"}
-	if !reflect.DeepEqual(got.Params["rule"], wantRule) {
-		t.Errorf("rule = %v, want %v", got.Params["rule"], wantRule)
+	gotFamilies := map[string]bool{}
+	for _, got := range all {
+		if got.State != StateAbsent {
+			t.Errorf("state should propagate: %q", got.State)
+		}
+		if got.Params["table"] != "filter" || got.Params["chain"] != "INPUT" {
+			t.Errorf("iptables defaults: %v", got.Params)
+		}
+		if !reflect.DeepEqual(got.Params["rule"], wantRule) {
+			t.Errorf("rule = %v, want %v", got.Params["rule"], wantRule)
+		}
+		gotFamilies[got.Params["family"].(string)] = true
+	}
+	if !gotFamilies["ipv4"] || !gotFamilies["ipv6"] {
+		t.Errorf("want both ipv4 and ipv6 sub-decls, got families %v", gotFamilies)
 	}
 }
 
@@ -403,11 +443,171 @@ func TestParseError_FromCheckAndApply(t *testing.T) {
 	}
 }
 
-func TestBuildSubDecl_UnsupportedBackend(t *testing.T) {
+func TestBuildSubDecls_UnsupportedBackend(t *testing.T) {
 	t.Parallel()
 	p := &params{State: StatePresent, Zone: "public", Port: "22", Proto: "tcp"}
-	if _, err := buildSubDecl("ufw", p, decl("l", StatePresent, map[string]any{"service": "ssh"})); err == nil {
-		t.Error("buildSubDecl(\"ufw\") should error")
+	if _, err := buildSubDecls("ufw", p, decl("l", StatePresent, map[string]any{"service": "ssh"})); err == nil {
+		t.Error("buildSubDecls(\"ufw\") should error")
+	}
+}
+
+// --- dual-stack iptables ----------------------------------------------
+
+func sshIptablesDecl(state string) *statemgmt.Declaration {
+	return decl("allow-ssh", state, map[string]any{"service": "ssh", "backend": BackendIptables})
+}
+
+func TestDualStack_Apply_AggregatesChangedAndSuccess(t *testing.T) {
+	t.Parallel()
+	m, r := wiredModule(t, BackendIptables, nil)
+	// IPv4 changed, IPv6 already converged. Aggregate: Changed (any),
+	// Success (all).
+	r[BackendIptables].resultFor = func(d *statemgmt.Declaration) *statemgmt.StateResult {
+		if d.Params["family"] == iptables.FamilyIPv4 {
+			return &statemgmt.StateResult{Success: true, Changed: true, Comment: "applied"}
+		}
+		return &statemgmt.StateResult{Success: true, Changed: false, Comment: "already converged"}
+	}
+	res, err := m.Apply(context.Background(), sshIptablesDecl(StatePresent))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Success || !res.Changed {
+		t.Errorf("want Success+Changed, got %+v", res)
+	}
+	// Comment is family-labelled so a dual-stack result is legible.
+	if !strings.Contains(res.Comment, "ipv4: applied") || !strings.Contains(res.Comment, "ipv6: already converged") {
+		t.Errorf("comment should carry both families: %q", res.Comment)
+	}
+	if res.Duration == 0 {
+		t.Error("Duration should be filled")
+	}
+}
+
+func TestDualStack_Check_MatchesOnlyWhenBothMatch(t *testing.T) {
+	t.Parallel()
+
+	t.Run("both match", func(t *testing.T) {
+		t.Parallel()
+		m, r := wiredModule(t, BackendIptables, nil)
+		res, err := m.Check(context.Background(), sshIptablesDecl(StatePresent))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !res.Matches {
+			t.Errorf("both families match → want Matches, got %+v", res)
+		}
+		if n := len(r[BackendIptables].receivedAll); n != 2 {
+			t.Errorf("Check should probe both families, got %d", n)
+		}
+	})
+
+	t.Run("one family drifts", func(t *testing.T) {
+		t.Parallel()
+		m, r := wiredModule(t, BackendIptables, nil)
+		// IPv4 matches, IPv6 drifts → aggregate must report not-match
+		// with the IPv6 diff family-labelled.
+		r[BackendIptables].checkResultFor = func(d *statemgmt.Declaration) *statemgmt.ModuleCheckResult {
+			if d.Params["family"] == iptables.FamilyIPv6 {
+				return &statemgmt.ModuleCheckResult{Matches: false, Diff: "rule absent"}
+			}
+			return &statemgmt.ModuleCheckResult{Matches: true}
+		}
+		res, err := m.Check(context.Background(), sshIptablesDecl(StatePresent))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Matches {
+			t.Error("IPv6 drift → aggregate should not match")
+		}
+		if !strings.Contains(res.Diff, "ipv6: rule absent") {
+			t.Errorf("diff should carry the family-labelled IPv6 drift: %q", res.Diff)
+		}
+	})
+}
+
+func TestDualStack_IPv6SkippedWhenNoIp6tables(t *testing.T) {
+	t.Parallel()
+	m, r := wiredModule(t, BackendIptables, nil)
+	r[BackendIptables].applyResult = &statemgmt.StateResult{Success: true, Changed: true, Comment: "applied"}
+	// Only the IPv6 sub fails, with the iptables "no binary" sentinel.
+	r[BackendIptables].errFor = func(d *statemgmt.Declaration) error {
+		if d.Params["family"] == iptables.FamilyIPv6 {
+			return iptables.ErrNoIptables
+		}
+		return nil
+	}
+	res, err := m.Apply(context.Background(), sshIptablesDecl(StatePresent))
+	if err != nil {
+		t.Fatalf("graceful skip must not error: %v", err)
+	}
+	if !res.Success {
+		t.Errorf("IPv4 applied → apply should succeed: %+v", res)
+	}
+	// The skip must be unmistakable in BOTH surfaces.
+	if !strings.Contains(res.Comment, "IPv6 NOT APPLIED") {
+		t.Errorf("comment must loudly flag the IPv6 skip: %q", res.Comment)
+	}
+	if !strings.Contains(res.Diff, "ipv6: SKIPPED") {
+		t.Errorf("diff must flag the IPv6 skip: %q", res.Diff)
+	}
+	if !strings.Contains(res.Comment, "ipv4: applied") {
+		t.Errorf("IPv4 should still have applied: %q", res.Comment)
+	}
+}
+
+func TestDualStack_Check_IPv6SkipStaysConverged(t *testing.T) {
+	t.Parallel()
+	// On an IPv4-only host, Check must not report perpetual drift for
+	// the un-checkable IPv6 sub.
+	m, r := wiredModule(t, BackendIptables, nil)
+	r[BackendIptables].checkResult = &statemgmt.ModuleCheckResult{Matches: true}
+	r[BackendIptables].errFor = func(d *statemgmt.Declaration) error {
+		if d.Params["family"] == iptables.FamilyIPv6 {
+			return iptables.ErrNoIptables
+		}
+		return nil
+	}
+	res, err := m.Check(context.Background(), sshIptablesDecl(StatePresent))
+	if err != nil {
+		t.Fatalf("graceful skip must not error: %v", err)
+	}
+	if !res.Matches {
+		t.Errorf("IPv4 matches + IPv6 skipped → want Matches, got %+v", res)
+	}
+}
+
+func TestDualStack_HardFailurePropagates(t *testing.T) {
+	t.Parallel()
+	m, r := wiredModule(t, BackendIptables, nil)
+	// An IPv6 failure that is NOT "no ip6tables" (e.g. a rejected rule)
+	// must fail the whole apply, not be silently skipped.
+	r[BackendIptables].errFor = func(d *statemgmt.Declaration) error {
+		if d.Params["family"] == iptables.FamilyIPv6 {
+			return errors.New("ip6tables: rule rejected")
+		}
+		return nil
+	}
+	_, err := m.Apply(context.Background(), sshIptablesDecl(StatePresent))
+	if err == nil {
+		t.Fatal("a non-ErrNoIptables IPv6 failure must propagate")
+	}
+}
+
+func TestDualStack_Absent_RemovesBothFamilies(t *testing.T) {
+	t.Parallel()
+	m, r := wiredModule(t, BackendIptables, nil)
+	if _, err := m.Apply(context.Background(), sshIptablesDecl(StateAbsent)); err != nil {
+		t.Fatal(err)
+	}
+	all := r[BackendIptables].receivedAll
+	if len(all) != 2 {
+		t.Fatalf("absent should touch both families, got %d", len(all))
+	}
+	for _, d := range all {
+		if d.State != StateAbsent {
+			t.Errorf("family %v sub-decl state = %q, want absent", d.Params["family"], d.State)
+		}
 	}
 }
 
