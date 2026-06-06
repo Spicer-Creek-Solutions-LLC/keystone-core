@@ -307,14 +307,15 @@ profile: ## pprof against the perf SLO workload — captures CPU + heap, reports
 	@echo ""
 	@echo "Interactive: go tool pprof /tmp/kscore-profile.{cpu,mem}"
 
-test-cross-distro: ## Run state stdlib smoke across the v0.5 distro matrix (docker-compose; gated)
-	# Layer C of Epic 08 task 13 — exercises the modules that touch
-	# live system state (package / service / user / hostname / …)
-	# against the v0.5 distro matrix (Debian 12, Ubuntu 22.04/24.04,
-	# Rocky 9, Alpine 3.19). The harness is scaffolded under
-	# test/e2e/state/ but is gated to v0.5 — see
-	# docs/project/ROADMAP.md `Cross-distro state stdlib docker
-	# matrix harness` for the gate criteria.
+test-cross-distro: ## Run the state stdlib smoke across the distro matrix (privileged Docker; gated)
+	# Epic 08 cross-distro matrix — boots each distro (Debian 12,
+	# Ubuntu 22.04/24.04, Rocky 9, Alpine 3.19) in a privileged
+	# container with its real init system and applies the state smoke
+	# fixtures twice, exercising the package (apt/dnf/apk) and service
+	# (systemd/OpenRC) backends live + asserting idempotency. Skips
+	# cleanly without Docker. Manual / Docker-host gate — NOT wired into
+	# CI (privileged). Pass distro names to narrow, e.g.
+	# `bash test/e2e/state/run.sh alpine-3-19`.
 	@bash test/e2e/state/run.sh
 
 check: lint docs-lint test ## Run lint + docs-lint + tests

@@ -2,48 +2,64 @@
 # SPDX-License-Identifier: Apache-2.0
 
 #
-# test/e2e/state/smoke.sh — runs inside each cross-distro container.
+# test/e2e/state/smoke.sh — runs inside each cross-distro container
+# (invoked via `docker exec` by run.sh, after the container's init
+# system is up).
 #
-# Builds kscore-server + kscorectl from the read-only /src mount,
-# applies smoke.yaml in a writable tempdir, and asserts the resulting
-# on-disk state matches the declaration set.
+# It refreshes the package index, renders the init-appropriate smoke
+# fixture with this distro's package/service names substituted, and
+# runs the apply-harness — which applies the state twice and asserts
+# the second pass is a zero-change no-op (idempotency).
 #
-# This is the v0.1 scaffold — it exercises only the hermetic stdlib
-# subset (file / link / cmd / config). Modules that need real package
-# managers, init systems, or root-only kernel APIs (package, service,
-# user, hostname, mount, sysctl, …) are added per the v0.5 ROADMAP
-# entry one distro × one module group at a time.
+# The harness drives the real stdlib modules against the live system
+# (package manager + init), so this exercises the cross-distro
+# package (apt/dnf/apk) and service (systemd/OpenRC) backends for
+# real — not a mock.
+#
+# Required env (set by run.sh on the `docker exec`):
+#   KSCORE_DISTRO   informational label (debian-12, rocky-9, …)
+#   KSCORE_PKG_MGR  apt | dnf | apk
+#   KSCORE_INIT     systemd | openrc
+#   KSCORE_PKG      package to install (cron / cronie / dcron)
+#   KSCORE_SVC      its service unit (cron / crond / dcron)
+#   KSCORE_HARNESS  path to the mounted static harness binary
 
-set -euo pipefail
+# Portable across the matrix's shells: dash (Debian/Ubuntu /bin/sh),
+# busybox ash (Alpine), and bash. No pipelines here, so -o pipefail
+# (which dash lacks) is unneeded.
+set -eu
 
 DISTRO="${KSCORE_DISTRO:-unknown}"
-echo "==> [${DISTRO}] kscore-core stdlib smoke"
+PKG_MGR="${KSCORE_PKG_MGR:?KSCORE_PKG_MGR required}"
+INIT="${KSCORE_INIT:?KSCORE_INIT required}"
+PKG="${KSCORE_PKG:?KSCORE_PKG required}"
+SVC="${KSCORE_SVC:?KSCORE_SVC required}"
+HARNESS="${KSCORE_HARNESS:-/usr/local/bin/kscore-state-harness}"
+ROOT=/var/tmp/kscore-smoke
 
-cd /work
-mkdir -p bin tmp
+echo "==> [${DISTRO}] init=${INIT} pkg=${PKG_MGR} (${PKG} / ${SVC})"
 
-echo "==> [${DISTRO}] building kscore-server + kscorectl"
-go build -trimpath -o bin/kscore-server  /src/cmd/kscore-server
-go build -trimpath -o bin/kscorectl      /src/cmd/kscorectl
+# Refresh the package index so the package module's install can
+# resolve a candidate. (The module installs but never updates the
+# index — that is deliberately a host/setup concern.)
+case "$PKG_MGR" in
+  apt) apt-get update -qq >/dev/null 2>&1 ;;
+  apk) apk update -q >/dev/null 2>&1 ;;
+  dnf) : ;; # dnf fetches repo metadata on demand
+  *) echo "==> [${DISTRO}] unknown package manager ${PKG_MGR}" >&2; exit 2 ;;
+esac
 
-# Render smoke.yaml with ROOT=/work/tmp.
-sed "s|\${ROOT}|/work/tmp|g" /src/test/e2e/state/smoke.yaml > /work/smoke.rendered.yaml
+case "$INIT" in
+  systemd) FIXTURE=/src/test/e2e/state/smoke.systemd.yaml ;;
+  openrc)  FIXTURE=/src/test/e2e/state/smoke.openrc.yaml ;;
+  *) echo "==> [${DISTRO}] unknown init ${INIT}" >&2; exit 2 ;;
+esac
 
-# Start the server in-process via the Go test harness rather than
-# wiring NATS + Postgres here; v0.5 swaps this for a real
-# kscore-server boot once test-fixture mode lands. For today the
-# smoke just confirms the binary compiles, links, and runs `version`.
-echo "==> [${DISTRO}] kscore-server version"
-./bin/kscore-server --version || ./bin/kscore-server version || true
+mkdir -p "$ROOT"
+sed -e "s|\${ROOT}|${ROOT}|g" -e "s|\${PKG}|${PKG}|g" -e "s|\${SVC}|${SVC}|g" \
+  "$FIXTURE" > "$ROOT/smoke.yaml"
 
-echo "==> [${DISTRO}] kscorectl version"
-./bin/kscorectl --version || ./bin/kscorectl version || true
-
-# Hermetic stdlib smoke (file module only — proves the binary runs
-# and the YAML loader works end-to-end inside the distro). Full
-# matrix coverage lands per the v0.5 ROADMAP entry.
-echo "==> [${DISTRO}] file module smoke (placeholder)"
-test -f /work/smoke.rendered.yaml
-grep -q "^file:" /work/smoke.rendered.yaml
+echo "==> [${DISTRO}] applying $(basename "$FIXTURE") (apply + idempotency re-apply)"
+"$HARNESS" "$ROOT/smoke.yaml"
 
 echo "==> [${DISTRO}] OK"

@@ -1,66 +1,61 @@
-# State stdlib cross-distro harness
+# State stdlib cross-distro matrix
 
-Cross-distro end-to-end smoke for the Epic 08 stdlib modules that
-touch live system state — `package`, `service`, `user`, `group`,
-`hostname`, `timezone`, `sysctl`, `mount`, `swap`, `lvm`, `disk`,
-`firewall`, `iptables`, `nftables`, `firewalld`, `ssh`, `security`,
-`pki`. Modules that can be exercised against a `t.TempDir()` (the
-hermetic set: `file`, `link`, `cmd`, `config`) are already covered
+End-to-end smoke for the Epic 08 stdlib modules that touch live system
+state, run across the supported Linux distro matrix. Each distro boots
+in a **privileged container with its real init system** (systemd or
+OpenRC); the harness applies a state fixture **twice** and asserts the
+second pass is a zero-change no-op (idempotency) — so the cross-distro
+`package` (apt/dnf/apk) and `service` (systemd/OpenRC) backends are
+exercised against the live system, not mocked.
+
+Hermetic modules (`file`, `link`, `cmd`, `config`) are already covered
 by `cmd/kscore-server/state_integration_test.go` and don't need a
 container.
 
-## Status — v0.5-gated scaffold
+## Running
 
-This directory is a **scaffold**. Only one distro (`debian:12`) is
-wired up today, and only the smoke probe runs — not the full module
-set. Filling out the matrix is tracked under
-`docs/project/ROADMAP.md` →
-`Cross-distro state stdlib docker matrix harness` (priority
-`gate-v0.5`).
+```sh
+make test-cross-distro                 # all distros
+bash test/e2e/state/run.sh alpine-3-19 # narrow to a subset
+```
 
-The harness is invoked through `make test-cross-distro`, which
-delegates to `run.sh` in this directory. `run.sh` exits cleanly
-(non-fatal) when Docker is unavailable so the target can sit in
-`make check` chains without breaking developer machines.
+Requires Docker; the target **skips cleanly** (exit 0) when Docker is
+absent, so it's safe in `make check` chains. It needs **privileged**
+containers (systemd-as-PID-1 needs cgroup write access), so it is a
+manual / Docker-host gate and is **not wired into CI** (the shared
+runner pool is unprivileged).
 
-## Distro matrix (v0.5 acceptance)
+## Distro matrix
 
-| Distro        | Init system | Pkg mgr | v0.5 status |
-|---------------|-------------|---------|-------------|
-| Debian 12     | systemd     | apt     | scaffold ✓  |
-| Ubuntu 22.04  | systemd     | apt     | TODO        |
-| Ubuntu 24.04  | systemd     | apt     | TODO        |
-| Rocky 9       | systemd     | dnf     | TODO        |
-| Alpine 3.19   | OpenRC      | apk     | TODO        |
-
-Rationale for the choice — see Epic 08 acceptance criteria and
-PROJECT-DETAILS §4.19 (multi-env / platform detection).
+| Distro       | Init system | Pkg mgr | Status |
+|--------------|-------------|---------|--------|
+| Debian 12    | systemd     | apt     | ✓      |
+| Ubuntu 22.04 | systemd     | apt     | ✓      |
+| Ubuntu 24.04 | systemd     | apt     | ✓      |
+| Rocky 9      | systemd     | dnf     | ✓      |
+| Alpine 3.19  | OpenRC      | apk     | ✓      |
 
 ## Layout
 
-| File              | Purpose |
-|-------------------|---------|
-| `run.sh`          | Entry point — invoked by `make test-cross-distro`. Skips with a clear message when Docker isn't installed. |
-| `docker-compose.yml` | One service per distro. Mounts the repo read-only and runs `smoke.sh`. |
-| `smoke.sh`        | Runs inside the container: builds `kscore-server` + `kscorectl`, applies `smoke.yaml`, asserts on-disk state. |
-| `smoke.yaml`      | The state file the smoke probe applies. Keep it light — heavy probes go through Epic 19's perf harness, not this one. |
+| File                 | Purpose |
+|----------------------|---------|
+| `run.sh`             | Orchestrator (invoked by `make test-cross-distro`). Builds the static harness, then per distro boots a privileged init container, runs `smoke.sh` via `docker exec`, and aggregates pass/fail. Skips without Docker. |
+| `smoke.sh`           | Runs inside each container: refreshes the package index, renders the init-appropriate fixture with this distro's package/service names, runs the harness. |
+| `harness/`           | A small static (CGO-free, runs on glibc + musl) Go program that compiles a state file and drives `Runner.Run` twice against the local registry — no kscore-server / NATS / Postgres needed. Has its own hermetic unit test. |
+| `smoke.systemd.yaml` | Fixture for the systemd distros — `service` declared `running` + `enable`. |
+| `smoke.openrc.yaml`  | Fixture for Alpine — `service` declared `stopped` + `enable` (OpenRC service supervision doesn't daemonise reliably in a container; the runlevel/enable path and status/exists queries do, so the smoke asserts those). |
 
-## Local invocation
+## Coverage scope
 
-```sh
-make test-cross-distro
-```
-
-Requires Docker (or a compatible runtime — Podman with the
-docker-compose shim works). Without one, the target prints what
-would have run and exits 0.
+The fixtures currently exercise `file` + `package` + `service` — the
+modules whose backends vary across distros and now have cross-distro
+implementations. `user`/`group`/`hostname`/… join the fixtures as their
+own cross-distro backends land (the `user`/`group` modules currently
+shell out to shadow-utils, absent on Alpine, which busybox replaces
+with `adduser`/`addgroup` — tracked separately).
 
 ## Adding a distro
 
-1. Add a service to `docker-compose.yml` named for the distro
-   (`alpine-3-19`, `rocky-9`, …).
-2. The service runs `smoke.sh` with `KSCORE_DISTRO` set to the
-   service name so the script can branch where init / pkg-manager
-   semantics differ (systemd vs OpenRC; apt vs dnf vs apk).
-3. Tick the row in the table above.
-4. Once every row is ✓, drop the gate-v0.5 ROADMAP entry.
+Append a `name|image|init|pkg_mgr|pkg|svc|boot` row to the `DISTROS`
+array in `run.sh` (the `boot` field is the container's PID-1 command —
+install + exec the init system), and tick the table above.
