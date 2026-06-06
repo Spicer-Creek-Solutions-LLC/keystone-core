@@ -17,10 +17,15 @@
 //   - **Reboot** — `reboot: true` plus optional `when_file:` (default
 //     `/var/run/reboot-required`) and `delay:` (default 1, range
 //     0–60 minutes). State `present` only. Apply shells `shutdown -r
-//     +<delay>` (or `shutdown -r now` for `delay: 0`); the reboot
-//     marker file is the idempotency gate — Check reports drift iff
-//     it exists. v1.0 Debian-flavoured: marker-file gate. RHEL's
-//     `dnf needs-restarting -r` style detection is V1X.
+//     +<delay>` (or `shutdown -r now` for `delay: 0`). The
+//     reboot-needed signal is cross-distro: the marker file is checked
+//     first (Debian/Ubuntu's `/var/run/reboot-required`, plus any
+//     operator `when_file:`), and when it is absent the host's
+//     reboot-hint tool is consulted — `needs-restarting -r` (or `dnf
+//     needs-restarting -r`), exit code 1 = reboot needed — on RHEL /
+//     Rocky / Fedora hosts where dnf-utils is present. Hosts with
+//     neither (e.g. Alpine, which has no reboot-required convention)
+//     fall back to the marker file alone.
 //
 //   - **Locale** — `locale: <LANG>` (e.g. `en_US.UTF-8`). State
 //     `present` only. Apply writes `/etc/locale.conf`
@@ -40,9 +45,9 @@
 //     default; ambiguous).
 //   - Unconditional reboot (no marker gate, `force: true`) — v1.0
 //     requires a marker so every Apply is gated and idempotent.
-//   - Cross-distro reboot-required detection beyond the
-//     Debian-flavoured marker file: RHEL's `dnf needs-restarting -r`
-//     (exit-code-driven), Arch's `checkservices` etc.
+//   - Arch's `checkservices` / `needrestart` reboot-hint detection
+//     (the marker file + `needs-restarting -r` cover Debian/Ubuntu and
+//     RHEL/Rocky/Fedora; Arch's tooling is a separate pattern).
 //   - Result delivery across the reboot disconnect — v1.0 leaves
 //     `shutdown -r +<delay>` running asynchronously; for `delay: 0`
 //     the kscore-agent's RPC reply may not reach the controller

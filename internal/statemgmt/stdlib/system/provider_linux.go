@@ -38,6 +38,7 @@ func defaultProvider() Provider {
 	}
 	p.shutdownBin, _ = exec.LookPath("shutdown")
 	p.localectlBin, _ = exec.LookPath("localectl")
+	p.rebootDetect = detectRebootProbe(exec.LookPath)
 	return p
 }
 
@@ -47,6 +48,68 @@ type linuxProvider struct {
 	shutdownBin    string
 	localectlBin   string
 	run            commandRunner
+
+	// rebootDetect is the platform reboot-needed probe consulted when
+	// the marker file is absent (the RHEL/Fedora path: `needs-restarting
+	// -r`). It is nil on hosts where no such tool is present (e.g.
+	// Debian, which relies on the marker file, or Alpine, which has no
+	// reboot-required convention). A test injects a fake.
+	rebootDetect rebootProbe
+}
+
+// rebootProbe reports whether the host needs a reboot. It returns an
+// error only for a genuine probe failure (the detector binary vanished,
+// an unexpected exit code) — a clean "reboot not needed" is (false, nil).
+type rebootProbe func(ctx context.Context) (bool, error)
+
+// detectRebootProbe wires the RHEL-family reboot detector by binary
+// presence (lookPath is exec.LookPath in production, a fake in tests).
+// Returns nil when no detector binary is present — the host then relies
+// on the marker file alone.
+func detectRebootProbe(lookPath func(string) (string, error)) rebootProbe {
+	bin, args, ok := resolveRebootDetector(lookPath)
+	if !ok {
+		return nil
+	}
+	return realRebootProbe(bin, args)
+}
+
+// resolveRebootDetector picks the reboot-needed command: the standalone
+// `needs-restarting` (from dnf-utils/yum-utils) is preferred, falling
+// back to `dnf needs-restarting`. Both support the `-r` reboot-hint mode
+// whose exit code is the signal (1 = reboot needed, 0 = not). ok is false
+// when neither binary is present.
+func resolveRebootDetector(lookPath func(string) (string, error)) (bin string, args []string, ok bool) {
+	if b, err := lookPath("needs-restarting"); err == nil {
+		return b, []string{"-r"}, true
+	}
+	if d, err := lookPath("dnf"); err == nil {
+		return d, []string{"needs-restarting", "-r"}, true
+	}
+	return "", nil, false
+}
+
+// realRebootProbe runs `<bin> <args…>` and maps its exit code:
+// 0 → reboot not needed, 1 → reboot needed (the `needs-restarting -r`
+// contract). Any other exit code, or a failure to launch the binary, is
+// a genuine error so a broken probe never silently reads as "no reboot
+// needed".
+func realRebootProbe(bin string, args []string) rebootProbe {
+	return func(ctx context.Context) (bool, error) {
+		cmd := exec.CommandContext(ctx, bin, args...) //nolint:gosec // bin resolved via exec.LookPath at detect time; args are the fixed needs-restarting reboot-hint verbs
+		err := cmd.Run()
+		if err == nil {
+			return false, nil // exit 0 — no reboot needed
+		}
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			if exitErr.ExitCode() == 1 {
+				return true, nil // exit 1 — reboot needed
+			}
+			return false, fmt.Errorf("%s %s: unexpected exit %d", bin, strings.Join(args, " "), exitErr.ExitCode())
+		}
+		return false, fmt.Errorf("%s %s: %w", bin, strings.Join(args, " "), err)
+	}
 }
 
 // --- banner -------------------------------------------------------------
@@ -80,15 +143,25 @@ func (p *linuxProvider) WriteBanner(_ context.Context, name, content string) err
 
 // --- reboot ------------------------------------------------------------
 
-func (p *linuxProvider) IsRebootNeeded(_ context.Context, markerFile string) (bool, error) {
+func (p *linuxProvider) IsRebootNeeded(ctx context.Context, markerFile string) (bool, error) {
+	// 1. Marker file. The Debian/Ubuntu convention
+	// (/var/run/reboot-required) and any operator-supplied when_file
+	// override; present → reboot needed, on every distro.
 	_, err := os.Stat(markerFile)
 	if err == nil {
 		return true, nil
 	}
-	if errors.Is(err, os.ErrNotExist) {
-		return false, nil
+	if !errors.Is(err, os.ErrNotExist) {
+		return false, fmt.Errorf("stat %s: %w", markerFile, err)
 	}
-	return false, fmt.Errorf("stat %s: %w", markerFile, err)
+	// 2. Marker absent → consult the platform reboot-needed probe
+	// (RHEL/Fedora: `needs-restarting -r`). nil on hosts without one
+	// (Debian relies on the marker; Alpine has no convention) → the
+	// honest answer there is "not needed".
+	if p.rebootDetect != nil {
+		return p.rebootDetect(ctx)
+	}
+	return false, nil
 }
 
 func (p *linuxProvider) ScheduleReboot(ctx context.Context, delayMinutes int) error {
