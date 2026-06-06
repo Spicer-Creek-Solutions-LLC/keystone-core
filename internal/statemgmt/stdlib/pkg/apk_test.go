@@ -10,7 +10,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 // Shared test helpers (capturingRunner, capturedCall, sliceEq,
@@ -219,10 +221,33 @@ func writeStub(t *testing.T, body string) string {
 	return path
 }
 
+// retryETXTBSY runs fn, retrying while it fails with ETXTBSY. That is
+// the known write-then-exec race (golang/go#22315): when one parallel
+// test execs a just-written stub while a sibling test forks, the fork's
+// child briefly inherits the stub's still-open write fd, so the exec
+// sees the file as busy. The real apk binary is never written-then-
+// exec'd, so this retry is test-only and doesn't mask production bugs.
+func retryETXTBSY(t *testing.T, fn func() error) error {
+	t.Helper()
+	var err error
+	for i := 0; i < 100; i++ {
+		if err = fn(); !errors.Is(err, syscall.ETXTBSY) {
+			return err
+		}
+		time.Sleep(time.Millisecond)
+	}
+	return err
+}
+
 func TestRealApkList_Success(t *testing.T) {
 	t.Parallel()
 	stub := writeStub(t, "echo 'nginx-1.20.1-r0 x86_64 {nginx} (BSD) [installed]'")
-	out, err := realApkList(context.Background(), stub, "nginx")
+	var out string
+	err := retryETXTBSY(t, func() error {
+		var e error
+		out, e = realApkList(context.Background(), stub, "nginx")
+		return e
+	})
 	if err != nil {
 		t.Fatalf("realApkList: %v", err)
 	}
@@ -235,7 +260,10 @@ func TestRealApkList_ExitError(t *testing.T) {
 	t.Parallel()
 	// Exercises the ExitError branch (apk returns non-zero).
 	stub := writeStub(t, "echo 'boom' >&2\nexit 2")
-	_, err := realApkList(context.Background(), stub, "nginx")
+	err := retryETXTBSY(t, func() error {
+		_, e := realApkList(context.Background(), stub, "nginx")
+		return e
+	})
 	if err == nil || !strings.Contains(err.Error(), "exit 2") {
 		t.Errorf("err = %v, want exit-2 error carrying stderr", err)
 	}

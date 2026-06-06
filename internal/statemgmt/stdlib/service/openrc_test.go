@@ -10,7 +10,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 )
 
 // Shared helpers (capturingRunner) live in systemd_test.go — same
@@ -213,10 +215,35 @@ func writeStub(t *testing.T, body string) string {
 	return path
 }
 
+// retryETXTBSY runs fn, retrying while it fails with ETXTBSY. That is
+// the known write-then-exec race (golang/go#22315): when one parallel
+// test execs a just-written stub while a sibling test forks, the fork's
+// child briefly inherits the stub's still-open write fd, so the exec
+// sees the file as busy. The real rc-service/rc-update binaries are
+// never written-then-exec'd, so this retry is test-only and doesn't
+// mask production bugs.
+func retryETXTBSY(t *testing.T, fn func() error) error {
+	t.Helper()
+	var err error
+	for i := 0; i < 100; i++ {
+		if err = fn(); !errors.Is(err, syscall.ETXTBSY) {
+			return err
+		}
+		time.Sleep(time.Millisecond)
+	}
+	return err
+}
+
 func TestRealOpenrcQuery_Success(t *testing.T) {
 	t.Parallel()
 	stub := writeStub(t, "echo 'nginx | default'\nexit 0")
-	out, code, err := realOpenrcQuery(context.Background(), stub, []string{"show", "default"})
+	var out string
+	var code int
+	err := retryETXTBSY(t, func() error {
+		var e error
+		out, code, e = realOpenrcQuery(context.Background(), stub, []string{"show", "default"})
+		return e
+	})
 	if err != nil {
 		t.Fatalf("realOpenrcQuery: %v", err)
 	}
@@ -229,7 +256,12 @@ func TestRealOpenrcQuery_NonZeroExitNotError(t *testing.T) {
 	t.Parallel()
 	// A stopped service's exit 3 is a signal, not a Go error.
 	stub := writeStub(t, "exit 3")
-	_, code, err := realOpenrcQuery(context.Background(), stub, []string{"nginx", "status"})
+	var code int
+	err := retryETXTBSY(t, func() error {
+		var e error
+		_, code, e = realOpenrcQuery(context.Background(), stub, []string{"nginx", "status"})
+		return e
+	})
 	if err != nil {
 		t.Fatalf("non-zero exit must not be an error: %v", err)
 	}
