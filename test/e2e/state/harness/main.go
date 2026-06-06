@@ -88,7 +88,7 @@ func run(path string) error {
 // compile turns a state-file path into ordered declarations using the
 // same Parse → Render → Resolve pipeline the CLI's local compile uses.
 func compile(path string) ([]*statemgmt.Declaration, error) {
-	data, err := os.ReadFile(path) //nolint:gosec // path is an operator-supplied state file, by design
+	data, err := os.ReadFile(path) // #nosec G304 G703 -- operator-supplied state-file path, by design
 	if err != nil {
 		return nil, err
 	}
