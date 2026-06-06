@@ -16,6 +16,28 @@ import (
 // through NSS); only Add / Mod / Del are gated.
 var ErrUnsupportedOS = errors.New("group: unsupported OS for mutating operations in v1.0 (Linux only)")
 
+// ErrNoBackend is returned on a Linux host where no supported
+// group-management toolchain was detected — neither shadow-utils
+// (groupadd/groupmod/groupdel) nor BusyBox (addgroup/delgroup).
+var ErrNoBackend = errors.New("group: no supported group toolchain detected on this host (neither shadow-utils groupadd nor BusyBox addgroup found)")
+
+// ErrModUnsupported is returned by the BusyBox backend's Mod path.
+// BusyBox ships no groupmod equivalent, so changing an existing
+// group's GID is not possible without shadow-utils. The operator
+// should install the shadow package or recreate the group.
+var ErrModUnsupported = errors.New("group: changing an existing group's GID is unavailable on BusyBox (no groupmod); install the shadow package or recreate the group")
+
+// commandRunner is the injection point that lets the BusyBox
+// backend's tests pin arg formation without invoking addgroup. The
+// production wiring is runManaged.
+type commandRunner func(ctx context.Context, bin string, args []string) error
+
+// IsNoBackend / IsModUnsupported expose the new sentinel matchers so
+// the gRPC server + CLI can render friendlier messages on the
+// operator-facing surface. (IsUnsupportedOS lives in group.go.)
+func IsNoBackend(err error) bool      { return errors.Is(err, ErrNoBackend) }
+func IsModUnsupported(err error) bool { return errors.Is(err, ErrModUnsupported) }
+
 // GroupInfo is the on-system shape we care about. Linux groups also
 // carry a list of members; v1.0 ignores members at the group level
 // (the user module's groups: param manages supplementary memberships).

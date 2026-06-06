@@ -40,3 +40,20 @@ service:
     enable: true
     require:
       - package: ${PKG}
+
+# A system group + system user (primary group = the group). On Alpine
+# these route to the BusyBox adduser/addgroup backend (shadow-utils is
+# absent). No home or shell is declared so there is no path drift; the
+# user requires the group so it is created first.
+group:
+  ksmoke:
+    state: present
+    system: true
+
+user:
+  ksmoke:
+    state: present
+    system: true
+    group: ksmoke
+    require:
+      - group: ksmoke

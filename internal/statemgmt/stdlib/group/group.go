@@ -15,6 +15,13 @@
 // module is genuinely a Linux v1.0 surface and we don't pretend
 // otherwise.
 //
+// On Linux the backend is auto-detected (see detect_linux.go):
+// shadow-utils (groupadd/groupmod/groupdel) when `groupadd` is
+// present, otherwise BusyBox (addgroup/delgroup), the Alpine path.
+// BusyBox ships no groupmod, so the BusyBox backend's Mod (changing an
+// existing group's GID) returns ErrModUnsupported; Add / Del are fully
+// supported.
+//
 // v0.1 out of scope (v0.x candidates):
 //   - macOS via `dscl` (different beast; needs a parallel provider)
 //   - `force` deletion when the group is a user's primary group

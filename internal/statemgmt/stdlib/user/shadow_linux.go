@@ -6,18 +6,19 @@ package user
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"os/exec"
 	"strconv"
 	"strings"
 )
 
-type linuxProvider struct{ osLookup }
+// shadowProvider shells out to the shadow-utils toolchain
+// (useradd / usermod / userdel). These binaries live in /usr/sbin on
+// Debian/Ubuntu/RHEL/Rocky/Fedora; we don't pin a path so PATH
+// resolution finds them. Alpine ships them only when the `shadow`
+// package is installed — otherwise the BusyBox backend handles the
+// host (see busyboxProvider + defaultProvider's detection).
+type shadowProvider struct{ osLookup }
 
-func defaultProvider() Provider { return linuxProvider{} }
-
-func (p linuxProvider) Add(ctx context.Context, opts AddOptions) error {
+func (p shadowProvider) Add(ctx context.Context, opts AddOptions) error {
 	args := []string{}
 	if opts.UID != nil {
 		args = append(args, "--uid", strconv.Itoa(*opts.UID))
@@ -53,7 +54,7 @@ func (p linuxProvider) Add(ctx context.Context, opts AddOptions) error {
 	return runManaged(ctx, "useradd", args)
 }
 
-func (p linuxProvider) Mod(ctx context.Context, opts ModOptions) error {
+func (p shadowProvider) Mod(ctx context.Context, opts ModOptions) error {
 	args := []string{}
 	if opts.UID != nil {
 		args = append(args, "--uid", strconv.Itoa(*opts.UID))
@@ -82,7 +83,7 @@ func (p linuxProvider) Mod(ctx context.Context, opts ModOptions) error {
 	return runManaged(ctx, "usermod", args)
 }
 
-func (p linuxProvider) Del(ctx context.Context, name string, removeHome bool) error {
+func (p shadowProvider) Del(ctx context.Context, name string, removeHome bool) error {
 	args := []string{}
 	if removeHome {
 		args = append(args, "--remove")
@@ -91,7 +92,7 @@ func (p linuxProvider) Del(ctx context.Context, name string, removeHome bool) er
 	return runManaged(ctx, "userdel", args)
 }
 
-func (p linuxProvider) SetGroups(ctx context.Context, name string, groups []string) error {
+func (p shadowProvider) SetGroups(ctx context.Context, name string, groups []string) error {
 	// usermod --groups REPLACES the supplementary group set
 	// (without --append). That's the contract the module wants.
 	args := []string{"--groups", strings.Join(groups, ",")}
@@ -103,20 +104,4 @@ func (p linuxProvider) SetGroups(ctx context.Context, name string, groups []stri
 	}
 	args = append(args, name)
 	return runManaged(ctx, "usermod", args)
-}
-
-// runManaged executes a system-user binary. Mirrors the group
-// package's helper but is intentionally local — small duplication
-// keeps the package boundary clean (no shared "stdlib internal").
-func runManaged(ctx context.Context, bin string, args []string) error {
-	cmd := exec.CommandContext(ctx, bin, args...) //nolint:gosec // bin is a fixed module-internal constant
-	out, err := cmd.CombinedOutput()
-	if err == nil {
-		return nil
-	}
-	var exitErr *exec.ExitError
-	if errors.As(err, &exitErr) {
-		return fmt.Errorf("%s %s: exit %d: %s", bin, strings.Join(args, " "), exitErr.ExitCode(), strings.TrimSpace(string(out)))
-	}
-	return fmt.Errorf("%s %s: %w", bin, strings.Join(args, " "), err)
 }

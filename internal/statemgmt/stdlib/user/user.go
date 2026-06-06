@@ -12,6 +12,14 @@
 // Cross-platform Lookup (read-only) works wherever os/user does.
 // Mutating Apply paths on non-Linux return ErrUnsupportedOS.
 //
+// On Linux the backend is auto-detected (see detect_linux.go):
+// shadow-utils (useradd/usermod/userdel) when `useradd` is present —
+// the default on Debian/Ubuntu/RHEL/Rocky/Fedora — otherwise BusyBox
+// (adduser/deluser/addgroup/delgroup), the Alpine path where
+// shadow-utils is absent. BusyBox ships no usermod, so the BusyBox
+// backend's Mod (changing an existing account's scalar fields) returns
+// ErrModUnsupported; Add / Del / SetGroups are fully supported.
+//
 // Apply runs two Provider methods when needed:
 //   - Mod for scalar changes (UID/GID/Group/Home/Shell/Comment)
 //   - SetGroups for supplementary-group replacement

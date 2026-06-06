@@ -47,12 +47,19 @@ runner pool is unprivileged).
 
 ## Coverage scope
 
-The fixtures currently exercise `file` + `package` + `service` — the
-modules whose backends vary across distros and now have cross-distro
-implementations. `user`/`group`/`hostname`/… join the fixtures as their
-own cross-distro backends land (the `user`/`group` modules currently
-shell out to shadow-utils, absent on Alpine, which busybox replaces
-with `adduser`/`addgroup` — tracked separately).
+The fixtures currently exercise `file` + `package` + `service` +
+`user`/`group` — the modules whose backends vary across distros and now
+have cross-distro implementations. `user`/`group` route to shadow-utils
+on the systemd distros and to BusyBox `adduser`/`addgroup` on Alpine
+(where shadow-utils is absent). `hostname`/… join the fixtures as their
+own cross-distro backends land.
+
+Caveat: BusyBox ships no `usermod`/`groupmod`, so on Alpine the
+`user`/`group` backends cannot modify an existing account's scalar
+fields (or a group's GID) — those paths return `ErrModUnsupported`. The
+create / delete / lookup + supplementary-group paths the harness
+exercises are fully supported, and the smoke fixtures only create (then
+re-apply for idempotency), so this caveat doesn't affect the matrix.
 
 ## Adding a distro
 
