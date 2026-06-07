@@ -41,9 +41,11 @@
 // half is skipped gracefully: the IPv4 rule still applies and the
 // StateResult Comment + Diff say loudly that IPv6 was NOT applied.
 //
-// A named service is resolved through a small fixed catalog
-// (services.go) so every backend agrees on the port — firewalld's
-// own service catalog and `/etc/services` would otherwise diverge.
+// A named service is resolved through the catalog (services.go) so
+// every backend agrees on the port. The catalog is multi-port (e.g.
+// `samba` → 137/udp + 138/udp + 139/tcp + 445/tcp, expanded to one
+// rule per port per family); names not in the static catalog can fall
+// back to the host's `/etc/services` with `strict_catalog: false`.
 //
 // v0.1 out of scope (v0.x candidates):
 //   - `action: deny` (v1.0 is allow-only).
@@ -51,9 +53,6 @@
 //     backends (v1.0 hard-codes the standard inbound chain and, for
 //     iptables, dual-stack v4+v6 — an operator who needs a single
 //     family or a custom chain uses the backend module directly).
-//   - Named-service catalog expansion (firewalld-native names like
-//     `dhcpv6-client`, multi-port services like `samba`, an
-//     `/etc/services` lookup with a `strict_catalog: false` opt-in).
 //   - Per-source filtering and richer rich-rule-style matches.
 //   - nftables backend chain creation (v1.0 requires `inet filter
 //     input` to already exist — see the nftables module's V1X
@@ -71,13 +70,6 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/iptables"
 	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/nftables"
 )
-
-// ipv6SkipReason is the operator-facing note surfaced (loudly, in both
-// the Comment and the Diff) when the IPv6 half of a dual-stack iptables
-// apply is skipped because ip6tables is absent on the host. The skip is
-// graceful — the IPv4 rule still applies — but it must be unmistakable
-// that IPv6 was NOT covered.
-const ipv6SkipReason = "IPv6 NOT APPLIED — ip6tables not found on host"
 
 // New selects the platform's real detector and wires the three
 // backend modules. Each backend is a fresh instance per Module so
@@ -147,7 +139,7 @@ func (m *Module) Check(ctx context.Context, decl *statemgmt.Declaration) (*state
 			matches = false
 		}
 		if res.Diff != "" {
-			diffs = append(diffs, labelled(s.family, res.Diff))
+			diffs = append(diffs, labelled(s.label, res.Diff))
 		}
 	}
 	return &statemgmt.ModuleCheckResult{Matches: matches, Diff: strings.Join(diffs, "; ")}, nil
@@ -169,8 +161,8 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 			// the Comment and the Diff so it's unmistakable that IPv6
 			// was not covered.
 			if s.skippable && iptables.IsNoIptables(applyErr) {
-				comments = append(comments, ipv6SkipReason)
-				diffs = append(diffs, "ipv6: SKIPPED (ip6tables absent)")
+				comments = append(comments, s.label+" NOT APPLIED — ip6tables not found on host")
+				diffs = append(diffs, s.label+": SKIPPED (ip6tables absent)")
 				continue
 			}
 			agg.Success = false
@@ -183,10 +175,10 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 			agg.Success = agg.Success && res.Success
 			agg.Changed = agg.Changed || res.Changed
 			if res.Diff != "" {
-				diffs = append(diffs, labelled(s.family, res.Diff))
+				diffs = append(diffs, labelled(s.label, res.Diff))
 			}
 			if res.Comment != "" {
-				comments = append(comments, labelled(s.family, res.Comment))
+				comments = append(comments, labelled(s.label, res.Comment))
 			}
 		}
 	}
@@ -196,15 +188,16 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 	return agg, nil
 }
 
-// labelled prefixes a per-family Diff/Comment fragment with its family
-// (ipv4 / ipv6) so a dual-stack iptables result is legible. Single-
-// stack backends (firewalld / nftables) carry no family label, so the
-// fragment passes through unchanged.
-func labelled(family, s string) string {
-	if family == "" {
+// labelled prefixes a per-sub Diff/Comment fragment with its label
+// (e.g. "ipv4 137/udp" for a dual-stack iptables port, or "137/udp" for
+// a multi-port firewalld/nftables rule) so an aggregated result is
+// legible. A single, unambiguous sub carries no label and passes
+// through unchanged.
+func labelled(label, s string) string {
+	if label == "" {
 		return s
 	}
-	return family + ": " + s
+	return label + ": " + s
 }
 
 func (m *Module) Test(ctx context.Context, decl *statemgmt.Declaration) (bool, error) {
@@ -215,14 +208,15 @@ func (m *Module) Test(ctx context.Context, decl *statemgmt.Declaration) (bool, e
 	return res.Matches, nil
 }
 
-// subApply is one backend declaration to dispatch. family is the
-// iptables address family label (ipv4 / ipv6) used to prefix the
-// aggregated Diff/Comment, or "" for the single-stack backends
-// (firewalld / nftables, which cover both families in one rule).
-// skippable marks the IPv6 iptables sub: on a host without ip6tables it
-// is skipped gracefully rather than failing the whole apply.
+// subApply is one backend declaration to dispatch. label disambiguates
+// the sub in the aggregated Diff/Comment when there is more than one
+// (e.g. "ipv4 137/udp" for a dual-stack iptables port, "137/udp" for a
+// multi-port firewalld/nftables rule); it is "" for a single,
+// unambiguous sub. skippable marks an IPv6 iptables sub: on a host
+// without ip6tables it is skipped gracefully rather than failing the
+// whole apply.
 type subApply struct {
-	family    string
+	label     string
 	skippable bool
 	decl      *statemgmt.Declaration
 }
@@ -262,47 +256,80 @@ func (m *Module) prepare(ctx context.Context, decl *statemgmt.Declaration) (stat
 // backend's declaration(s). Backend defaults (chain / table / family /
 // zone) are baked in here — v1.0 does not expose them as abstraction
 // params; operators who need to customise them use the backend module
-// directly. The iptables backend yields two declarations (IPv4 + IPv6)
-// for dual-stack coverage; firewalld and nftables yield one each.
+// directly. Each resolved port becomes one rule per family, so a
+// multi-port service (e.g. `samba` → 4 ports) and the iptables backend's
+// dual-stack (IPv4 + IPv6) multiply out: `samba` on iptables is 8 subs,
+// on firewalld / nftables 4. A label disambiguates each sub in the
+// aggregated result when there is more than one.
 func buildSubDecls(backendName string, p *params, decl *statemgmt.Declaration) ([]subApply, error) {
+	multiPort := len(p.Ports) > 1
 	switch backendName {
 	case BackendFirewalld:
-		return []subApply{{decl: &statemgmt.Declaration{
-			ID:     decl.ID,
-			Module: BackendFirewalld,
-			State:  decl.State,
-			Name:   decl.Name,
-			Params: map[string]any{
-				"zone": p.Zone,
-				"port": p.firewalldPortValue(),
-			},
-		}}}, nil
+		var subs []subApply
+		for _, pp := range p.Ports {
+			subs = append(subs, subApply{label: portLabel(multiPort, "", pp), decl: &statemgmt.Declaration{
+				ID:     decl.ID,
+				Module: BackendFirewalld,
+				State:  decl.State,
+				Name:   decl.Name,
+				Params: map[string]any{
+					"zone": p.Zone,
+					"port": firewalldPortValue(pp),
+				},
+			}})
+		}
+		return subs, nil
 	case BackendNftables:
-		return []subApply{{decl: &statemgmt.Declaration{
-			ID:     decl.ID,
-			Module: BackendNftables,
-			State:  decl.State,
-			Name:   decl.Name,
-			Params: map[string]any{
-				"family": "inet",
-				"table":  "filter",
-				"chain":  "input",
-				"rule":   p.nftablesRule(),
-			},
-		}}}, nil
+		var subs []subApply
+		for _, pp := range p.Ports {
+			subs = append(subs, subApply{label: portLabel(multiPort, "", pp), decl: &statemgmt.Declaration{
+				ID:     decl.ID,
+				Module: BackendNftables,
+				State:  decl.State,
+				Name:   decl.Name,
+				Params: map[string]any{
+					"family": "inet",
+					"table":  "filter",
+					"chain":  "input",
+					"rule":   nftablesRule(pp),
+				},
+			}})
+		}
+		return subs, nil
 	case BackendIptables:
-		return []subApply{
-			{family: iptables.FamilyIPv4, decl: iptablesSubDecl(p, decl, iptables.FamilyIPv4)},
-			{family: iptables.FamilyIPv6, skippable: true, decl: iptablesSubDecl(p, decl, iptables.FamilyIPv6)},
-		}, nil
+		// iptables always splits per family, so every sub is labelled
+		// (at minimum by family) for a legible aggregated result.
+		var subs []subApply
+		for _, pp := range p.Ports {
+			subs = append(subs,
+				subApply{label: portLabel(true, iptables.FamilyIPv4, pp), decl: iptablesSubDecl(decl, iptables.FamilyIPv4, pp)},
+				subApply{label: portLabel(true, iptables.FamilyIPv6, pp), skippable: true, decl: iptablesSubDecl(decl, iptables.FamilyIPv6, pp)},
+			)
+		}
+		return subs, nil
 	}
 	return nil, fmt.Errorf("unsupported backend %q", backendName)
 }
 
+// portLabel builds a sub's aggregation label. With a family it is
+// "<family> <port>/<proto>" (iptables); without, "<port>/<proto>" when
+// the rule is one of several ports; "" for a single unambiguous sub.
+func portLabel(needed bool, family string, pp portProto) string {
+	switch {
+	case family != "":
+		return family + " " + pp.String()
+	case needed:
+		return pp.String()
+	default:
+		return ""
+	}
+}
+
 // iptablesSubDecl builds the iptables backend declaration for one
-// address family. The rule body is family-agnostic (-p PROTO --dport
-// PORT -j ACCEPT), so the same match works for iptables and ip6tables.
-func iptablesSubDecl(p *params, decl *statemgmt.Declaration, family string) *statemgmt.Declaration {
+// address family and port. The rule body is family-agnostic (-p PROTO
+// --dport PORT -j ACCEPT), so the same match works for iptables and
+// ip6tables.
+func iptablesSubDecl(decl *statemgmt.Declaration, family string, pp portProto) *statemgmt.Declaration {
 	return &statemgmt.Declaration{
 		ID:     decl.ID,
 		Module: BackendIptables,
@@ -312,7 +339,7 @@ func iptablesSubDecl(p *params, decl *statemgmt.Declaration, family string) *sta
 			"table":  "filter",
 			"chain":  "INPUT",
 			"family": family,
-			"rule":   p.iptablesRule(),
+			"rule":   iptablesRule(pp),
 		},
 	}
 }

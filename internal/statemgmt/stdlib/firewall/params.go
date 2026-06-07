@@ -19,19 +19,21 @@ const (
 const defaultZone = "public"
 
 const (
-	paramService  = "service"
-	paramPort     = "port"
-	paramBackend  = "backend"
-	paramZone     = "zone"
-	paramSeverity = statemgmt.ReservedSeverityParamKey
+	paramService       = "service"
+	paramPort          = "port"
+	paramBackend       = "backend"
+	paramZone          = "zone"
+	paramStrictCatalog = "strict_catalog"
+	paramSeverity      = statemgmt.ReservedSeverityParamKey
 )
 
 var allowedKeys = map[string]struct{}{
-	paramService:  {},
-	paramPort:     {},
-	paramBackend:  {},
-	paramZone:     {},
-	paramSeverity: {},
+	paramService:       {},
+	paramPort:          {},
+	paramBackend:       {},
+	paramZone:          {},
+	paramStrictCatalog: {},
+	paramSeverity:      {},
 }
 
 var zoneRE = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
@@ -51,11 +53,10 @@ type params struct {
 	Backend string // "" means auto-detect
 	Zone    string // firewalld backend only — default "public"
 
-	// Resolved port representation (whether the operator wrote a
-	// `service:` name or a `port:` spec). Port is "PORT" or
-	// "PORT-PORT" with no protocol suffix.
-	Port  string
-	Proto string // tcp | udp | sctp | dccp
+	// Resolved port set (from a `service:` name — possibly multi-port —
+	// or a single `port:` spec). Each Port is "PORT" or "PORT-PORT"
+	// with no protocol suffix; Proto is tcp | udp | sctp | dccp.
+	Ports []portProto
 }
 
 func parseParams(decl *statemgmt.Declaration) (*params, error) {
@@ -74,6 +75,16 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 			return nil, fmt.Errorf("backend: expected string, got %T", raw)
 		}
 		p.Backend = strings.TrimSpace(s)
+	}
+	// strict_catalog (default true): when false, a `service:` name not
+	// in the static catalog falls back to the host's /etc/services.
+	strict := true
+	if raw, ok := decl.Params[paramStrictCatalog]; ok {
+		b, ok := raw.(bool)
+		if !ok {
+			return nil, fmt.Errorf("strict_catalog: expected bool, got %T", raw)
+		}
+		strict = b
 	}
 	if raw, ok := decl.Params[paramZone]; ok {
 		s, ok := raw.(string)
@@ -95,12 +106,11 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 		if name == "" {
 			return nil, fmt.Errorf("service: empty")
 		}
-		entry, ok := knownServices[name]
-		if !ok {
-			return nil, fmt.Errorf("service %q is not in the v1.0 catalog (catalog: %s) — use port: PORT/PROTO instead", name, strings.Join(KnownServiceNames(), ", "))
+		ports, err := resolveService(name, strict)
+		if err != nil {
+			return nil, err
 		}
-		p.Port = entry.Port
-		p.Proto = entry.Proto
+		p.Ports = ports
 		set++
 	}
 	if raw, ok := decl.Params[paramPort]; ok {
@@ -112,14 +122,31 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 		if err != nil {
 			return nil, fmt.Errorf("port: %w", err)
 		}
-		p.Port = port
-		p.Proto = proto
+		p.Ports = []portProto{{Port: port, Proto: proto}}
 		set++
 	}
 	if set != 1 {
 		return nil, fmt.Errorf("exactly one of service / port must be set (got %d)", set)
 	}
 	return p, nil
+}
+
+// resolveService turns a service name into its port set: the static
+// catalog first, then — only when strict is false — the host's
+// /etc/services. A strict miss, or a loose miss, is an error that
+// names the catalog and the escape hatches.
+func resolveService(name string, strict bool) ([]portProto, error) {
+	if entry, ok := knownServices[name]; ok {
+		return entry, nil
+	}
+	if strict {
+		return nil, fmt.Errorf("service %q is not in the catalog (catalog: %s) — use port: PORT/PROTO, or set strict_catalog: false to fall back to /etc/services", name, strings.Join(KnownServiceNames(), ", "))
+	}
+	ports, err := lookupServicesFile(servicesFilePath, name)
+	if err != nil {
+		return nil, fmt.Errorf("service %q is not in the catalog and the /etc/services fallback failed: %w", name, err)
+	}
+	return ports, nil
 }
 
 // parsePortSpec parses "PORT/PROTO" or "PORT-PORT/PROTO".
@@ -157,7 +184,7 @@ func (p *params) validate() error {
 	if p.Zone == "" || !zoneRE.MatchString(p.Zone) {
 		return fmt.Errorf("invalid zone %q", p.Zone)
 	}
-	if p.Port == "" || p.Proto == "" {
+	if len(p.Ports) == 0 {
 		return fmt.Errorf("port unresolved (internal: parseParams should have failed)")
 	}
 	switch p.State {
@@ -168,26 +195,26 @@ func (p *params) validate() error {
 	return nil
 }
 
-// firewalldPortValue formats the port for `firewall-cmd --add-port=…`
+// firewalldPortValue formats one port for `firewall-cmd --add-port=…`
 // — "22/tcp" or "1000-2000/tcp".
-func (p *params) firewalldPortValue() string {
-	return p.Port + "/" + p.Proto
+func firewalldPortValue(pp portProto) string {
+	return pp.Port + "/" + pp.Proto
 }
 
-// iptablesRule formats the rule body for the iptables module. The
-// module accepts a list (used as-is) — we pass a list so the
+// iptablesRule formats the rule body for the iptables module for one
+// port. The module accepts a list (used as-is) — we pass a list so the
 // validated tokens never need quote-aware re-parsing. iptables uses
 // ':' (not '-') for `--dport` ranges.
-func (p *params) iptablesRule() []any {
-	dport := p.Port
+func iptablesRule(pp portProto) []any {
+	dport := pp.Port
 	if i := strings.IndexByte(dport, '-'); i >= 0 {
 		dport = dport[:i] + ":" + dport[i+1:]
 	}
-	return []any{"-p", p.Proto, "--dport", dport, "-j", "ACCEPT"}
+	return []any{"-p", pp.Proto, "--dport", dport, "-j", "ACCEPT"}
 }
 
-// nftablesRule formats the rule body for the nftables module. nft
-// uses '-' for `dport` ranges, matching our internal form.
-func (p *params) nftablesRule() string {
-	return fmt.Sprintf("%s dport %s accept", p.Proto, p.Port)
+// nftablesRule formats the rule body for the nftables module for one
+// port. nft uses '-' for `dport` ranges, matching our internal form.
+func nftablesRule(pp portProto) string {
+	return fmt.Sprintf("%s dport %s accept", pp.Proto, pp.Port)
 }
