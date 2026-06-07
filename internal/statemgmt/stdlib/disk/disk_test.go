@@ -24,12 +24,16 @@ func decl(name, state string, params map[string]any) *statemgmt.Declaration {
 // --- fakeProvider ----------------------------------------------------
 
 type fakeProvider struct {
-	currentFS string
-	getErr    error
-	mkfsErr   error
-	wipeErr   error
-	mkfsCalls []mkfsCall
-	wipeCalls []string
+	currentFS  string
+	getErr     error
+	mkfsErr    error
+	wipeErr    error
+	fills      bool
+	fillsErr   error
+	resizeErr  error
+	mkfsCalls  []mkfsCall
+	wipeCalls  []string
+	resizeCall int
 }
 
 type mkfsCall struct {
@@ -55,6 +59,17 @@ func (f *fakeProvider) WipeFilesystem(_ context.Context, device string) error {
 	}
 	f.wipeCalls = append(f.wipeCalls, device)
 	f.currentFS = ""
+	return nil
+}
+func (f *fakeProvider) FilesystemFillsDevice(_ context.Context, _, _ string) (bool, error) {
+	return f.fills, f.fillsErr
+}
+func (f *fakeProvider) ResizeFilesystem(_ context.Context, _, _ string) error {
+	if f.resizeErr != nil {
+		return f.resizeErr
+	}
+	f.resizeCall++
+	f.fills = true // after a resize, the fs fills the device
 	return nil
 }
 
@@ -365,5 +380,95 @@ func TestSentinelMatchers(t *testing.T) {
 	}
 	if !IsNoMkfs(ErrNoMkfs) || IsNoMkfs(errors.New("x")) {
 		t.Error("IsNoMkfs")
+	}
+}
+
+// --- fs resize ---------------------------------------------------------
+
+func resizeDecl(fstype string) *statemgmt.Declaration {
+	return decl("l", StatePresent, map[string]any{"device": "/dev/vg0/data", "fstype": fstype, "resize_fs": true})
+}
+
+func TestResize_GrowsWhenNotFilling(t *testing.T) {
+	t.Parallel()
+	f := &fakeProvider{currentFS: "ext4", fills: false}
+	m := NewWithProvider(f)
+
+	// Check reports drift (fs doesn't fill the device).
+	res, err := m.Check(context.Background(), resizeDecl("ext4"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Matches {
+		t.Error("fs not filling device → want drift")
+	}
+
+	// Apply resizes.
+	ar, err := m.Apply(context.Background(), resizeDecl("ext4"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ar.Changed || ar.Comment != "resized" || f.resizeCall != 1 {
+		t.Errorf("apply should resize: %+v (resizeCall=%d)", ar, f.resizeCall)
+	}
+	// idempotent re-apply (now fills)
+	ar2, _ := m.Apply(context.Background(), resizeDecl("ext4"))
+	if ar2.Changed || f.resizeCall != 1 {
+		t.Errorf("second apply should be a no-op; resizeCall=%d", f.resizeCall)
+	}
+}
+
+func TestResize_ConvergedWhenFilling(t *testing.T) {
+	t.Parallel()
+	f := &fakeProvider{currentFS: "ext4", fills: true}
+	m := NewWithProvider(f)
+	res, err := m.Check(context.Background(), resizeDecl("ext4"))
+	if err != nil || !res.Matches {
+		t.Errorf("fs fills device → converged; got %+v %v", res, err)
+	}
+	ar, _ := m.Apply(context.Background(), resizeDecl("ext4"))
+	if ar.Changed || f.resizeCall != 0 {
+		t.Errorf("filling fs must not resize; got %+v", ar)
+	}
+}
+
+func TestResize_NoResizeFsParamLeavesConverged(t *testing.T) {
+	t.Parallel()
+	// Without resize_fs, a matching fstype is converged regardless of
+	// device fill (the fs-fill check never runs).
+	f := &fakeProvider{currentFS: "ext4", fills: false}
+	res, err := NewWithProvider(f).Check(context.Background(), decl("l", StatePresent, map[string]any{"device": "/dev/sda1", "fstype": "ext4"}))
+	if err != nil || !res.Matches {
+		t.Errorf("no resize_fs → matching fstype converged; got %+v %v", res, err)
+	}
+}
+
+func TestResize_FillsErrorPropagates(t *testing.T) {
+	t.Parallel()
+	f := &fakeProvider{currentFS: "ext4", fillsErr: errors.New("dumpe2fs boom")}
+	if _, err := NewWithProvider(f).Check(context.Background(), resizeDecl("ext4")); err == nil {
+		t.Error("FilesystemFillsDevice error should propagate")
+	}
+}
+
+func TestResize_ValidationRejectsNonExtAndAbsent(t *testing.T) {
+	t.Parallel()
+	bad := []map[string]any{
+		{"device": "/dev/sda1", "fstype": "xfs", "resize_fs": true},   // non-ext
+		{"device": "/dev/sda1", "fstype": "btrfs", "resize_fs": true}, // non-ext
+		{"device": "/dev/sda1", "resize_fs": "yes", "fstype": "ext4"}, // non-bool
+	}
+	for _, b := range bad {
+		if err := (&Module{}).Validate(decl("l", StatePresent, b)); err == nil {
+			t.Errorf("Validate(%v) should error", b)
+		}
+	}
+	// resize_fs with state=absent
+	if err := (&Module{}).Validate(decl("l", StateAbsent, map[string]any{"device": "/dev/sda1", "resize_fs": true})); err == nil {
+		t.Error("resize_fs + absent should error")
+	}
+	// ext4 + resize_fs is valid
+	if err := (&Module{}).Validate(resizeDecl("ext4")); err != nil {
+		t.Errorf("ext4 + resize_fs should validate; got %v", err)
 	}
 }

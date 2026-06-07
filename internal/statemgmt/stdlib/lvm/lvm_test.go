@@ -24,15 +24,23 @@ func decl(name, state string, params map[string]any) *statemgmt.Declaration {
 // --- fakeProvider ----------------------------------------------------
 
 type fakeProvider struct {
-	pvs    map[string]bool     // device → present
-	vgs    map[string]bool     // name → present
-	lvs    map[string]bool     // "vg/lv" → present
-	pvSets map[string][]string // VG name → PV set (recorded by Create)
+	pvs     map[string]bool     // device → present
+	vgs     map[string]bool     // name → present
+	lvs     map[string]bool     // "vg/lv" → present
+	pvSets  map[string][]string // VG name → PV set (recorded by Create)
+	lvSizes map[string]uint64   // "vg/lv" → live size in bytes
 
 	hasErr, createErr, removeErr error
+	sizeErr, extendErr           error
 
 	createCalls []createCall
 	removeCalls []removeCall
+	extendCalls []extendCall
+}
+
+type extendCall struct {
+	VGName, LVName, Size string
+	ResizeFS             bool
 }
 
 type createCall struct {
@@ -54,10 +62,11 @@ type removeCall struct {
 
 func newFake() *fakeProvider {
 	return &fakeProvider{
-		pvs:    map[string]bool{},
-		vgs:    map[string]bool{},
-		lvs:    map[string]bool{},
-		pvSets: map[string][]string{},
+		pvs:     map[string]bool{},
+		vgs:     map[string]bool{},
+		lvs:     map[string]bool{},
+		pvSets:  map[string][]string{},
+		lvSizes: map[string]uint64{},
 	}
 }
 
@@ -127,6 +136,22 @@ func (f *fakeProvider) RemoveLV(_ context.Context, vg, lv string) error {
 	}
 	f.removeCalls = append(f.removeCalls, removeCall{Op: "lv", VGName: vg, LVName: lv})
 	delete(f.lvs, vg+"/"+lv)
+	return nil
+}
+func (f *fakeProvider) GetLVSize(_ context.Context, vg, lv string) (uint64, error) {
+	if f.sizeErr != nil {
+		return 0, f.sizeErr
+	}
+	return f.lvSizes[vg+"/"+lv], nil
+}
+func (f *fakeProvider) ExtendLV(_ context.Context, vg, lv, size string, resizeFS bool) error {
+	if f.extendErr != nil {
+		return f.extendErr
+	}
+	f.extendCalls = append(f.extendCalls, extendCall{VGName: vg, LVName: lv, Size: size, ResizeFS: resizeFS})
+	if b, err := sizeToBytes(size); err == nil {
+		f.lvSizes[vg+"/"+lv] = b
+	}
 	return nil
 }
 
@@ -493,5 +518,123 @@ func TestSentinelMatchers(t *testing.T) {
 	}
 	if !IsNoLVM(ErrNoLVM) || IsNoLVM(errors.New("x")) {
 		t.Error("IsNoLVM")
+	}
+}
+
+// --- LV resize ---------------------------------------------------------
+
+func lvDecl(size string, resizeFS bool) *statemgmt.Declaration {
+	params := map[string]any{"lv": "data", "vg": "vg0", "size": size}
+	if resizeFS {
+		params["resize_fs"] = true
+	}
+	return decl("l", StatePresent, params)
+}
+
+func TestSizeToBytes(t *testing.T) {
+	t.Parallel()
+	cases := map[string]uint64{
+		"1024": 1024 * 1024 * 1024,      // no suffix → MiB, so 1024 MiB = 1 GiB
+		"10G":  10 * 1024 * 1024 * 1024, // binary GiB
+		"500M": 500 * 1024 * 1024,
+		"1T":   1024 * 1024 * 1024 * 1024,
+		"2k":   2 * 1024,
+	}
+	for in, want := range cases {
+		got, err := sizeToBytes(in)
+		if err != nil || got != want {
+			t.Errorf("sizeToBytes(%q) = %d, %v; want %d", in, got, err, want)
+		}
+	}
+	if _, err := sizeToBytes(""); err == nil {
+		t.Error("empty size should error")
+	}
+}
+
+func TestLV_Resize_GrowsWhenSmaller(t *testing.T) {
+	t.Parallel()
+	f := newFake()
+	f.lvs["vg0/data"] = true
+	f.lvSizes["vg0/data"] = 5 * 1024 * 1024 * 1024 // 5 GiB live
+	m := NewWithProvider(f)
+
+	// Check reports drift (grow to 10G).
+	res, err := m.Check(context.Background(), lvDecl("10G", false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Matches {
+		t.Error("5G live + 10G declared → want drift")
+	}
+
+	// Apply grows it via lvextend.
+	ar, err := m.Apply(context.Background(), lvDecl("10G", true))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ar.Changed || ar.Comment != "resized" {
+		t.Errorf("apply should resize: %+v", ar)
+	}
+	if len(f.extendCalls) != 1 || f.extendCalls[0] != (extendCall{"vg0", "data", "10G", true}) {
+		t.Errorf("extendCalls = %v", f.extendCalls)
+	}
+	// idempotent re-apply (now 10G live ≥ 10G declared)
+	ar2, _ := m.Apply(context.Background(), lvDecl("10G", true))
+	if ar2.Changed {
+		t.Error("second apply should be a no-op")
+	}
+}
+
+func TestLV_Resize_AtLeastSemantics(t *testing.T) {
+	t.Parallel()
+	f := newFake()
+	f.lvs["vg0/data"] = true
+	f.lvSizes["vg0/data"] = 10 * 1024 * 1024 * 1024 // 10 GiB live
+	m := NewWithProvider(f)
+	// Declaring a SMALLER size is satisfied (no shrink, no error).
+	res, err := m.Check(context.Background(), lvDecl("5G", false))
+	if err != nil || !res.Matches {
+		t.Errorf("declared ≤ live → converged; got %+v %v", res, err)
+	}
+	ar, _ := m.Apply(context.Background(), lvDecl("5G", false))
+	if ar.Changed || len(f.extendCalls) != 0 {
+		t.Errorf("smaller declared size must not resize; got %+v %v", ar, f.extendCalls)
+	}
+}
+
+func TestLV_Resize_ExtentsNotReconciled(t *testing.T) {
+	t.Parallel()
+	f := newFake()
+	f.lvs["vg0/data"] = true
+	f.lvSizes["vg0/data"] = 1 // tiny — but extents-based, so no size reconcile
+	m := NewWithProvider(f)
+	d := decl("l", StatePresent, map[string]any{"lv": "data", "vg": "vg0", "extents": "100%FREE"})
+	res, err := m.Check(context.Background(), d)
+	if err != nil || !res.Matches {
+		t.Errorf("extents LV existence is enough (no size reconcile); got %+v %v", res, err)
+	}
+}
+
+func TestLV_Resize_GetSizeErrorPropagates(t *testing.T) {
+	t.Parallel()
+	f := newFake()
+	f.lvs["vg0/data"] = true
+	f.sizeErr = errors.New("lvs boom")
+	m := NewWithProvider(f)
+	if _, err := m.Check(context.Background(), lvDecl("10G", false)); err == nil {
+		t.Error("GetLVSize error should propagate")
+	}
+}
+
+func TestParse_ResizeFS_OnlyOnLV(t *testing.T) {
+	t.Parallel()
+	for _, bad := range []map[string]any{
+		{"pv": "/dev/sdb", "resize_fs": true},
+		{"vg": "vg0", "pvs": []any{"/dev/sdb"}, "resize_fs": true},
+		{"lv": "data", "vg": "vg0", "size": "10G", "resize_fs": "yes"}, // non-bool
+	} {
+		if _, err := parseParams(decl("l", StatePresent, bad)); err == nil {
+			t.Errorf("parseParams(%v) should error", bad)
+		}
 	}
 }

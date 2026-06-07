@@ -42,6 +42,14 @@ type Provider interface {
 	// non-empty; the other is "". The Module enforces this.
 	CreateLV(ctx context.Context, vg, lv, size, extents string) error
 	RemoveLV(ctx context.Context, vg, lv string) error
+	// GetLVSize returns the live size of an existing LV in bytes
+	// (`lvs --units b --nosuffix -o lv_size`).
+	GetLVSize(ctx context.Context, vg, lv string) (uint64, error)
+	// ExtendLV grows an existing LV to size (`lvextend -L <size>`), and
+	// when resizeFS is true also grows the contained filesystem via
+	// `--resizefs` (fsadm). Grow-only: callers never invoke this to
+	// shrink.
+	ExtendLV(ctx context.Context, vg, lv, size string, resizeFS bool) error
 }
 
 // commandRunner runs an LVM tool. It returns combined stdout+stderr

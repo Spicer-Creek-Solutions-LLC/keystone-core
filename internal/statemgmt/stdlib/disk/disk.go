@@ -31,12 +31,23 @@
 // Each element is charset-validated (no shell metacharacters,
 // whitespace, or control characters).
 //
+// `resize_fs: true` (state `present`, ext2/3/4 only in v0.5) grows the
+// existing filesystem to fill the block device via `resize2fs
+// <device>` — used after the underlying device grew (e.g. an
+// `lvextend` without `--resizefs`, or a partition resize). Idempotent:
+// Check compares the fs size (`dumpe2fs` block count × block size) to
+// the device size (`blockdev --getsize64`) and only resizes a fs that
+// doesn't already fill the device. xfs / btrfs / f2fs resize (mount-
+// required, different size math) is V1X.
+//
 // v0.1 out of scope (v0.x candidates):
 //   - Partition creation / removal / label / flags via parted /
 //     sgdisk (GPT or MBR). Partitioning is destructive enough that
 //     it deserves its own module.
-//   - Filesystem **resize** (`resize2fs`, `xfs_growfs`,
-//     `btrfs filesystem resize`).
+//   - Filesystem **resize** for xfs / btrfs / f2fs (`xfs_growfs`,
+//     `btrfs filesystem resize`, `resize.f2fs`) — these are mount-
+//     required and have per-fstype size math; ext resize landed via
+//     `resize_fs: true`.
 //   - Filesystem **label** and **UUID** management (without
 //     re-formatting): `tune2fs -L`, `xfs_admin -L`, `swaplabel -L`,
 //     `tune2fs -U`, `xfs_admin -U`, etc.
@@ -101,6 +112,17 @@ func (m *Module) Check(ctx context.Context, decl *statemgmt.Declaration) (*state
 	switch p.State {
 	case StatePresent:
 		if current == p.Fstype {
+			// The fs already matches; with resize_fs it may still need
+			// to grow to fill the device.
+			if p.ResizeFS {
+				fills, err := m.provider.FilesystemFillsDevice(ctx, p.Device, p.Fstype)
+				if err != nil {
+					return nil, err
+				}
+				if !fills {
+					return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("%s: %s does not fill the device → grow", p.Device, p.Fstype)}, nil
+				}
+			}
 			return &statemgmt.ModuleCheckResult{Matches: true}, nil
 		}
 		return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("%s: %s → %s", p.Device, displayFS(current), p.Fstype)}, nil
@@ -127,6 +149,18 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 	switch p.State {
 	case StatePresent:
 		if current == p.Fstype {
+			if p.ResizeFS {
+				fills, err := m.provider.FilesystemFillsDevice(ctx, p.Device, p.Fstype)
+				if err != nil {
+					return failure(start), err
+				}
+				if !fills {
+					if err := m.provider.ResizeFilesystem(ctx, p.Device, p.Fstype); err != nil {
+						return failure(start), fmt.Errorf("resize %s on %s: %w", p.Fstype, p.Device, err)
+					}
+					return ok(start, true, fmt.Sprintf("%s: grew %s to fill the device", p.Device, p.Fstype), "resized"), nil
+				}
+			}
 			return ok(start, false, "", "already converged"), nil
 		}
 		if current != "" && !p.Force {

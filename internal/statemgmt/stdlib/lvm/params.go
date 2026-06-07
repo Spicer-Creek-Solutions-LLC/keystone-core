@@ -5,6 +5,7 @@ package lvm
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
@@ -22,6 +23,7 @@ const (
 	paramLV       = "lv"
 	paramSize     = "size"
 	paramExtents  = "extents"
+	paramResizeFS = "resize_fs"
 	paramSeverity = statemgmt.ReservedSeverityParamKey
 )
 
@@ -32,6 +34,7 @@ var allowedKeys = map[string]struct{}{
 	paramLV:       {},
 	paramSize:     {},
 	paramExtents:  {},
+	paramResizeFS: {},
 	paramSeverity: {},
 }
 
@@ -85,12 +88,13 @@ type params struct {
 	State string
 	Op    Op
 
-	Device  string   // PV op
-	VGName  string   // VG op + LV op (parent)
-	VGPVs   []string // VG op
-	LVName  string   // LV op
-	Size    string   // LV op (mutex with Extents)
-	Extents string   // LV op (mutex with Size)
+	Device   string   // PV op
+	VGName   string   // VG op + LV op (parent)
+	VGPVs    []string // VG op
+	LVName   string   // LV op
+	Size     string   // LV op (mutex with Extents)
+	Extents  string   // LV op (mutex with Size)
+	ResizeFS bool     // LV op — pass lvextend --resizefs when growing
 }
 
 // locator returns a short human description of the object this decl
@@ -122,6 +126,7 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 	pvsRaw, hasPVs := decl.Params[paramVGPVs]
 	sizeRaw, hasSize := decl.Params[paramSize]
 	extentsRaw, hasExtents := decl.Params[paramExtents]
+	resizeFSRaw, hasResizeFS := decl.Params[paramResizeFS]
 
 	p := &params{Label: decl.Name, State: decl.State}
 
@@ -156,8 +161,8 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 			return nil, fmt.Errorf("pv: expected string, got %T", pvRaw)
 		}
 		p.Device = strings.TrimSpace(s)
-		if hasPVs || hasSize || hasExtents {
-			return nil, fmt.Errorf("pv takes no auxiliary params (pvs/size/extents are for vg/lv)")
+		if hasPVs || hasSize || hasExtents || hasResizeFS {
+			return nil, fmt.Errorf("pv takes no auxiliary params (pvs/size/extents/resize_fs are for vg/lv)")
 		}
 	case OpVG:
 		s, ok := vgRaw.(string)
@@ -165,8 +170,8 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 			return nil, fmt.Errorf("vg: expected string, got %T", vgRaw)
 		}
 		p.VGName = strings.TrimSpace(s)
-		if hasSize || hasExtents {
-			return nil, fmt.Errorf("size / extents are only valid with lv")
+		if hasSize || hasExtents || hasResizeFS {
+			return nil, fmt.Errorf("size / extents / resize_fs are only valid with lv")
 		}
 		if hasPVs {
 			pvs, err := parseStringList(pvsRaw)
@@ -203,8 +208,53 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 			}
 			p.Extents = strings.TrimSpace(s)
 		}
+		if hasResizeFS {
+			b, ok := resizeFSRaw.(bool)
+			if !ok {
+				return nil, fmt.Errorf("resize_fs: expected bool, got %T", resizeFSRaw)
+			}
+			p.ResizeFS = b
+		}
 	}
 	return p, nil
+}
+
+// sizeToBytes converts an LVM human size (the `size:` param: digits +
+// optional binary unit K/M/G/T/P, no suffix = MiB) to bytes. LVM uses
+// powers of 1024 for these units. Fractional sizes are rejected at
+// validate() time via sizeRE, so this only sees integers.
+func sizeToBytes(size string) (uint64, error) {
+	if size == "" {
+		return 0, fmt.Errorf("empty size")
+	}
+	mult := uint64(1024 * 1024) // no suffix → MiB
+	last := size[len(size)-1]
+	digits := size
+	if u, ok := unitMultiplier(last); ok {
+		mult = u
+		digits = size[:len(size)-1]
+	}
+	n, err := strconv.ParseUint(digits, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid size %q: %w", size, err)
+	}
+	return n * mult, nil
+}
+
+func unitMultiplier(c byte) (uint64, bool) {
+	switch c {
+	case 'K', 'k':
+		return 1024, true
+	case 'M', 'm':
+		return 1024 * 1024, true
+	case 'G', 'g':
+		return 1024 * 1024 * 1024, true
+	case 'T', 't':
+		return 1024 * 1024 * 1024 * 1024, true
+	case 'P', 'p':
+		return 1024 * 1024 * 1024 * 1024 * 1024, true
+	}
+	return 0, false
 }
 
 func parseStringList(raw any) ([]string, error) {
