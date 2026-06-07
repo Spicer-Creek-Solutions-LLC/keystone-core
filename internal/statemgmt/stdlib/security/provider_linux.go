@@ -6,6 +6,7 @@ package security
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -221,6 +222,95 @@ func (p *linuxProvider) SetBoolean(ctx context.Context, name string, value bool)
 	}
 	_, err := p.run(ctx, p.setseboolBin, []string{"-P", name + "=" + val})
 	return err
+}
+
+// --- apparmor -----------------------------------------------------------
+
+func defaultAppArmorProvider() AppArmorProvider {
+	p := &linuxAppArmorProvider{run: execRun}
+	p.statusBin, _ = exec.LookPath("aa-status")
+	p.enforceBin, _ = exec.LookPath("aa-enforce")
+	p.complainBin, _ = exec.LookPath("aa-complain")
+	p.disableBin, _ = exec.LookPath("aa-disable")
+	p.statusRun = p.runStatus
+	return p
+}
+
+type linuxAppArmorProvider struct {
+	statusBin   string
+	enforceBin  string
+	complainBin string
+	disableBin  string
+	run         commandRunner
+	// statusRun reads `aa-status --json`. It is a seam (the production
+	// impl tolerates aa-status's informational non-zero exit codes,
+	// which the standard commandRunner would treat as a hard error);
+	// tests inject a fake returning fixture JSON.
+	statusRun func(ctx context.Context) (string, error)
+}
+
+// runStatus runs `aa-status --json`. aa-status exits non-zero for
+// informational states (1 = not enabled, 2 = no policy) while still
+// emitting JSON on stdout, so a non-zero exit with output is not an
+// error; only a launch failure or an empty result is.
+func (p *linuxAppArmorProvider) runStatus(ctx context.Context) (string, error) {
+	cmd := exec.CommandContext(ctx, p.statusBin, "--json") //nolint:gosec // statusBin resolved via exec.LookPath; the only arg is the fixed --json flag
+	out, err := cmd.Output()
+	if err == nil {
+		return string(out), nil
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && len(out) > 0 {
+		return string(out), nil // informational exit code; JSON still present
+	}
+	return "", fmt.Errorf("aa-status --json: %w", err)
+}
+
+func (p *linuxAppArmorProvider) GetProfileMode(ctx context.Context, profile string) (string, error) {
+	if p.statusBin == "" {
+		return "", fmt.Errorf("%w (aa-status missing)", ErrAppArmorUnavailable)
+	}
+	out, err := p.statusRun(ctx)
+	if err != nil {
+		return "", fmt.Errorf("%w: %v", ErrAppArmorUnavailable, err)
+	}
+	profiles, err := parseAAStatus([]byte(out))
+	if err != nil {
+		return "", fmt.Errorf("%w (%v)", ErrAppArmorUnavailable, err)
+	}
+	return profiles[profile], nil // "" when the profile is not loaded
+}
+
+func (p *linuxAppArmorProvider) SetProfileMode(ctx context.Context, profile, mode string) error {
+	var bin string
+	switch mode {
+	case AAEnforce:
+		bin = p.enforceBin
+	case AAComplain:
+		bin = p.complainBin
+	case AADisable:
+		bin = p.disableBin
+	default:
+		return fmt.Errorf("unknown apparmor mode %q", mode)
+	}
+	if bin == "" {
+		return fmt.Errorf("%w (aa-%s missing)", ErrAppArmorUnavailable, mode)
+	}
+	_, err := p.run(ctx, bin, []string{profile})
+	return err
+}
+
+// parseAAStatus extracts the profile→mode map from `aa-status --json`
+// output. The relevant shape is {"profiles": {"<name>": "<mode>", …}}
+// where mode is "enforce" / "complain" / "kill" / "unconfined" / ….
+func parseAAStatus(data []byte) (map[string]string, error) {
+	var s struct {
+		Profiles map[string]string `json:"profiles"`
+	}
+	if err := json.Unmarshal(data, &s); err != nil {
+		return nil, fmt.Errorf("parse aa-status json: %w", err)
+	}
+	return s.Profiles, nil
 }
 
 // --- exec ---------------------------------------------------------------

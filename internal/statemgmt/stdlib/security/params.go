@@ -27,23 +27,49 @@ var validModes = map[string]struct{}{
 	ModeDisabled:   {},
 }
 
+// AppArmor per-profile modes. These match the mode strings `aa-status
+// --json` reports ("enforce" / "complain") so the converged check is a
+// direct comparison; "disable" maps to a profile being unloaded
+// (absent from aa-status).
 const (
-	paramMode     = "mode"
-	paramBoolean  = "boolean"
-	paramValue    = "value"
-	paramSeverity = statemgmt.ReservedSeverityParamKey
+	AAEnforce  = "enforce"
+	AAComplain = "complain"
+	AADisable  = "disable"
+)
+
+var validAAModes = map[string]struct{}{
+	AAEnforce:  {},
+	AAComplain: {},
+	AADisable:  {},
+}
+
+const (
+	paramMode      = "mode"
+	paramBoolean   = "boolean"
+	paramValue     = "value"
+	paramAAProfile = "apparmor.profile"
+	paramAAMode    = "apparmor.profile_mode"
+	paramSeverity  = statemgmt.ReservedSeverityParamKey
 )
 
 var allowedKeys = map[string]struct{}{
-	paramMode:     {},
-	paramBoolean:  {},
-	paramValue:    {},
-	paramSeverity: {},
+	paramMode:      {},
+	paramBoolean:   {},
+	paramValue:     {},
+	paramAAProfile: {},
+	paramAAMode:    {},
+	paramSeverity:  {},
 }
 
 // booleanRE matches a SELinux boolean identifier (the
 // `selinux-policy` shipped names are `[A-Za-z_][A-Za-z0-9_]*`).
 var booleanRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
+// aaProfileRE matches an AppArmor profile name as `aa-status` reports
+// it — usually the confined program's path (`/usr/bin/foo`) or a named
+// profile. We allow path / name characters and disallow whitespace
+// (the value is passed as a single exec argument).
+var aaProfileRE = regexp.MustCompile(`^[A-Za-z0-9_./:@-]+$`)
 
 // Op identifies which operation the declaration is performing. The
 // op is implied by which params are set (mode → OpMode; boolean +
@@ -54,6 +80,7 @@ const (
 	OpUnknown Op = iota
 	OpMode
 	OpBoolean
+	OpAppArmorProfile
 )
 
 func (o Op) String() string {
@@ -62,6 +89,8 @@ func (o Op) String() string {
 		return "mode"
 	case OpBoolean:
 		return "boolean"
+	case OpAppArmorProfile:
+		return "apparmor.profile"
 	}
 	return "unknown"
 }
@@ -77,6 +106,10 @@ type params struct {
 	// OpBoolean
 	BooleanName  string
 	BooleanValue bool
+
+	// OpAppArmorProfile
+	AAProfile string
+	AAMode    string // enforce | complain | disable
 }
 
 func parseParams(decl *statemgmt.Declaration) (*params, error) {
@@ -93,25 +126,35 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 	modeRaw, hasMode := decl.Params[paramMode]
 	booleanRaw, hasBoolean := decl.Params[paramBoolean]
 	valueRaw, hasValue := decl.Params[paramValue]
+	aaProfileRaw, hasAA := decl.Params[paramAAProfile]
+	aaModeRaw, hasAAMode := decl.Params[paramAAMode]
 
-	if hasMode && hasBoolean {
-		return nil, fmt.Errorf("exactly one of mode / boolean must be set (got both)")
-	}
-	if !hasMode && !hasBoolean {
-		return nil, fmt.Errorf("exactly one of mode / boolean must be set (got neither)")
-	}
-	if hasMode {
-		if hasValue {
-			return nil, fmt.Errorf("value is only valid with boolean (not mode)")
+	set := 0
+	for _, b := range []bool{hasMode, hasBoolean, hasAA} {
+		if b {
+			set++
 		}
+	}
+	if set != 1 {
+		return nil, fmt.Errorf("exactly one of mode / boolean / apparmor.profile must be set (got %d)", set)
+	}
+	// Auxiliary params must accompany their op.
+	if hasValue && !hasBoolean {
+		return nil, fmt.Errorf("value is only valid with boolean")
+	}
+	if hasAAMode && !hasAA {
+		return nil, fmt.Errorf("apparmor.profile_mode is only valid with apparmor.profile")
+	}
+
+	switch {
+	case hasMode:
 		s, ok := modeRaw.(string)
 		if !ok {
 			return nil, fmt.Errorf("mode: expected string, got %T", modeRaw)
 		}
 		p.Op = OpMode
 		p.Mode = strings.ToLower(strings.TrimSpace(s))
-	}
-	if hasBoolean {
+	case hasBoolean:
 		if !hasValue {
 			return nil, fmt.Errorf("boolean requires value")
 		}
@@ -126,6 +169,21 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 			return nil, fmt.Errorf("value: %w", err)
 		}
 		p.BooleanValue = v
+	case hasAA:
+		if !hasAAMode {
+			return nil, fmt.Errorf("apparmor.profile requires apparmor.profile_mode (enforce|complain|disable)")
+		}
+		s, ok := aaProfileRaw.(string)
+		if !ok {
+			return nil, fmt.Errorf("apparmor.profile: expected string, got %T", aaProfileRaw)
+		}
+		ms, ok := aaModeRaw.(string)
+		if !ok {
+			return nil, fmt.Errorf("apparmor.profile_mode: expected string, got %T", aaModeRaw)
+		}
+		p.Op = OpAppArmorProfile
+		p.AAProfile = strings.TrimSpace(s)
+		p.AAMode = strings.ToLower(strings.TrimSpace(ms))
 	}
 	return p, nil
 }
@@ -180,6 +238,16 @@ func (p *params) validate() error {
 		}
 		if !booleanRE.MatchString(p.BooleanName) {
 			return fmt.Errorf("invalid boolean name %q", p.BooleanName)
+		}
+	case OpAppArmorProfile:
+		if p.AAProfile == "" {
+			return fmt.Errorf("apparmor.profile: empty")
+		}
+		if !aaProfileRE.MatchString(p.AAProfile) {
+			return fmt.Errorf("invalid apparmor.profile %q (a profile name / program path, no whitespace)", p.AAProfile)
+		}
+		if _, ok := validAAModes[p.AAMode]; !ok {
+			return fmt.Errorf("apparmor.profile_mode: must be one of enforce, complain, disable; got %q", p.AAMode)
 		}
 	default:
 		return fmt.Errorf("internal: no op selected")
