@@ -57,3 +57,10 @@ user:
     group: ksmoke
     require:
       - group: ksmoke
+
+# The declared hostname is the key. Alpine has no hostnamectl, so this
+# exercises the fallback: write /etc/hostname + run hostname(1). smoke.sh
+# detaches Docker's /etc/hostname bind-mount first so the rename is not
+# EBUSY. First apply changes the hostname; the second is a no-op.
+hostname:
+  ksmoke-host: {}

@@ -48,18 +48,27 @@ runner pool is unprivileged).
 ## Coverage scope
 
 The fixtures currently exercise `file` + `package` + `service` +
-`user`/`group` — the modules whose backends vary across distros and now
-have cross-distro implementations. `user`/`group` route to shadow-utils
-on the systemd distros and to BusyBox `adduser`/`addgroup` on Alpine
-(where shadow-utils is absent). `hostname`/… join the fixtures as their
-own cross-distro backends land.
+`user`/`group` + `hostname` — the modules whose backends vary across
+distros and now have cross-distro implementations. `user`/`group` route
+to shadow-utils on the systemd distros and to BusyBox
+`adduser`/`addgroup` on Alpine (where shadow-utils is absent).
+`hostname` uses `hostnamectl` on the systemd distros and the
+`/etc/hostname` + `hostname(1)` fallback on Alpine.
 
-Caveat: BusyBox ships no `usermod`/`groupmod`, so on Alpine the
-`user`/`group` backends cannot modify an existing account's scalar
-fields (or a group's GID) — those paths return `ErrModUnsupported`. The
-create / delete / lookup + supplementary-group paths the harness
-exercises are fully supported, and the smoke fixtures only create (then
-re-apply for idempotency), so this caveat doesn't affect the matrix.
+Caveat — `user`/`group`: BusyBox ships no `usermod`/`groupmod`, so on
+Alpine those backends cannot modify an existing account's scalar fields
+(or a group's GID) — those paths return `ErrModUnsupported`. The create
+/ delete / lookup + supplementary-group paths the harness exercises are
+fully supported, and the smoke fixtures only create (then re-apply for
+idempotency), so this caveat doesn't affect the matrix.
+
+Caveat — `hostname`: Docker bind-mounts `/etc/hostname` into the
+container (it manages the container hostname), so the inode can't be
+replaced — `hostnamectl` and the rename-based fallback both fail with
+`EBUSY`. `smoke.sh` detaches the bind-mount (`umount /etc/hostname`)
+before applying so `/etc/hostname` is an ordinary, settable file; the
+running UTS-namespace hostname is unaffected. On a real host (no
+bind-mount) this is a no-op.
 
 ## Adding a distro
 
