@@ -5,6 +5,8 @@ package firewall
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -117,7 +119,7 @@ func TestParse_Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Zone != "public" || p.Backend != "" || p.Port != "22" || p.Proto != "tcp" {
+	if p.Zone != "public" || p.Backend != "" || len(p.Ports) != 1 || p.Ports[0] != (portProto{"22", "tcp"}) {
 		t.Errorf("defaults: %+v", p)
 	}
 	// type errors
@@ -143,7 +145,7 @@ func TestParse_ServiceCatalog(t *testing.T) {
 		"dns-udp": {"53", "udp"},
 	} {
 		p, err := parseParams(decl("l", StatePresent, map[string]any{"service": name}))
-		if err != nil || p.Port != want.port || p.Proto != want.proto {
+		if err != nil || len(p.Ports) != 1 || p.Ports[0].Port != want.port || p.Ports[0].Proto != want.proto {
 			t.Errorf("service %q: %+v %v", name, p, err)
 		}
 	}
@@ -152,7 +154,7 @@ func TestParse_ServiceCatalog(t *testing.T) {
 	if err == nil {
 		t.Fatal("unknown service should error")
 	}
-	if msg := err.Error(); !contains(msg, "v1.0 catalog") || !contains(msg, "ssh") {
+	if msg := err.Error(); !contains(msg, "catalog") || !contains(msg, "ssh") {
 		t.Errorf("error should mention catalog + known names, got %q", msg)
 	}
 	// empty service name
@@ -190,7 +192,7 @@ func TestParse_PortSpec(t *testing.T) {
 	}
 	for _, c := range good {
 		p, err := parseParams(decl("l", StatePresent, map[string]any{"port": c.in}))
-		if err != nil || p.Port != c.port || p.Proto != c.proto {
+		if err != nil || len(p.Ports) != 1 || p.Ports[0].Port != c.port || p.Ports[0].Proto != c.proto {
 			t.Errorf("port %q: %+v %v", c.in, p, err)
 		}
 	}
@@ -247,15 +249,13 @@ func TestValidate(t *testing.T) {
 
 func TestIptablesRule(t *testing.T) {
 	t.Parallel()
-	p := &params{Port: "22", Proto: "tcp"}
-	got := p.iptablesRule()
+	got := iptablesRule(portProto{"22", "tcp"})
 	want := []any{"-p", "tcp", "--dport", "22", "-j", "ACCEPT"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("iptablesRule(22/tcp) = %v, want %v", got, want)
 	}
 	// range — iptables uses ':'
-	p = &params{Port: "1000-2000", Proto: "udp"}
-	got = p.iptablesRule()
+	got = iptablesRule(portProto{"1000-2000", "udp"})
 	want = []any{"-p", "udp", "--dport", "1000:2000", "-j", "ACCEPT"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("iptablesRule(1000-2000/udp) = %v, want %v", got, want)
@@ -264,20 +264,20 @@ func TestIptablesRule(t *testing.T) {
 
 func TestNftablesRule(t *testing.T) {
 	t.Parallel()
-	if got := (&params{Port: "22", Proto: "tcp"}).nftablesRule(); got != "tcp dport 22 accept" {
+	if got := nftablesRule(portProto{"22", "tcp"}); got != "tcp dport 22 accept" {
 		t.Errorf("nftablesRule(22/tcp) = %q", got)
 	}
-	if got := (&params{Port: "1000-2000", Proto: "udp"}).nftablesRule(); got != "udp dport 1000-2000 accept" {
+	if got := nftablesRule(portProto{"1000-2000", "udp"}); got != "udp dport 1000-2000 accept" {
 		t.Errorf("nftablesRule(1000-2000/udp) = %q", got)
 	}
 }
 
 func TestFirewalldPortValue(t *testing.T) {
 	t.Parallel()
-	if v := (&params{Port: "22", Proto: "tcp"}).firewalldPortValue(); v != "22/tcp" {
+	if v := firewalldPortValue(portProto{"22", "tcp"}); v != "22/tcp" {
 		t.Errorf("got %q", v)
 	}
-	if v := (&params{Port: "1000-2000", Proto: "tcp"}).firewalldPortValue(); v != "1000-2000/tcp" {
+	if v := firewalldPortValue(portProto{"1000-2000", "tcp"}); v != "1000-2000/tcp" {
 		t.Errorf("got %q", v)
 	}
 }
@@ -445,7 +445,7 @@ func TestParseError_FromCheckAndApply(t *testing.T) {
 
 func TestBuildSubDecls_UnsupportedBackend(t *testing.T) {
 	t.Parallel()
-	p := &params{State: StatePresent, Zone: "public", Port: "22", Proto: "tcp"}
+	p := &params{State: StatePresent, Zone: "public", Ports: []portProto{{"22", "tcp"}}}
 	if _, err := buildSubDecls("ufw", p, decl("l", StatePresent, map[string]any{"service": "ssh"})); err == nil {
 		t.Error("buildSubDecls(\"ufw\") should error")
 	}
@@ -476,8 +476,8 @@ func TestDualStack_Apply_AggregatesChangedAndSuccess(t *testing.T) {
 		t.Errorf("want Success+Changed, got %+v", res)
 	}
 	// Comment is family-labelled so a dual-stack result is legible.
-	if !strings.Contains(res.Comment, "ipv4: applied") || !strings.Contains(res.Comment, "ipv6: already converged") {
-		t.Errorf("comment should carry both families: %q", res.Comment)
+	if !strings.Contains(res.Comment, "ipv4 22/tcp: applied") || !strings.Contains(res.Comment, "ipv6 22/tcp: already converged") {
+		t.Errorf("comment should carry both families with port labels: %q", res.Comment)
 	}
 	if res.Duration == 0 {
 		t.Error("Duration should be filled")
@@ -520,7 +520,7 @@ func TestDualStack_Check_MatchesOnlyWhenBothMatch(t *testing.T) {
 		if res.Matches {
 			t.Error("IPv6 drift → aggregate should not match")
 		}
-		if !strings.Contains(res.Diff, "ipv6: rule absent") {
+		if !strings.Contains(res.Diff, "ipv6 22/tcp: rule absent") {
 			t.Errorf("diff should carry the family-labelled IPv6 drift: %q", res.Diff)
 		}
 	})
@@ -545,13 +545,13 @@ func TestDualStack_IPv6SkippedWhenNoIp6tables(t *testing.T) {
 		t.Errorf("IPv4 applied → apply should succeed: %+v", res)
 	}
 	// The skip must be unmistakable in BOTH surfaces.
-	if !strings.Contains(res.Comment, "IPv6 NOT APPLIED") {
+	if !strings.Contains(res.Comment, "ipv6 22/tcp NOT APPLIED") {
 		t.Errorf("comment must loudly flag the IPv6 skip: %q", res.Comment)
 	}
-	if !strings.Contains(res.Diff, "ipv6: SKIPPED") {
+	if !strings.Contains(res.Diff, "ipv6 22/tcp: SKIPPED") {
 		t.Errorf("diff must flag the IPv6 skip: %q", res.Diff)
 	}
-	if !strings.Contains(res.Comment, "ipv4: applied") {
+	if !strings.Contains(res.Comment, "ipv4 22/tcp: applied") {
 		t.Errorf("IPv4 should still have applied: %q", res.Comment)
 	}
 }
@@ -678,4 +678,188 @@ func contains(s, sub string) bool {
 		}
 	}
 	return false
+}
+
+// --- multi-port catalog ----------------------------------------------
+
+func TestParse_MultiPortService(t *testing.T) {
+	t.Parallel()
+	cases := map[string][]portProto{
+		"samba":         {{"137", "udp"}, {"138", "udp"}, {"139", "tcp"}, {"445", "tcp"}},
+		"dns":           {{"53", "tcp"}, {"53", "udp"}},
+		"kerberos":      {{"88", "tcp"}, {"88", "udp"}},
+		"dhcpv6-client": {{"546", "udp"}},
+		"cockpit":       {{"9090", "tcp"}},
+	}
+	for name, want := range cases {
+		p, err := parseParams(decl("l", StatePresent, map[string]any{"service": name}))
+		if err != nil {
+			t.Errorf("service %q: %v", name, err)
+			continue
+		}
+		if !reflect.DeepEqual(p.Ports, want) {
+			t.Errorf("service %q ports = %v, want %v", name, p.Ports, want)
+		}
+	}
+}
+
+func TestBuildSubDecls_MultiPort_Iptables(t *testing.T) {
+	t.Parallel()
+	// samba (4 ports) on iptables → 4 ports × 2 families = 8 subs.
+	p, err := parseParams(decl("allow-samba", StatePresent, map[string]any{"service": "samba", "backend": BackendIptables}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	subs, err := buildSubDecls(BackendIptables, p, decl("allow-samba", StatePresent, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(subs) != 8 {
+		t.Fatalf("samba on iptables → want 8 subs, got %d", len(subs))
+	}
+	// Each (port, family) pair appears once with a disambiguating label.
+	labels := map[string]bool{}
+	for _, s := range subs {
+		labels[s.label] = true
+		if s.decl.Params["family"] != "ipv4" && s.decl.Params["family"] != "ipv6" {
+			t.Errorf("unexpected family in %v", s.decl.Params)
+		}
+	}
+	for _, want := range []string{"ipv4 137/udp", "ipv6 137/udp", "ipv4 445/tcp", "ipv6 445/tcp"} {
+		if !labels[want] {
+			t.Errorf("missing labelled sub %q (got %v)", want, labels)
+		}
+	}
+}
+
+func TestBuildSubDecls_MultiPort_Firewalld(t *testing.T) {
+	t.Parallel()
+	// samba on firewalld → 4 subs (one --add-port each), port-labelled.
+	p, err := parseParams(decl("allow-samba", StatePresent, map[string]any{"service": "samba", "backend": BackendFirewalld}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	subs, err := buildSubDecls(BackendFirewalld, p, decl("allow-samba", StatePresent, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(subs) != 4 {
+		t.Fatalf("samba on firewalld → want 4 subs, got %d", len(subs))
+	}
+	gotPorts := map[string]bool{}
+	for _, s := range subs {
+		gotPorts[s.decl.Params["port"].(string)] = true
+		if s.label == "" {
+			t.Error("multi-port firewalld sub should be labelled")
+		}
+	}
+	for _, want := range []string{"137/udp", "138/udp", "139/tcp", "445/tcp"} {
+		if !gotPorts[want] {
+			t.Errorf("missing firewalld port sub %q (got %v)", want, gotPorts)
+		}
+	}
+}
+
+func TestBuildSubDecls_SinglePort_FirewalldUnlabelled(t *testing.T) {
+	t.Parallel()
+	// A single-port firewalld sub carries no label (nothing to
+	// disambiguate) — preserves the simple "applied" comment.
+	p, err := parseParams(decl("allow-ssh", StatePresent, map[string]any{"service": "ssh", "backend": BackendFirewalld}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	subs, err := buildSubDecls(BackendFirewalld, p, decl("allow-ssh", StatePresent, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(subs) != 1 || subs[0].label != "" {
+		t.Errorf("single-port firewalld → want 1 unlabelled sub, got %d subs label=%q", len(subs), subs[0].label)
+	}
+}
+
+// --- /etc/services loose lookup ---------------------------------------
+
+const sampleServices = `# a sample /etc/services
+ssh             22/tcp
+domain          53/tcp     nameserver
+domain          53/udp     nameserver
+echo            7/ddp                      # unsupported proto, skipped
+custom          9999/tcp   myalias
+`
+
+func TestLookupServicesFile(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "services")
+	if err := os.WriteFile(path, []byte(sampleServices), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// canonical name, multi-proto → two ports (sorted)
+	got, err := lookupServicesFile(path, "domain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []portProto{{"53", "tcp"}, {"53", "udp"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("domain = %v, want %v", got, want)
+	}
+
+	// alias match
+	if got, err := lookupServicesFile(path, "myalias"); err != nil || !reflect.DeepEqual(got, []portProto{{"9999", "tcp"}}) {
+		t.Errorf("alias myalias = %v, %v", got, err)
+	}
+
+	// unsupported proto (ddp) is skipped → name resolves to nothing → error
+	if _, err := lookupServicesFile(path, "echo"); err == nil {
+		t.Error("echo (ddp only) should not resolve")
+	}
+
+	// absent name errors
+	if _, err := lookupServicesFile(path, "nope"); err == nil {
+		t.Error("absent service should error")
+	}
+
+	// missing file errors
+	if _, err := lookupServicesFile(filepath.Join(dir, "nofile"), "ssh"); err == nil {
+		t.Error("missing services file should error")
+	}
+}
+
+func TestParse_LooseService_FallsBackToEtcServices(t *testing.T) {
+	// Not parallel: swaps the package-level servicesFilePath. Safe — no
+	// parallel test reads it (the strict path never touches the file).
+	dir := t.TempDir()
+	path := filepath.Join(dir, "services")
+	if err := os.WriteFile(path, []byte(sampleServices), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := servicesFilePath
+	servicesFilePath = path
+	defer func() { servicesFilePath = orig }()
+
+	// strict (default): an off-catalog name errors without consulting
+	// /etc/services.
+	if _, err := parseParams(decl("l", StatePresent, map[string]any{"service": "custom"})); err == nil {
+		t.Error("strict_catalog default → off-catalog name should error")
+	}
+
+	// strict_catalog: false → resolves via /etc/services.
+	p, err := parseParams(decl("l", StatePresent, map[string]any{"service": "custom", "strict_catalog": false}))
+	if err != nil {
+		t.Fatalf("loose lookup: %v", err)
+	}
+	if !reflect.DeepEqual(p.Ports, []portProto{{"9999", "tcp"}}) {
+		t.Errorf("custom = %v, want [9999/tcp]", p.Ports)
+	}
+
+	// strict_catalog: false but still unknown → error.
+	if _, err := parseParams(decl("l", StatePresent, map[string]any{"service": "ghost", "strict_catalog": false})); err == nil {
+		t.Error("loose lookup of an absent name should error")
+	}
+
+	// strict_catalog wrong type → error.
+	if _, err := parseParams(decl("l", StatePresent, map[string]any{"service": "ssh", "strict_catalog": "yes"})); err == nil {
+		t.Error("non-bool strict_catalog should error")
+	}
 }
