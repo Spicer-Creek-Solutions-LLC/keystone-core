@@ -142,3 +142,28 @@ func TestDefaultProvider_NonNil(t *testing.T) {
 		t.Fatal("defaultProvider returned nil")
 	}
 }
+
+func TestLinuxProvider_ListRichRules(t *testing.T) {
+	t.Parallel()
+	out := "rule family=\"ipv4\" service name=\"ssh\" accept\n\nrule family=\"ipv4\" source address=\"10.0.0.0/8\" drop\n"
+	p, calls := newRecordingProvider(out, nil)
+	rules, err := p.ListRichRules(context.Background(), "public")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rules) != 2 {
+		t.Fatalf("want 2 rules (blank line dropped), got %d: %v", len(rules), rules)
+	}
+	if strings.Join((*calls)[0].args, " ") != "--permanent --zone=public --list-rich-rules" {
+		t.Errorf("list args: %v", (*calls)[0].args)
+	}
+	// missing firewall-cmd
+	if _, err := (&linuxProvider{}).ListRichRules(context.Background(), "public"); !IsNoFirewallCmd(err) {
+		t.Errorf("missing firewall-cmd → ErrNoFirewallCmd, got %v", err)
+	}
+	// firewall-cmd error propagates
+	pErr, _ := newRecordingProvider("", errors.New("exit 1: bad zone"))
+	if _, err := pErr.ListRichRules(context.Background(), "nope"); err == nil {
+		t.Error("firewall-cmd error should propagate")
+	}
+}

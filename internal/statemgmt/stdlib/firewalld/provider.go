@@ -42,6 +42,12 @@ type Provider interface {
 	Remove(ctx context.Context, zone string, it Item) error
 	// Reload runs `firewall-cmd --reload` (push permanent → runtime).
 	Reload(ctx context.Context) error
+	// ListRichRules returns the zone's stored rich rules
+	// (`firewall-cmd --permanent --zone=Z --list-rich-rules`), one per
+	// element, in firewalld's canonical form. Used for canonical-form
+	// comparison so a re-formatted rich rule still matches the stored
+	// one.
+	ListRichRules(ctx context.Context, zone string) ([]string, error)
 }
 
 // commandRunner runs `firewall-cmd`. It returns combined stdout +
