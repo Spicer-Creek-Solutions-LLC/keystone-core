@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -19,7 +20,7 @@ import (
 var lvmTools = []string{
 	"pvcreate", "pvremove", "pvs",
 	"vgcreate", "vgremove", "vgs",
-	"lvcreate", "lvremove", "lvs",
+	"lvcreate", "lvremove", "lvextend", "lvs",
 }
 
 func defaultProvider() Provider {
@@ -148,6 +149,43 @@ func (p *linuxProvider) RemoveLV(ctx context.Context, vg, lv string) error {
 		return err
 	}
 	_, err = p.run(ctx, bin, []string{"-y", vg + "/" + lv})
+	return err
+}
+
+func (p *linuxProvider) GetLVSize(ctx context.Context, vg, lv string) (uint64, error) {
+	bin, err := p.bin("lvs")
+	if err != nil {
+		return 0, err
+	}
+	out, err := p.run(ctx, bin, []string{"--noheadings", "--nosuffix", "--units", "b", "-o", "lv_size", vg + "/" + lv})
+	if err != nil {
+		return 0, err
+	}
+	return parseLVSizeBytes(out)
+}
+
+// parseLVSizeBytes reads the byte count from `lvs --units b --nosuffix`
+// output (a single whitespace-padded integer, e.g. "  10737418240").
+func parseLVSizeBytes(out string) (uint64, error) {
+	s := strings.TrimSpace(out)
+	n, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unexpected lvs size output %q: %w", s, err)
+	}
+	return n, nil
+}
+
+func (p *linuxProvider) ExtendLV(ctx context.Context, vg, lv, size string, resizeFS bool) error {
+	bin, err := p.bin("lvextend")
+	if err != nil {
+		return err
+	}
+	args := []string{"-L", size}
+	if resizeFS {
+		args = append(args, "--resizefs")
+	}
+	args = append(args, vg+"/"+lv)
+	_, err = p.run(ctx, bin, args)
 	return err
 }
 

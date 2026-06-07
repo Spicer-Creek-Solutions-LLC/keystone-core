@@ -21,6 +21,7 @@ const (
 	paramFstype      = "fstype"
 	paramMkfsOptions = "mkfs_options"
 	paramForce       = "force"
+	paramResizeFS    = "resize_fs"
 	paramSeverity    = statemgmt.ReservedSeverityParamKey
 )
 
@@ -29,7 +30,16 @@ var allowedKeys = map[string]struct{}{
 	paramFstype:      {},
 	paramMkfsOptions: {},
 	paramForce:       {},
+	paramResizeFS:    {},
 	paramSeverity:    {},
+}
+
+// resizableFstypes is the v0.5 fs-resize support set. Resizing ext is
+// device-based (`resize2fs <device>`) with a predictable, mount-free
+// idempotency check; xfs / btrfs / f2fs (mount-required, different size
+// math) are V1X.
+var resizableFstypes = map[string]struct{}{
+	"ext2": {}, "ext3": {}, "ext4": {},
 }
 
 // validFstypes is the curated v1.0 catalog. Adding entries means
@@ -75,6 +85,7 @@ type params struct {
 	Fstype      string // required for present; ignored for absent
 	MkfsOptions []string
 	Force       bool
+	ResizeFS    bool // grow the fs to fill the device (ext2/3/4, present only)
 }
 
 func parseParams(decl *statemgmt.Declaration) (*params, error) {
@@ -114,6 +125,13 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 			return nil, fmt.Errorf("force: expected bool, got %T", raw)
 		}
 		p.Force = b
+	}
+	if raw, ok := decl.Params[paramResizeFS]; ok {
+		b, ok := raw.(bool)
+		if !ok {
+			return nil, fmt.Errorf("resize_fs: expected bool, got %T", raw)
+		}
+		p.ResizeFS = b
 	}
 	return p, nil
 }
@@ -160,6 +178,14 @@ func (p *params) validate() error {
 		// absent: mkfs_options has no purpose and is rejected for clarity.
 		if len(p.MkfsOptions) > 0 {
 			return fmt.Errorf("mkfs_options is only valid with state=present")
+		}
+		if p.ResizeFS {
+			return fmt.Errorf("resize_fs is only valid with state=present")
+		}
+	}
+	if p.ResizeFS {
+		if _, ok := resizableFstypes[p.Fstype]; !ok {
+			return fmt.Errorf("resize_fs is supported for ext2/3/4 only in v0.5 (got fstype %q); xfs/btrfs/f2fs resize is V1X", p.Fstype)
 		}
 	}
 	for i, opt := range p.MkfsOptions {

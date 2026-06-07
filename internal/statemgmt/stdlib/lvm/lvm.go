@@ -23,10 +23,14 @@
 //     `extents: <N%FREE|N%VG|N%PVS|N%ORIGIN>` → creates / removes a
 //     Logical Volume via `lvcreate -y -n <lv> {-L size|-l extents}
 //     <vg>` / `lvremove -y <vg>/<lv>`. Check via
-//     `lvs --noheadings -o lv_name <vg>/<lv>`. **Existing-LV size
-//     mismatch is not reconciled in v1.0** — extending / shrinking
-//     an existing LV is V1X; v1.0 only verifies the LV exists by
-//     name.
+//     `lvs --noheadings -o lv_name <vg>/<lv>`. A **size-based** LV is
+//     also **grown** when the live size is below the declared size:
+//     `lvextend -L <size> [--resizefs] <vg>/<lv>` (set `resize_fs:
+//     true` to grow the contained filesystem too). Size is a minimum
+//     ("at least" semantics) — a declared size ≤ the live size is
+//     satisfied, so the module never shrinks (filesystem-dangerous)
+//     and stays idempotent across LVM's extent rounding. `extents:`
+//     LVs are create-only (the target depends on live free space).
 //
 // Declaration.Name is just a human label (the decl ID); the
 // operation is identified by which of `pv` / `vg` / `lv` is set.
@@ -43,9 +47,10 @@
 // v0.1 out of scope (v0.x candidates):
 //   - Existing-VG PV-set management (`vgextend` / `vgreduce`,
 //     `vgchange` allocation policy, missing-PV cleanup).
-//   - Existing-LV resize (`lvextend` / `lvreduce` /
-//     `lvresize --resizefs`); shrink is fundamentally dangerous
-//     (filesystem must support it).
+//   - LV **shrink** (`lvreduce`) — fundamentally dangerous (the
+//     filesystem must support shrink first); resize is grow-only.
+//   - `extents:`-based LV resize (the percentage target depends on
+//     live free space).
 //   - LV metadata (tags, allocation policy, stripe / mirror /
 //     RAID levels, thin pools, cache, snapshots, naming policy).
 //   - PV metadata (`--metadatasize`, allocation tags, restore).
@@ -106,6 +111,15 @@ func (m *Module) Check(ctx context.Context, decl *statemgmt.Declaration) (*state
 	switch p.State {
 	case StatePresent:
 		if has {
+			// An existing size-based LV may still be smaller than the
+			// declared size and need to grow.
+			drift, diff, err := m.lvSizeDrift(ctx, p)
+			if err != nil {
+				return nil, err
+			}
+			if drift {
+				return &statemgmt.ModuleCheckResult{Matches: false, Diff: diff}, nil
+			}
 			return &statemgmt.ModuleCheckResult{Matches: true}, nil
 		}
 		return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("%s not present → create", loc)}, nil
@@ -133,7 +147,17 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 	switch p.State {
 	case StatePresent:
 		if has {
-			return ok(start, false, "", "already converged"), nil
+			drift, diff, err := m.lvSizeDrift(ctx, p)
+			if err != nil {
+				return failure(start), err
+			}
+			if !drift {
+				return ok(start, false, "", "already converged"), nil
+			}
+			if err := m.provider.ExtendLV(ctx, p.VGName, p.LVName, p.Size, p.ResizeFS); err != nil {
+				return failure(start), fmt.Errorf("resize %s: %w", loc, err)
+			}
+			return ok(start, true, diff, "resized"), nil
 		}
 		if err := m.create(ctx, p); err != nil {
 			return failure(start), fmt.Errorf("create %s: %w", loc, err)
@@ -168,6 +192,30 @@ func (m *Module) parsed(decl *statemgmt.Declaration) (*params, error) {
 		return nil, err
 	}
 	return p, nil
+}
+
+// lvSizeDrift reports whether an existing LV is smaller than the
+// declared size and should grow. It applies only to a size-based LV op
+// ("at least" semantics: a declared size ≤ the live size is satisfied —
+// shrink is never performed, which also keeps the check idempotent
+// across LVM's extent rounding). PV / VG ops, and extents-based LVs
+// (whose target depends on live free space), never report size drift.
+func (m *Module) lvSizeDrift(ctx context.Context, p *params) (bool, string, error) {
+	if p.Op != OpLV || p.Size == "" {
+		return false, "", nil
+	}
+	want, err := sizeToBytes(p.Size)
+	if err != nil {
+		return false, "", err
+	}
+	live, err := m.provider.GetLVSize(ctx, p.VGName, p.LVName)
+	if err != nil {
+		return false, "", err
+	}
+	if live >= want {
+		return false, "", nil
+	}
+	return true, fmt.Sprintf("LV %s/%s: %d → at least %d bytes (grow to %s)", p.VGName, p.LVName, live, want, p.Size), nil
 }
 
 // has dispatches the per-op existence query.

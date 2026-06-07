@@ -22,6 +22,12 @@ func (*otherProvider) MakeFilesystem(context.Context, string, string, []string) 
 func (*otherProvider) WipeFilesystem(context.Context, string) error {
 	return wrapUnsupported("WipeFilesystem")
 }
+func (*otherProvider) FilesystemFillsDevice(context.Context, string, string) (bool, error) {
+	return false, wrapUnsupported("FilesystemFillsDevice")
+}
+func (*otherProvider) ResizeFilesystem(context.Context, string, string) error {
+	return wrapUnsupported("ResizeFilesystem")
+}
 
 func wrapUnsupported(op string) error { return &unsupportedError{op: op, os: runtime.GOOS} }
 
