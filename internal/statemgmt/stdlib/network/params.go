@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/netpersist"
 )
 
 const StatePresent = "present"
@@ -35,21 +36,6 @@ var allowedKeys = map[string]struct{}{
 	paramUp:        {},
 	paramPersist:   {},
 	paramSeverity:  {},
-}
-
-// Persist backends. The empty string is the default (runtime-only, no
-// persistent file). "auto" resolves to netplan or networkd at apply
-// time (see DetectBackend).
-const (
-	PersistNetworkd = "networkd"
-	PersistNetplan  = "netplan"
-	PersistAuto     = "auto"
-)
-
-var validPersist = map[string]struct{}{
-	PersistNetworkd: {},
-	PersistNetplan:  {},
-	PersistAuto:     {},
 }
 
 // ifaceRE matches a Linux interface name: letters, digits, plus
@@ -205,7 +191,7 @@ func (p *params) validate() error {
 		return fmt.Errorf("mtu: must be in [%d, %d]; got %d", minMTU, maxMTU, p.MTU)
 	}
 	if p.Persist != "" {
-		if _, ok := validPersist[p.Persist]; !ok {
+		if !netpersist.ValidBackend(p.Persist) {
 			return fmt.Errorf("persist: must be one of networkd, netplan, auto; got %q", p.Persist)
 		}
 		// The persistent renderers express addresses + mtu; `up` is

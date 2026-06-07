@@ -28,15 +28,6 @@ func (*otherProvider) SetMTU(context.Context, string, int) error {
 func (*otherProvider) SetLinkUp(context.Context, string, bool) error {
 	return wrapUnsupported("SetLinkUp")
 }
-func (*otherProvider) GetPersisted(context.Context, string, string) (string, bool, error) {
-	return "", false, wrapUnsupported("GetPersisted")
-}
-func (*otherProvider) SetPersisted(context.Context, string, string, string) error {
-	return wrapUnsupported("SetPersisted")
-}
-func (*otherProvider) DetectBackend(context.Context) (string, error) {
-	return "", wrapUnsupported("DetectBackend")
-}
 
 func wrapUnsupported(op string) error { return &unsupportedError{op: op, os: runtime.GOOS} }
 

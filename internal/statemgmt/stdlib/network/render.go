@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/netpersist"
 )
 
 // renderPersist produces the persistent-config file content for the
@@ -14,10 +16,23 @@ import (
 // so Check can compare it byte-for-byte against the on-disk file.
 func renderPersist(backend string, p *params) (string, error) {
 	switch backend {
-	case PersistNetworkd:
+	case netpersist.Networkd:
 		return renderNetworkd(p), nil
-	case PersistNetplan:
+	case netpersist.Netplan:
 		return renderNetplan(p), nil
+	default:
+		return "", fmt.Errorf("unsupported persist backend %q", backend)
+	}
+}
+
+// persistFilePath is the file this module manages for an interface on
+// the given backend.
+func persistFilePath(backend, iface string) (string, error) {
+	switch backend {
+	case netpersist.Networkd:
+		return netpersist.NetworkPath(iface), nil
+	case netpersist.Netplan:
+		return netpersist.NetplanPath(iface), nil
 	default:
 		return "", fmt.Errorf("unsupported persist backend %q", backend)
 	}
