@@ -17,8 +17,15 @@ var ErrUnsupportedOS = errors.New("security: unsupported OS for v0.1 (Linux only
 // SELinux is not installed on this host.
 var ErrSELinuxUnavailable = errors.New("security: SELinux tools or config not available")
 
-func IsUnsupportedOS(err error) bool      { return errors.Is(err, ErrUnsupportedOS) }
-func IsSELinuxUnavailable(err error) bool { return errors.Is(err, ErrSELinuxUnavailable) }
+// ErrAppArmorUnavailable is returned when the AppArmor user-space tools
+// (`aa-status` / `aa-enforce` / `aa-complain` / `aa-disable`) are not
+// present, or AppArmor is not active in the kernel — typically because
+// AppArmor is not the LSM on this host.
+var ErrAppArmorUnavailable = errors.New("security: AppArmor tools or status not available")
+
+func IsUnsupportedOS(err error) bool       { return errors.Is(err, ErrUnsupportedOS) }
+func IsSELinuxUnavailable(err error) bool  { return errors.Is(err, ErrSELinuxUnavailable) }
+func IsAppArmorUnavailable(err error) bool { return errors.Is(err, ErrAppArmorUnavailable) }
 
 // Provider abstracts the SELinux operations the v1.0 security module
 // performs. Production shells out to `getenforce` / `setenforce` /
@@ -52,6 +59,20 @@ type Provider interface {
 }
 
 // commandRunner runs `getenforce` / `setenforce` / `getsebool` /
-// `setsebool`. It returns combined stdout+stderr and, on a non-zero
+// `setsebool` (and the `aa-enforce` / `aa-complain` / `aa-disable`
+// AppArmor tools). It returns combined stdout+stderr and, on a non-zero
 // exit, an error wrapping the exit code and trimmed output.
 type commandRunner func(ctx context.Context, bin string, args []string) (string, error)
+
+// AppArmorProvider abstracts the per-profile AppArmor operations. The
+// security module dispatches the apparmor.profile op to this provider;
+// SELinux ops continue through Provider. A test injects a fake.
+type AppArmorProvider interface {
+	// GetProfileMode returns the named profile's current mode from
+	// `aa-status --json`: "enforce" | "complain" | "" (not loaded —
+	// the converged state for apparmor.profile_mode: disable).
+	GetProfileMode(ctx context.Context, profile string) (string, error)
+	// SetProfileMode runs aa-enforce / aa-complain / aa-disable for the
+	// profile. mode is one of AAEnforce / AAComplain / AADisable.
+	SetProfileMode(ctx context.Context, profile, mode string) error
+}

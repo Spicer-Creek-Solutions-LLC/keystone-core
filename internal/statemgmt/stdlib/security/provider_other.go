@@ -32,6 +32,17 @@ func (*otherProvider) SetBoolean(context.Context, string, bool) error {
 	return wrapUnsupported("SetBoolean")
 }
 
+type otherAppArmorProvider struct{}
+
+func defaultAppArmorProvider() AppArmorProvider { return &otherAppArmorProvider{} }
+
+func (*otherAppArmorProvider) GetProfileMode(context.Context, string) (string, error) {
+	return "", wrapUnsupported("GetProfileMode")
+}
+func (*otherAppArmorProvider) SetProfileMode(context.Context, string, string) error {
+	return wrapUnsupported("SetProfileMode")
+}
+
 func wrapUnsupported(op string) error { return &unsupportedError{op: op, os: runtime.GOOS} }
 
 type unsupportedError struct{ op, os string }

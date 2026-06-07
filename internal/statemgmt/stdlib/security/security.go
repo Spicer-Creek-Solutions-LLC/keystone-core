@@ -1,22 +1,31 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Package security implements the `security` stdlib state module —
-// the v1.0 surface manages SELinux settings, per PROJECT-DETAILS §4.8
-// (SSH & security category).
+// it manages SELinux settings and AppArmor profile modes, per
+// PROJECT-DETAILS §4.8 (SSH & security category).
 //
 // Operations per declaration (exactly one):
 //
-//   - **Mode** — `mode: enforcing|permissive|disabled` — sets the
-//     global SELinux mode in `/etc/selinux/config` (`SELINUX=<mode>`,
-//     persistent) and, when feasible, runs `setenforce 1/0` to match
-//     at runtime. Going to `disabled` cannot happen at runtime
-//     (kernel must be re-init'd); the persistent edit takes effect at
-//     next reboot, and the Apply Comment says so.
+//   - **Mode** (SELinux) — `mode: enforcing|permissive|disabled` —
+//     sets the global SELinux mode in `/etc/selinux/config`
+//     (`SELINUX=<mode>`, persistent) and, when feasible, runs
+//     `setenforce 1/0` to match at runtime. Going to `disabled` cannot
+//     happen at runtime (kernel must be re-init'd); the persistent edit
+//     takes effect at next reboot, and the Apply Comment says so.
 //
-//   - **Boolean** — `boolean: NAME` + `value: on|off` (or
+//   - **Boolean** (SELinux) — `boolean: NAME` + `value: on|off` (or
 //     `true|false`, `yes|no`, `1|0`) — toggles a named SELinux
 //     boolean persistently and at runtime via `setsebool -P
 //     NAME=on|off`.
+//
+//   - **AppArmor profile** — `apparmor.profile: <name>` (the profile
+//     name as `aa-status` reports it — usually the confined program's
+//     path, e.g. `/usr/bin/foo`) + `apparmor.profile_mode:
+//     enforce|complain|disable` — sets a profile's mode via
+//     `aa-enforce` / `aa-complain` / `aa-disable`, idempotent against
+//     `aa-status --json` (`disable` converges to the profile being
+//     unloaded). SELinux and AppArmor are dispatched by which params
+//     are set, each through its own Provider.
 //
 // Declaration.Name is just a human label (the decl ID); the operation
 // is identified by which params are set. `state: present` only —
@@ -24,10 +33,9 @@
 // this value") is ambiguous and is V1X.
 //
 // v0.1 out of scope (v0.x candidates):
-//   - **AppArmor** in any form — per-profile `enforce|complain|disable`
-//     modes (`aa-enforce`/`aa-complain`/`aa-disable`), framework
-//     on/off. The module is structured so a second Provider can be
-//     added cleanly in v1.x.
+//   - AppArmor framework on/off (whole-subsystem enable/disable) and
+//     profile load/reload via `apparmor_parser` — the per-profile mode
+//     ops above are the v0.5 AppArmor surface.
 //   - SELinux file contexts (`semanage fcontext` + `restorecon`),
 //     port labels (`semanage port`), module install (`semodule`),
 //     login / user mappings (`semanage login`).
@@ -49,14 +57,26 @@ import (
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
 )
 
-// New selects the platform's real Provider via auto-detection.
-func New() statemgmt.Module { return &Module{provider: defaultProvider()} }
+// New selects the platform's real providers via auto-detection.
+func New() statemgmt.Module {
+	return &Module{provider: defaultProvider(), aa: defaultAppArmorProvider()}
+}
 
-// NewWithProvider is the test injection point.
-func NewWithProvider(p Provider) statemgmt.Module { return &Module{provider: p} }
+// NewWithProvider injects the SELinux provider (back-compat test seam);
+// the AppArmor provider is the platform default.
+func NewWithProvider(p Provider) statemgmt.Module {
+	return &Module{provider: p, aa: defaultAppArmorProvider()}
+}
+
+// NewWithProviders injects both providers (test seam for the AppArmor
+// op).
+func NewWithProviders(p Provider, aa AppArmorProvider) statemgmt.Module {
+	return &Module{provider: p, aa: aa}
+}
 
 type Module struct {
-	provider Provider
+	provider Provider         // SELinux
+	aa       AppArmorProvider // AppArmor
 }
 
 func (m *Module) Name() string { return "security" }
@@ -93,6 +113,8 @@ func (m *Module) Check(ctx context.Context, decl *statemgmt.Declaration) (*state
 		return m.checkMode(ctx, p)
 	case OpBoolean:
 		return m.checkBoolean(ctx, p)
+	case OpAppArmorProfile:
+		return m.checkAppArmor(ctx, p)
 	}
 	return nil, fmt.Errorf("unknown op %v", p.Op)
 }
@@ -108,6 +130,8 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 		return m.applyMode(ctx, start, p)
 	case OpBoolean:
 		return m.applyBoolean(ctx, start, p)
+	case OpAppArmorProfile:
+		return m.applyAppArmor(ctx, start, p)
 	}
 	return nil, fmt.Errorf("unknown op %v", p.Op)
 }
@@ -236,6 +260,51 @@ func (m *Module) applyBoolean(ctx context.Context, start time.Time, p *params) (
 		return failure(start), fmt.Errorf("set boolean: %w", err)
 	}
 	return ok(start, true, fmt.Sprintf("%s: %s → %s", p.BooleanName, onOff(current), onOff(p.BooleanValue)), "applied"), nil
+}
+
+// --- apparmor op -------------------------------------------------------
+
+func (m *Module) checkAppArmor(ctx context.Context, p *params) (*statemgmt.ModuleCheckResult, error) {
+	current, err := m.aa.GetProfileMode(ctx, p.AAProfile)
+	if err != nil {
+		return nil, err
+	}
+	if aaConverged(p.AAMode, current) {
+		return &statemgmt.ModuleCheckResult{Matches: true}, nil
+	}
+	return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("apparmor %s: %s → %s", p.AAProfile, aaDisplay(current), p.AAMode)}, nil
+}
+
+func (m *Module) applyAppArmor(ctx context.Context, start time.Time, p *params) (*statemgmt.StateResult, error) {
+	current, err := m.aa.GetProfileMode(ctx, p.AAProfile)
+	if err != nil {
+		return failure(start), err
+	}
+	if aaConverged(p.AAMode, current) {
+		return ok(start, false, "", "already converged"), nil
+	}
+	if err := m.aa.SetProfileMode(ctx, p.AAProfile, p.AAMode); err != nil {
+		return failure(start), fmt.Errorf("set apparmor profile mode: %w", err)
+	}
+	return ok(start, true, fmt.Sprintf("apparmor %s: %s → %s", p.AAProfile, aaDisplay(current), p.AAMode), "applied"), nil
+}
+
+// aaConverged reports whether the live mode matches the desired mode.
+// "disable" converges to a profile that is unloaded (absent from
+// aa-status, i.e. an empty live mode); "enforce" / "complain" compare
+// directly against aa-status's mode string.
+func aaConverged(want, live string) bool {
+	if want == AADisable {
+		return live == ""
+	}
+	return live == want
+}
+
+func aaDisplay(live string) string {
+	if live == "" {
+		return "unloaded"
+	}
+	return live
 }
 
 func onOff(b bool) string {
