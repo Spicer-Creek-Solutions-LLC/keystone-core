@@ -6,8 +6,9 @@
 # (idempotency). It exercises the modules whose behaviour varies
 # across distros — package (apt/dnf) and service (systemd) — alongside
 # the cross-distro-stable file module, plus user/group (shadow-utils on
-# the systemd distros, BusyBox adduser/addgroup on Alpine). hostname
-# joins the fixture as its own cross-distro backend lands.
+# the systemd distros, BusyBox adduser/addgroup on Alpine) and hostname
+# (hostnamectl). smoke.sh detaches Docker's /etc/hostname bind-mount
+# first so the hostname is settable (see the comment there).
 #
 # Placeholders substituted by smoke.sh before apply:
 #   ${ROOT} → a writable scratch dir
@@ -57,3 +58,9 @@ user:
     group: ksmoke
     require:
       - group: ksmoke
+
+# The declared hostname is the key. Routes to hostnamectl on the systemd
+# distros. The container starts with a hex-ID hostname, so the first
+# apply changes /etc/hostname and the second is a zero-change no-op.
+hostname:
+  ksmoke-host: {}

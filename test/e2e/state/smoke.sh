@@ -55,6 +55,14 @@ case "$INIT" in
   *) echo "==> [${DISTRO}] unknown init ${INIT}" >&2; exit 2 ;;
 esac
 
+# Docker bind-mounts /etc/hostname into the container (it manages the
+# container hostname), so the inode can't be replaced — hostnamectl and
+# the module's rename-based fallback both fail with EBUSY. Detach the
+# bind-mount so /etc/hostname is an ordinary file the `hostname` module
+# can set; the running (UTS-namespace) hostname is unaffected. On a host
+# without the bind-mount this is a harmless no-op.
+umount /etc/hostname 2>/dev/null || true
+
 mkdir -p "$ROOT"
 sed -e "s|\${ROOT}|${ROOT}|g" -e "s|\${PKG}|${PKG}|g" -e "s|\${SVC}|${SVC}|g" \
   "$FIXTURE" > "$ROOT/smoke.yaml"
