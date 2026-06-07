@@ -34,6 +34,12 @@ func (*otherProvider) CreateLV(context.Context, string, string, string, string) 
 func (*otherProvider) RemoveLV(context.Context, string, string) error {
 	return wrapUnsupported("RemoveLV")
 }
+func (*otherProvider) GetLVSize(context.Context, string, string) (uint64, error) {
+	return 0, wrapUnsupported("GetLVSize")
+}
+func (*otherProvider) ExtendLV(context.Context, string, string, string, bool) error {
+	return wrapUnsupported("ExtendLV")
+}
 
 func wrapUnsupported(op string) error { return &unsupportedError{op: op, os: runtime.GOOS} }
 
