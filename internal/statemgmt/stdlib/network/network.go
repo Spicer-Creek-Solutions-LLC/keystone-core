@@ -74,6 +74,7 @@ import (
 	"time"
 
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/netpersist"
 )
 
 // New selects the platform's real Provider via auto-detection.
@@ -118,11 +119,11 @@ func (m *Module) Check(ctx context.Context, decl *statemgmt.Declaration) (*state
 	}
 	diffs := m.diff(p, state)
 	if p.Persist != "" {
-		backend, err := m.resolveBackend(ctx, p)
+		backend, err := resolveBackend(p)
 		if err != nil {
 			return nil, err
 		}
-		drift, _, err := m.persistDrift(ctx, backend, p)
+		drift, _, _, err := persistDrift(backend, p)
 		if err != nil {
 			return nil, err
 		}
@@ -138,26 +139,30 @@ func (m *Module) Check(ctx context.Context, decl *statemgmt.Declaration) (*state
 
 // resolveBackend turns `persist: auto` into a concrete backend; an
 // explicit networkd / netplan passes through.
-func (m *Module) resolveBackend(ctx context.Context, p *params) (string, error) {
-	if p.Persist == PersistAuto {
-		return m.provider.DetectBackend(ctx)
+func resolveBackend(p *params) (string, error) {
+	if p.Persist == netpersist.Auto {
+		return netpersist.DetectBackend()
 	}
 	return p.Persist, nil
 }
 
 // persistDrift reports whether the on-disk persistent file differs from
-// the desired render (or is absent). It returns the desired content so
-// Apply can write it without re-rendering.
-func (m *Module) persistDrift(ctx context.Context, backend string, p *params) (bool, string, error) {
-	desired, err := renderPersist(backend, p)
+// the desired render (or is absent), returning the desired content and
+// the target path so Apply can write it without re-deriving them.
+func persistDrift(backend string, p *params) (drift bool, desired, path string, err error) {
+	desired, err = renderPersist(backend, p)
 	if err != nil {
-		return false, "", err
+		return false, "", "", err
 	}
-	current, exists, err := m.provider.GetPersisted(ctx, backend, p.Interface)
+	path, err = persistFilePath(backend, p.Interface)
 	if err != nil {
-		return false, "", err
+		return false, "", "", err
 	}
-	return !exists || current != desired, desired, nil
+	current, exists, err := netpersist.Read(path)
+	if err != nil {
+		return false, "", "", err
+	}
+	return !exists || current != desired, desired, path, nil
 }
 
 func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*statemgmt.StateResult, error) {
@@ -175,22 +180,23 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 	// Resolve the persistent-file drift up front so a runtime-converged
 	// interface with a stale (or missing) persist file still applies.
 	var (
-		backend      string
-		persistDrift bool
-		desired      string
+		backend    string
+		pDrift     bool
+		desired    string
+		persistDst string
 	)
 	if p.Persist != "" {
-		backend, err = m.resolveBackend(ctx, p)
+		backend, err = resolveBackend(p)
 		if err != nil {
 			return failure(start), err
 		}
-		persistDrift, desired, err = m.persistDrift(ctx, backend, p)
+		pDrift, desired, persistDst, err = persistDrift(backend, p)
 		if err != nil {
 			return failure(start), err
 		}
 	}
 
-	if len(diffs) == 0 && !persistDrift {
+	if len(diffs) == 0 && !pDrift {
 		return ok(start, false, "", "already converged"), nil
 	}
 
@@ -220,8 +226,8 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 			return failure(start), fmt.Errorf("set link up=%v: %w", p.Up, err)
 		}
 	}
-	if persistDrift {
-		if err := m.provider.SetPersisted(ctx, backend, p.Interface, desired); err != nil {
+	if pDrift {
+		if err := netpersist.Write(persistDst, desired); err != nil {
 			return failure(start), fmt.Errorf("write persist(%s): %w", backend, err)
 		}
 		diffs = append(diffs, fmt.Sprintf("persist(%s) written", backend))

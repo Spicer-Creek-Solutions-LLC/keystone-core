@@ -34,17 +34,6 @@ type fakeProvider struct {
 	delCalls []addrCall
 	mtuCalls []int
 	upCalls  []bool
-
-	persisted    map[string]string // "backend/iface" → content
-	detect       string            // backend returned by DetectBackend
-	detectErr    error
-	getPersErr   error
-	setPersErr   error
-	setPersCalls []persistCall
-}
-
-type persistCall struct {
-	Backend, Iface, Content string
 }
 
 type addrCall struct {
@@ -94,27 +83,6 @@ func (f *fakeProvider) SetLinkUp(_ context.Context, _ string, up bool) error {
 	f.upCalls = append(f.upCalls, up)
 	f.state.Up = up
 	return nil
-}
-func (f *fakeProvider) GetPersisted(_ context.Context, backend, iface string) (string, bool, error) {
-	if f.getPersErr != nil {
-		return "", false, f.getPersErr
-	}
-	c, ok := f.persisted[backend+"/"+iface]
-	return c, ok, nil
-}
-func (f *fakeProvider) SetPersisted(_ context.Context, backend, iface, content string) error {
-	if f.setPersErr != nil {
-		return f.setPersErr
-	}
-	if f.persisted == nil {
-		f.persisted = map[string]string{}
-	}
-	f.persisted[backend+"/"+iface] = content
-	f.setPersCalls = append(f.setPersCalls, persistCall{backend, iface, content})
-	return nil
-}
-func (f *fakeProvider) DetectBackend(_ context.Context) (string, error) {
-	return f.detect, f.detectErr
 }
 
 // --- params / validate -----------------------------------------------
