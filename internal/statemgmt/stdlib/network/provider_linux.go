@@ -9,9 +9,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
+)
+
+// Persistent-config directories. Variables so tests can point them at a
+// tempdir. networkd applies `.network` files in lexical order (the
+// first match wins), so a low-numbered prefix is authoritative; netplan
+// merges its `*.yaml` in lexical order (the last wins), so a high prefix
+// wins.
+var (
+	networkdDir = "/etc/systemd/network"
+	netplanDir  = "/etc/netplan"
 )
 
 func defaultProvider() Provider {
@@ -147,6 +159,63 @@ func (p *linuxProvider) SetLinkUp(ctx context.Context, name string, up bool) err
 	}
 	_, err = p.run(ctx, bin, []string{"link", "set", "dev", name, action})
 	return err
+}
+
+// --- persistent config -------------------------------------------------
+
+// persistPath returns the file path this module manages for an
+// interface on the given backend.
+func persistPath(backend, iface string) (string, error) {
+	switch backend {
+	case PersistNetworkd:
+		return filepath.Join(networkdDir, "10-kscore-"+iface+".network"), nil
+	case PersistNetplan:
+		return filepath.Join(netplanDir, "90-kscore-"+iface+".yaml"), nil
+	default:
+		return "", fmt.Errorf("unsupported persist backend %q", backend)
+	}
+}
+
+func (p *linuxProvider) GetPersisted(_ context.Context, backend, iface string) (string, bool, error) {
+	path, err := persistPath(backend, iface)
+	if err != nil {
+		return "", false, err
+	}
+	data, err := os.ReadFile(path) //nolint:gosec // path is networkdDir/netplanDir (fixed) + a validated interface name
+	if errors.Is(err, os.ErrNotExist) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("read %s: %w", path, err)
+	}
+	return string(data), true, nil
+}
+
+func (p *linuxProvider) SetPersisted(_ context.Context, backend, iface, content string) error {
+	path, err := persistPath(backend, iface)
+	if err != nil {
+		return err
+	}
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil { //nolint:gosec // /etc/systemd/network and /etc/netplan are world-readable system config dirs
+		return fmt.Errorf("mkdir %s: %w", dir, err)
+	}
+	tmp := path + ".kscore.tmp"
+	if err := os.WriteFile(tmp, []byte(content), 0o644); err != nil { //nolint:gosec // network config files are world-readable
+		return fmt.Errorf("write %s: %w", tmp, err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("rename %s: %w", path, err)
+	}
+	return nil
+}
+
+func (p *linuxProvider) DetectBackend(_ context.Context) (string, error) {
+	if fi, err := os.Stat(netplanDir); err == nil && fi.IsDir() {
+		return PersistNetplan, nil
+	}
+	return PersistNetworkd, nil
 }
 
 // execRun is the production commandRunner. Captures combined output

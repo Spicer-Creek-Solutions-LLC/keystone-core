@@ -48,6 +48,17 @@ type Provider interface {
 	SetMTU(ctx context.Context, name string, mtu int) error
 	// SetLinkUp runs `ip link set dev <name> {up|down}`.
 	SetLinkUp(ctx context.Context, name string, up bool) error
+
+	// GetPersisted reads the persistent-config file this module manages
+	// for `iface` on the given backend (networkd / netplan). exists is
+	// false (with content "" and a nil error) when the file is absent.
+	GetPersisted(ctx context.Context, backend, iface string) (content string, exists bool, err error)
+	// SetPersisted writes content to the persistent-config file for
+	// `iface` on the backend, creating the target directory if needed.
+	SetPersisted(ctx context.Context, backend, iface, content string) error
+	// DetectBackend resolves `persist: auto` to a concrete backend:
+	// netplan when /etc/netplan exists, otherwise networkd.
+	DetectBackend(ctx context.Context) (string, error)
 }
 
 // commandRunner runs `ip`. It returns combined stdout+stderr and,
