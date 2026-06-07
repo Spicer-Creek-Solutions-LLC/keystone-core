@@ -24,6 +24,7 @@ const (
 	paramAddresses = "addresses"
 	paramMTU       = "mtu"
 	paramUp        = "up"
+	paramPersist   = "persist"
 	paramSeverity  = statemgmt.ReservedSeverityParamKey
 )
 
@@ -32,7 +33,23 @@ var allowedKeys = map[string]struct{}{
 	paramAddresses: {},
 	paramMTU:       {},
 	paramUp:        {},
+	paramPersist:   {},
 	paramSeverity:  {},
+}
+
+// Persist backends. The empty string is the default (runtime-only, no
+// persistent file). "auto" resolves to netplan or networkd at apply
+// time (see DetectBackend).
+const (
+	PersistNetworkd = "networkd"
+	PersistNetplan  = "netplan"
+	PersistAuto     = "auto"
+)
+
+var validPersist = map[string]struct{}{
+	PersistNetworkd: {},
+	PersistNetplan:  {},
+	PersistAuto:     {},
 }
 
 // ifaceRE matches a Linux interface name: letters, digits, plus
@@ -50,6 +67,7 @@ type params struct {
 	HasMTU       bool
 	Up           bool
 	HasUp        bool
+	Persist      string // "" = runtime-only; networkd | netplan | auto
 }
 
 func parseParams(decl *statemgmt.Declaration) (*params, error) {
@@ -92,6 +110,13 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 		}
 		p.Up = b
 		p.HasUp = true
+	}
+	if raw, ok := decl.Params[paramPersist]; ok {
+		s, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("persist: expected string, got %T", raw)
+		}
+		p.Persist = strings.ToLower(strings.TrimSpace(s))
 	}
 	return p, nil
 }
@@ -178,6 +203,17 @@ func (p *params) validate() error {
 	}
 	if p.HasMTU && (p.MTU < minMTU || p.MTU > maxMTU) {
 		return fmt.Errorf("mtu: must be in [%d, %d]; got %d", minMTU, maxMTU, p.MTU)
+	}
+	if p.Persist != "" {
+		if _, ok := validPersist[p.Persist]; !ok {
+			return fmt.Errorf("persist: must be one of networkd, netplan, auto; got %q", p.Persist)
+		}
+		// The persistent renderers express addresses + mtu; `up` is
+		// runtime-only. A persist with neither addresses nor mtu has
+		// nothing to render.
+		if !p.HasAddresses && !p.HasMTU {
+			return fmt.Errorf("persist requires addresses or mtu (up is runtime-only and is not rendered to the persistent file)")
+		}
 	}
 	return nil
 }

@@ -5,13 +5,17 @@
 // iproute2 `ip` tool, per PROJECT-DETAILS §4.8 (Network base
 // category).
 //
-// **Runtime-only in v1.0** — changes take effect immediately but do
-// not survive a reboot. Persistent on-disk configuration is
-// distro-specific (systemd-networkd `*.network` units, NetworkManager
-// `system-connections/`, netplan YAML, Debian `/etc/network/
-// interfaces`, RHEL `ifcfg-*` scripts); rendering each of those is
-// V1X. v1.0 hosts that need persistence should keep their distro's
-// normal mechanism alongside the state-managed runtime config.
+// The module reconciles the live runtime config (via `ip`) and, when
+// `persist:` is set, **also** renders a boot-survive file so the config
+// survives a reboot. `persist: networkd|netplan|auto` writes a
+// systemd-networkd `*.network` unit or a netplan YAML document mirroring
+// the declared addresses + mtu (`up` is runtime-only — networkd brings a
+// matched link up by default and there is no clean persistent `down`).
+// `auto` picks netplan when `/etc/netplan` exists, else networkd. The
+// file is written for the next boot; the runtime is already live via the
+// `ip` ops, so nothing is auto-activated (no `netplan apply` /
+// `networkctl reload`). NetworkManager `system-connections/`, Debian
+// `/etc/network/interfaces`, and RHEL `ifcfg-*` renderers remain V1X.
 //
 // Per declaration the module manages one interface (`interface:`)
 // and reconciles whichever of:
@@ -44,10 +48,10 @@
 // MEDIUM.
 //
 // v0.1 out of scope (v0.x candidates):
-//   - **Persistent / boot-survive configuration** rendered to the
-//     host's network manager: networkd, NetworkManager, netplan,
-//     /etc/network/interfaces, RHEL ifcfg. Each is its own
-//     distro-aware renderer.
+//   - **Persistent / boot-survive configuration** for the remaining
+//     network managers: NetworkManager `system-connections/`, Debian
+//     `/etc/network/interfaces`, RHEL `ifcfg-*` (networkd + netplan
+//     landed via `persist:`). Each is its own distro-aware renderer.
 //   - **Per-family address management** — declare IPv4 and IPv6
 //     sets independently (today they're one merged list).
 //   - **Address scope, valid_lft, preferred_lft, broadcast, peer**
@@ -113,10 +117,47 @@ func (m *Module) Check(ctx context.Context, decl *statemgmt.Declaration) (*state
 		return nil, err
 	}
 	diffs := m.diff(p, state)
+	if p.Persist != "" {
+		backend, err := m.resolveBackend(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		drift, _, err := m.persistDrift(ctx, backend, p)
+		if err != nil {
+			return nil, err
+		}
+		if drift {
+			diffs = append(diffs, fmt.Sprintf("persist(%s) file out of date", backend))
+		}
+	}
 	if len(diffs) == 0 {
 		return &statemgmt.ModuleCheckResult{Matches: true}, nil
 	}
 	return &statemgmt.ModuleCheckResult{Matches: false, Diff: strings.Join(diffs, "; ")}, nil
+}
+
+// resolveBackend turns `persist: auto` into a concrete backend; an
+// explicit networkd / netplan passes through.
+func (m *Module) resolveBackend(ctx context.Context, p *params) (string, error) {
+	if p.Persist == PersistAuto {
+		return m.provider.DetectBackend(ctx)
+	}
+	return p.Persist, nil
+}
+
+// persistDrift reports whether the on-disk persistent file differs from
+// the desired render (or is absent). It returns the desired content so
+// Apply can write it without re-rendering.
+func (m *Module) persistDrift(ctx context.Context, backend string, p *params) (bool, string, error) {
+	desired, err := renderPersist(backend, p)
+	if err != nil {
+		return false, "", err
+	}
+	current, exists, err := m.provider.GetPersisted(ctx, backend, p.Interface)
+	if err != nil {
+		return false, "", err
+	}
+	return !exists || current != desired, desired, nil
 }
 
 func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*statemgmt.StateResult, error) {
@@ -130,7 +171,26 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 		return failure(start), err
 	}
 	diffs := m.diff(p, state)
-	if len(diffs) == 0 {
+
+	// Resolve the persistent-file drift up front so a runtime-converged
+	// interface with a stale (or missing) persist file still applies.
+	var (
+		backend      string
+		persistDrift bool
+		desired      string
+	)
+	if p.Persist != "" {
+		backend, err = m.resolveBackend(ctx, p)
+		if err != nil {
+			return failure(start), err
+		}
+		persistDrift, desired, err = m.persistDrift(ctx, backend, p)
+		if err != nil {
+			return failure(start), err
+		}
+	}
+
+	if len(diffs) == 0 && !persistDrift {
 		return ok(start, false, "", "already converged"), nil
 	}
 
@@ -159,6 +219,12 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 		if err := m.provider.SetLinkUp(ctx, p.Interface, p.Up); err != nil {
 			return failure(start), fmt.Errorf("set link up=%v: %w", p.Up, err)
 		}
+	}
+	if persistDrift {
+		if err := m.provider.SetPersisted(ctx, backend, p.Interface, desired); err != nil {
+			return failure(start), fmt.Errorf("write persist(%s): %w", backend, err)
+		}
+		diffs = append(diffs, fmt.Sprintf("persist(%s) written", backend))
 	}
 	return ok(start, true, strings.Join(diffs, "; "), "applied"), nil
 }
