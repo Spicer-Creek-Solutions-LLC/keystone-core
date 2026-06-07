@@ -36,6 +36,10 @@ type fakeProvider struct {
 	addErr    error
 	removeErr error
 	reloadErr error
+
+	richRules []string // stored rich rules returned by ListRichRules
+	listErr   error
+	lists     int
 }
 
 func (f *fakeProvider) Has(_ context.Context, _ string, _ Item) (bool, error) {
@@ -50,7 +54,11 @@ func (f *fakeProvider) Add(_ context.Context, zone string, it Item) error {
 		return f.addErr
 	}
 	f.calls = append(f.calls, rec{op: "add", zone: zone, item: it})
-	f.present = true
+	if it.Kind == KindRichRule {
+		f.richRules = append(f.richRules, it.Value)
+	} else {
+		f.present = true
+	}
 	return nil
 }
 func (f *fakeProvider) Remove(_ context.Context, zone string, it Item) error {
@@ -58,7 +66,18 @@ func (f *fakeProvider) Remove(_ context.Context, zone string, it Item) error {
 		return f.removeErr
 	}
 	f.calls = append(f.calls, rec{op: "remove", zone: zone, item: it})
-	f.present = false
+	if it.Kind == KindRichRule {
+		want := canonicalizeRichRule(it.Value)
+		var kept []string
+		for _, s := range f.richRules {
+			if canonicalizeRichRule(s) != want {
+				kept = append(kept, s)
+			}
+		}
+		f.richRules = kept
+	} else {
+		f.present = false
+	}
 	return nil
 }
 func (f *fakeProvider) Reload(_ context.Context) error {
@@ -67,6 +86,13 @@ func (f *fakeProvider) Reload(_ context.Context) error {
 	}
 	f.calls = append(f.calls, rec{op: "reload"})
 	return nil
+}
+func (f *fakeProvider) ListRichRules(_ context.Context, _ string) ([]string, error) {
+	f.lists++
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
+	return f.richRules, nil
 }
 
 // --- params / validate ------------------------------------------------
@@ -212,7 +238,7 @@ func TestApply_Present_Port_CustomZone_NoReload(t *testing.T) {
 
 func TestCheckApply_Absent_RichRule(t *testing.T) {
 	t.Parallel()
-	f := &fakeProvider{present: true}
+	f := &fakeProvider{richRules: []string{`rule family="ipv4" source address="10.0.0.5" drop`}}
 	m := NewWithProvider(f)
 	d := decl("no-bad-host", StateAbsent, map[string]any{"rich_rule": `rule family="ipv4" source address="10.0.0.5" drop`})
 

@@ -70,6 +70,30 @@ func (p *linuxProvider) Reload(ctx context.Context) error {
 	return err
 }
 
+func (p *linuxProvider) ListRichRules(ctx context.Context, zone string) ([]string, error) {
+	bin, err := p.fwcmd()
+	if err != nil {
+		return nil, err
+	}
+	out, err := p.run(ctx, bin, []string{"--permanent", "--zone=" + zone, "--list-rich-rules"})
+	if err != nil {
+		return nil, err
+	}
+	return parseRichRuleList(out), nil
+}
+
+// parseRichRuleList splits `--list-rich-rules` output into one rule per
+// line, dropping blank lines (an empty zone prints nothing).
+func parseRichRuleList(out string) []string {
+	var rules []string
+	for _, line := range strings.Split(out, "\n") {
+		if s := strings.TrimSpace(line); s != "" {
+			rules = append(rules, s)
+		}
+	}
+	return rules
+}
+
 // execRun is the production commandRunner. Captures combined output
 // so firewall-cmd's complaint reaches the operator.
 func execRun(ctx context.Context, bin string, args []string) (string, error) {

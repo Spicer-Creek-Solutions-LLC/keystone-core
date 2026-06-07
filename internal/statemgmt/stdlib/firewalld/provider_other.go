@@ -23,6 +23,9 @@ func (*otherProvider) Remove(context.Context, string, Item) error {
 	return wrapUnsupported("Remove")
 }
 func (*otherProvider) Reload(context.Context) error { return wrapUnsupported("Reload") }
+func (*otherProvider) ListRichRules(context.Context, string) ([]string, error) {
+	return nil, wrapUnsupported("ListRichRules")
+}
 
 func wrapUnsupported(op string) error { return &unsupportedError{op: op, os: runtime.GOOS} }
 

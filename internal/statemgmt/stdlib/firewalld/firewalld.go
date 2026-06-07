@@ -24,12 +24,16 @@
 // change active in the running firewalld. The zone must already
 // exist — this module does not create zones.
 //
-// Idempotency caveat (rich rules): `--query-rich-rule` compares
-// against firewalld's stored (canonical) form of the rule —
-// whitespace and attribute order may not survive verbatim. Write
-// the rich rule as firewalld would render it (one space between
-// tokens, attributes in their canonical order). Canonicalise-before-
-// compare is the V1X follow-up.
+// Rich-rule idempotency: rich rules are compared by *canonical form*
+// (see canon.go), so a declared rule that differs from firewalld's
+// stored form only in whitespace, attribute quoting, or the order of
+// attributes within an element still matches. Check lists the zone's
+// stored rich rules (`--list-rich-rules`) and compares each — and the
+// declared rule — through the same canonicaliser. The canonicaliser is
+// *syntactic* only: it does not normalise value semantics (e.g. it
+// won't lowercase a MAC or canonicalise a CIDR), so a value that
+// firewalld itself rewrites won't match — write such values as
+// firewalld stores them.
 //
 // v0.1 out of scope (v0.x candidates):
 //   - Whole-zone management (declare the complete service / port /
@@ -89,7 +93,7 @@ func (m *Module) Check(ctx context.Context, decl *statemgmt.Declaration) (*state
 	if err != nil {
 		return nil, err
 	}
-	has, err := m.provider.Has(ctx, p.Zone, p.Item)
+	has, err := m.has(ctx, p)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +119,7 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 	if err != nil {
 		return nil, err
 	}
-	has, err := m.provider.Has(ctx, p.Zone, p.Item)
+	has, err := m.has(ctx, p)
 	if err != nil {
 		return failure(start), err
 	}
@@ -166,6 +170,27 @@ func (m *Module) parsed(decl *statemgmt.Declaration) (*params, error) {
 		return nil, err
 	}
 	return p, nil
+}
+
+// has reports whether the declared item is present on the zone. Rich
+// rules are compared by canonical form (firewalld stores a normalised
+// version, so a re-formatted rule must still match); service / port are
+// atomic values queried directly via the provider.
+func (m *Module) has(ctx context.Context, p *params) (bool, error) {
+	if p.Item.Kind != KindRichRule {
+		return m.provider.Has(ctx, p.Zone, p.Item)
+	}
+	stored, err := m.provider.ListRichRules(ctx, p.Zone)
+	if err != nil {
+		return false, err
+	}
+	want := canonicalizeRichRule(p.Item.Value)
+	for _, s := range stored {
+		if canonicalizeRichRule(s) == want {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (m *Module) maybeReload(ctx context.Context, p *params) error {
