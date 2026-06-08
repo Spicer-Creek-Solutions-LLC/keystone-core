@@ -476,10 +476,18 @@ func TestTimeoutWatcher_TransitionsExpiredCommands(t *testing.T) {
 			t.Fatalf("GetCommand: %v", err)
 		}
 		if stored.Status == state.CommandStatusTimeout {
-			if f.disp.InFlight() != 0 {
-				t.Errorf("InFlight = %d after timeout", f.disp.InFlight())
+			// sweepTimeouts writes the store status before it removes the
+			// command from the in-flight map (so a failed store write never
+			// orphans the timeout), so InFlight may briefly lag the status
+			// flip. Poll for the decrement rather than asserting it the
+			// instant the status is visible.
+			for time.Now().Before(deadline) {
+				if f.disp.InFlight() == 0 {
+					return
+				}
+				time.Sleep(time.Millisecond)
 			}
-			return
+			t.Fatalf("InFlight = %d, never reached 0 after timeout", f.disp.InFlight())
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
