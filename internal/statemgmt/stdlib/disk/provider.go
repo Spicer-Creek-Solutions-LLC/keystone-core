@@ -22,7 +22,8 @@ var ErrNoWipefs = errors.New("disk: the wipefs binary was not found on PATH")
 var ErrNoMkfs = errors.New("disk: an mkfs binary was not found on PATH")
 
 // ErrNoResizeTool is returned when a filesystem-resize tool
-// (`blockdev` / `dumpe2fs` / `resize2fs`) is not on PATH.
+// (`blockdev` / `dumpe2fs` / `resize2fs` / `xfs_info` / `xfs_growfs` /
+// `btrfs` / `findmnt`) is not on PATH.
 var ErrNoResizeTool = errors.New("disk: a filesystem-resize tool was not found on PATH")
 
 func IsUnsupportedOS(err error) bool { return errors.Is(err, ErrUnsupportedOS) }
@@ -48,12 +49,13 @@ type Provider interface {
 	WipeFilesystem(ctx context.Context, device string) error
 	// FilesystemFillsDevice reports whether the filesystem on `device`
 	// already occupies the full block device (so a grow is a no-op).
-	// v0.5 supports ext2/3/4 only; other fstypes return ErrUnsupportedOS-
-	// adjacent guidance from the module's validate(), so this is only
-	// called for ext.
+	// Supports ext2/3/4 (device-based), xfs and btrfs (each queries its
+	// own size); f2fs is gated out by the module's validate().
 	FilesystemFillsDevice(ctx context.Context, device, fstype string) (bool, error)
 	// ResizeFilesystem grows the filesystem on `device` to fill the
-	// block device (`resize2fs <device>` for ext).
+	// block device: `resize2fs <device>` for ext, and `xfs_growfs` /
+	// `btrfs filesystem resize max` against the mountpoint for the
+	// mounted fstypes (an unmounted xfs/btrfs is a clear error).
 	ResizeFilesystem(ctx context.Context, device, fstype string) error
 }
 

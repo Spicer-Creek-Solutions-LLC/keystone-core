@@ -31,23 +31,30 @@
 // Each element is charset-validated (no shell metacharacters,
 // whitespace, or control characters).
 //
-// `resize_fs: true` (state `present`, ext2/3/4 only in v0.5) grows the
-// existing filesystem to fill the block device via `resize2fs
-// <device>` — used after the underlying device grew (e.g. an
-// `lvextend` without `--resizefs`, or a partition resize). Idempotent:
-// Check compares the fs size (`dumpe2fs` block count × block size) to
-// the device size (`blockdev --getsize64`) and only resizes a fs that
-// doesn't already fill the device. xfs / btrfs / f2fs resize (mount-
-// required, different size math) is V1X.
+// `resize_fs: true` (state `present`) grows the existing filesystem to
+// fill the block device — used after the underlying device grew (e.g.
+// an `lvextend` without `--resizefs`, or a partition resize).
+// Idempotent: Check compares the fs size to the device size
+// (`blockdev --getsize64`) and only resizes a fs that doesn't already
+// fill it. Per-fstype:
+//
+//	ext2/3/4 — device-based: `resize2fs <device>`; fs size from
+//	           `dumpe2fs` block count × block size.
+//	xfs      — mounted only: `xfs_growfs <mountpoint>` (grow-only); fs
+//	           size from `xfs_info`. An unmounted xfs is a clear error.
+//	btrfs    — mounted only: `btrfs filesystem resize max <mountpoint>`;
+//	           fs size from `btrfs filesystem show --raw`.
+//
+// The mountpoint is resolved via `findmnt`. f2fs resize (offline,
+// segment-rounded fill check) is V1X.
 //
 // v0.1 out of scope (v0.x candidates):
 //   - Partition creation / removal / label / flags via parted /
 //     sgdisk (GPT or MBR). Partitioning is destructive enough that
 //     it deserves its own module.
-//   - Filesystem **resize** for xfs / btrfs / f2fs (`xfs_growfs`,
-//     `btrfs filesystem resize`, `resize.f2fs`) — these are mount-
-//     required and have per-fstype size math; ext resize landed via
-//     `resize_fs: true`.
+//   - Filesystem **resize** for f2fs (`resize.f2fs`) — offline
+//     (unmounted) with a segment-rounded fill check; ext/xfs/btrfs
+//     resize landed via `resize_fs: true`.
 //   - Filesystem **label** and **UUID** management (without
 //     re-formatting): `tune2fs -L`, `xfs_admin -L`, `swaplabel -L`,
 //     `tune2fs -U`, `xfs_admin -U`, etc.

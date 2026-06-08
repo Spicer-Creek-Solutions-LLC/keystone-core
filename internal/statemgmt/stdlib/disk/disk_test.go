@@ -451,11 +451,11 @@ func TestResize_FillsErrorPropagates(t *testing.T) {
 	}
 }
 
-func TestResize_ValidationRejectsNonExtAndAbsent(t *testing.T) {
+func TestResize_Validation(t *testing.T) {
 	t.Parallel()
 	bad := []map[string]any{
-		{"device": "/dev/sda1", "fstype": "xfs", "resize_fs": true},   // non-ext
-		{"device": "/dev/sda1", "fstype": "btrfs", "resize_fs": true}, // non-ext
+		{"device": "/dev/sda1", "fstype": "f2fs", "resize_fs": true},  // f2fs resize is V1X
+		{"device": "/dev/sda1", "fstype": "vfat", "resize_fs": true},  // not resizable
 		{"device": "/dev/sda1", "resize_fs": "yes", "fstype": "ext4"}, // non-bool
 	}
 	for _, b := range bad {
@@ -467,8 +467,10 @@ func TestResize_ValidationRejectsNonExtAndAbsent(t *testing.T) {
 	if err := (&Module{}).Validate(decl("l", StateAbsent, map[string]any{"device": "/dev/sda1", "resize_fs": true})); err == nil {
 		t.Error("resize_fs + absent should error")
 	}
-	// ext4 + resize_fs is valid
-	if err := (&Module{}).Validate(resizeDecl("ext4")); err != nil {
-		t.Errorf("ext4 + resize_fs should validate; got %v", err)
+	// ext / xfs / btrfs + resize_fs are all valid
+	for _, fstype := range []string{"ext4", "xfs", "btrfs"} {
+		if err := (&Module{}).Validate(resizeDecl(fstype)); err != nil {
+			t.Errorf("%s + resize_fs should validate; got %v", fstype, err)
+		}
 	}
 }
