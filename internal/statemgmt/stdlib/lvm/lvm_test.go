@@ -30,12 +30,23 @@ type fakeProvider struct {
 	pvSets  map[string][]string // VG name → PV set (recorded by Create)
 	lvSizes map[string]uint64   // "vg/lv" → live size in bytes
 
+	canon map[string]string // device → canonical (symlink resolution); identity by default
+
 	hasErr, createErr, removeErr error
 	sizeErr, extendErr           error
+	vgPVsErr, extendVGErr        error
+	reduceVGErr                  error
 
-	createCalls []createCall
-	removeCalls []removeCall
-	extendCalls []extendCall
+	createCalls   []createCall
+	removeCalls   []removeCall
+	extendCalls   []extendCall
+	extendVGCalls []vgSetCall
+	reduceVGCalls []vgSetCall
+}
+
+type vgSetCall struct {
+	VGName string
+	PVs    []string
 }
 
 type extendCall struct {
@@ -153,6 +164,44 @@ func (f *fakeProvider) ExtendLV(_ context.Context, vg, lv, size string, resizeFS
 		f.lvSizes[vg+"/"+lv] = b
 	}
 	return nil
+}
+func (f *fakeProvider) GetVGPVs(_ context.Context, name string) ([]string, error) {
+	if f.vgPVsErr != nil {
+		return nil, f.vgPVsErr
+	}
+	return append([]string(nil), f.pvSets[name]...), nil
+}
+func (f *fakeProvider) ExtendVG(_ context.Context, name string, pvs []string) error {
+	if f.extendVGErr != nil {
+		return f.extendVGErr
+	}
+	f.extendVGCalls = append(f.extendVGCalls, vgSetCall{VGName: name, PVs: append([]string(nil), pvs...)})
+	f.pvSets[name] = append(append([]string(nil), f.pvSets[name]...), pvs...)
+	return nil
+}
+func (f *fakeProvider) ReduceVG(_ context.Context, name string, pvs []string) error {
+	if f.reduceVGErr != nil {
+		return f.reduceVGErr
+	}
+	f.reduceVGCalls = append(f.reduceVGCalls, vgSetCall{VGName: name, PVs: append([]string(nil), pvs...)})
+	drop := map[string]bool{}
+	for _, pv := range pvs {
+		drop[pv] = true
+	}
+	var kept []string
+	for _, pv := range f.pvSets[name] {
+		if !drop[pv] {
+			kept = append(kept, pv)
+		}
+	}
+	f.pvSets[name] = kept
+	return nil
+}
+func (f *fakeProvider) Canonicalize(_ context.Context, device string) (string, error) {
+	if c, ok := f.canon[device]; ok {
+		return c, nil
+	}
+	return device, nil
 }
 
 // --- params / validate -----------------------------------------------

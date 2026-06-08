@@ -25,6 +25,18 @@ func (*otherProvider) CreateVG(context.Context, string, []string) error {
 	return wrapUnsupported("CreateVG")
 }
 func (*otherProvider) RemoveVG(context.Context, string) error { return wrapUnsupported("RemoveVG") }
+func (*otherProvider) GetVGPVs(context.Context, string) ([]string, error) {
+	return nil, wrapUnsupported("GetVGPVs")
+}
+func (*otherProvider) ExtendVG(context.Context, string, []string) error {
+	return wrapUnsupported("ExtendVG")
+}
+func (*otherProvider) ReduceVG(context.Context, string, []string) error {
+	return wrapUnsupported("ReduceVG")
+}
+func (*otherProvider) Canonicalize(_ context.Context, device string) (string, error) {
+	return device, wrapUnsupported("Canonicalize")
+}
 func (*otherProvider) HasLV(context.Context, string, string) (bool, error) {
 	return false, wrapUnsupported("HasLV")
 }

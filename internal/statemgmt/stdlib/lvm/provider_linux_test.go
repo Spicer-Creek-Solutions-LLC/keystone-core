@@ -145,6 +145,77 @@ func TestLinuxProvider_VGCreateRemove(t *testing.T) {
 	}
 }
 
+func TestLinuxProvider_GetVGPVs(t *testing.T) {
+	t.Parallel()
+	p, calls := newRecordingProvider("  /dev/sdb\n  /dev/sdc\n\n", nil)
+	pvs, err := p.GetVGPVs(context.Background(), "myvg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join((*calls)[0].args, " ") != "--noheadings -o pv_name myvg" {
+		t.Errorf("args: %+v", (*calls)[0])
+	}
+	if strings.Join(pvs, ",") != "/dev/sdb,/dev/sdc" {
+		t.Errorf("parsed PVs: %v", pvs)
+	}
+	// runner error propagates
+	p, _ = newRecordingProvider("", errors.New("vgs boom"))
+	if _, err := p.GetVGPVs(context.Background(), "myvg"); err == nil {
+		t.Error("GetVGPVs runner error should propagate")
+	}
+	// missing binary
+	p = &linuxProvider{bins: map[string]string{}}
+	if _, err := p.GetVGPVs(context.Background(), "x"); !errors.Is(err, ErrNoLVM) {
+		t.Errorf("missing vgs → %v", err)
+	}
+}
+
+func TestLinuxProvider_VGExtendReduce(t *testing.T) {
+	t.Parallel()
+	p, calls := newRecordingProvider("", nil)
+	if err := p.ExtendVG(context.Background(), "myvg", []string{"/dev/sdc", "/dev/sdd"}); err != nil {
+		t.Fatal(err)
+	}
+	if (*calls)[0].bin != "vgextend" || strings.Join((*calls)[0].args, " ") != "myvg /dev/sdc /dev/sdd" {
+		t.Errorf("vgextend: %+v", (*calls)[0])
+	}
+	p, calls = newRecordingProvider("", nil)
+	if err := p.ReduceVG(context.Background(), "myvg", []string{"/dev/sdc"}); err != nil {
+		t.Fatal(err)
+	}
+	if (*calls)[0].bin != "vgreduce" || strings.Join((*calls)[0].args, " ") != "myvg /dev/sdc" {
+		t.Errorf("vgreduce: %+v", (*calls)[0])
+	}
+	// runner errors propagate
+	p, _ = newRecordingProvider("", errors.New("still in use"))
+	if err := p.ReduceVG(context.Background(), "myvg", []string{"/dev/sdc"}); err == nil {
+		t.Error("vgreduce runner error should propagate")
+	}
+	// missing binaries
+	p = &linuxProvider{bins: map[string]string{}}
+	if err := p.ExtendVG(context.Background(), "x", []string{"/dev/sda"}); !errors.Is(err, ErrNoLVM) {
+		t.Errorf("missing vgextend → %v", err)
+	}
+	if err := p.ReduceVG(context.Background(), "x", []string{"/dev/sda"}); !errors.Is(err, ErrNoLVM) {
+		t.Errorf("missing vgreduce → %v", err)
+	}
+}
+
+func TestLinuxProvider_Canonicalize(t *testing.T) {
+	t.Parallel()
+	p, _ := newRecordingProvider("", nil)
+	// a real, non-symlinked path resolves to itself
+	got, err := p.Canonicalize(context.Background(), "/dev/null")
+	if err != nil || got != "/dev/null" {
+		t.Errorf("Canonicalize(/dev/null) = %q,%v", got, err)
+	}
+	// an unresolvable path is returned unchanged (best-effort)
+	got, err = p.Canonicalize(context.Background(), "/dev/does-not-exist-xyz")
+	if err != nil || got != "/dev/does-not-exist-xyz" {
+		t.Errorf("Canonicalize(absent) = %q,%v; want input unchanged", got, err)
+	}
+}
+
 func TestLinuxProvider_LVCreateSize(t *testing.T) {
 	t.Parallel()
 	p, calls := newRecordingProvider("", nil)

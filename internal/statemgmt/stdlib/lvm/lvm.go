@@ -14,9 +14,14 @@
 //   - **VG** — `vg: <name>` + `pvs: [<device>, …]` (for present) →
 //     creates / removes a Volume Group via `vgcreate name pvs…` /
 //     `vgremove -y name`. Check via
-//     `vgs --noheadings -o vg_name <name>`. **The PV set is
-//     immutable post-creation in v1.0** — extending or reducing an
-//     existing VG is V1X; v1.0 only verifies the VG exists by name.
+//     `vgs --noheadings -o vg_name <name>`. **The declared PV set is
+//     reconciled** on an existing VG: PVs in `pvs:` but not in the live
+//     VG are added (`vgextend`), and PVs in the live VG but not in
+//     `pvs:` are removed (`vgreduce`). Paths are matched against LVM's
+//     `pv_name` after resolving symlinks, so `/dev/disk/by-id/…` works.
+//     No `-f`: `vgreduce` refuses to drop a PV that still holds LV
+//     extents (operators `pvmove` data off first), and `vgextend`
+//     assumes the device is already a PV (a separate `pv:` decl).
 //
 //   - **LV** — `lv: <name>` + `vg: <vgname>` + exactly one of
 //     `size: <human>` (e.g. `10G`, `500M`, `1T`) or
@@ -45,8 +50,9 @@
 // remove children) themselves before the relevant Apply.
 //
 // v0.1 out of scope (v0.x candidates):
-//   - Existing-VG PV-set management (`vgextend` / `vgreduce`,
-//     `vgchange` allocation policy, missing-PV cleanup).
+//   - `vgchange` allocation policy, missing-PV cleanup, and automatic
+//     `pvmove` of data off a PV being removed (the PV-set reconcile
+//     itself landed; it relies on LVM refusing an unsafe `vgreduce`).
 //   - LV **shrink** (`lvreduce`) — fundamentally dangerous (the
 //     filesystem must support shrink first); resize is grow-only.
 //   - `extents:`-based LV resize (the percentage target depends on
@@ -111,9 +117,10 @@ func (m *Module) Check(ctx context.Context, decl *statemgmt.Declaration) (*state
 	switch p.State {
 	case StatePresent:
 		if has {
-			// An existing size-based LV may still be smaller than the
-			// declared size and need to grow.
-			drift, diff, err := m.lvSizeDrift(ctx, p)
+			// An existing object may still need reconciling: a size-based
+			// LV that is below its declared size grows; a VG whose live PV
+			// set differs from the declared `pvs:` extends / reduces.
+			drift, diff, err := m.existingDrift(ctx, p)
 			if err != nil {
 				return nil, err
 			}
@@ -147,17 +154,7 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 	switch p.State {
 	case StatePresent:
 		if has {
-			drift, diff, err := m.lvSizeDrift(ctx, p)
-			if err != nil {
-				return failure(start), err
-			}
-			if !drift {
-				return ok(start, false, "", "already converged"), nil
-			}
-			if err := m.provider.ExtendLV(ctx, p.VGName, p.LVName, p.Size, p.ResizeFS); err != nil {
-				return failure(start), fmt.Errorf("resize %s: %w", loc, err)
-			}
-			return ok(start, true, diff, "resized"), nil
+			return m.reconcileExisting(ctx, p, start)
 		}
 		if err := m.create(ctx, p); err != nil {
 			return failure(start), fmt.Errorf("create %s: %w", loc, err)
@@ -216,6 +213,137 @@ func (m *Module) lvSizeDrift(ctx context.Context, p *params) (bool, string, erro
 		return false, "", nil
 	}
 	return true, fmt.Sprintf("LV %s/%s: %d → at least %d bytes (grow to %s)", p.VGName, p.LVName, live, want, p.Size), nil
+}
+
+// existingDrift reports whether an already-present object differs from
+// its declaration in a way the module reconciles in place: a size-based
+// LV below its declared size, or a VG whose PV set differs from the
+// declared `pvs:`. A PV has no reconcilable attributes.
+func (m *Module) existingDrift(ctx context.Context, p *params) (bool, string, error) {
+	switch p.Op {
+	case OpLV:
+		return m.lvSizeDrift(ctx, p)
+	case OpVG:
+		drift, diff, _, _, err := m.vgPVDrift(ctx, p)
+		return drift, diff, err
+	}
+	return false, "", nil
+}
+
+// vgPVDrift compares an existing VG's live PV set against the declared
+// `pvs:` and returns the PVs to add (declared − live) and remove (live −
+// declared). Both sides are canonicalised (symlinks followed) before
+// diffing so a declared /dev/disk/by-id/… path matches LVM's pv_name;
+// toAdd carries the declared paths (for vgextend) and toRemove the live
+// pv_names (for vgreduce).
+func (m *Module) vgPVDrift(ctx context.Context, p *params) (drift bool, diff string, toAdd, toRemove []string, err error) {
+	if p.Op != OpVG || len(p.VGPVs) == 0 {
+		return false, "", nil, nil, nil
+	}
+	live, err := m.provider.GetVGPVs(ctx, p.VGName)
+	if err != nil {
+		return false, "", nil, nil, err
+	}
+	wantRefs, err := m.canonRefs(ctx, p.VGPVs)
+	if err != nil {
+		return false, "", nil, nil, err
+	}
+	liveRefs, err := m.canonRefs(ctx, live)
+	if err != nil {
+		return false, "", nil, nil, err
+	}
+	toAdd, toRemove = diffPVSets(wantRefs, liveRefs)
+	if len(toAdd) == 0 && len(toRemove) == 0 {
+		return false, "", nil, nil, nil
+	}
+	return true, fmt.Sprintf("VG %s PV set: add %v, remove %v", p.VGName, toAdd, toRemove), toAdd, toRemove, nil
+}
+
+// pvRef pairs a device path with its canonical (symlink-resolved) form;
+// the diff matches on canon and returns orig.
+type pvRef struct{ orig, canon string }
+
+func (m *Module) canonRefs(ctx context.Context, paths []string) ([]pvRef, error) {
+	out := make([]pvRef, 0, len(paths))
+	for _, path := range paths {
+		c, err := m.provider.Canonicalize(ctx, path)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, pvRef{orig: path, canon: c})
+	}
+	return out, nil
+}
+
+// diffPVSets returns the orig paths present in want but not live
+// (toAdd), and present in live but not want (toRemove), matching on the
+// canonical form and de-duplicating by it while preserving input order.
+func diffPVSets(want, live []pvRef) (toAdd, toRemove []string) {
+	wantCanon := make(map[string]bool, len(want))
+	for _, w := range want {
+		wantCanon[w.canon] = true
+	}
+	liveCanon := make(map[string]bool, len(live))
+	for _, l := range live {
+		liveCanon[l.canon] = true
+	}
+	seen := map[string]bool{}
+	for _, w := range want {
+		if !liveCanon[w.canon] && !seen[w.canon] {
+			toAdd = append(toAdd, w.orig)
+			seen[w.canon] = true
+		}
+	}
+	seen = map[string]bool{}
+	for _, l := range live {
+		if !wantCanon[l.canon] && !seen[l.canon] {
+			toRemove = append(toRemove, l.orig)
+			seen[l.canon] = true
+		}
+	}
+	return toAdd, toRemove
+}
+
+// reconcileExisting reconciles an already-present object in place: grow
+// a size-based LV, extend/reduce a VG's PV set, or no-op a PV.
+func (m *Module) reconcileExisting(ctx context.Context, p *params, start time.Time) (*statemgmt.StateResult, error) {
+	loc := p.locator()
+	switch p.Op {
+	case OpLV:
+		drift, diff, err := m.lvSizeDrift(ctx, p)
+		if err != nil {
+			return failure(start), err
+		}
+		if !drift {
+			return ok(start, false, "", "already converged"), nil
+		}
+		if err := m.provider.ExtendLV(ctx, p.VGName, p.LVName, p.Size, p.ResizeFS); err != nil {
+			return failure(start), fmt.Errorf("resize %s: %w", loc, err)
+		}
+		return ok(start, true, diff, "resized"), nil
+	case OpVG:
+		drift, diff, toAdd, toRemove, err := m.vgPVDrift(ctx, p)
+		if err != nil {
+			return failure(start), err
+		}
+		if !drift {
+			return ok(start, false, "", "already converged"), nil
+		}
+		// Extend before reduce so the VG's capacity never dips mid-apply.
+		if len(toAdd) > 0 {
+			if err := m.provider.ExtendVG(ctx, p.VGName, toAdd); err != nil {
+				return failure(start), fmt.Errorf("extend %s: %w", loc, err)
+			}
+		}
+		if len(toRemove) > 0 {
+			if err := m.provider.ReduceVG(ctx, p.VGName, toRemove); err != nil {
+				return failure(start), fmt.Errorf("reduce %s: %w", loc, err)
+			}
+		}
+		return ok(start, true, diff, "reconciled"), nil
+	}
+	// PV: no reconcilable attributes.
+	return ok(start, false, "", "already converged"), nil
 }
 
 // has dispatches the per-op existence query.
