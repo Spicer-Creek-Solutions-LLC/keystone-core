@@ -173,11 +173,11 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **What**: Epic 08 task 11 ships the `bond` module (create / delete a Linux bonding interface at runtime via `ip link add … type bond mode … [miimon N]` + `ip link set <member> master <bond>`). Reserved for v0.x:
   - **In-place attribute reconciliation** on an existing bond: `mode`, `miimon`, `xmit_hash_policy`, `lacp_rate`, `ad_select`, `primary`, `primary_reselect`, `fail_over_mac`, `num_grat_arp`, `all_slaves_active`, etc. v1.0 considers an existing bond converged regardless of attrs (operators delete + recreate to change).
   - **Member-set reconciliation** on an existing bond — adding / removing slaves without destroying the bond. v1.0 enslaves declared members only at create time.
-  - **Persistent / boot-survive configuration** rendered to the host's network manager (see the `network` module's V1X entry).
+  - ~~**Persistent / boot-survive configuration**~~ **landed (gate-v0.5)**: `persist: networkd|netplan|auto` renders the bond via the shared `netpersist` helper — a `<bond>.netdev` + a `[Network] Bond=` enslave drop-in per member (networkd; absent cleans up by glob) or a single `bonds:` netplan document. Remaining v0.x: NetworkManager, ifupdown.
   - **Slave-level attributes**: per-slave queue id, priority.
 - **Why deferred**: "create or delete this bond" is the v0.1 scope; changing bond mode on a live aggregation has subtle implications (LACP renegotiation, traffic interruption, slave release/reattach) that operators typically want behind an explicit step. The Provider (`GetLink` / `CreateBond` / `DeleteLink` / `SetMaster`) extends cleanly with `SetBondAttr` / `ClearMaster` methods for the V1X path.
-- **Acceptance**: a `mode:` change on a live bond reconciles via `echo <mode> > /sys/class/net/<bond>/bonding/mode` (or down-up-cycle if required) and reports the before→after in the Diff; `members: [eth0, eth1, eth2]` against a live bond with `eth0, eth1` adds eth2; `members: [eth0]` against `eth0, eth1` removes eth1 (`ip link set eth1 nomaster`); a `persist: networkd` decl renders a `*.netdev` + `*.network` pair.
-- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/bond/bond.go` package comment; `internal/statemgmt/stdlib/bond/params.go`.
+- **Acceptance**: a `mode:` change on a live bond reconciles via `echo <mode> > /sys/class/net/<bond>/bonding/mode` (or down-up-cycle if required) and reports the before→after in the Diff; `members: [eth0, eth1, eth2]` against a live bond with `eth0, eth1` adds eth2; `members: [eth0]` against `eth0, eth1` removes eth1 (`ip link set eth1 nomaster`); a `persist: networkd` decl renders a `*.netdev` + `*.network` pair `_(met: networkd .netdev + enslave drop-ins, and netplan)_`.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/bond/{bond.go,params.go,render.go,persist.go}`; `internal/statemgmt/stdlib/netpersist/` (`NetdevPersist`).
 
 #### `bridge` stdlib module — in-place attribute / port reconciliation, per-port attributes, persistent configuration
 
@@ -187,10 +187,10 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
   - **Port-set reconciliation** on an existing bridge — adding / removing ports without destroying it. v1.0 attaches declared ports only at create time.
   - **Per-port bridge attributes**: state (disabled / listening / learning / forwarding), priority, path-cost, pvid, learning, unicast_flood, mcast_flood, mcast_router, neigh_suppress.
   - **VLAN-aware bridge** filtering (`bridge vlan add vid 10 dev port`) — a separate `bridge_vlan` op or sub-module would land cleanly.
-  - **Persistent / boot-survive configuration** rendered to the host's network manager.
+  - ~~**Persistent / boot-survive configuration**~~ **landed (gate-v0.5)**: `persist: networkd|netplan|auto` renders a `<bridge>.netdev` (`[Bridge] STP=`) + a `[Network] Bridge=` enslave drop-in per port (networkd; absent cleans up by glob) or a single `bridges:` netplan document. Remaining v0.x: NetworkManager, ifupdown.
 - **Why deferred**: "create or delete this bridge" is the v0.1 scope; live-bridge attribute changes (especially stp_state) interrupt connected traffic and operators typically want behind an explicit step. The Provider (`GetLink` / `CreateBridge` / `DeleteLink` / `SetMaster`) extends cleanly along these axes.
-- **Acceptance**: a `members:` change on a live bridge attaches/detaches ports without re-creating; `stp: true` on a live STP-disabled bridge enables STP and reports the change; `port_pvid: { eth0: 10, eth1: 20 }` round-trips; a `vlan_filtering: true` bridge takes a list of `bridge_vlan:` declarations that populate the VLAN table.
-- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/bridge/bridge.go` package comment; `internal/statemgmt/stdlib/bridge/params.go`.
+- **Acceptance**: a `members:` change on a live bridge attaches/detaches ports without re-creating; `stp: true` on a live STP-disabled bridge enables STP and reports the change; `port_pvid: { eth0: 10, eth1: 20 }` round-trips; a `vlan_filtering: true` bridge takes a list of `bridge_vlan:` declarations that populate the VLAN table. (Persist `_(met: networkd .netdev + enslave drop-ins, and netplan)_`.)
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/bridge/{bridge.go,params.go,render.go,persist.go}`; `internal/statemgmt/stdlib/netpersist/` (`NetdevPersist`).
 
 #### `vlan` stdlib module — in-place attribute reconciliation, QinQ, VLAN ranges, persistent configuration
 
@@ -200,10 +200,10 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
   - **QinQ / 802.1ad** stacked-VLAN tagging (`proto 802.1ad`).
   - **VLAN ranges** — declare 100-200 in one decl that creates that many subinterfaces.
   - **Bridge VLAN filtering** (`bridge vlan add vid 10 dev port`) — see the `bridge` module's V1X scope.
-  - **Persistent / boot-survive configuration** rendered to the host's network manager.
+  - ~~**Persistent / boot-survive configuration**~~ **landed (gate-v0.5)**: `persist: networkd|netplan|auto` renders a `<vlan>.netdev` (`[VLAN] Id=`) + a `[Network] VLAN=` enslave drop-in on the parent (networkd; absent cleans up by glob) or a single `vlans:` netplan document. Remaining v0.x: NetworkManager, ifupdown.
 - **Why deferred**: "create or delete this VLAN" is the v0.1 scope; the in-place attribute change has subtle implications (VLAN id change effectively reroutes the L2 segment), and QinQ + VLAN ranges open new param-shape questions (a range op would have a different `name:` semantic). The Provider (`GetLink` / `CreateVLAN` / `DeleteLink`) extends cleanly.
-- **Acceptance**: an `id:` change on a live VLAN reports drift and reconciles via delete-and-recreate (or `ip link set <vlan> type vlan id <new>` if the kernel supports it); `proto: 802.1ad` round-trips; `id_range: 100-200` creates 101 VLAN interfaces in one Apply; a `persist: networkd` decl renders a `*.network` for the VLAN.
-- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/vlan/vlan.go` package comment; `internal/statemgmt/stdlib/vlan/params.go`.
+- **Acceptance**: an `id:` change on a live VLAN reports drift and reconciles via delete-and-recreate (or `ip link set <vlan> type vlan id <new>` if the kernel supports it); `proto: 802.1ad` round-trips; `id_range: 100-200` creates 101 VLAN interfaces in one Apply; a `persist: networkd` decl renders a `*.network` for the VLAN `_(met: networkd .netdev + parent enslave drop-in, and netplan)_`.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/vlan/{vlan.go,params.go,render.go,persist.go}`; `internal/statemgmt/stdlib/netpersist/` (`NetdevPersist`).
 
 #### Cross-distro state stdlib docker matrix harness
 

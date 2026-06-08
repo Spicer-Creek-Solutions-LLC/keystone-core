@@ -4,9 +4,13 @@
 // and removes a Linux 802.1Q VLAN interface at runtime via `ip
 // link`, per PROJECT-DETAILS §4.8 (Network base category).
 //
-// **Runtime-only in v1.0** — the VLAN interface is in the kernel
-// right now but does not survive a reboot. Persistent configuration
-// is V1X.
+// Runtime + optional boot-survive. Without `persist:` the VLAN is in
+// the kernel right now but does not survive a reboot. With
+// `persist: networkd|netplan|auto` the module also renders the VLAN to
+// the host network config: a `<vlan>.netdev` (`Kind=vlan` + `[VLAN] Id=`)
+// plus a `[Network] VLAN=<vlan>` enslave drop-in under the parent's
+// `.network.d/` (networkd, absent cleans up by glob), or a single
+// `vlans:` document (netplan).
 //
 // Per declaration the module manages one VLAN interface:
 //
@@ -32,12 +36,13 @@
 //   - **VLAN ranges** (declare 100-200 in one decl).
 //   - **Bridge VLAN filtering** entries (the `bridge` module's
 //     V1X scope).
-//   - Persistent / boot-survive configuration.
+//   - Additional persist backends (NetworkManager, ifupdown).
 package vlan
 
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
@@ -82,20 +87,69 @@ func (m *Module) Check(ctx context.Context, decl *statemgmt.Declaration) (*state
 	loc := fmt.Sprintf("vlan %s", p.Name)
 	switch p.State {
 	case StatePresent:
-		if link != nil && link.Kind == "vlan" {
+		if link != nil && link.Kind != "vlan" {
+			return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("%s exists but kind is %q (not vlan) — refusing to clobber", loc, link.Kind)}, nil
+		}
+		runtimeMatch := link != nil
+		persistDrift, err := m.persistDrift(p)
+		if err != nil {
+			return nil, err
+		}
+		if runtimeMatch && !persistDrift {
 			return &statemgmt.ModuleCheckResult{Matches: true}, nil
 		}
-		if link == nil {
-			return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("%s not present → create (parent=%s id=%d)", loc, p.Parent, p.ID)}, nil
+		var parts []string
+		if !runtimeMatch {
+			parts = append(parts, fmt.Sprintf("%s not present → create (parent=%s id=%d)", loc, p.Parent, p.ID))
 		}
-		return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("%s exists but kind is %q (not vlan) — refusing to clobber", loc, link.Kind)}, nil
+		if persistDrift {
+			parts = append(parts, fmt.Sprintf("%s persist (%s) out of date", loc, p.Persist))
+		}
+		return &statemgmt.ModuleCheckResult{Matches: false, Diff: strings.Join(parts, "; ")}, nil
 	case StateAbsent:
-		if link == nil {
+		persistLeftover, err := m.persistLeftover(p)
+		if err != nil {
+			return nil, err
+		}
+		if link == nil && !persistLeftover {
 			return &statemgmt.ModuleCheckResult{Matches: true}, nil
 		}
-		return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("%s present; want absent", loc)}, nil
+		var parts []string
+		if link != nil {
+			parts = append(parts, fmt.Sprintf("%s present; want absent", loc))
+		}
+		if persistLeftover {
+			parts = append(parts, fmt.Sprintf("%s persist file present; want removed", loc))
+		}
+		return &statemgmt.ModuleCheckResult{Matches: false, Diff: strings.Join(parts, "; ")}, nil
 	}
 	return nil, fmt.Errorf("unknown state %q", p.State)
+}
+
+// persistDrift reports whether the persistent config for a present VLAN
+// is missing or stale (false when persist is not requested).
+func (m *Module) persistDrift(p *params) (bool, error) {
+	if p.Persist == "" {
+		return false, nil
+	}
+	d, err := devicePersist(p)
+	if err != nil {
+		return false, err
+	}
+	return d.PresentDrift()
+}
+
+// persistLeftover reports whether persistent files for an absent VLAN
+// still exist (false when persist is not requested).
+func (m *Module) persistLeftover(p *params) (bool, error) {
+	if p.Persist == "" {
+		return false, nil
+	}
+	d, err := devicePersist(p)
+	if err != nil {
+		return false, err
+	}
+	return d.AbsentDrift()
 }
 
 func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*statemgmt.StateResult, error) {
@@ -112,26 +166,73 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 
 	switch p.State {
 	case StatePresent:
-		if link != nil && link.Kind == "vlan" {
-			return ok(start, false, "", "already converged"), nil
-		}
-		if link != nil {
+		if link != nil && link.Kind != "vlan" {
 			return failure(start), fmt.Errorf("%s exists as kind %q; refusing to clobber — delete it first", loc, link.Kind)
 		}
-		if err := m.provider.CreateVLAN(ctx, VLANSpec{Name: p.Name, Parent: p.Parent, ID: p.ID}); err != nil {
-			return failure(start), fmt.Errorf("create %s: %w", loc, err)
+		runtimeMatch := link != nil
+		persistDrift, err := m.persistDrift(p)
+		if err != nil {
+			return failure(start), err
 		}
-		return ok(start, true, fmt.Sprintf("created %s (parent=%s id=%d)", loc, p.Parent, p.ID), "applied"), nil
-	case StateAbsent:
-		if link == nil {
+		if runtimeMatch && !persistDrift {
 			return ok(start, false, "", "already converged"), nil
 		}
-		if err := m.provider.DeleteLink(ctx, p.Name); err != nil {
-			return failure(start), fmt.Errorf("delete %s: %w", loc, err)
+		var diffs []string
+		if !runtimeMatch {
+			if err := m.provider.CreateVLAN(ctx, VLANSpec{Name: p.Name, Parent: p.Parent, ID: p.ID}); err != nil {
+				return failure(start), fmt.Errorf("create %s: %w", loc, err)
+			}
+			diffs = append(diffs, fmt.Sprintf("created %s (parent=%s id=%d)", loc, p.Parent, p.ID))
 		}
-		return ok(start, true, fmt.Sprintf("removed %s", loc), "applied"), nil
+		if persistDrift {
+			if err := m.writePersist(p); err != nil {
+				return failure(start), fmt.Errorf("persist %s: %w", loc, err)
+			}
+			diffs = append(diffs, fmt.Sprintf("wrote %s persist", p.Persist))
+		}
+		return ok(start, true, strings.Join(diffs, "; "), "applied"), nil
+	case StateAbsent:
+		persistLeftover, err := m.persistLeftover(p)
+		if err != nil {
+			return failure(start), err
+		}
+		if link == nil && !persistLeftover {
+			return ok(start, false, "", "already converged"), nil
+		}
+		var diffs []string
+		if link != nil {
+			if err := m.provider.DeleteLink(ctx, p.Name); err != nil {
+				return failure(start), fmt.Errorf("delete %s: %w", loc, err)
+			}
+			diffs = append(diffs, fmt.Sprintf("removed %s", loc))
+		}
+		if persistLeftover {
+			if err := m.removePersist(p); err != nil {
+				return failure(start), fmt.Errorf("remove persist %s: %w", loc, err)
+			}
+			diffs = append(diffs, fmt.Sprintf("removed %s persist", p.Persist))
+		}
+		return ok(start, true, strings.Join(diffs, "; "), "applied"), nil
 	}
 	return nil, fmt.Errorf("unknown state %q", p.State)
+}
+
+// writePersist renders the present VLAN to the host network config.
+func (m *Module) writePersist(p *params) error {
+	d, err := devicePersist(p)
+	if err != nil {
+		return err
+	}
+	return d.Write()
+}
+
+// removePersist deletes the VLAN's persistent files.
+func (m *Module) removePersist(p *params) error {
+	d, err := devicePersist(p)
+	if err != nil {
+		return err
+	}
+	return d.Remove()
 }
 
 func (m *Module) Test(ctx context.Context, decl *statemgmt.Declaration) (bool, error) {

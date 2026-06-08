@@ -5,9 +5,21 @@
 // runtime via `ip link`, per PROJECT-DETAILS §4.8 (Network base
 // category).
 //
-// **Runtime-only in v1.0** — the bond interface is in the kernel
-// right now but does not survive a reboot. Persistent
-// configuration is V1X (see the `network` module's V1X entry).
+// Runtime + optional boot-survive. Without `persist:` the bond is in
+// the kernel right now but does not survive a reboot. With
+// `persist: networkd|netplan|auto` the module also renders the bond to
+// the host network config (via the shared netpersist helper):
+//
+//   - networkd — a `<bond>.netdev` (`[NetDev] Kind=bond` + `[Bond]
+//     Mode=…`) plus a `[Network] Bond=<bond>` enslave drop-in under each
+//     member's `<member>.network.d/` (with a create-if-absent member
+//     base). Enslaving is member-side, so `absent` removes the drop-ins
+//     by glob (the absent declaration carries no member list).
+//   - netplan — a single `bonds:` document listing the members inline.
+//
+// Persistence renders the *declared* config; consistent with the
+// no-in-place-reconcile rule below, an already-present bond's running
+// attributes are left untouched while its boot config is corrected.
 //
 // Per declaration the module manages one bond interface:
 //
@@ -43,8 +55,7 @@
 //     fail_over_mac, num_grat_arp, all_slaves_active, …
 //   - **Member-set reconciliation** on an existing bond (add/remove
 //     slaves without destroying the bond).
-//   - **Persistent / boot-survive configuration** rendered to the
-//     host's network manager.
+//   - **Additional persist backends**: NetworkManager, ifupdown.
 //   - **Slave-level attributes** (queue id, prio).
 //   - **VRRP / track-fail** integration with daemons that maintain
 //     active/backup state.
@@ -100,20 +111,69 @@ func (m *Module) Check(ctx context.Context, decl *statemgmt.Declaration) (*state
 	loc := fmt.Sprintf("bond %s", p.Name)
 	switch p.State {
 	case StatePresent:
-		if link != nil && link.Kind == "bond" {
+		if link != nil && link.Kind != "bond" {
+			return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("%s exists but kind is %q (not bond) — refusing to clobber", loc, link.Kind)}, nil
+		}
+		runtimeMatch := link != nil
+		persistDrift, err := m.persistDrift(p)
+		if err != nil {
+			return nil, err
+		}
+		if runtimeMatch && !persistDrift {
 			return &statemgmt.ModuleCheckResult{Matches: true}, nil
 		}
-		if link == nil {
-			return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("%s not present → create", loc)}, nil
+		var parts []string
+		if !runtimeMatch {
+			parts = append(parts, fmt.Sprintf("%s not present → create", loc))
 		}
-		return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("%s exists but kind is %q (not bond) — refusing to clobber", loc, link.Kind)}, nil
+		if persistDrift {
+			parts = append(parts, fmt.Sprintf("%s persist (%s) out of date", loc, p.Persist))
+		}
+		return &statemgmt.ModuleCheckResult{Matches: false, Diff: strings.Join(parts, "; ")}, nil
 	case StateAbsent:
-		if link == nil {
+		persistLeftover, err := m.persistLeftover(p)
+		if err != nil {
+			return nil, err
+		}
+		if link == nil && !persistLeftover {
 			return &statemgmt.ModuleCheckResult{Matches: true}, nil
 		}
-		return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("%s present; want absent", loc)}, nil
+		var parts []string
+		if link != nil {
+			parts = append(parts, fmt.Sprintf("%s present; want absent", loc))
+		}
+		if persistLeftover {
+			parts = append(parts, fmt.Sprintf("%s persist file present; want removed", loc))
+		}
+		return &statemgmt.ModuleCheckResult{Matches: false, Diff: strings.Join(parts, "; ")}, nil
 	}
 	return nil, fmt.Errorf("unknown state %q", p.State)
+}
+
+// persistDrift reports whether the persistent config for a present bond
+// is missing or stale (false when persist is not requested).
+func (m *Module) persistDrift(p *params) (bool, error) {
+	if p.Persist == "" {
+		return false, nil
+	}
+	d, err := devicePersist(p)
+	if err != nil {
+		return false, err
+	}
+	return d.PresentDrift()
+}
+
+// persistLeftover reports whether persistent files for an absent bond
+// still exist (false when persist is not requested).
+func (m *Module) persistLeftover(p *params) (bool, error) {
+	if p.Persist == "" {
+		return false, nil
+	}
+	d, err := devicePersist(p)
+	if err != nil {
+		return false, err
+	}
+	return d.AbsentDrift()
 }
 
 func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*statemgmt.StateResult, error) {
@@ -130,35 +190,82 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 
 	switch p.State {
 	case StatePresent:
-		if link != nil && link.Kind == "bond" {
-			return ok(start, false, "", "already converged"), nil
-		}
-		if link != nil {
+		if link != nil && link.Kind != "bond" {
 			return failure(start), fmt.Errorf("%s exists as kind %q; refusing to clobber — delete it first", loc, link.Kind)
 		}
-		if err := m.provider.CreateBond(ctx, p.toSpec()); err != nil {
-			return failure(start), fmt.Errorf("create %s: %w", loc, err)
+		runtimeMatch := link != nil
+		persistDrift, err := m.persistDrift(p)
+		if err != nil {
+			return failure(start), err
 		}
-		for _, member := range p.Members {
-			if err := m.provider.SetMaster(ctx, member, p.Name); err != nil {
-				return failure(start), fmt.Errorf("enslave %s → %s: %w", member, p.Name, err)
-			}
-		}
-		diff := fmt.Sprintf("created %s mode=%s", loc, p.Mode)
-		if len(p.Members) > 0 {
-			diff += " members=" + strings.Join(p.Members, ",")
-		}
-		return ok(start, true, diff, "applied"), nil
-	case StateAbsent:
-		if link == nil {
+		if runtimeMatch && !persistDrift {
 			return ok(start, false, "", "already converged"), nil
 		}
-		if err := m.provider.DeleteLink(ctx, p.Name); err != nil {
-			return failure(start), fmt.Errorf("delete %s: %w", loc, err)
+		var diffs []string
+		if !runtimeMatch {
+			if err := m.provider.CreateBond(ctx, p.toSpec()); err != nil {
+				return failure(start), fmt.Errorf("create %s: %w", loc, err)
+			}
+			for _, member := range p.Members {
+				if err := m.provider.SetMaster(ctx, member, p.Name); err != nil {
+					return failure(start), fmt.Errorf("enslave %s → %s: %w", member, p.Name, err)
+				}
+			}
+			diff := fmt.Sprintf("created %s mode=%s", loc, p.Mode)
+			if len(p.Members) > 0 {
+				diff += " members=" + strings.Join(p.Members, ",")
+			}
+			diffs = append(diffs, diff)
 		}
-		return ok(start, true, fmt.Sprintf("removed %s", loc), "applied"), nil
+		if persistDrift {
+			if err := m.writePersist(p); err != nil {
+				return failure(start), fmt.Errorf("persist %s: %w", loc, err)
+			}
+			diffs = append(diffs, fmt.Sprintf("wrote %s persist", p.Persist))
+		}
+		return ok(start, true, strings.Join(diffs, "; "), "applied"), nil
+	case StateAbsent:
+		persistLeftover, err := m.persistLeftover(p)
+		if err != nil {
+			return failure(start), err
+		}
+		if link == nil && !persistLeftover {
+			return ok(start, false, "", "already converged"), nil
+		}
+		var diffs []string
+		if link != nil {
+			if err := m.provider.DeleteLink(ctx, p.Name); err != nil {
+				return failure(start), fmt.Errorf("delete %s: %w", loc, err)
+			}
+			diffs = append(diffs, fmt.Sprintf("removed %s", loc))
+		}
+		if persistLeftover {
+			if err := m.removePersist(p); err != nil {
+				return failure(start), fmt.Errorf("remove persist %s: %w", loc, err)
+			}
+			diffs = append(diffs, fmt.Sprintf("removed %s persist", p.Persist))
+		}
+		return ok(start, true, strings.Join(diffs, "; "), "applied"), nil
 	}
 	return nil, fmt.Errorf("unknown state %q", p.State)
+}
+
+// writePersist renders the present bond to the host network config.
+func (m *Module) writePersist(p *params) error {
+	d, err := devicePersist(p)
+	if err != nil {
+		return err
+	}
+	return d.Write()
+}
+
+// removePersist deletes the bond's persistent files.
+func (m *Module) removePersist(p *params) error {
+	d, err := devicePersist(p)
+	if err != nil {
+		return err
+	}
+	return d.Remove()
 }
 
 func (m *Module) Test(ctx context.Context, decl *statemgmt.Declaration) (bool, error) {
