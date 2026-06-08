@@ -184,6 +184,7 @@ func TestBatchExecuteCommand_DryRun(t *testing.T) {
 	preview := sent[0].GetPreview()
 	if preview == nil {
 		t.Fatalf("first message should be Preview; got %+v", sent[0].Event)
+		return
 	}
 	if len(preview.AgentIds) != 2 {
 		t.Errorf("preview agents = %v, want 2", preview.AgentIds)

@@ -503,6 +503,7 @@ func firstCertFromPEM(t *testing.T, s string) *x509.Certificate {
 	block, _ := pem.Decode([]byte(s))
 	if block == nil {
 		t.Fatalf("pem.Decode returned nil for %q…", truncate(s, 60))
+		return nil
 	}
 	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {

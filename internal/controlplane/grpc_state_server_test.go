@@ -198,6 +198,7 @@ func TestStateGRPCServer_ApplyState_InSyncRun(t *testing.T) {
 	}
 	if term == nil {
 		t.Fatal("no terminal event")
+		return
 	}
 	if term.Status != v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED {
 		t.Errorf("Status = %v, want COMPLETED", term.Status)

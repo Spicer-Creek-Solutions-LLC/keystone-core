@@ -136,6 +136,7 @@ func TestExecuteCommand_SingleAgentStreamShape(t *testing.T) {
 	comp := sent[1].GetCompletion()
 	if comp == nil {
 		t.Fatalf("second message should be completion; got %+v", sent[1].Event)
+		return
 	}
 	if comp.Status != v1.CommandStatus_COMMAND_STATUS_COMPLETED {
 		t.Errorf("completion status = %v, want COMPLETED", comp.Status)
@@ -247,6 +248,7 @@ func TestBatchExecuteCommand_ThreeAgents_StreamShape(t *testing.T) {
 	terminal := sent[len(sent)-1].GetTerminal()
 	if terminal == nil {
 		t.Fatalf("last message should be terminal; got %+v", sent[len(sent)-1].Event)
+		return
 	}
 	if terminal.Status != v1.BatchJobStatus_BATCH_JOB_STATUS_PARTIAL {
 		t.Errorf("terminal.Status = %v, want PARTIAL", terminal.Status)
