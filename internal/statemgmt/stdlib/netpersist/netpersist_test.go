@@ -37,6 +37,60 @@ func TestPaths(t *testing.T) {
 	if got := NetplanPath("eth0"); got != "/np/90-kscore-eth0.yaml" {
 		t.Errorf("NetplanPath = %q", got)
 	}
+	if got := NetworkDropinPath("eth0", "route-10-0-0-0_24-main"); got != "/nd/10-kscore-eth0.network.d/route-10-0-0-0_24-main.conf" {
+		t.Errorf("NetworkDropinPath = %q", got)
+	}
+	if got := NetplanRoutePath("10-0-0-0_24-main"); got != "/np/90-kscore-route-10-0-0-0_24-main.yaml" {
+		t.Errorf("NetplanRoutePath = %q", got)
+	}
+}
+
+func TestRemove(t *testing.T) {
+	dir := t.TempDir()
+	origND := NetworkdDir
+	NetworkdDir = dir
+	defer func() { NetworkdDir = origND }()
+
+	// removing an absent file is not an error
+	if err := Remove(filepath.Join(dir, "nope")); err != nil {
+		t.Errorf("Remove(absent) = %v, want nil", err)
+	}
+	// write then remove
+	path := NetworkDropinPath("eth0", "r1")
+	if err := Write(path, "[Route]\n"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := Read(path); ok {
+		t.Error("file should be gone after Remove")
+	}
+}
+
+func TestReadWriteRemoveErrors(t *testing.T) {
+	dir := t.TempDir()
+
+	// Read of a directory is a non-ErrNotExist error.
+	if _, _, err := Read(dir); err == nil {
+		t.Error("Read of a directory should error")
+	}
+	// Write under a non-directory parent: mkdir fails.
+	notDir := filepath.Join(dir, "afile")
+	if err := os.WriteFile(notDir, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := Write(filepath.Join(notDir, "child.network"), "x"); err == nil {
+		t.Error("Write under a non-directory parent should error")
+	}
+	// Remove of a non-empty directory is a non-ErrNotExist error.
+	nonEmpty := filepath.Join(dir, "d", "inner")
+	if err := os.MkdirAll(nonEmpty, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := Remove(filepath.Join(dir, "d")); err == nil {
+		t.Error("Remove of a non-empty directory should error")
+	}
 }
 
 func TestReadWriteRoundTrip(t *testing.T) {

@@ -5,11 +5,26 @@
 // iproute2 `ip` tool, per PROJECT-DETAILS §4.8 (Network base
 // category).
 //
-// **Runtime-only in v1.0** — the route is in the kernel right now
-// but does not survive a reboot. Per-distro persistence
-// (NetworkManager static-routes, /etc/sysconfig/network-scripts/
-// route-*, networkd `[Route]` sections, netplan `routes:`,
-// /etc/network/interfaces `post-up ip route add …`) is V1X.
+// Runtime + optional boot-survive. Without `persist:` the route is in
+// the kernel right now but does not survive a reboot. With
+// `persist: networkd|netplan|auto` the module also renders the route to
+// the host's network config (see persist.go / render.go):
+//
+//   - networkd — a `[Route]` drop-in under
+//     `<iface>.network.d/<slug>.conf`. networkd *merges* drop-ins, so
+//     multiple routes on one interface and the interface's address unit
+//     all coexist; a minimal `[Match]` base unit is created if absent.
+//   - netplan — a per-route `routes:` document. netplan merges by key,
+//     so it coexists with the interface's address document; but netplan
+//     *replaces* a list across files, so multiple routes on the same
+//     interface via separate netplan files conflict — use networkd for
+//     multi-route interfaces. netplan's `table:` is numeric.
+//
+// `persist:` requires `interface:` (a gateway-only route has no output
+// interface to attach the rendered entry to). Other per-distro
+// persistence targets (NetworkManager static-routes,
+// /etc/sysconfig/network-scripts/route-*, /etc/network/interfaces
+// `post-up ip route add …`) remain V1X.
 //
 // Per declaration the module manages one route, keyed on
 // `(destination, table)`:
@@ -43,8 +58,8 @@
 // stale route can hairpin traffic into a black hole. MEDIUM nil.
 //
 // v0.1 out of scope (v0.x candidates):
-//   - **Boot-survive / persistent configuration** rendered to the
-//     host's network manager (see the `network` module's V1X entry).
+//   - **Additional persist backends**: NetworkManager static-routes,
+//     sysconfig `route-*`, /etc/network/interfaces post-up.
 //   - **Route attributes**: `proto`, `scope`, `src`, `mtu`,
 //     `advmss`, `pref`, `nexthop` multipath, `onlink`, `realms`,
 //     `congctl`.
@@ -106,21 +121,50 @@ func (m *Module) Check(ctx context.Context, decl *statemgmt.Declaration) (*state
 	loc := p.locator()
 	switch p.State {
 	case StatePresent:
-		if current != nil && routeMatches(p, current) {
+		runtimeMatch := current != nil && routeMatches(p, current)
+		persistDrift := false
+		if p.Persist != "" {
+			d, err := persistPresentDrift(p)
+			if err != nil {
+				return nil, err
+			}
+			persistDrift = d
+		}
+		if runtimeMatch && !persistDrift {
 			return &statemgmt.ModuleCheckResult{Matches: true}, nil
 		}
-		var diff string
-		if current == nil {
-			diff = fmt.Sprintf("%s not present → add", loc)
-		} else {
-			diff = fmt.Sprintf("%s differs: %s → %s", loc, current.summary(), p.summary())
+		var parts []string
+		if !runtimeMatch {
+			if current == nil {
+				parts = append(parts, fmt.Sprintf("%s not present → add", loc))
+			} else {
+				parts = append(parts, fmt.Sprintf("%s differs: %s → %s", loc, current.summary(), p.summary()))
+			}
 		}
-		return &statemgmt.ModuleCheckResult{Matches: false, Diff: diff}, nil
+		if persistDrift {
+			parts = append(parts, fmt.Sprintf("%s persist (%s) out of date", loc, p.Persist))
+		}
+		return &statemgmt.ModuleCheckResult{Matches: false, Diff: strings.Join(parts, "; ")}, nil
 	case StateAbsent:
-		if current == nil {
+		persistLeftover := false
+		if p.Persist != "" {
+			d, err := persistAbsentDrift(p)
+			if err != nil {
+				return nil, err
+			}
+			persistLeftover = d
+		}
+		if current == nil && !persistLeftover {
 			return &statemgmt.ModuleCheckResult{Matches: true}, nil
 		}
-		return &statemgmt.ModuleCheckResult{Matches: false, Diff: fmt.Sprintf("%s present (%s); want absent", loc, current.summary())}, nil
+		var parts []string
+		if current != nil {
+			parts = append(parts, fmt.Sprintf("%s present (%s); want absent", loc, current.summary()))
+		}
+		if persistLeftover {
+			parts = append(parts, fmt.Sprintf("%s persist file present; want removed", loc))
+		}
+		return &statemgmt.ModuleCheckResult{Matches: false, Diff: strings.Join(parts, "; ")}, nil
 	}
 	return nil, fmt.Errorf("unknown state %q", p.State)
 }
@@ -139,32 +183,67 @@ func (m *Module) Apply(ctx context.Context, decl *statemgmt.Declaration) (*state
 
 	switch p.State {
 	case StatePresent:
-		if current != nil && routeMatches(p, current) {
+		runtimeMatch := current != nil && routeMatches(p, current)
+		persistDrift := false
+		if p.Persist != "" {
+			d, err := persistPresentDrift(p)
+			if err != nil {
+				return failure(start), err
+			}
+			persistDrift = d
+		}
+		if runtimeMatch && !persistDrift {
 			return ok(start, false, "", "already converged"), nil
 		}
-		// `ip route replace` is idempotent against an existing entry
-		// at the same (dest, metric, table) — overwriting it with the
-		// new gateway/interface is the right behaviour for a state
-		// module (operators don't want EEXIST when only the gateway
-		// changed).
-		if err := m.provider.ReplaceRoute(ctx, p.toSpec()); err != nil {
-			return failure(start), fmt.Errorf("replace route %s: %w", loc, err)
+		var diffs []string
+		if !runtimeMatch {
+			// `ip route replace` is idempotent against an existing entry
+			// at the same (dest, metric, table) — overwriting it with the
+			// new gateway/interface is the right behaviour for a state
+			// module (operators don't want EEXIST when only the gateway
+			// changed).
+			if err := m.provider.ReplaceRoute(ctx, p.toSpec()); err != nil {
+				return failure(start), fmt.Errorf("replace route %s: %w", loc, err)
+			}
+			if current == nil {
+				diffs = append(diffs, fmt.Sprintf("added %s (%s)", loc, p.summary()))
+			} else {
+				diffs = append(diffs, fmt.Sprintf("replaced %s: %s → %s", loc, current.summary(), p.summary()))
+			}
 		}
-		var diff string
-		if current == nil {
-			diff = fmt.Sprintf("added %s (%s)", loc, p.summary())
-		} else {
-			diff = fmt.Sprintf("replaced %s: %s → %s", loc, current.summary(), p.summary())
+		if persistDrift {
+			if err := writePersist(p); err != nil {
+				return failure(start), fmt.Errorf("persist route %s: %w", loc, err)
+			}
+			diffs = append(diffs, fmt.Sprintf("wrote %s persist", p.Persist))
 		}
-		return ok(start, true, diff, "applied"), nil
+		return ok(start, true, strings.Join(diffs, "; "), "applied"), nil
 	case StateAbsent:
-		if current == nil {
+		persistLeftover := false
+		if p.Persist != "" {
+			d, err := persistAbsentDrift(p)
+			if err != nil {
+				return failure(start), err
+			}
+			persistLeftover = d
+		}
+		if current == nil && !persistLeftover {
 			return ok(start, false, "", "already converged"), nil
 		}
-		if err := m.provider.DelRoute(ctx, p.toQuery()); err != nil {
-			return failure(start), fmt.Errorf("delete route %s: %w", loc, err)
+		var diffs []string
+		if current != nil {
+			if err := m.provider.DelRoute(ctx, p.toQuery()); err != nil {
+				return failure(start), fmt.Errorf("delete route %s: %w", loc, err)
+			}
+			diffs = append(diffs, fmt.Sprintf("removed %s (%s)", loc, current.summary()))
 		}
-		return ok(start, true, fmt.Sprintf("removed %s (%s)", loc, current.summary()), "applied"), nil
+		if persistLeftover {
+			if err := removePersist(p); err != nil {
+				return failure(start), fmt.Errorf("remove persist %s: %w", loc, err)
+			}
+			diffs = append(diffs, fmt.Sprintf("removed %s persist", p.Persist))
+		}
+		return ok(start, true, strings.Join(diffs, "; "), "applied"), nil
 	}
 	return nil, fmt.Errorf("unknown state %q", p.State)
 }

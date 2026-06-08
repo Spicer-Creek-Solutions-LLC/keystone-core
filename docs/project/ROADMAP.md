@@ -155,8 +155,8 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 #### `route` stdlib module — persistent configuration, route attributes, source-routing rules, multipath
 
 - **Priority**: gate-v0.5 (persistent configuration); v0.x (the rest)
-- **What**: Epic 08 task 11 ships the `route` module (one routing-table entry per declaration via `ip route replace` / `ip route del`; identity keyed on `(destination, metric, table)`; `gateway:` + `interface:` are reconciled). Reserved for v0.x:
-  - **Boot-survive / persistent configuration** rendered to the host's network manager: networkd `[Route]`, NetworkManager static-routes, /etc/sysconfig/network-scripts/route-*, netplan `routes:`, /etc/network/interfaces `post-up ip route add …`.
+- **What**: Epic 08 task 11 ships the `route` module (one routing-table entry per declaration via `ip route replace` / `ip route del`; identity keyed on `(destination, metric, table)`; `gateway:` + `interface:` are reconciled). **Boot-survive persistence landed (gate-v0.5)**: `persist: networkd|netplan|auto` renders the route via the shared `netpersist` helper — a networkd `[Route]` drop-in (`<iface>.network.d/<slug>.conf`, merged + create-if-absent base) or a per-route netplan `routes:` document; `persist` requires `interface:`. Reserved for v0.x:
+  - **Remaining persist backends**: NetworkManager static-routes, /etc/sysconfig/network-scripts/route-*, /etc/network/interfaces `post-up ip route add …`. (netplan's `table:` is numeric, and multiple routes on one interface via separate netplan files conflict — networkd drop-ins are the multi-route backend.)
   - **Route attributes**: `proto` (boot / dhcp / static / kernel), `scope` (link / host / global), `src` (source IP for the route), `mtu`, `advmss`, `pref` (high / medium / low), `onlink`, `realms`, `congctl`.
   - **Multipath nexthops** — `nexthop via X weight 1 nexthop via Y weight 2` style ECMP routes.
   - **Source-routing policy rules** via `ip rule add` — a separate `rule` module that pairs with `route` and the `table:` knob this module already exposes.
@@ -164,8 +164,8 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
   - **IPv6 specific**: `expires` (lifetime), `pref` med/high/low (RA preference).
   - **Default-table inference from metric** (some operator workflows imply a table from a metric range — v1.0 keeps them orthogonal).
 - **Why deferred**: "ensure this one route exists / doesn't" via the modern `ip route replace` idempotency is the v0.1 scope; persistence is the same distro-renderer problem the `network` module faces; attributes are an option-by-option extension; multipath nexthops + policy rules are meaningful new surfaces. The Provider (`GetRoute` / `ReplaceRoute` / `DelRoute`) extends cleanly with extra `RouteSpec` / `RouteEntry` fields.
-- **Acceptance**: a `persist: networkd|nm|netplan|…` decl renders a syntactically-valid route entry in the host's config; `proto: static` + `scope: link` + `src: 10.0.0.5` round-trip; a `nexthop:` list creates a multipath route; a separate `rule` module declares a `from 10.0.0.0/24 lookup vpn` policy rule and the `route` module's `table: vpn` declarations populate that table.
-- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/route/route.go` package comment; `internal/statemgmt/stdlib/route/params.go`.
+- **Acceptance**: a `persist: networkd|netplan|auto` decl renders a syntactically-valid route entry in the host's config `_(met: networkd drop-in + netplan)_`; `proto: static` + `scope: link` + `src: 10.0.0.5` round-trip; a `nexthop:` list creates a multipath route; a separate `rule` module declares a `from 10.0.0.0/24 lookup vpn` policy rule and the `route` module's `table: vpn` declarations populate that table.
+- **References**: Epic 08 task 11 `_(landed)_`; `internal/statemgmt/stdlib/route/{route.go,params.go,render.go,persist.go}`; `internal/statemgmt/stdlib/netpersist/`.
 
 #### `bond` stdlib module — in-place attribute / member reconciliation, persistent configuration, slave attributes
 

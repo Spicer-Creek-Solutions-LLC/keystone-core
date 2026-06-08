@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/netpersist"
 )
 
 const (
@@ -25,6 +26,7 @@ const (
 	paramInterface   = "interface"
 	paramMetric      = "metric"
 	paramTable       = "table"
+	paramPersist     = "persist"
 	paramSeverity    = statemgmt.ReservedSeverityParamKey
 )
 
@@ -34,6 +36,7 @@ var allowedKeys = map[string]struct{}{
 	paramInterface:   {},
 	paramMetric:      {},
 	paramTable:       {},
+	paramPersist:     {},
 	paramSeverity:    {},
 }
 
@@ -55,6 +58,7 @@ type params struct {
 	Metric      int
 	HasMetric   bool
 	Table       string // "main" by default
+	Persist     string // "" = runtime-only; networkd | netplan | auto
 }
 
 func parseParams(decl *statemgmt.Declaration) (*params, error) {
@@ -126,6 +130,13 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 		if p.Table == "" {
 			p.Table = defaultTable
 		}
+	}
+	if raw, ok := decl.Params[paramPersist]; ok {
+		s, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("persist: expected string, got %T", raw)
+		}
+		p.Persist = strings.ToLower(strings.TrimSpace(s))
 	}
 	return p, nil
 }
@@ -199,6 +210,18 @@ func (p *params) validate() error {
 	if p.State == StatePresent {
 		if p.Gateway == "" && p.Interface == "" {
 			return fmt.Errorf("present requires at least one of gateway / interface")
+		}
+	}
+	if p.Persist != "" {
+		if !netpersist.ValidBackend(p.Persist) {
+			return fmt.Errorf("persist: must be one of networkd, netplan, auto; got %q", p.Persist)
+		}
+		// Both renderers key the route to an output interface (the
+		// networkd drop-in lives under <iface>.network.d/; the netplan
+		// route is nested under the interface). A gateway-only route has
+		// no interface to attach to in the persistent config.
+		if p.Interface == "" {
+			return fmt.Errorf("persist requires interface (the route's output interface; a gateway-only route can't be rendered to networkd/netplan)")
 		}
 	}
 	return nil

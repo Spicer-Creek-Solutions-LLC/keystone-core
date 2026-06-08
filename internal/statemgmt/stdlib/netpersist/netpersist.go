@@ -74,6 +74,22 @@ func NetplanPath(iface string) string {
 	return filepath.Join(NetplanDir, netplanPrefix+iface+".yaml")
 }
 
+// NetworkDropinPath is a systemd-networkd drop-in (`<iface>.network.d/
+// <slug>.conf`) that networkd merges into the interface's `.network`.
+// Drop-ins are how an independent decl (e.g. one route) extends a
+// shared interface unit without the first-match-wins collision that
+// separate `.network` files would cause.
+func NetworkDropinPath(iface, slug string) string {
+	return filepath.Join(NetworkdDir, networkdPrefix+iface+".network.d", slug+".conf")
+}
+
+// NetplanRoutePath is a per-route netplan document. It carries a
+// route-specific name so it is a distinct file from an interface's
+// address document — netplan merges the two by their (different) keys.
+func NetplanRoutePath(slug string) string {
+	return filepath.Join(NetplanDir, netplanPrefix+"route-"+slug+".yaml")
+}
+
 // Read returns a managed file's content. exists is false (content "",
 // nil error) when the file is absent.
 func Read(path string) (content string, exists bool, err error) {
@@ -101,6 +117,15 @@ func Write(path, content string) error {
 	if err := os.Rename(tmp, path); err != nil {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("rename %s: %w", path, err)
+	}
+	return nil
+}
+
+// Remove deletes a managed file. A missing file is not an error (the
+// converged state for an `absent` declaration).
+func Remove(path string) error {
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("remove %s: %w", path, err)
 	}
 	return nil
 }
