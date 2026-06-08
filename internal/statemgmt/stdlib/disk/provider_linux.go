@@ -37,6 +37,10 @@ func defaultProvider() Provider {
 	p.blockdevBin, _ = exec.LookPath("blockdev")
 	p.dumpe2fsBin, _ = exec.LookPath("dumpe2fs")
 	p.resize2fsBin, _ = exec.LookPath("resize2fs")
+	p.xfsInfoBin, _ = exec.LookPath("xfs_info")
+	p.xfsGrowfsBin, _ = exec.LookPath("xfs_growfs")
+	p.btrfsBin, _ = exec.LookPath("btrfs")
+	p.findmntBin, _ = exec.LookPath("findmnt")
 	for fstype, name := range mkfsBin {
 		p.mkfsPaths[fstype], _ = exec.LookPath(name)
 	}
@@ -49,6 +53,10 @@ type linuxProvider struct {
 	blockdevBin  string
 	dumpe2fsBin  string
 	resize2fsBin string
+	xfsInfoBin   string
+	xfsGrowfsBin string
+	btrfsBin     string
+	findmntBin   string
 	mkfsPaths    map[string]string // fstype → resolved mkfs binary path ("" if absent)
 	run          commandRunner
 }
@@ -96,25 +104,183 @@ func (p *linuxProvider) WipeFilesystem(ctx context.Context, device string) error
 	return err
 }
 
-// --- resize (ext) ------------------------------------------------------
+// --- resize ------------------------------------------------------------
 
-func (p *linuxProvider) FilesystemFillsDevice(ctx context.Context, device, _ string) (bool, error) {
-	if p.blockdevBin == "" || p.dumpe2fsBin == "" {
-		return false, fmt.Errorf("%w (blockdev / dumpe2fs missing)", ErrNoResizeTool)
-	}
-	devOut, err := p.run(ctx, p.blockdevBin, []string{"--getsize64", device})
+// FilesystemFillsDevice dispatches the per-fstype "is the fs already as
+// large as the block device" check. ext is device-based; xfs and btrfs
+// query their own size and compare to the block device. The query never
+// requires a specific mount state (the resize itself does — see
+// ResizeFilesystem).
+func (p *linuxProvider) FilesystemFillsDevice(ctx context.Context, device, fstype string) (bool, error) {
+	deviceBytes, err := p.deviceSize(ctx, device)
 	if err != nil {
-		return false, fmt.Errorf("blockdev --getsize64 %s: %w", device, err)
+		return false, err
 	}
-	deviceBytes, err := strconv.ParseUint(strings.TrimSpace(devOut), 10, 64)
+	switch fstype {
+	case "ext2", "ext3", "ext4":
+		if p.dumpe2fsBin == "" {
+			return false, fmt.Errorf("%w (dumpe2fs missing)", ErrNoResizeTool)
+		}
+		fsOut, err := p.run(ctx, p.dumpe2fsBin, []string{"-h", device})
+		if err != nil {
+			return false, fmt.Errorf("dumpe2fs -h %s: %w", device, err)
+		}
+		return extFillsDevice(fsOut, deviceBytes)
+	case "xfs":
+		return p.xfsFillsDevice(ctx, device, deviceBytes)
+	case "btrfs":
+		return p.btrfsFillsDevice(ctx, device, deviceBytes)
+	}
+	return false, fmt.Errorf("resize not supported for fstype %q", fstype)
+}
+
+// deviceSize returns the block device's size in bytes.
+func (p *linuxProvider) deviceSize(ctx context.Context, device string) (uint64, error) {
+	if p.blockdevBin == "" {
+		return 0, fmt.Errorf("%w (blockdev missing)", ErrNoResizeTool)
+	}
+	out, err := p.run(ctx, p.blockdevBin, []string{"--getsize64", device})
 	if err != nil {
-		return false, fmt.Errorf("parse device size %q: %w", strings.TrimSpace(devOut), err)
+		return 0, fmt.Errorf("blockdev --getsize64 %s: %w", device, err)
 	}
-	fsOut, err := p.run(ctx, p.dumpe2fsBin, []string{"-h", device})
+	n, err := strconv.ParseUint(strings.TrimSpace(out), 10, 64)
 	if err != nil {
-		return false, fmt.Errorf("dumpe2fs -h %s: %w", device, err)
+		return 0, fmt.Errorf("parse device size %q: %w", strings.TrimSpace(out), err)
 	}
-	return extFillsDevice(fsOut, deviceBytes)
+	return n, nil
+}
+
+// mountpointOf returns the device's mountpoint, or "" when it is not
+// mounted. A findmnt non-zero exit (source not mounted) is "" not an
+// error; only a missing binary is an error.
+func (p *linuxProvider) mountpointOf(ctx context.Context, device string) (string, error) {
+	if p.findmntBin == "" {
+		return "", fmt.Errorf("%w (findmnt missing)", ErrNoResizeTool)
+	}
+	out, err := p.run(ctx, p.findmntBin, []string{"-n", "-o", "TARGET", "--source", device})
+	if err != nil {
+		return "", nil // not mounted
+	}
+	mnt := strings.TrimSpace(out)
+	if i := strings.IndexByte(mnt, '\n'); i >= 0 {
+		mnt = mnt[:i] // first mountpoint if bind-mounted in several places
+	}
+	return mnt, nil
+}
+
+// xfsFillsDevice reports whether the xfs already occupies the device.
+// xfs_info needs the mountpoint when the fs is mounted and accepts the
+// device when it is not.
+func (p *linuxProvider) xfsFillsDevice(ctx context.Context, device string, deviceBytes uint64) (bool, error) {
+	if p.xfsInfoBin == "" {
+		return false, fmt.Errorf("%w (xfs_info missing)", ErrNoResizeTool)
+	}
+	target := device
+	if mnt, err := p.mountpointOf(ctx, device); err != nil {
+		return false, err
+	} else if mnt != "" {
+		target = mnt
+	}
+	out, err := p.run(ctx, p.xfsInfoBin, []string{target})
+	if err != nil {
+		return false, fmt.Errorf("xfs_info %s: %w", target, err)
+	}
+	fsBytes, bsize, err := parseXfsInfoBytes(out)
+	if err != nil {
+		return false, err
+	}
+	// Maximal when one more fs block would not fit on the device.
+	return fsBytes+bsize > deviceBytes, nil
+}
+
+// btrfsFillsDevice reports whether the btrfs already spans the device.
+// `btrfs filesystem show --raw` reports the device size btrfs is using;
+// `resize max` grows it to the full block device, so equality is full.
+func (p *linuxProvider) btrfsFillsDevice(ctx context.Context, device string, deviceBytes uint64) (bool, error) {
+	if p.btrfsBin == "" {
+		return false, fmt.Errorf("%w (btrfs missing)", ErrNoResizeTool)
+	}
+	out, err := p.run(ctx, p.btrfsBin, []string{"filesystem", "show", "--raw", device})
+	if err != nil {
+		return false, fmt.Errorf("btrfs filesystem show %s: %w", device, err)
+	}
+	fsBytes, err := parseBtrfsShowBytes(out, device)
+	if err != nil {
+		return false, err
+	}
+	return fsBytes >= deviceBytes, nil
+}
+
+// parseXfsInfoBytes reads the data-section block size and block count
+// from `xfs_info` output (the `data =  bsize=4096 blocks=N` line) and
+// returns the fs size and block size in bytes. Pure for testability.
+func parseXfsInfoBytes(out string) (fsBytes, bsize uint64, err error) {
+	for _, line := range strings.Split(out, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "data ") && !strings.HasPrefix(trimmed, "data=") {
+			continue
+		}
+		if !strings.Contains(trimmed, "bsize=") || !strings.Contains(trimmed, "blocks=") {
+			continue
+		}
+		bsize = parseTaggedUint(trimmed, "bsize=")
+		blocks := parseTaggedUint(trimmed, "blocks=")
+		if bsize == 0 || blocks == 0 {
+			return 0, 0, fmt.Errorf("xfs_info: could not parse bsize/blocks from %q", trimmed)
+		}
+		return bsize * blocks, bsize, nil
+	}
+	return 0, 0, fmt.Errorf("xfs_info: data section line not found")
+}
+
+// parseBtrfsShowBytes reads the device size from `btrfs filesystem show
+// --raw` output. With a single-device filesystem it uses the only devid
+// line; with several it matches the requested device. Multi-device
+// resize (per-devid) is out of scope.
+func parseBtrfsShowBytes(out, device string) (uint64, error) {
+	var sizes []uint64
+	var matched uint64
+	found := false
+	for _, line := range strings.Split(out, "\n") {
+		f := strings.Fields(line)
+		// devid  1  size  <bytes>  used  <bytes>  path  <dev>
+		if len(f) >= 8 && f[0] == "devid" && f[2] == "size" && f[6] == "path" {
+			n, err := strconv.ParseUint(f[3], 10, 64)
+			if err != nil {
+				return 0, fmt.Errorf("btrfs show: bad size %q: %w", f[3], err)
+			}
+			sizes = append(sizes, n)
+			if f[7] == device {
+				matched, found = n, true
+			}
+		}
+	}
+	switch {
+	case found:
+		return matched, nil
+	case len(sizes) == 1:
+		return sizes[0], nil
+	case len(sizes) == 0:
+		return 0, fmt.Errorf("btrfs filesystem show: no devid line for %s", device)
+	default:
+		return 0, fmt.Errorf("btrfs filesystem show: %d devices, none matching %s (multi-device resize is V1X)", len(sizes), device)
+	}
+}
+
+// parseTaggedUint extracts the run of digits immediately following
+// `key` (e.g. "bsize=") in s. Returns 0 when absent.
+func parseTaggedUint(s, key string) uint64 {
+	i := strings.Index(s, key)
+	if i < 0 {
+		return 0
+	}
+	rest := s[i+len(key):]
+	j := 0
+	for j < len(rest) && rest[j] >= '0' && rest[j] <= '9' {
+		j++
+	}
+	n, _ := strconv.ParseUint(rest[:j], 10, 64)
+	return n
 }
 
 // extFillsDevice parses `dumpe2fs -h` output for the block count and
@@ -151,11 +317,43 @@ func parseDumpe2fsField(out, field string) (uint64, bool) {
 	return 0, false
 }
 
-func (p *linuxProvider) ResizeFilesystem(ctx context.Context, device, _ string) error {
-	if p.resize2fsBin == "" {
-		return fmt.Errorf("%w (resize2fs missing)", ErrNoResizeTool)
+// ResizeFilesystem grows the filesystem to fill the block device,
+// dispatching per fstype. ext resizes the device directly; xfs and
+// btrfs grow a *mounted* filesystem by its mountpoint and error clearly
+// when the device is not mounted.
+func (p *linuxProvider) ResizeFilesystem(ctx context.Context, device, fstype string) error {
+	switch fstype {
+	case "ext2", "ext3", "ext4":
+		if p.resize2fsBin == "" {
+			return fmt.Errorf("%w (resize2fs missing)", ErrNoResizeTool)
+		}
+		_, err := p.run(ctx, p.resize2fsBin, []string{device})
+		return err
+	case "xfs":
+		return p.growByMountpoint(ctx, device, "xfs", p.xfsGrowfsBin, "xfs_growfs",
+			func(mnt string) []string { return []string{mnt} })
+	case "btrfs":
+		return p.growByMountpoint(ctx, device, "btrfs", p.btrfsBin, "btrfs",
+			func(mnt string) []string { return []string{"filesystem", "resize", "max", mnt} })
 	}
-	_, err := p.run(ctx, p.resize2fsBin, []string{device})
+	return fmt.Errorf("resize not supported for fstype %q", fstype)
+}
+
+// growByMountpoint resolves the device's mountpoint and runs a grow tool
+// against it. xfs_growfs and btrfs both grow a mounted filesystem by
+// mountpoint, so an unmounted device is a clear, actionable error.
+func (p *linuxProvider) growByMountpoint(ctx context.Context, device, fstype, bin, name string, args func(mnt string) []string) error {
+	if bin == "" {
+		return fmt.Errorf("%w (%s missing)", ErrNoResizeTool, name)
+	}
+	mnt, err := p.mountpointOf(ctx, device)
+	if err != nil {
+		return err
+	}
+	if mnt == "" {
+		return fmt.Errorf("%s resize: %s is not mounted (%s grows a mounted filesystem by mountpoint)", fstype, device, name)
+	}
+	_, err = p.run(ctx, bin, args(mnt))
 	return err
 }
 
