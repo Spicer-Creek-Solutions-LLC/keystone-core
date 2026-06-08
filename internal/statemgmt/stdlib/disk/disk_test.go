@@ -454,8 +454,8 @@ func TestResize_FillsErrorPropagates(t *testing.T) {
 func TestResize_Validation(t *testing.T) {
 	t.Parallel()
 	bad := []map[string]any{
-		{"device": "/dev/sda1", "fstype": "f2fs", "resize_fs": true},  // f2fs resize is V1X
 		{"device": "/dev/sda1", "fstype": "vfat", "resize_fs": true},  // not resizable
+		{"device": "/dev/sda1", "fstype": "swap", "resize_fs": true},  // not resizable
 		{"device": "/dev/sda1", "resize_fs": "yes", "fstype": "ext4"}, // non-bool
 	}
 	for _, b := range bad {
@@ -467,8 +467,8 @@ func TestResize_Validation(t *testing.T) {
 	if err := (&Module{}).Validate(decl("l", StateAbsent, map[string]any{"device": "/dev/sda1", "resize_fs": true})); err == nil {
 		t.Error("resize_fs + absent should error")
 	}
-	// ext / xfs / btrfs + resize_fs are all valid
-	for _, fstype := range []string{"ext4", "xfs", "btrfs"} {
+	// ext / xfs / btrfs / f2fs + resize_fs are all valid
+	for _, fstype := range []string{"ext4", "xfs", "btrfs", "f2fs"} {
 		if err := (&Module{}).Validate(resizeDecl(fstype)); err != nil {
 			t.Errorf("%s + resize_fs should validate; got %v", fstype, err)
 		}

@@ -6,7 +6,9 @@ package disk
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -281,5 +283,137 @@ func TestResizeFilesystem_UnsupportedFstype(t *testing.T) {
 	}
 	if _, err := p.FilesystemFillsDevice(context.Background(), "/dev/sdb", "vfat"); err == nil || !strings.Contains(err.Error(), "not supported") {
 		t.Errorf("vfat fill-check should error 'not supported'; got %v", err)
+	}
+}
+
+// --- f2fs (superblock fill-check + offline resize) --------------------
+
+// f2fsSuper builds a 64-byte f2fs superblock image with the geometry
+// fields parseF2fsSuperblock reads. logBlocksize 12 → 4 KiB blocks;
+// logBlocksPerSeg 9 + segsPerSec 1 → 512-block (2 MiB) sections.
+func f2fsSuper(blockCount uint64, logBlocksize, logBlocksPerSeg, segsPerSec uint32) []byte {
+	b := make([]byte, f2fsSuperReadLen)
+	binary.LittleEndian.PutUint32(b[0:4], f2fsMagic)
+	binary.LittleEndian.PutUint32(b[16:20], logBlocksize)
+	binary.LittleEndian.PutUint32(b[20:24], logBlocksPerSeg)
+	binary.LittleEndian.PutUint32(b[24:28], segsPerSec)
+	binary.LittleEndian.PutUint64(b[36:44], blockCount)
+	return b
+}
+
+func TestParseF2fsSuperblock(t *testing.T) {
+	t.Parallel()
+	bc, bs, sec, err := parseF2fsSuperblock(f2fsSuper(2560, 12, 9, 1))
+	if err != nil || bc != 2560 || bs != 4096 || sec != 512 {
+		t.Errorf("parse = %d,%d,%d,%v", bc, bs, sec, err)
+	}
+	// bad magic
+	if _, _, _, err := parseF2fsSuperblock(make([]byte, f2fsSuperReadLen)); err == nil {
+		t.Error("zero superblock (bad magic) should error")
+	}
+	// too short
+	if _, _, _, err := parseF2fsSuperblock(f2fsSuper(1, 12, 9, 1)[:10]); err == nil {
+		t.Error("short superblock should error")
+	}
+	// implausible geometry
+	if _, _, _, err := parseF2fsSuperblock(f2fsSuper(1, 99, 9, 1)); err == nil {
+		t.Error("implausible log_blocksize should error")
+	}
+	if _, _, _, err := parseF2fsSuperblock(f2fsSuper(1, 12, 9, 0)); err == nil {
+		t.Error("segs_per_sec=0 should error")
+	}
+}
+
+func f2fsProvider(deviceBytes, blockCount uint64) *linuxProvider {
+	return &linuxProvider{
+		blockdevBin: "blockdev",
+		run: func(_ context.Context, _ string, _ []string) (string, error) {
+			return strconv.FormatUint(deviceBytes, 10) + "\n", nil
+		},
+		readAt: func(_ string, off int64, buf []byte) (int, error) {
+			if off != f2fsSuperOffset {
+				return 0, errors.New("unexpected offset")
+			}
+			return copy(buf, f2fsSuper(blockCount, 12, 9, 1)), nil
+		},
+	}
+}
+
+func TestF2fsFillsDevice(t *testing.T) {
+	t.Parallel()
+	const blk, mib = 4096, 1024 * 1024
+	cases := []struct {
+		name        string
+		deviceBytes uint64
+		blockCount  uint64
+		wantFills   bool
+	}{
+		{"exactly full", 10 * mib, 10 * mib / blk, true},
+		{"needs grow", 10 * mib, 8 * mib / blk, false},
+		// 11 MiB device, 10 MiB fs: the extra 1 MiB is less than a 2 MiB
+		// section, so resize.f2fs can't grow — section-aware = already full.
+		{"sub-section slack is full", 11 * mib, 10 * mib / blk, true},
+		// 12 MiB device, 10 MiB fs: a whole 2 MiB section fits → grow.
+		{"whole section available", 12 * mib, 10 * mib / blk, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fills, err := f2fsProvider(c.deviceBytes, c.blockCount).
+				FilesystemFillsDevice(context.Background(), "/dev/sdb", "f2fs")
+			if err != nil || fills != c.wantFills {
+				t.Errorf("fills = %v (err %v), want %v", fills, err, c.wantFills)
+			}
+		})
+	}
+
+	// a bad superblock surfaces as an error
+	bad := &linuxProvider{
+		blockdevBin: "blockdev",
+		run:         func(context.Context, string, []string) (string, error) { return "1048576\n", nil },
+		readAt:      func(_ string, _ int64, buf []byte) (int, error) { return len(buf), nil }, // zeroed → bad magic
+	}
+	if _, err := bad.FilesystemFillsDevice(context.Background(), "/dev/sdb", "f2fs"); err == nil {
+		t.Error("bad superblock should error")
+	}
+}
+
+func TestResizeFilesystem_F2fs(t *testing.T) {
+	t.Parallel()
+	var gotBin string
+	var gotArgs []string
+	unmounted := &linuxProvider{
+		findmntBin: "findmnt", resizeF2fsBin: "resize.f2fs",
+		run: func(_ context.Context, bin string, args []string) (string, error) {
+			if strings.HasSuffix(bin, "findmnt") {
+				return "", errors.New("exit 1") // not mounted
+			}
+			gotBin, gotArgs = bin, args
+			return "", nil
+		},
+	}
+	if err := unmounted.ResizeFilesystem(context.Background(), "/dev/sdb", "f2fs"); err != nil {
+		t.Fatal(err)
+	}
+	if gotBin != "resize.f2fs" || len(gotArgs) != 1 || gotArgs[0] != "/dev/sdb" {
+		t.Errorf("resize.f2fs call = %s %v", gotBin, gotArgs)
+	}
+
+	// mounted → clear error, no resize
+	mounted := &linuxProvider{
+		findmntBin: "findmnt", resizeF2fsBin: "resize.f2fs",
+		run: func(_ context.Context, bin string, _ []string) (string, error) {
+			if strings.HasSuffix(bin, "findmnt") {
+				return "/mnt/f\n", nil
+			}
+			t.Error("resize.f2fs must not run on a mounted device")
+			return "", nil
+		},
+	}
+	if err := mounted.ResizeFilesystem(context.Background(), "/dev/sdb", "f2fs"); err == nil || !strings.Contains(err.Error(), "mounted") {
+		t.Errorf("mounted f2fs resize should error 'mounted'; got %v", err)
+	}
+	// missing tool
+	if err := (&linuxProvider{}).ResizeFilesystem(context.Background(), "/dev/sdb", "f2fs"); !IsNoResizeTool(err) {
+		t.Errorf("missing resize.f2fs → ErrNoResizeTool, got %v", err)
 	}
 }

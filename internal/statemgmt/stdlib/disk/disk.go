@@ -44,17 +44,18 @@
 //	           size from `xfs_info`. An unmounted xfs is a clear error.
 //	btrfs    — mounted only: `btrfs filesystem resize max <mountpoint>`;
 //	           fs size from `btrfs filesystem show --raw`.
+//	f2fs     — offline (device-based): `resize.f2fs <device>`; a *mounted*
+//	           device is a clear error. fs size is read from the on-disk
+//	           superblock (block count + section geometry) because f2fs
+//	           has no version-stable size tool, and the fill check is
+//	           section-aware (resize.f2fs rounds to whole sections).
 //
-// The mountpoint is resolved via `findmnt`. f2fs resize (offline,
-// segment-rounded fill check) is V1X.
+// The mountpoint is resolved via `findmnt`.
 //
 // v0.1 out of scope (v0.x candidates):
 //   - Partition creation / removal / label / flags via parted /
 //     sgdisk (GPT or MBR). Partitioning is destructive enough that
 //     it deserves its own module.
-//   - Filesystem **resize** for f2fs (`resize.f2fs`) — offline
-//     (unmounted) with a segment-rounded fill check; ext/xfs/btrfs
-//     resize landed via `resize_fs: true`.
 //   - Filesystem **label** and **UUID** management (without
 //     re-formatting): `tune2fs -L`, `xfs_admin -L`, `swaplabel -L`,
 //     `tune2fs -U`, `xfs_admin -U`, etc.

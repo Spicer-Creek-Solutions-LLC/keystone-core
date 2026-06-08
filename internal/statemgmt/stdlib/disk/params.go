@@ -36,11 +36,12 @@ var allowedKeys = map[string]struct{}{
 
 // resizableFstypes is the fs-resize support set. ext is device-based
 // (`resize2fs <device>`); xfs and btrfs are mounted/by-mountpoint
-// (`xfs_growfs` / `btrfs filesystem resize`), each with its own size
-// query. f2fs (offline + segment-rounded fill check) is still V1X.
+// (`xfs_growfs` / `btrfs filesystem resize`); f2fs is offline/device-based
+// (`resize.f2fs`, must be unmounted), with a section-aware fill check that
+// reads the on-disk superblock. Each has its own current-size source.
 var resizableFstypes = map[string]struct{}{
 	"ext2": {}, "ext3": {}, "ext4": {},
-	"xfs": {}, "btrfs": {},
+	"xfs": {}, "btrfs": {}, "f2fs": {},
 }
 
 // validFstypes is the curated v1.0 catalog. Adding entries means
@@ -86,7 +87,7 @@ type params struct {
 	Fstype      string // required for present; ignored for absent
 	MkfsOptions []string
 	Force       bool
-	ResizeFS    bool // grow the fs to fill the device (ext2/3/4 / xfs / btrfs, present only)
+	ResizeFS    bool // grow the fs to fill the device (ext2/3/4 / xfs / btrfs / f2fs, present only)
 }
 
 func parseParams(decl *statemgmt.Declaration) (*params, error) {
@@ -186,7 +187,7 @@ func (p *params) validate() error {
 	}
 	if p.ResizeFS {
 		if _, ok := resizableFstypes[p.Fstype]; !ok {
-			return fmt.Errorf("resize_fs is supported for ext2/3/4, xfs, btrfs (got fstype %q); f2fs resize is V1X", p.Fstype)
+			return fmt.Errorf("resize_fs is supported for ext2/3/4, xfs, btrfs, f2fs (got fstype %q)", p.Fstype)
 		}
 	}
 	for i, opt := range p.MkfsOptions {
