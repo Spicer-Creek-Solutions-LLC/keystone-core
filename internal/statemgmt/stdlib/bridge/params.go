@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/netpersist"
 )
 
 const (
@@ -19,6 +20,7 @@ const (
 	paramName     = "name"
 	paramMembers  = "members"
 	paramSTP      = "stp"
+	paramPersist  = "persist"
 	paramSeverity = statemgmt.ReservedSeverityParamKey
 )
 
@@ -26,6 +28,7 @@ var allowedKeys = map[string]struct{}{
 	paramName:     {},
 	paramMembers:  {},
 	paramSTP:      {},
+	paramPersist:  {},
 	paramSeverity: {},
 }
 
@@ -37,6 +40,7 @@ type params struct {
 	Name    string
 	Members []string
 	STP     bool
+	Persist string // "" = runtime-only; networkd | netplan | auto
 }
 
 func parseParams(decl *statemgmt.Declaration) (*params, error) {
@@ -45,7 +49,7 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 	}
 	for k := range decl.Params {
 		if _, ok := allowedKeys[k]; !ok {
-			return nil, fmt.Errorf("unknown param %q (allowed: name, members, stp, severity)", k)
+			return nil, fmt.Errorf("unknown param %q (allowed: name, members, stp, persist, severity)", k)
 		}
 	}
 	p := &params{Label: decl.Name, State: decl.State}
@@ -82,6 +86,13 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 		}
 		p.STP = b
 	}
+	if raw, ok := decl.Params[paramPersist]; ok {
+		s, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("persist: expected string, got %T", raw)
+		}
+		p.Persist = strings.ToLower(strings.TrimSpace(s))
+	}
 	return p, nil
 }
 
@@ -104,6 +115,9 @@ func (p *params) validate() error {
 	}
 	if p.State == StateAbsent && len(p.Members) > 0 {
 		return fmt.Errorf("members is only valid with state=present (absent deletes the bridge; ports are released automatically)")
+	}
+	if p.Persist != "" && !netpersist.ValidBackend(p.Persist) {
+		return fmt.Errorf("persist: must be one of networkd, netplan, auto; got %q", p.Persist)
 	}
 	return nil
 }

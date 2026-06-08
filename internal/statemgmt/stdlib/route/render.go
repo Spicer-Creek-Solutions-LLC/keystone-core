@@ -107,12 +107,9 @@ func renderNetplanRoute(p *params) string {
 	return b.String()
 }
 
-// minimalBase is a content-only `.network` unit ([Match] only) the route
-// module writes (create-if-absent) so a route-only interface has a base
-// for its drop-ins to merge into. It is never reconciled, so it doesn't
-// fight the `network` module's fuller base for the same interface.
-func minimalBase(iface string) string {
-	return "# Managed by keystone-core (route module — base for drop-ins). Do not edit.\n" +
-		"[Match]\n" +
-		"Name=" + iface + "\n"
-}
+// minimalBase is the shared `[Match]`-only `.network` base unit the
+// route module writes (create-if-absent) so a route-only interface has a
+// base for its drop-ins to merge into. It is never reconciled, so it
+// doesn't fight the `network` module's fuller base for the same
+// interface.
+func minimalBase(iface string) string { return netpersist.MinimalBase(iface) }

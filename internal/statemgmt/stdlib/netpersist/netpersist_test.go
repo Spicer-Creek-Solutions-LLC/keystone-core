@@ -117,6 +117,190 @@ func TestReadWriteRoundTrip(t *testing.T) {
 	}
 }
 
+func TestNetdevRenderHelpers(t *testing.T) {
+	t.Parallel()
+	if got := RenderNetdev("bond0", "bond", "[Bond]\nMode=balance-rr\n"); got != ManagedHeader+"[NetDev]\nName=bond0\nKind=bond\n[Bond]\nMode=balance-rr\n" {
+		t.Errorf("RenderNetdev = %q", got)
+	}
+	if got := RenderEnslave("Bond", "bond0"); got != ManagedHeader+"[Network]\nBond=bond0\n" {
+		t.Errorf("RenderEnslave = %q", got)
+	}
+	if got := MinimalBase("eth0"); got != ManagedHeader+"[Match]\nName=eth0\n" {
+		t.Errorf("MinimalBase = %q", got)
+	}
+}
+
+func TestNetplanDevicePath(t *testing.T) {
+	origNP := NetplanDir
+	NetplanDir = "/np"
+	defer func() { NetplanDir = origNP }()
+	if got := NetplanDevicePath("bond", "bond0"); got != "/np/90-kscore-bond-bond0.yaml" {
+		t.Errorf("NetplanDevicePath = %q", got)
+	}
+}
+
+func TestRemoveMatching(t *testing.T) {
+	dir := t.TempDir()
+	origND := NetworkdDir
+	NetworkdDir = dir
+	defer func() { NetworkdDir = origND }()
+
+	for _, m := range []string{"eth0", "eth1"} {
+		if err := Write(NetworkDropinPath(m, "kscore-bond-bond0"), "x"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := Write(NetworkDropinPath("eth2", "kscore-bond-other"), "x"); err != nil {
+		t.Fatal(err)
+	}
+	pat := filepath.Join(NetworkdDir, "10-kscore-*.network.d", "kscore-bond-bond0.conf")
+	if err := RemoveMatching(pat); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := Read(NetworkDropinPath("eth0", "kscore-bond-bond0")); ok {
+		t.Error("matched drop-in should be gone")
+	}
+	if _, ok, _ := Read(NetworkDropinPath("eth2", "kscore-bond-other")); !ok {
+		t.Error("non-matching drop-in should remain")
+	}
+	// a pattern matching nothing is not an error
+	if err := RemoveMatching(filepath.Join(dir, "nomatch-*")); err != nil {
+		t.Errorf("no-match RemoveMatching = %v", err)
+	}
+}
+
+func TestNetdevPersist_Networkd(t *testing.T) {
+	dir := t.TempDir()
+	origND := NetworkdDir
+	NetworkdDir = filepath.Join(dir, "nd")
+	defer func() { NetworkdDir = origND }()
+
+	d := NetdevPersist{
+		Backend:    Networkd,
+		Kind:       "bond",
+		Name:       "bond0",
+		NetdevBody: RenderNetdev("bond0", "bond", "[Bond]\nMode=active-backup\n"),
+		Enslave: []Enslave{
+			{Iface: "eth0", Body: RenderEnslave("Bond", "bond0")},
+			{Iface: "eth1", Body: RenderEnslave("Bond", "bond0")},
+		},
+	}
+	if drift, err := d.PresentDrift(); err != nil || !drift {
+		t.Fatalf("PresentDrift before write = %v,%v; want true", drift, err)
+	}
+	if err := d.Write(); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := Read(NetdevPath("bond0")); !ok {
+		t.Error("netdev missing")
+	}
+	for _, m := range []string{"eth0", "eth1"} {
+		if _, ok, _ := Read(NetworkDropinPath(m, "kscore-bond-bond0")); !ok {
+			t.Errorf("drop-in for %s missing", m)
+		}
+		if _, ok, _ := Read(NetworkPath(m)); !ok {
+			t.Errorf("base for %s missing", m)
+		}
+	}
+	if drift, err := d.PresentDrift(); err != nil || drift {
+		t.Errorf("PresentDrift after write = %v,%v; want false (idempotent)", drift, err)
+	}
+
+	// absent struct carries no member list — drift + remove work by glob.
+	ad := NetdevPersist{Backend: Networkd, Kind: "bond", Name: "bond0"}
+	if drift, err := ad.AbsentDrift(); err != nil || !drift {
+		t.Errorf("AbsentDrift = %v,%v; want true", drift, err)
+	}
+	if err := ad.Remove(); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := Read(NetdevPath("bond0")); ok {
+		t.Error("netdev should be removed")
+	}
+	for _, m := range []string{"eth0", "eth1"} {
+		if _, ok, _ := Read(NetworkDropinPath(m, "kscore-bond-bond0")); ok {
+			t.Errorf("drop-in for %s should be removed", m)
+		}
+		if _, ok, _ := Read(NetworkPath(m)); !ok {
+			t.Errorf("base for %s should be left alone", m)
+		}
+	}
+	if drift, err := ad.AbsentDrift(); err != nil || drift {
+		t.Errorf("AbsentDrift after remove = %v,%v; want false", drift, err)
+	}
+}
+
+func TestNetdevPersist_BaseNotOverwritten(t *testing.T) {
+	dir := t.TempDir()
+	origND := NetworkdDir
+	NetworkdDir = filepath.Join(dir, "nd")
+	defer func() { NetworkdDir = origND }()
+
+	fuller := "# net module\n[Match]\nName=eth0\n[Network]\nDHCP=yes\n"
+	if err := Write(NetworkPath("eth0"), fuller); err != nil {
+		t.Fatal(err)
+	}
+	d := NetdevPersist{
+		Backend: Networkd, Kind: "bridge", Name: "br0",
+		NetdevBody: RenderNetdev("br0", "bridge", "[Bridge]\nSTP=yes\n"),
+		Enslave:    []Enslave{{Iface: "eth0", Body: RenderEnslave("Bridge", "br0")}},
+	}
+	if err := d.Write(); err != nil {
+		t.Fatal(err)
+	}
+	if base, _, _ := Read(NetworkPath("eth0")); base != fuller {
+		t.Errorf("create-if-absent overwrote a present base: %q", base)
+	}
+}
+
+func TestNetdevPersist_Netplan(t *testing.T) {
+	dir := t.TempDir()
+	origNP := NetplanDir
+	NetplanDir = filepath.Join(dir, "np")
+	defer func() { NetplanDir = origNP }()
+
+	body := ManagedHeader + "network:\n  version: 2\n  vlans:\n    vlan100:\n      id: 100\n      link: eth0\n"
+	d := NetdevPersist{Backend: Netplan, Kind: "vlan", Name: "vlan100", NetplanBody: body}
+	if drift, _ := d.PresentDrift(); !drift {
+		t.Error("want drift before write")
+	}
+	if err := d.Write(); err != nil {
+		t.Fatal(err)
+	}
+	if c, ok, _ := Read(NetplanDevicePath("vlan", "vlan100")); !ok || c != body {
+		t.Errorf("netplan body wrong: %q", c)
+	}
+	if drift, _ := d.PresentDrift(); drift {
+		t.Error("idempotent: no drift after write")
+	}
+	if drift, _ := d.AbsentDrift(); !drift {
+		t.Error("AbsentDrift should be true")
+	}
+	if err := d.Remove(); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := Read(NetplanDevicePath("vlan", "vlan100")); ok {
+		t.Error("netplan file should be removed")
+	}
+}
+
+func TestNetdevPersist_UnsupportedBackend(t *testing.T) {
+	t.Parallel()
+	d := NetdevPersist{Backend: "nm", Kind: "bond", Name: "b0"}
+	if _, err := d.PresentDrift(); err == nil {
+		t.Error("PresentDrift should error")
+	}
+	if err := d.Write(); err == nil {
+		t.Error("Write should error")
+	}
+	if _, err := d.AbsentDrift(); err == nil {
+		t.Error("AbsentDrift should error")
+	}
+	if err := d.Remove(); err == nil {
+		t.Error("Remove should error")
+	}
+}
+
 func TestDetectBackend(t *testing.T) {
 	dir := t.TempDir()
 	origNP := NetplanDir

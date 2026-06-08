@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib/netpersist"
 )
 
 const (
@@ -25,6 +26,7 @@ const (
 	paramName     = "name"
 	paramParent   = "parent"
 	paramID       = "id"
+	paramPersist  = "persist"
 	paramSeverity = statemgmt.ReservedSeverityParamKey
 )
 
@@ -32,6 +34,7 @@ var allowedKeys = map[string]struct{}{
 	paramName:     {},
 	paramParent:   {},
 	paramID:       {},
+	paramPersist:  {},
 	paramSeverity: {},
 }
 
@@ -41,9 +44,10 @@ type params struct {
 	Label  string
 	State  string
 	Name   string
-	Parent string
-	ID     int
-	HasID  bool
+	Parent  string
+	ID      int
+	HasID   bool
+	Persist string // "" = runtime-only; networkd | netplan | auto
 }
 
 func parseParams(decl *statemgmt.Declaration) (*params, error) {
@@ -52,7 +56,7 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 	}
 	for k := range decl.Params {
 		if _, ok := allowedKeys[k]; !ok {
-			return nil, fmt.Errorf("unknown param %q (allowed: name, parent, id, severity)", k)
+			return nil, fmt.Errorf("unknown param %q (allowed: name, parent, id, persist, severity)", k)
 		}
 	}
 	p := &params{Label: decl.Name, State: decl.State}
@@ -77,6 +81,13 @@ func parseParams(decl *statemgmt.Declaration) (*params, error) {
 		}
 		p.ID = n
 		p.HasID = true
+	}
+	if raw, ok := decl.Params[paramPersist]; ok {
+		s, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("persist: expected string, got %T", raw)
+		}
+		p.Persist = strings.ToLower(strings.TrimSpace(s))
 	}
 	return p, nil
 }
@@ -137,6 +148,9 @@ func (p *params) validate() error {
 		if p.HasID {
 			return fmt.Errorf("id is only valid with state=present (absent deletes by name)")
 		}
+	}
+	if p.Persist != "" && !netpersist.ValidBackend(p.Persist) {
+		return fmt.Errorf("persist: must be one of networkd, netplan, auto; got %q", p.Persist)
 	}
 	return nil
 }
