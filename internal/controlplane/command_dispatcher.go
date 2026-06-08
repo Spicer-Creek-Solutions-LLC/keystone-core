@@ -528,6 +528,12 @@ func (d *CommandDispatcher) sweepTimeouts(ctx context.Context) {
 			Stderr:      "dispatch: agent did not reply within timeout",
 			CompletedAt: now,
 		}
+		// Persist the terminal status before untracking the command: if
+		// the store write fails we keep it in-flight so the next sweep
+		// retries, rather than orphaning the timeout. As a consequence
+		// InFlight() can briefly lag the store status between these two
+		// steps — that gauge is approximate and callers must not assume
+		// it is transactionally consistent with the store.
 		err := d.store.UpdateCommandResult(ctx, id, timeoutResult)
 		if err != nil {
 			d.logger.Warn("controlplane: mark timeout failed",
