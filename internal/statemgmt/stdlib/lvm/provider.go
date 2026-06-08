@@ -36,6 +36,21 @@ type Provider interface {
 	HasVG(ctx context.Context, name string) (bool, error)
 	CreateVG(ctx context.Context, name string, pvs []string) error
 	RemoveVG(ctx context.Context, name string) error
+	// GetVGPVs returns the device paths of the PVs currently in the VG
+	// (`vgs --noheadings -o pv_name <vg>`), one per element.
+	GetVGPVs(ctx context.Context, name string) ([]string, error)
+	// ExtendVG adds PVs to an existing VG (`vgextend <vg> <pvs…>`). The
+	// devices must already be PVs (created via a separate `pv:` decl).
+	ExtendVG(ctx context.Context, name string, pvs []string) error
+	// ReduceVG removes PVs from an existing VG (`vgreduce <vg> <pvs…>`).
+	// No `-f`: LVM refuses to remove a PV that still holds LV extents, so
+	// the operator must `pvmove` data off it first.
+	ReduceVG(ctx context.Context, name string, pvs []string) error
+	// Canonicalize resolves a device path to the canonical form LVM
+	// reports as pv_name (symlinks followed), so a declared
+	// /dev/disk/by-id/… path matches the live PV set. Best-effort: an
+	// unresolvable path is returned unchanged.
+	Canonicalize(ctx context.Context, device string) (string, error)
 
 	HasLV(ctx context.Context, vg, lv string) (bool, error)
 	// CreateLV is called with exactly one of size / extents

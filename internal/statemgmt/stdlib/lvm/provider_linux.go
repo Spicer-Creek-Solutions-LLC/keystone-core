@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -19,7 +20,7 @@ import (
 // the missing-binary name when one is unavailable.
 var lvmTools = []string{
 	"pvcreate", "pvremove", "pvs",
-	"vgcreate", "vgremove", "vgs",
+	"vgcreate", "vgremove", "vgextend", "vgreduce", "vgs",
 	"lvcreate", "lvremove", "lvextend", "lvs",
 }
 
@@ -108,6 +109,59 @@ func (p *linuxProvider) RemoveVG(ctx context.Context, name string) error {
 	}
 	_, err = p.run(ctx, bin, []string{"-y", name})
 	return err
+}
+
+func (p *linuxProvider) GetVGPVs(ctx context.Context, name string) ([]string, error) {
+	bin, err := p.bin("vgs")
+	if err != nil {
+		return nil, err
+	}
+	// vgs expands one row per PV when a pv-level field is requested.
+	out, err := p.run(ctx, bin, []string{"--noheadings", "-o", "pv_name", name})
+	if err != nil {
+		return nil, err
+	}
+	var pvs []string
+	for _, line := range strings.Split(out, "\n") {
+		if s := strings.TrimSpace(line); s != "" {
+			pvs = append(pvs, s)
+		}
+	}
+	return pvs, nil
+}
+
+func (p *linuxProvider) ExtendVG(ctx context.Context, name string, pvs []string) error {
+	bin, err := p.bin("vgextend")
+	if err != nil {
+		return err
+	}
+	args := append([]string{name}, pvs...)
+	_, err = p.run(ctx, bin, args)
+	return err
+}
+
+func (p *linuxProvider) ReduceVG(ctx context.Context, name string, pvs []string) error {
+	bin, err := p.bin("vgreduce")
+	if err != nil {
+		return err
+	}
+	// No -f: vgreduce refuses to remove a PV that still holds allocated
+	// extents, so data on a still-in-use PV is never silently orphaned.
+	args := append([]string{name}, pvs...)
+	_, err = p.run(ctx, bin, args)
+	return err
+}
+
+// Canonicalize resolves a device path to LVM's pv_name form by
+// following symlinks (e.g. /dev/disk/by-id/… → /dev/sdb). Best-effort:
+// an unresolvable path (not present / EvalSymlinks error) is returned
+// unchanged so the diff can still proceed.
+func (p *linuxProvider) Canonicalize(_ context.Context, device string) (string, error) {
+	resolved, err := filepath.EvalSymlinks(device)
+	if err != nil {
+		return device, nil
+	}
+	return resolved, nil
 }
 
 // --- LV ----------------------------------------------------------------
