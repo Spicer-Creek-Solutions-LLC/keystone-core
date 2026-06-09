@@ -6,8 +6,10 @@ package disk
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -41,24 +43,40 @@ func defaultProvider() Provider {
 	p.xfsGrowfsBin, _ = exec.LookPath("xfs_growfs")
 	p.btrfsBin, _ = exec.LookPath("btrfs")
 	p.findmntBin, _ = exec.LookPath("findmnt")
+	p.resizeF2fsBin, _ = exec.LookPath("resize.f2fs")
+	p.readAt = deviceReadAt
 	for fstype, name := range mkfsBin {
 		p.mkfsPaths[fstype], _ = exec.LookPath(name)
 	}
 	return p
 }
 
+// deviceReadAt reads len(buf) bytes from a block device at off. Used to
+// read the f2fs superblock, which has no version-stable userspace size
+// tool. Seam so tests inject a fake without a real device.
+func deviceReadAt(device string, off int64, buf []byte) (int, error) {
+	f, err := os.OpenFile(device, os.O_RDONLY, 0) //nolint:gosec // device is a validated /dev path (devicePathRE)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = f.Close() }()
+	return f.ReadAt(buf, off)
+}
+
 type linuxProvider struct {
-	blkidBin     string
-	wipefsBin    string
-	blockdevBin  string
-	dumpe2fsBin  string
-	resize2fsBin string
-	xfsInfoBin   string
-	xfsGrowfsBin string
-	btrfsBin     string
-	findmntBin   string
-	mkfsPaths    map[string]string // fstype → resolved mkfs binary path ("" if absent)
-	run          commandRunner
+	blkidBin      string
+	wipefsBin     string
+	blockdevBin   string
+	dumpe2fsBin   string
+	resize2fsBin  string
+	xfsInfoBin    string
+	xfsGrowfsBin  string
+	btrfsBin      string
+	findmntBin    string
+	resizeF2fsBin string
+	mkfsPaths     map[string]string // fstype → resolved mkfs binary path ("" if absent)
+	run           commandRunner
+	readAt        func(device string, off int64, buf []byte) (int, error)
 }
 
 func (p *linuxProvider) GetFilesystem(ctx context.Context, device string) (string, error) {
@@ -130,6 +148,8 @@ func (p *linuxProvider) FilesystemFillsDevice(ctx context.Context, device, fstyp
 		return p.xfsFillsDevice(ctx, device, deviceBytes)
 	case "btrfs":
 		return p.btrfsFillsDevice(ctx, device, deviceBytes)
+	case "f2fs":
+		return p.f2fsFillsDevice(device, deviceBytes)
 	}
 	return false, fmt.Errorf("resize not supported for fstype %q", fstype)
 }
@@ -209,6 +229,63 @@ func (p *linuxProvider) btrfsFillsDevice(ctx context.Context, device string, dev
 		return false, err
 	}
 	return fsBytes >= deviceBytes, nil
+}
+
+// f2fs has no version-stable userspace tool that reports its size, so
+// the fill check reads the on-disk superblock (a stable ABI) directly.
+const (
+	f2fsSuperOffset  = 1024 // F2FS_SUPER_OFFSET: superblock starts here
+	f2fsSuperReadLen = 64   // enough to cover through block_count (offset 36 + 8)
+	f2fsSuperMinLen  = 44
+	f2fsMagic        = 0xF2F52010
+)
+
+// f2fsFillsDevice reports whether the f2fs already occupies every whole
+// section that fits on the device. resize.f2fs grows by whole sections
+// (block_count rounds down to a section boundary), so the check is
+// section-aware — comparing block-for-block would never converge.
+func (p *linuxProvider) f2fsFillsDevice(device string, deviceBytes uint64) (bool, error) {
+	if p.readAt == nil {
+		return false, fmt.Errorf("%w (no device reader)", ErrNoResizeTool)
+	}
+	buf := make([]byte, f2fsSuperReadLen)
+	n, err := p.readAt(device, f2fsSuperOffset, buf)
+	if err != nil && n < f2fsSuperMinLen {
+		return false, fmt.Errorf("read f2fs superblock on %s: %w", device, err)
+	}
+	blockCount, blockSize, secBlocks, err := parseF2fsSuperblock(buf[:n])
+	if err != nil {
+		return false, err
+	}
+	deviceBlocks := deviceBytes / blockSize
+	maxBlocks := (deviceBlocks / secBlocks) * secBlocks // largest whole-section size that fits
+	return blockCount >= maxBlocks, nil
+}
+
+// parseF2fsSuperblock reads the block count and section geometry from a
+// raw f2fs superblock (read at f2fsSuperOffset). All multi-byte fields
+// are little-endian. Pure for testability.
+//
+// On-disk layout (struct f2fs_super_block), byte offsets within the
+// superblock: magic @0 (u32), log_blocksize @16 (u32), log_blocks_per_seg
+// @20 (u32), segs_per_sec @24 (u32), block_count @36 (u64).
+func parseF2fsSuperblock(b []byte) (blockCount, blockSize, secBlocks uint64, err error) {
+	if len(b) < f2fsSuperMinLen {
+		return 0, 0, 0, fmt.Errorf("f2fs superblock too short: %d bytes", len(b))
+	}
+	if magic := binary.LittleEndian.Uint32(b[0:4]); magic != f2fsMagic {
+		return 0, 0, 0, fmt.Errorf("f2fs superblock magic = %#x, want %#x", magic, uint32(f2fsMagic))
+	}
+	logBlocksize := binary.LittleEndian.Uint32(b[16:20])
+	logBlocksPerSeg := binary.LittleEndian.Uint32(b[20:24])
+	segsPerSec := binary.LittleEndian.Uint32(b[24:28])
+	blockCount = binary.LittleEndian.Uint64(b[36:44])
+	if logBlocksize > 30 || logBlocksPerSeg > 30 || segsPerSec == 0 {
+		return 0, 0, 0, fmt.Errorf("f2fs superblock geometry implausible (log_blocksize=%d log_blocks_per_seg=%d segs_per_sec=%d)", logBlocksize, logBlocksPerSeg, segsPerSec)
+	}
+	blockSize = uint64(1) << logBlocksize
+	secBlocks = (uint64(1) << logBlocksPerSeg) * uint64(segsPerSec)
+	return blockCount, blockSize, secBlocks, nil
 }
 
 // parseXfsInfoBytes reads the data-section block size and block count
@@ -335,8 +412,28 @@ func (p *linuxProvider) ResizeFilesystem(ctx context.Context, device, fstype str
 	case "btrfs":
 		return p.growByMountpoint(ctx, device, "btrfs", p.btrfsBin, "btrfs",
 			func(mnt string) []string { return []string{"filesystem", "resize", "max", mnt} })
+	case "f2fs":
+		return p.resizeF2fs(ctx, device)
 	}
 	return fmt.Errorf("resize not supported for fstype %q", fstype)
+}
+
+// resizeF2fs grows an f2fs to fill the device. resize.f2fs is an offline
+// resize, so — the mirror of the mounted fstypes — a *mounted* device is
+// a clear, actionable error.
+func (p *linuxProvider) resizeF2fs(ctx context.Context, device string) error {
+	if p.resizeF2fsBin == "" {
+		return fmt.Errorf("%w (resize.f2fs missing)", ErrNoResizeTool)
+	}
+	mnt, err := p.mountpointOf(ctx, device)
+	if err != nil {
+		return err
+	}
+	if mnt != "" {
+		return fmt.Errorf("f2fs resize: %s is mounted at %s (resize.f2fs is offline — unmount it first)", device, mnt)
+	}
+	_, err = p.run(ctx, p.resizeF2fsBin, []string{device})
+	return err
 }
 
 // growByMountpoint resolves the device's mountpoint and runs a grow tool
