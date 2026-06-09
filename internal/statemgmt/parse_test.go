@@ -25,6 +25,7 @@ func TestParse_Empty(t *testing.T) {
 			}
 			if sf == nil {
 				t.Fatal("Parse returned nil StateFile")
+				return
 			}
 			if sf.Metadata.Name != "" || sf.Metadata.Version != "" {
 				t.Errorf("Metadata = %+v, want zero", sf.Metadata)

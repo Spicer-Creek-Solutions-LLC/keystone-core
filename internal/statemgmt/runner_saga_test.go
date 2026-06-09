@@ -169,6 +169,7 @@ func TestRunSaga_FailureTriggersReverseCompensation(t *testing.T) {
 	}
 	if aResult == nil || bResult == nil {
 		t.Fatalf("missing decl results: %+v", report.Results)
+		return
 	}
 	if !aResult.Compensated {
 		t.Error("a should be marked Compensated")

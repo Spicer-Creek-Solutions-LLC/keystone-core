@@ -247,6 +247,7 @@ func TestSPIFFEID_URI(t *testing.T) {
 	uri := id.URI()
 	if uri == nil {
 		t.Fatal("URI() = nil for non-zero ID")
+		return
 	}
 	if uri.Scheme != "spiffe" {
 		t.Errorf("uri.Scheme = %q, want spiffe", uri.Scheme)

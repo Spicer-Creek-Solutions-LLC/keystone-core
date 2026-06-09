@@ -79,6 +79,7 @@ func TestFromGRPC_StatusError(t *testing.T) {
 	r := FromGRPC(err)
 	if r == nil {
 		t.Fatal("FromGRPC returned nil")
+		return
 	}
 	if r.Error != "Unavailable" {
 		t.Errorf("Error = %q, want Unavailable", r.Error)
@@ -92,6 +93,7 @@ func TestFromGRPC_NonStatusError(t *testing.T) {
 	r := FromGRPC(errors.New("plain error"))
 	if r == nil {
 		t.Fatal("FromGRPC returned nil")
+		return
 	}
 	if r.Error != codes.Unknown.String() {
 		t.Errorf("Error = %q, want Unknown", r.Error)

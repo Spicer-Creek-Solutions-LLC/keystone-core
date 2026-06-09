@@ -321,6 +321,7 @@ func TestDispatch_ExplicitBackend_BypassesDetector(t *testing.T) {
 	got := r[BackendNftables].received
 	if got == nil {
 		t.Fatal("nftables backend was not invoked")
+		return
 	}
 	if got.Params["family"] != "inet" || got.Params["table"] != "filter" || got.Params["chain"] != "input" || got.Params["rule"] != "tcp dport 22 accept" {
 		t.Errorf("nftables params: %v", got.Params)

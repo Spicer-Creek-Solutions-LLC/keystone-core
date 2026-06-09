@@ -19,6 +19,7 @@ func TestNewConfigurer_FillsDefaults(t *testing.T) {
 	c := NewConfigurer(Defaults{}, quietLogger())
 	if c == nil {
 		t.Fatal("NewConfigurer returned nil")
+		return
 	}
 	if c.defaults.NodeRole != defaultNodeRole {
 		t.Errorf("NodeRole = %q, want %q", c.defaults.NodeRole, defaultNodeRole)

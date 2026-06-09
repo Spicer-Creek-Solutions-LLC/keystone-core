@@ -55,6 +55,7 @@ func TestResolve(t *testing.T) {
 				s, _ := d.(*S3Destination)
 				if s == nil {
 					t.Fatalf("not S3Destination: %#v", d)
+					return
 				}
 				if s.Bucket != "my-bucket" || s.Key != "path/to/backup.tar" {
 					t.Errorf("bucket=%q key=%q", s.Bucket, s.Key)
