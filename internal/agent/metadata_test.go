@@ -5,9 +5,46 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"runtime"
 	"testing"
 )
+
+func TestReadBootID(t *testing.T) {
+	dir := t.TempDir()
+	// present: trimmed
+	path := filepath.Join(dir, "boot_id")
+	if err := os.WriteFile(path, []byte("  1b3c5f7e-0000-4000-8000-abcdef012345\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := readBootID(path); got != "1b3c5f7e-0000-4000-8000-abcdef012345" {
+		t.Errorf("readBootID = %q", got)
+	}
+	// missing → "" (best-effort)
+	if got := readBootID(filepath.Join(dir, "nope")); got != "" {
+		t.Errorf("readBootID(missing) = %q, want \"\"", got)
+	}
+}
+
+func TestCollector_HeartbeatCarriesBootID(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "boot_id")
+	if err := os.WriteFile(path, []byte("deadbeef-0000-4000-8000-000000000001"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	orig := bootIDPath
+	bootIDPath = path
+	defer func() { bootIDPath = orig }()
+
+	// The collector reads the boot-ID once at construction and stamps it
+	// on every heartbeat.
+	c := NewGopsutilCollector(testLogger())
+	hb := c.Heartbeat(context.Background(), "agent-7")
+	if hb.BootID != "deadbeef-0000-4000-8000-000000000001" {
+		t.Errorf("hb.BootID = %q", hb.BootID)
+	}
+}
 
 func TestGopsutilCollector_HeartbeatSmoke(t *testing.T) {
 	if runtime.GOOS == "windows" {

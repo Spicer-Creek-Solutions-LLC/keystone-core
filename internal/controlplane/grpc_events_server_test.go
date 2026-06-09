@@ -510,8 +510,8 @@ func TestEventsGRPC_GetEventTypes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetEventTypes: %v", err)
 	}
-	if len(resp.GetTypes()) != 29 {
-		t.Errorf("len = %d, want 29 (§4.9 canonical taxonomy)", len(resp.GetTypes()))
+	if len(resp.GetTypes()) != 30 {
+		t.Errorf("len = %d, want 30 (§4.9's 29 + system.rebooted)", len(resp.GetTypes()))
 	}
 }
 

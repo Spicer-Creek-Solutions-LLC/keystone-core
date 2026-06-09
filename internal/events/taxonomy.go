@@ -2,7 +2,9 @@
 
 package events
 
-// The 29 v1.0 event type constants per PROJECT-DETAILS §4.9. These
+// The 30 canonical event type constants — the 29 v1.0 spellings per
+// PROJECT-DETAILS §4.9 plus `system.rebooted` (gate-v0.5: a managed
+// host's reboot, reported off the agent's boot-ID change). These
 // are the documented spellings — [IsCanonical] reports whether a
 // given [EventType] matches one of them. Operators and post-v1.0 plugins
 // (Epic 14) MAY emit other subtypes within a known [Category]
@@ -33,10 +35,13 @@ const (
 	EventTypeStateChange     EventType = "state.change"
 	EventTypeStateDrift      EventType = "state.drift"
 
-	// system x3 — control-plane process lifecycle
+	// system x4 — control-plane process lifecycle, plus a managed
+	// host's reboot (gate-v0.5: the agent's boot-ID change across a
+	// disconnect is reported as system.rebooted)
 	EventTypeSystemStartup  EventType = "system.startup"
 	EventTypeSystemShutdown EventType = "system.shutdown"
 	EventTypeSystemError    EventType = "system.error"
+	EventTypeSystemRebooted EventType = "system.rebooted"
 
 	// user x3 — user-initiated actions captured for audit
 	EventTypeUserLogin   EventType = "user.login"
@@ -58,7 +63,7 @@ const (
 )
 
 // canonicalEventTypeSet is the membership oracle for [IsCanonical].
-// Built from the 29 constants at init time; lookup is O(1).
+// Built from the 30 constants at init time; lookup is O(1).
 var canonicalEventTypeSet = map[EventType]struct{}{
 	EventTypeAgentConnect:         {},
 	EventTypeAgentDisconnect:      {},
@@ -77,6 +82,7 @@ var canonicalEventTypeSet = map[EventType]struct{}{
 	EventTypeSystemStartup:        {},
 	EventTypeSystemShutdown:       {},
 	EventTypeSystemError:          {},
+	EventTypeSystemRebooted:       {},
 	EventTypeUserLogin:            {},
 	EventTypeUserCommand:          {},
 	EventTypeUserError:            {},
@@ -91,8 +97,8 @@ var canonicalEventTypeSet = map[EventType]struct{}{
 	EventTypeRunbookStepSkip:      {},
 }
 
-// IsCanonical reports whether the receiver is one of the 29 v1.0
-// documented event types from §4.9. Operators MAY use other
+// IsCanonical reports whether the receiver is one of the 30 canonical
+// event types (§4.9's 29 + `system.rebooted`). Operators MAY use other
 // subtypes within a known category (the parser accepts them); this
 // helper exists for documentation, CLI completion, and a future
 // `make lint` rule that warns when project code emits a non-canonical
@@ -102,7 +108,7 @@ func IsCanonical(t EventType) bool {
 	return ok
 }
 
-// canonicalByCategory groups the 29 canonical constants by their
+// canonicalByCategory groups the 30 canonical constants by their
 // owning [Category] in §4.9 documentation order. Built once at
 // package init via the loop in [canonicalByCategoryInit]; queried
 // by [EventTypesForCategory] / [CountForCategory] /
@@ -164,7 +170,7 @@ func CountForCategory(c Category) int {
 }
 
 // AllCategoriesWithCounts returns a fresh map of every known
-// category → its canonical event count. Sums to 29 across the 8
+// category → its canonical event count. Sums to 30 across the 8
 // v1.0 categories (gitops contributes 0 — its subtypes are
 // provider-driven and not enumerated). Useful for CLI/operator-facing taxonomy
 // summary surfaces (the deferred `kscore-events types --by-category`
@@ -177,8 +183,8 @@ func AllCategoriesWithCounts() map[Category]int {
 	return out
 }
 
-// CanonicalEventTypes returns the 29 v1.0 constants in the
-// documentation order from §4.9. Consumed by
+// CanonicalEventTypes returns the 30 canonical constants in §4.9
+// documentation order (`system.rebooted` follows the system group). Consumed by
 // `EventService.GetEventTypes` (task 9) and by the CLI's `list`
 // command for completion. Returned slice is a fresh copy; callers
 // may mutate without affecting subsequent calls.
@@ -201,6 +207,7 @@ func CanonicalEventTypes() []EventType {
 		EventTypeSystemStartup,
 		EventTypeSystemShutdown,
 		EventTypeSystemError,
+		EventTypeSystemRebooted,
 		EventTypeUserLogin,
 		EventTypeUserCommand,
 		EventTypeUserError,

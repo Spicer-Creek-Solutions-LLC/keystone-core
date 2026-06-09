@@ -279,9 +279,10 @@ func (s *Server) initStep5(ctx context.Context) error {
 // initStep6: ConnectionManager + heartbeat monitor.
 func (s *Server) initStep6(ctx context.Context) error {
 	mgr, err := controlplane.New(controlplane.Config{
-		Store:  s.store,
-		Logger: s.logger,
-		Clock:  s.now,
+		Store:          s.store,
+		Logger:         s.logger,
+		Clock:          s.now,
+		EventPublisher: s.eventPublisher, // boot-ID change → system.rebooted
 	})
 	if err != nil {
 		return err
@@ -375,7 +376,7 @@ func (s *Server) initStep7c(ctx context.Context) error {
 			s.logger.WarnContext(hbCtx, "server: heartbeat missing agent_id")
 			return nil
 		}
-		if err := s.connMgr.Heartbeat(hbCtx, hb.AgentID); err != nil {
+		if err := s.connMgr.Heartbeat(hbCtx, hb.AgentID, hb.BootID); err != nil {
 			if errors.Is(err, controlplane.ErrNotRegistered) {
 				s.logger.DebugContext(hbCtx, "server: heartbeat from unregistered agent",
 					"agent_id", hb.AgentID)

@@ -6,6 +6,7 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"os"
 	"runtime"
 	"sort"
 	"strings"
@@ -26,6 +27,12 @@ type HeartbeatMetrics struct {
 	CPUPercent float64     `json:"cpu_percent"`
 	MemPercent float64     `json:"mem_percent"`
 	Disks      []DiskUsage `json:"disks,omitempty"`
+	// BootID is the Linux per-boot UUID (/proc/sys/kernel/random/boot_id);
+	// it changes on every reboot. The server compares it across
+	// heartbeats to tell a reboot from a transient disconnect and emit
+	// system.rebooted. Empty on non-Linux / read failure (then the
+	// server skips reboot detection for this agent).
+	BootID string `json:"boot_id,omitempty"`
 }
 
 // DiskUsage carries one mountpoint's percent-used. Heartbeats include
@@ -109,20 +116,38 @@ func NewGopsutilCollector(log *slog.Logger) MetricsCollector {
 		log = slog.Default()
 	}
 	return &gopsutilCollector{
-		log: log,
-		now: time.Now,
+		log:    log,
+		now:    time.Now,
+		bootID: readBootID(bootIDPath),
 	}
 }
 
 type gopsutilCollector struct {
-	log *slog.Logger
-	now func() time.Time
+	log    *slog.Logger
+	now    func() time.Time
+	bootID string // read once at construction; constant for the process lifetime
+}
+
+// bootIDPath is the Linux per-boot UUID file. A package var so tests can
+// point it at a fixture.
+var bootIDPath = "/proc/sys/kernel/random/boot_id"
+
+// readBootID reads and trims the boot-ID file. Best-effort: any failure
+// (non-Linux, missing file, EACCES) yields "" — the heartbeat then omits
+// boot_id and the server skips reboot detection.
+func readBootID(path string) string {
+	b, err := os.ReadFile(path) //nolint:gosec // fixed /proc path (overridable in tests)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
 }
 
 func (c *gopsutilCollector) Heartbeat(ctx context.Context, agentID string) HeartbeatMetrics {
 	out := HeartbeatMetrics{
 		AgentID: agentID,
 		TS:      c.now().UTC(),
+		BootID:  c.bootID,
 	}
 
 	pcts, err := cpu.PercentWithContext(ctx, 0, false)
