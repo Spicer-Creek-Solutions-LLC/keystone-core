@@ -33,10 +33,10 @@
 //     downstream routing (the audit pipeline in epic 12, the post-v1.0
 //     reactor engine) can switch exhaustively on category for
 //     retention policy and dispatch.
-//   - The 29 v1.0 taxonomy constants (agent x5, job x4, state x5,
-//     system x3, user x3, policy x2, runbook x7) per §4.9;
-//     [IsCanonical] reports whether a value matches one of the
-//     documented spellings.
+//   - The 30 taxonomy constants — §4.9's 29 v1.0 spellings (agent x5,
+//     job x4, state x5, system x3, user x3, policy x2, runbook x7) plus
+//     `system.rebooted` (gate-v0.5); [IsCanonical] reports whether a
+//     value matches one of the documented spellings.
 //   - [SubjectFor] / [Event.StampSubject] — build the
 //     `kscore.<cluster>.events.<category>.<subtype>` NATS subject;
 //     [Event.Subject] is stamped by the publisher at emit time

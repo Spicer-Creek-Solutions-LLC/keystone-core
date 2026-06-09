@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"go.keystone-core.io/keystone-core/internal/events"
 	"go.keystone-core.io/keystone-core/internal/state"
 )
 
@@ -28,6 +29,10 @@ type Config struct {
 	HeartbeatInterval time.Duration
 	StaleThreshold    int
 	Clock             func() time.Time
+	// EventPublisher, when set, receives a system.rebooted event when an
+	// agent's heartbeat reports a changed boot-ID (it rebooted). Nil
+	// disables emission (reboots are still logged).
+	EventPublisher events.EventPublisher
 }
 
 // Counts is a snapshot of agent population by status, used by the
@@ -55,8 +60,15 @@ type ConnectionManager struct {
 	staleAfter time.Duration
 	now      func() time.Time
 
+	publisher events.EventPublisher
+
 	mu    sync.RWMutex
 	cache map[string]*state.AgentRecord
+	// bootIDs is the last boot-ID seen per agent (from its heartbeat).
+	// A change means the host rebooted. In-memory only: a reboot that
+	// lands exactly while the server is down is not detected (the first
+	// post-restart heartbeat is treated as first-sight).
+	bootIDs map[string]string
 
 	startOnce sync.Once
 	stopOnce  sync.Once
@@ -98,7 +110,9 @@ func New(cfg Config) (*ConnectionManager, error) {
 		threshold:  cfg.StaleThreshold,
 		staleAfter: cfg.HeartbeatInterval * time.Duration(cfg.StaleThreshold),
 		now:        cfg.Clock,
+		publisher:  cfg.EventPublisher,
 		cache:      make(map[string]*state.AgentRecord),
+		bootIDs:    make(map[string]string),
 		done:       make(chan struct{}),
 	}, nil
 }
@@ -217,7 +231,11 @@ func (m *ConnectionManager) Register(ctx context.Context, a *state.AgentRecord) 
 // Heartbeat refreshes LastHeartbeatAt for the named agent. A stale
 // agent transitions back to connected on receipt; a disabled agent is
 // rejected with ErrAgentDisabled. Unknown agents return ErrNotRegistered.
-func (m *ConnectionManager) Heartbeat(ctx context.Context, id string) error {
+// Heartbeat records a heartbeat from agent id. bootID is the agent's
+// Linux boot-ID (may be ""); a change from the last-seen value means the
+// host rebooted, which — alongside reviving a stale agent — emits a
+// system.rebooted event (see emitRebooted).
+func (m *ConnectionManager) Heartbeat(ctx context.Context, id, bootID string) error {
 	if id == "" {
 		return errors.New("controlplane: Heartbeat requires an agent ID")
 	}
@@ -248,6 +266,8 @@ func (m *ConnectionManager) Heartbeat(ctx context.Context, id string) error {
 		}
 	}
 
+	var rebooted bool
+	var prevBoot string
 	m.mu.Lock()
 	if rec, ok := m.cache[id]; ok {
 		rec.LastHeartbeatAt = now
@@ -255,12 +275,49 @@ func (m *ConnectionManager) Heartbeat(ctx context.Context, id string) error {
 			rec.Status = state.AgentStatusConnected
 		}
 	}
+	if bootID != "" {
+		if prev, seen := m.bootIDs[id]; seen && prev != bootID {
+			rebooted, prevBoot = true, prev
+		}
+		m.bootIDs[id] = bootID
+	}
 	m.mu.Unlock()
 
 	if transition {
 		m.logger.Info("controlplane: agent recovered from stale", "agent_id", id)
 	}
+	if rebooted {
+		m.emitRebooted(ctx, id, prevBoot, bootID, transition)
+	}
 	return nil
+}
+
+// emitRebooted logs the reboot and, when a publisher is configured,
+// publishes a system.rebooted event sourced to the agent with the
+// boot-ID change as proof. wasStale records whether the reboot coincided
+// with a stale gap (a real disconnect) vs a fast reboot that beat the
+// stale threshold. A publish failure is logged (observability gap) but
+// not returned — it must not fail the heartbeat.
+func (m *ConnectionManager) emitRebooted(ctx context.Context, id, oldBoot, newBoot string, wasStale bool) {
+	m.logger.Info("controlplane: agent rebooted",
+		"agent_id", id, "old_boot_id", oldBoot, "new_boot_id", newBoot, "was_stale", wasStale)
+	if m.publisher == nil {
+		return
+	}
+	e, err := events.NewEvent(events.EventTypeSystemRebooted, id)
+	if err != nil {
+		m.logger.Error("controlplane: build system.rebooted event", "agent_id", id, "err", err)
+		return
+	}
+	e.Data = map[string]any{
+		"agent_id":    id,
+		"old_boot_id": oldBoot,
+		"new_boot_id": newBoot,
+		"was_stale":   wasStale,
+	}
+	if err := m.publisher.Publish(ctx, e); err != nil {
+		m.logger.Error("controlplane: publish system.rebooted", "agent_id", id, "err", err)
+	}
 }
 
 // Disable transitions the agent to AgentStatusDisabled in the store and
@@ -283,6 +340,7 @@ func (m *ConnectionManager) Delete(ctx context.Context, id string) error {
 	}
 	m.mu.Lock()
 	delete(m.cache, id)
+	delete(m.bootIDs, id)
 	m.mu.Unlock()
 	return nil
 }

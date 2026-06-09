@@ -12,8 +12,108 @@ import (
 	"time"
 
 	"go.keystone-core.io/keystone-core/internal/controlplane"
+	"go.keystone-core.io/keystone-core/internal/events"
 	"go.keystone-core.io/keystone-core/internal/state"
 )
+
+// recordingPublisher is a minimal events.EventPublisher that captures
+// every published event for assertion.
+type recordingPublisher struct {
+	mu   sync.Mutex
+	got  []events.Event
+	fail error
+}
+
+func (p *recordingPublisher) Start(context.Context) error { return nil }
+func (p *recordingPublisher) Stop(context.Context) error  { return nil }
+func (p *recordingPublisher) PublishAsync(ctx context.Context, e events.Event) error {
+	return p.Publish(ctx, e)
+}
+func (p *recordingPublisher) Publish(_ context.Context, e events.Event) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.fail != nil {
+		return p.fail
+	}
+	p.got = append(p.got, e)
+	return nil
+}
+func (p *recordingPublisher) snapshot() []events.Event {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]events.Event(nil), p.got...)
+}
+
+func TestHeartbeat_RebootEmitsSystemRebooted(t *testing.T) {
+	ctx := context.Background()
+	store := newTestStore(t)
+	pub := &recordingPublisher{}
+	mgr := mustNew(t, controlplane.Config{Store: store, HeartbeatInterval: time.Hour, EventPublisher: pub})
+	mustStart(t, mgr)
+	defer stopOK(t, mgr)
+	if err := mgr.Register(ctx, newAgent("a1")); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	// First heartbeat establishes the boot-ID (first-sight, no emit).
+	if err := mgr.Heartbeat(ctx, "a1", "boot-A"); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(pub.snapshot()); n != 0 {
+		t.Fatalf("first-sight should not emit; got %d", n)
+	}
+	// Same boot-ID → no emit.
+	if err := mgr.Heartbeat(ctx, "a1", "boot-A"); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(pub.snapshot()); n != 0 {
+		t.Fatalf("unchanged boot-ID should not emit; got %d", n)
+	}
+	// Changed boot-ID → emit system.rebooted with the change as proof.
+	if err := mgr.Heartbeat(ctx, "a1", "boot-B"); err != nil {
+		t.Fatal(err)
+	}
+	got := pub.snapshot()
+	if len(got) != 1 {
+		t.Fatalf("boot-ID change should emit one event; got %d", len(got))
+	}
+	e := got[0]
+	if e.Type != events.EventTypeSystemRebooted {
+		t.Errorf("Type = %q, want system.rebooted", e.Type)
+	}
+	if e.Source != "a1" {
+		t.Errorf("Source = %q, want a1", e.Source)
+	}
+	if e.Data["old_boot_id"] != "boot-A" || e.Data["new_boot_id"] != "boot-B" {
+		t.Errorf("Data = %v, want old=boot-A new=boot-B", e.Data)
+	}
+	// Empty boot-ID (old agent) → no detection, no emit.
+	if err := mgr.Heartbeat(ctx, "a1", ""); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(pub.snapshot()); n != 1 {
+		t.Errorf("empty boot-ID should not emit; got %d total", n)
+	}
+}
+
+func TestHeartbeat_RebootNilPublisherSafe(t *testing.T) {
+	ctx := context.Background()
+	store := newTestStore(t)
+	// No EventPublisher configured.
+	mgr := mustNew(t, controlplane.Config{Store: store, HeartbeatInterval: time.Hour})
+	mustStart(t, mgr)
+	defer stopOK(t, mgr)
+	if err := mgr.Register(ctx, newAgent("a1")); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	if err := mgr.Heartbeat(ctx, "a1", "boot-A"); err != nil {
+		t.Fatal(err)
+	}
+	// A boot-ID change with a nil publisher must not panic.
+	if err := mgr.Heartbeat(ctx, "a1", "boot-B"); err != nil {
+		t.Fatal(err)
+	}
+}
 
 // fakeClock is a monotonic, manually-advanced clock used to drive the
 // stale-detection sweep deterministically without sleeping in tests.
@@ -202,7 +302,7 @@ func TestHeartbeat_UpdatesTimestamp(t *testing.T) {
 		t.Fatalf("Register: %v", err)
 	}
 	clk.Advance(time.Minute)
-	if err := mgr.Heartbeat(ctx, "a1"); err != nil {
+	if err := mgr.Heartbeat(ctx, "a1", ""); err != nil {
 		t.Fatalf("Heartbeat: %v", err)
 	}
 	stored, err := store.GetAgent(ctx, "a1")
@@ -221,7 +321,7 @@ func TestHeartbeat_UnknownAgent(t *testing.T) {
 	mustStart(t, mgr)
 	defer stopOK(t, mgr)
 
-	err := mgr.Heartbeat(ctx, "ghost")
+	err := mgr.Heartbeat(ctx, "ghost", "")
 	if !errors.Is(err, controlplane.ErrNotRegistered) {
 		t.Fatalf("err = %v, want ErrNotRegistered", err)
 	}
@@ -240,7 +340,7 @@ func TestHeartbeat_DisabledRejected(t *testing.T) {
 	if err := mgr.Disable(ctx, "a1"); err != nil {
 		t.Fatalf("Disable: %v", err)
 	}
-	if err := mgr.Heartbeat(ctx, "a1"); !errors.Is(err, controlplane.ErrAgentDisabled) {
+	if err := mgr.Heartbeat(ctx, "a1", ""); !errors.Is(err, controlplane.ErrAgentDisabled) {
 		t.Fatalf("err = %v, want ErrAgentDisabled", err)
 	}
 }
@@ -266,7 +366,7 @@ func TestHeartbeat_RecoversFromStale(t *testing.T) {
 	waitForStatus(t, mgr, "a1", state.AgentStatusStale, time.Second)
 
 	// Heartbeat should bring it back to connected.
-	if err := mgr.Heartbeat(ctx, "a1"); err != nil {
+	if err := mgr.Heartbeat(ctx, "a1", ""); err != nil {
 		t.Fatalf("Heartbeat: %v", err)
 	}
 	rec, err := mgr.Get(ctx, "a1")
@@ -507,7 +607,7 @@ func TestConcurrentRegisterAndHeartbeat(t *testing.T) {
 				case <-stop:
 					return
 				default:
-					if err := mgr.Heartbeat(ctx, idForN(i)); err != nil && !errors.Is(err, controlplane.ErrAgentDisabled) {
+					if err := mgr.Heartbeat(ctx, idForN(i), ""); err != nil && !errors.Is(err, controlplane.ErrAgentDisabled) {
 						t.Errorf("Heartbeat %d: %v", i, err)
 						return
 					}

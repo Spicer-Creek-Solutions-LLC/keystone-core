@@ -656,11 +656,11 @@ Event{
 }
 ```
 
-**Event taxonomy (v1.0 — 29 canonical types, 8 categories)**:
+**Event taxonomy (30 canonical types, 8 categories — v1.0's 29 + `system.rebooted` added gate-v0.5)**:
 - `agent.{connect, disconnect, heartbeat, heartbeat_failed, error}` (5)
 - `job.{start, complete, fail, output}` (4)
 - `state.{apply.start, apply.done, apply.fail, change, drift}` (5)
-- `system.{startup, shutdown, error}` (3)
+- `system.{startup, shutdown, error, rebooted}` (4)
 - `user.{login, command, error}` (3)
 - `policy.{pass, violation}` (2) — audit-mode only in v1.0
 - `runbook.{execute.start, execute.done, execute.fail, step.start, step.done, step.fail, step.skip}` (7) — Epic 15 task 9
