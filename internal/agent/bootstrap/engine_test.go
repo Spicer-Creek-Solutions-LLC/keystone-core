@@ -210,6 +210,7 @@ func TestEngine_ValidateFailureRecordsLastErrorAndPersists(t *testing.T) {
 	}
 	if state == nil {
 		t.Fatal("state is nil after failure; expected populated")
+		return
 	}
 	if state.LastError == "" {
 		t.Error("LastError empty after failure")
