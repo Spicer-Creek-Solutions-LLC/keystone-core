@@ -134,9 +134,13 @@ func TestStartCluster_EnabledLifecycle(t *testing.T) {
 			if rt.fencing == nil {
 				t.Fatal("FencingManager not constructed")
 			}
-			if rt.fencing.Fenced() {
-				t.Fatal("healthy single node reports fenced")
-			}
+			// Fenced state is folded from the HealthMonitor's async
+			// OnHealthChange(quorum) callback, so it can briefly lag the
+			// just-won election. Wait for it to settle rather than reading
+			// it instantaneously (the FencingManager unit tests do the
+			// same with waitFor(!Fenced())).
+			waitForCond(t, 10*time.Second, "healthy single node not fenced",
+				func() bool { return !rt.fencing.Fenced() })
 			fencer := rt.fencer()
 			if fencer == nil {
 				t.Fatal("fencer() returned nil despite fencing constructed")

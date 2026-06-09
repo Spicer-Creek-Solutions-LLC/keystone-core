@@ -180,7 +180,12 @@ func bootExecFixture(t *testing.T, specs []agentSpec) *execFixture {
 		Subjects:              serverNATS.Subjects(),
 		Signer:                commandSignerAdapter{enf: enforcer},
 		Logger:                log,
-		DefaultTimeoutSeconds: 5,
+		// A local echo round-trips in well under a second, but under the
+		// race detector + the full sequential integration suite a NATS
+		// round-trip can dilate past a few seconds; a generous ceiling
+		// keeps a slow-but-completing command from being falsely timed
+		// out (the <2s SLO below is asserted only in non-race runs).
+		DefaultTimeoutSeconds: 20,
 	})
 	if err != nil {
 		t.Fatalf("NewDispatcher: %v", err)
@@ -331,7 +336,7 @@ func TestEpic07_BatchExecute_3of5Hits(t *testing.T) {
 	fix := bootExecFixture(t, specs)
 	defer fix.shutdown()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	started := time.Now()
@@ -385,7 +390,10 @@ func TestEpic07_BatchExecute_3of5Hits(t *testing.T) {
 		t.Errorf("terminal = %+v; want COMPLETED", terminal)
 	}
 	// Acceptance bullet: 5-agent batch (3 hits) < 2s on local NATS.
-	if elapsed > 2*time.Second {
+	// Skipped under the race detector, which dilates NATS/scheduling
+	// latency past any representative SLO — the real SLO gate is `make
+	// slo` (non-race). See raceEnabled.
+	if !raceEnabled && elapsed > 2*time.Second {
 		t.Errorf("batch elapsed %v, want <2s", elapsed)
 	}
 
