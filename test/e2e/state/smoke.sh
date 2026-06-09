@@ -70,4 +70,10 @@ sed -e "s|\${ROOT}|${ROOT}|g" -e "s|\${PKG}|${PKG}|g" -e "s|\${SVC}|${SVC}|g" \
 echo "==> [${DISTRO}] applying $(basename "$FIXTURE") (apply + idempotency re-apply)"
 "$HARNESS" "$ROOT/smoke.yaml"
 
+# Disk phase: the `disk` module needs real block devices, so it runs in
+# its own loop-device-backed script (which self-gates on loop-device +
+# per-fstype tool availability). Its failure fails the smoke.
+export KSCORE_HARNESS="$HARNESS"
+sh /src/test/e2e/state/smoke.disk.sh
+
 echo "==> [${DISTRO}] OK"

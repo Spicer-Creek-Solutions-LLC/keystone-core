@@ -44,16 +44,39 @@ runner pool is unprivileged).
 | `harness/`           | A small static (CGO-free, runs on glibc + musl) Go program that compiles a state file and drives `Runner.Run` twice against the local registry — no kscore-server / NATS / Postgres needed. Has its own hermetic unit test. |
 | `smoke.systemd.yaml` | Fixture for the systemd distros — `service` declared `running` + `enable`. |
 | `smoke.openrc.yaml`  | Fixture for Alpine — `service` declared `stopped` + `enable` (OpenRC service supervision doesn't daemonise reliably in a container; the runlevel/enable path and status/exists queries do, so the smoke asserts those). |
+| `smoke.disk.sh`      | The `disk`-module phase, run by `smoke.sh` after the main fixture. `disk` needs real block devices, so it backs each scenario with a loopback device (`losetup` over a sparse image), generates a disk fixture, and runs the harness on it. Self-gates on loop-device + per-fstype tool availability; tears loops/mounts down on exit. |
 
 ## Coverage scope
 
 The fixtures currently exercise `file` + `package` + `service` +
-`user`/`group` + `hostname` — the modules whose backends vary across
-distros and now have cross-distro implementations. `user`/`group` route
-to shadow-utils on the systemd distros and to BusyBox
+`user`/`group` + `hostname` + `disk` — the modules whose backends vary
+across distros and now have cross-distro implementations. `user`/`group`
+route to shadow-utils on the systemd distros and to BusyBox
 `adduser`/`addgroup` on Alpine (where shadow-utils is absent).
 `hostname` uses `hostnamectl` on the systemd distros and the
 `/etc/hostname` + `hostname(1)` fallback on Alpine.
+
+`disk` exercises `mkfs` and `resize_fs` per fstype against loop-backed
+devices (`smoke.disk.sh`): a *blank* loop tests the format path, and a
+loop pre-seeded with a small fs on a *grown* device tests the resize
+path (which converges on pass 1 and no-ops on pass 2). It covers the
+four resizable fstypes — `ext4` (`resize2fs`), `xfs` (`xfs_growfs`,
+mounted), `btrfs` (`btrfs filesystem resize`, mounted), and `f2fs`
+(`resize.f2fs`, offline; the fill-check reads the on-disk superblock) —
+each gated on the presence of its tools.
+
+Caveat — `disk` loop devices: the phase needs the host kernel's `loop`
+module (and, for xfs/btrfs, their filesystem modules) — like the
+privileged/cgroup requirement, this is a host dependency. When loop
+devices can't be created the disk phase **skips cleanly**.
+
+Caveat — `disk` per-distro fstype availability: `btrfs-progs` and
+`f2fs-tools` are not in the Rocky 9 base repos (RHEL dropped btrfs;
+f2fs-tools is EPEL-only), so on Rocky the disk phase covers `ext4` +
+`xfs` only and skips `btrfs`/`f2fs` with a log line. The other distros
+cover all four. A weak `losetup` (e.g. BusyBox's, lacking `-c`) makes
+the resize scenario a no-op rather than a grow — still idempotent, just
+not exercising the grow on that host.
 
 Caveat — `user`/`group`: BusyBox ships no `usermod`/`groupmod`, so on
 Alpine those backends cannot modify an existing account's scalar fields
