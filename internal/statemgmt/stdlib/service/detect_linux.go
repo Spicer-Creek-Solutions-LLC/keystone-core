@@ -38,12 +38,14 @@ const defaultOpenrcRunDir = "/run/openrc"
 //  3. openrcRunDir exists + rc-service/rc-update on PATH → openrc.
 //  4. rc-service/rc-update on PATH (container without /run/openrc) →
 //     openrc.
-//  5. Otherwise → undetectedProvider (returns ErrNoBackend on
+//  5. `service` + (chkconfig | update-rc.d) on PATH → sysvinit.
+//  6. Otherwise → undetectedProvider (returns ErrNoBackend on
 //     mutating ops; Lookup reports the unit as not-existing so
 //     state=stopped decls don't false-drift).
 //
-// systemd is preferred over OpenRC so a host that somehow has both
-// resolves to systemd. sysvinit / launchd branches are post-v1.0.
+// systemd is preferred over OpenRC over sysvinit, so a host that somehow
+// has several resolves to the most modern. The launchd (macOS) branch is
+// post-v1.0.
 func defaultProvider(systemdRunDir, openrcRunDir string) Provider {
 	if fi, err := os.Stat(systemdRunDir); err == nil && fi.IsDir() {
 		if sc, err := exec.LookPath("systemctl"); err == nil {
@@ -61,7 +63,31 @@ func defaultProvider(systemdRunDir, openrcRunDir string) Provider {
 	if rs, ru, ok := lookOpenRC(); ok {
 		return newOpenrcProvider(rs, ru)
 	}
+	if p := lookSysvinit(); p != nil {
+		return p
+	}
 	return &undetectedProvider{}
+}
+
+// lookSysvinit resolves a classic SysV-init host: the `service` runtime
+// wrapper plus a boot-enable tool (chkconfig on RHEL/CentOS, update-rc.d
+// on Debian/Devuan). chkconfig is preferred when both are somehow
+// present. Returns nil when there is no usable sysvinit toolchain (the
+// caller then falls through to undetectedProvider). Only reached on a
+// non-systemd, non-OpenRC host — systemd boxes ship `service`/`chkconfig`
+// shims too but resolve to systemd earlier.
+func lookSysvinit() Provider {
+	svc, err := exec.LookPath("service")
+	if err != nil {
+		return nil
+	}
+	if chk, err := exec.LookPath("chkconfig"); err == nil {
+		return newSysvinitProvider(svc, chk, sysvChkconfig)
+	}
+	if urc, err := exec.LookPath("update-rc.d"); err == nil {
+		return newSysvinitProvider(svc, urc, sysvUpdateRcd)
+	}
+	return nil
 }
 
 // lookOpenRC resolves the OpenRC control binaries; ok is true only

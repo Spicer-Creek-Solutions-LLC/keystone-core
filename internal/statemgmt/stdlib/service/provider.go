@@ -12,9 +12,9 @@ import (
 var ErrUnsupportedOS = errors.New("service: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoBackend is returned on a Linux host where no supported init
-// system was detected. Supported: systemd and OpenRC; sysvinit /
-// Upstart / launchd are tracked post-v1.0.
-var ErrNoBackend = errors.New("service: no supported init system detected on this host (neither systemd nor OpenRC found; sysvinit is v1.x)")
+// system was detected. Supported: systemd, OpenRC, and sysvinit
+// (chkconfig or update-rc.d); Upstart / launchd are tracked post-v1.0.
+var ErrNoBackend = errors.New("service: no supported init system detected on this host (none of systemd, OpenRC, or sysvinit found)")
 
 // ErrUnitNotFound is returned by the module when the declared
 // service unit doesn't exist on the host. The operator should
