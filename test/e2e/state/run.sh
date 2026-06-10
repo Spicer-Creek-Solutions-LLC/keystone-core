@@ -58,6 +58,17 @@ DISTROS=(
   "ubuntu-24-04|ubuntu:24.04|systemd|apt|cron|cron|apt-get update -qq >/dev/null 2>&1 && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq systemd systemd-sysv >/dev/null 2>&1; exec /lib/systemd/systemd"
   "rocky-9|rockylinux:9|systemd|dnf|cronie|crond|dnf install -y -q systemd >/dev/null 2>&1; exec /usr/lib/systemd/systemd"
   "alpine-3-19|alpine:3.19|openrc|apk|dcron|dcron|apk add --no-cache openrc >/dev/null 2>&1; mkdir -p /run/openrc; touch /run/openrc/softlevel; exec sleep infinity"
+  # zypper backend (openSUSE) + pacman backend (Arch) — both systemd, so
+  # they boot like the other systemd distros; only the package manager
+  # differs. The boot installs/ensures systemd (the base may be minimal)
+  # and the package-DB sync the manager needs before the first install.
+  "opensuse-leap-15-6|opensuse/leap:15.6|systemd|zypper|cronie|cron|zypper --non-interactive install systemd >/dev/null 2>&1; exec /usr/lib/systemd/systemd"
+  "arch|archlinux:latest|systemd|pacman|cronie|cronie|pacman -Sy --noconfirm --needed systemd >/dev/null 2>&1; exec /usr/lib/systemd/systemd"
+  # sysvinit backend (Devuan). The sysvinit service ops are script-based
+  # (service / update-rc.d), so — unlike systemd/OpenRC — no init need
+  # run as PID 1; a keep-alive is enough. The boot installs the wrapper
+  # tools so the backend detects (service + update-rc.d).
+  "devuan-daedalus|devuan/devuan:daedalus|sysvinit|apt|cron|cron|apt-get update -qq >/dev/null 2>&1; DEBIAN_FRONTEND=noninteractive apt-get install -y -qq init-system-helpers sysvinit-utils >/dev/null 2>&1; exec sleep infinity"
 )
 
 # --- build the static apply-harness once, on the host --------------
@@ -83,6 +94,12 @@ wait_ready() {
         ;;
       openrc)
         if docker exec "$cname" test -f /run/openrc/softlevel 2>/dev/null; then return 0; fi
+        ;;
+      sysvinit)
+        # Keep-alive PID 1 (sleep infinity); the script-based sysvinit
+        # ops need no booted init, so the container is ready as soon as
+        # it is up.
+        return 0
         ;;
     esac
     sleep 3

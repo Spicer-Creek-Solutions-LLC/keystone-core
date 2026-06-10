@@ -1,0 +1,64 @@
+# Epic 08 cross-distro matrix — sysvinit-distro smoke fixture (Devuan).
+#
+# Mirrors smoke.openrc.yaml: the service is declared state=stopped +
+# enable=true rather than running. A keep-alive container has no booted
+# init, so a freshly-installed daemon is not supervised — but the
+# sysvinit backend's mutating ops are script-based (service / update-rc.d
+# manage the init script + the /etc/rc?.d start-symlinks), so the
+# enable/disable path and the status/exists Lookup are fully reliable.
+# That is what the sysvinit backend most needs validated cross-distro. A
+# freshly-installed daemon is stopped here, so state=stopped converges
+# with no action and stays idempotent.
+#
+# Devuan is Debian-based: user/group route to shadow-utils (not Alpine's
+# BusyBox), and `package` routes to apt (the sysvinit backend is the
+# target here, not a new package manager). Devuan has no systemd, so
+# `hostname` uses the /etc/hostname + hostname(1) fallback (smoke.sh
+# detaches Docker's /etc/hostname bind-mount first).
+#
+# Placeholders substituted by smoke.sh before apply:
+#   ${ROOT} → a writable scratch dir
+#   ${PKG}  → cron (Devuan's cron implementation)
+#   ${SVC}  → cron
+
+metadata:
+  name: kscore-cross-distro-smoke-sysvinit
+  version: "0.1"
+
+file:
+  ${ROOT}/smoke-dir:
+    state: directory
+    mode: "0755"
+  ${ROOT}/smoke-dir/hello.txt:
+    state: present
+    content: "cross-distro smoke ok\n"
+    mode: "0644"
+    require:
+      - file: ${ROOT}/smoke-dir
+
+package:
+  ${PKG}:
+    state: installed
+
+service:
+  ${SVC}:
+    state: stopped
+    enable: true
+    require:
+      - package: ${PKG}
+
+group:
+  ksmoke:
+    state: present
+    system: true
+
+user:
+  ksmoke:
+    state: present
+    system: true
+    group: ksmoke
+    require:
+      - group: ksmoke
+
+hostname:
+  ksmoke-host: {}
