@@ -27,13 +27,28 @@ runner pool is unprivileged).
 
 ## Distro matrix
 
-| Distro       | Init system | Pkg mgr | Status |
-|--------------|-------------|---------|--------|
-| Debian 12    | systemd     | apt     | ✓      |
-| Ubuntu 22.04 | systemd     | apt     | ✓      |
-| Ubuntu 24.04 | systemd     | apt     | ✓      |
-| Rocky 9      | systemd     | dnf     | ✓      |
-| Alpine 3.19  | OpenRC      | apk     | ✓      |
+| Distro        | Init system | Pkg mgr | Status |
+|---------------|-------------|---------|--------|
+| Debian 12     | systemd     | apt     | ✓      |
+| Ubuntu 22.04  | systemd     | apt     | ✓      |
+| Ubuntu 24.04  | systemd     | apt     | ✓      |
+| Rocky 9       | systemd     | dnf     | ✓      |
+| Alpine 3.19   | OpenRC      | apk     | ✓      |
+| openSUSE Leap | systemd     | zypper  | ✓      |
+| Arch          | systemd     | pacman  | ✓      |
+| Devuan        | sysvinit    | apt     | ✓      |
+
+The bottom three were added to exercise the backends that landed after
+the original five — **zypper** (openSUSE) and **pacman** (Arch) for the
+`package` module, and **sysvinit** (Devuan) for the `service` module —
+and all three run green via `make test-cross-distro`. Notes: the
+`package` index refreshes via `zypper --non-interactive refresh` /
+`pacman -Sy`; Devuan's sysvinit ops are script-based, so it boots a
+keep-alive container (no PID-1 init) and `wait_ready` waits for the boot
+to finish (PID 1 == `sleep`) before the smoke runs, so the smoke's apt
+doesn't race the boot's. The `disk` phase degrades gracefully when the
+host is short on loop devices (e.g. snapd holds several): a scenario that
+can't allocate a loop is skipped, not failed.
 
 ## Layout
 
@@ -44,6 +59,7 @@ runner pool is unprivileged).
 | `harness/`           | A small static (CGO-free, runs on glibc + musl) Go program that compiles a state file and drives `Runner.Run` twice against the local registry — no kscore-server / NATS / Postgres needed. Has its own hermetic unit test. |
 | `smoke.systemd.yaml` | Fixture for the systemd distros — `service` declared `running` + `enable`. |
 | `smoke.openrc.yaml`  | Fixture for Alpine — `service` declared `stopped` + `enable` (OpenRC service supervision doesn't daemonise reliably in a container; the runlevel/enable path and status/exists queries do, so the smoke asserts those). |
+| `smoke.sysvinit.yaml`| Fixture for Devuan — same shape as the OpenRC one (`service` `stopped` + `enable`). sysvinit's ops are script-based (`service` / `update-rc.d`), so a keep-alive container with no booted init is enough to exercise the enable + status/exists paths. |
 | `smoke.disk.sh`      | The `disk`-module phase, run by `smoke.sh` after the main fixture. `disk` needs real block devices, so it backs each scenario with a loopback device (`losetup` over a sparse image), generates a disk fixture, and runs the harness on it. Self-gates on loop-device + per-fstype tool availability; tears loops/mounts down on exit. |
 
 ## Coverage scope

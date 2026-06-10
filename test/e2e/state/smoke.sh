@@ -46,12 +46,15 @@ case "$PKG_MGR" in
   apt) apt-get update -qq >/dev/null 2>&1 ;;
   apk) apk update -q >/dev/null 2>&1 ;;
   dnf) : ;; # dnf fetches repo metadata on demand
+  zypper) zypper --non-interactive refresh >/dev/null 2>&1 ;;
+  pacman) pacman -Sy --noconfirm >/dev/null 2>&1 ;;
   *) echo "==> [${DISTRO}] unknown package manager ${PKG_MGR}" >&2; exit 2 ;;
 esac
 
 case "$INIT" in
-  systemd) FIXTURE=/src/test/e2e/state/smoke.systemd.yaml ;;
-  openrc)  FIXTURE=/src/test/e2e/state/smoke.openrc.yaml ;;
+  systemd)  FIXTURE=/src/test/e2e/state/smoke.systemd.yaml ;;
+  openrc)   FIXTURE=/src/test/e2e/state/smoke.openrc.yaml ;;
+  sysvinit) FIXTURE=/src/test/e2e/state/smoke.sysvinit.yaml ;;
   *) echo "==> [${DISTRO}] unknown init ${INIT}" >&2; exit 2 ;;
 esac
 

@@ -81,11 +81,19 @@ esac
 img_for() { echo "$ROOT/$1.img"; }
 
 # mk_loop <name> <sizeMB> → sets KSCORE_RESULT to the loop device and
-# records it for teardown. Not run in a subshell (so LOOPS survives).
+# records it for teardown; returns 1 (KSCORE_RESULT="") when no free loop
+# device can be allocated, so the caller can skip that scenario rather
+# than fail the phase. Hosts can be short on loops (e.g. snapd holds
+# several), and `losetup -f` then fails with "No such file or directory".
+# Not run in a subshell (so LOOPS survives).
 mk_loop() {
   _img=$(img_for "$1")
   make_sparse "$_img" "$2"
-  KSCORE_RESULT=$(losetup -f --show "$_img")
+  if ! KSCORE_RESULT=$(losetup -f --show "$_img" 2>/dev/null); then
+    rm -f "$_img"
+    KSCORE_RESULT=""
+    return 1
+  fi
   LOOPS="$LOOPS $KSCORE_RESULT"
 }
 
@@ -150,11 +158,17 @@ setup_fstype() {
 
   # mkfs scenario: a blank loop the module formats (force flag → the
   # whole-device mkfs is non-interactive).
-  mk_loop "${_fs}-mkfs" "$_base"
+  if ! mk_loop "${_fs}-mkfs" "$_base"; then
+    log "${_fs}: no free loop device — skipping (host loops exhausted)"
+    return 0
+  fi
   emit "${_fs}-mkfs" "$KSCORE_RESULT" "$_fs" no "$_force"
 
   # resize scenario: a small fs on a grown device.
-  mk_loop "${_fs}-resize" "$_base"
+  if ! mk_loop "${_fs}-resize" "$_base"; then
+    log "${_fs}: no free loop device — skipping resize scenario"
+    return 0
+  fi
   _dev="$KSCORE_RESULT"
   if ! mkfs_one "$_fs" "$_dev"; then
     log "${_fs}: pre-seed mkfs failed — skipping resize scenario"
