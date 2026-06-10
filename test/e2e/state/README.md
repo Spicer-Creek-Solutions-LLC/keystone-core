@@ -61,16 +61,28 @@ can't allocate a loop is skipped, not failed.
 | `smoke.openrc.yaml`  | Fixture for Alpine — `service` declared `stopped` + `enable` (OpenRC service supervision doesn't daemonise reliably in a container; the runlevel/enable path and status/exists queries do, so the smoke asserts those). |
 | `smoke.sysvinit.yaml`| Fixture for Devuan — same shape as the OpenRC one (`service` `stopped` + `enable`). sysvinit's ops are script-based (`service` / `update-rc.d`), so a keep-alive container with no booted init is enough to exercise the enable + status/exists paths. |
 | `smoke.disk.sh`      | The `disk`-module phase, run by `smoke.sh` after the main fixture. `disk` needs real block devices, so it backs each scenario with a loopback device (`losetup` over a sparse image), generates a disk fixture, and runs the harness on it. Self-gates on loop-device + per-fstype tool availability; tears loops/mounts down on exit. |
+| `smoke.firewall.sh`  | The `firewall`-abstraction phase, run by `smoke.sh` after the disk phase. Installs `iptables`, then applies a `firewall` fixture (`service:` + `port:`) and re-applies for idempotency. The rules apply inside the container's own network namespace, so nothing on the host is touched and no teardown is needed. Self-gates if no backend tool can be installed. |
 
 ## Coverage scope
 
 The fixtures currently exercise `file` + `package` + `service` +
-`user`/`group` + `hostname` + `disk` — the modules whose backends vary
-across distros and now have cross-distro implementations. `user`/`group`
-route to shadow-utils on the systemd distros and to BusyBox
-`adduser`/`addgroup` on Alpine (where shadow-utils is absent).
+`user`/`group` + `hostname` + `disk` + `firewall` — the modules whose
+backends vary across distros and now have cross-distro implementations.
+`user`/`group` route to shadow-utils on the systemd distros and to
+BusyBox `adduser`/`addgroup` on Alpine (where shadow-utils is absent).
 `hostname` uses `hostnamectl` on the systemd distros and the
 `/etc/hostname` + `hostname(1)` fallback on Alpine.
+
+`firewall` is the cross-backend abstraction (one declaration → "allow
+this service / port inbound"); `smoke.firewall.sh` installs `iptables`
+and applies a `service: ssh` (resolved through the named-service
+catalog → 22/tcp) plus an explicit `port: 443/tcp`, each becoming one
+rule per family — so the abstraction's backend detection, the iptables
+backend, its dual-stack (IPv4 + IPv6 when `ip6tables` is present), and
+the service catalog are all exercised live. The detector only selects
+firewalld when its daemon is running (`firewall-cmd --state` exits 0),
+which the phase never starts, so with `iptables` installed the backend
+is deterministically iptables on every distro.
 
 `disk` exercises `mkfs` and `resize_fs` per fstype against loop-backed
 devices (`smoke.disk.sh`): a *blank* loop tests the format path, and a
@@ -108,6 +120,29 @@ replaced — `hostnamectl` and the rename-based fallback both fail with
 before applying so `/etc/hostname` is an ordinary, settable file; the
 running UTS-namespace hostname is unaffected. On a real host (no
 bind-mount) this is a no-op.
+
+Caveat — `firewall` backend scope: the phase pins the **iptables**
+backend (installed and deterministically detected, as described above),
+so the abstraction's detection + iptables backend + dual-stack +
+catalog get live cross-distro coverage, but the **nftables** and
+**firewalld** backends are not yet exercised live — pinning `backend:
+nftables` and standing up a running firewalld daemon are follow-ups. As
+with the disk phase, when no backend tool can be installed the firewall
+phase **skips cleanly**.
+
+Caveat — `firewall` IPv6 in a container: the iptables backend is
+dual-stack (it applies the IPv6 half when `ip6tables` is present). The
+iptables-nft variant (Debian/Ubuntu/Rocky/Alpine/Arch/Devuan)
+auto-initializes the IPv6 filter table via `nf_tables`, so the dual-stack
+path runs live there. A **legacy** `ip6tables` (openSUSE) instead needs
+the kernel's `ip6table_filter` module loaded, which a container generally
+can't load (the host kernel's modules aren't in the container's
+`/lib/modules`). When `smoke.firewall.sh` probes the IPv6 filter table
+and finds it unusable, it disables `ip6tables` so the backend takes its
+documented **IPv4-only graceful skip** — the same path a real
+IPv4-only-iptables host takes (so that skip path is itself exercised
+live). The IPv6 dual-stack apply is still covered by the six iptables-nft
+distros.
 
 ## Adding a distro
 

@@ -79,4 +79,10 @@ echo "==> [${DISTRO}] applying $(basename "$FIXTURE") (apply + idempotency re-ap
 export KSCORE_HARNESS="$HARNESS"
 sh /src/test/e2e/state/smoke.disk.sh
 
+# Firewall phase: the `firewall` abstraction drives a live backend
+# (iptables, net-namespaced to this container), so it runs in its own
+# script that installs the tool and self-gates if none is available. Its
+# failure fails the smoke.
+sh /src/test/e2e/state/smoke.firewall.sh
+
 echo "==> [${DISTRO}] OK"
