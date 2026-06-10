@@ -96,10 +96,11 @@ wait_ready() {
         if docker exec "$cname" test -f /run/openrc/softlevel 2>/dev/null; then return 0; fi
         ;;
       sysvinit)
-        # Keep-alive PID 1 (sleep infinity); the script-based sysvinit
-        # ops need no booted init, so the container is ready as soon as
-        # it is up.
-        return 0
+        # The keep-alive boot does its apt setup (install the service /
+        # update-rc.d tools), THEN `exec sleep infinity`. Wait until PID 1
+        # is that sleep — i.e. the boot's apt work has finished — so
+        # smoke.sh's own apt ops don't race the boot for the dpkg lock.
+        if [ "$(docker exec "$cname" cat /proc/1/comm 2>/dev/null)" = sleep ]; then return 0; fi
         ;;
     esac
     sleep 3

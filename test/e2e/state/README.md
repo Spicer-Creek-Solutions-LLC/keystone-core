@@ -34,18 +34,21 @@ runner pool is unprivileged).
 | Ubuntu 24.04  | systemd     | apt     | ✓      |
 | Rocky 9       | systemd     | dnf     | ✓      |
 | Alpine 3.19   | OpenRC      | apk     | ✓      |
-| openSUSE Leap | systemd     | zypper  | new    |
-| Arch          | systemd     | pacman  | new    |
-| Devuan        | sysvinit    | apt     | new    |
+| openSUSE Leap | systemd     | zypper  | ✓      |
+| Arch          | systemd     | pacman  | ✓      |
+| Devuan        | sysvinit    | apt     | ✓      |
 
 The bottom three were added to exercise the backends that landed after
-the original five: **zypper** (openSUSE) and **pacman** (Arch) for the
-`package` module, and **sysvinit** (Devuan) for the `service` module.
-They are marked `new` rather than `✓` because they have not yet been run
-on a Docker host — the first `make test-cross-distro` run is their live
-validation (the per-distro image tags, package/service names, and boot
-commands are best-effort). The matrix is failure-isolated, so a distro
-that needs a tweak shows red on its own row without affecting the others.
+the original five — **zypper** (openSUSE) and **pacman** (Arch) for the
+`package` module, and **sysvinit** (Devuan) for the `service` module —
+and all three run green via `make test-cross-distro`. Notes: the
+`package` index refreshes via `zypper --non-interactive refresh` /
+`pacman -Sy`; Devuan's sysvinit ops are script-based, so it boots a
+keep-alive container (no PID-1 init) and `wait_ready` waits for the boot
+to finish (PID 1 == `sleep`) before the smoke runs, so the smoke's apt
+doesn't race the boot's. The `disk` phase degrades gracefully when the
+host is short on loop devices (e.g. snapd holds several): a scenario that
+can't allocate a loop is skipped, not failed.
 
 ## Layout
 
