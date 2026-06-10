@@ -13,9 +13,9 @@ var ErrUnsupportedOS = errors.New("pkg: unsupported OS for v0.1 (Linux only)")
 
 // ErrNoBackend is returned by Apply paths when no supported
 // package manager binary was detected on the host. Supported: apt
-// (Debian/Ubuntu), dnf (RHEL/Rocky/Fedora), and apk (Alpine);
-// zypper / pacman are tracked for post-v1.0 follow-ups.
-var ErrNoBackend = errors.New("pkg: no supported package manager detected on this host (none of apt-get, dnf, apk found; zypper / pacman are v1.x)")
+// (Debian/Ubuntu), dnf (RHEL/Rocky/Fedora), zypper (openSUSE/SLES),
+// apk (Alpine), and pacman (Arch).
+var ErrNoBackend = errors.New("pkg: no supported package manager detected on this host (none of apt-get, dnf, zypper, apk, pacman found)")
 
 // PkgInfo is the on-system shape the module compares against the
 // declaration. Version is empty when Installed is false; a present

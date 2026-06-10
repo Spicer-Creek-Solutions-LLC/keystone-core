@@ -11,8 +11,8 @@ import (
 
 // defaultProvider auto-detects the host's package manager by
 // probing for each backend's primary binary in order of preference.
-// Supports apt (Debian/Ubuntu), dnf (RHEL 8+/Rocky/Fedora), and apk
-// (Alpine).
+// Supports apt (Debian/Ubuntu), dnf (RHEL 8+/Rocky/Fedora), zypper
+// (openSUSE/SLES), apk (Alpine), and pacman (Arch).
 //
 // Detection is binary-presence based rather than reading
 // /etc/os-release: distros that mix package managers (e.g., RHEL
@@ -31,8 +31,17 @@ func defaultProvider() Provider {
 	if dnfErr == nil && rpmErr == nil {
 		return newDnfProvider(dnf, rpm)
 	}
+	// zypper is the other rpm-based manager (openSUSE / SLES). Probed
+	// after dnf — the two are mutually exclusive in practice, but a host
+	// with both resolves to dnf.
+	if zypper, zErr := exec.LookPath("zypper"); zErr == nil && rpmErr == nil {
+		return newZypperProvider(zypper, rpm)
+	}
 	if apk, err := exec.LookPath("apk"); err == nil {
 		return newApkProvider(apk)
+	}
+	if pacman, err := exec.LookPath("pacman"); err == nil {
+		return newPacmanProvider(pacman)
 	}
 	return &undetectedProvider{}
 }
