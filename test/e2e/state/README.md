@@ -64,12 +64,16 @@ can't allocate a loop is skipped, not failed.
 | `smoke.firewall.sh`  | The `firewall`-abstraction phase, run by `smoke.sh` after the disk phase. Installs `iptables`, then applies a `firewall` fixture (`service:` + `port:`) and re-applies for idempotency. The rules apply inside the container's own network namespace, so nothing on the host is touched and no teardown is needed. Self-gates if no backend tool can be installed. |
 | `smoke.lvm.sh`       | The `lvm`-module phase, run by `smoke.sh` after the firewall phase. Installs `lvm2`, then drives the module through its create lifecycle (`pv` → `vg` → `lv`), an LV grow (`lvextend`), and — when a second loop is free — a VG PV-set reconcile (`vgextend`), each as its own harness invocation so the grow/extend paths re-apply idempotently. Each Physical Volume is a loopback device. Self-gates on `lvm2` + loop-device availability; teardown (raw `lvm` + `dmsetup` + `losetup`) is guaranteed by the trap. |
 | `smoke.netdev.sh`    | The virtual-interface phase (`bond` + `bridge` + `vlan`), run by `smoke.sh` after the lvm phase. Installs a JSON-capable `iproute2`, builds `dummy` scaffold interfaces for the members/parent, then applies a fixture that creates one bond, one bridge, and one VLAN at runtime — each with `persist: networkd` so the boot-config renderer is exercised too — and re-applies for idempotency. The interfaces live in the container's own network namespace, so nothing on the host is touched. Self-gates on JSON `iproute2`, the `dummy` module, and per-interface-type kernel-module availability. |
+| `smoke.mount.sh`     | The `mount`-module phase, run by `smoke.sh` after the netdev phase. Backs a `mounted` declaration with a loop-backed ext4 device and asserts the fstab entry + live mount converge then no-op. The mount is private to the container's own mount namespace. Self-gates on loop-device + mkfs/mount tool availability; unmounts + detaches on exit. |
+| `smoke.sched.sh`     | The scheduled-task phase (`cron` + `at` + `systemd_timer`), run by `smoke.sh` after the mount phase. Installs `cron` + `at` (and starts `atd`), then applies a crontab entry, an `at` queue entry, and — on systemd distros — a `.timer` unit. Each module is self-gated on its tooling (`crontab` / a startable `atd` / a booted systemd). |
+| `smoke.sysconf.sh`   | The system-config phase (`timezone` + `sysctl`), run by `smoke.sh` after the sched phase. Installs `tzdata` + `procps`, then sets the timezone (`timedatectl` on systemd, `/etc/localtime` symlink elsewhere) and a `net.*` sysctl with its persist drop-in. The sysctl is per-netns, so it stays inside the container. |
 
 ## Coverage scope
 
 The fixtures currently exercise `file` + `package` + `service` +
 `user`/`group` + `hostname` + `disk` + `firewall` + `lvm` +
-`bond`/`bridge`/`vlan` — the modules whose backends vary across distros
+`bond`/`bridge`/`vlan` + `mount` + `cron`/`at`/`systemd_timer` +
+`timezone`/`sysctl` — the modules whose backends vary across distros
 and now have cross-distro implementations. `user`/`group` route to
 shadow-utils on the systemd distros and to BusyBox `adduser`/`addgroup`
 on Alpine (where shadow-utils is absent). `hostname` uses `hostnamectl`
@@ -87,6 +91,16 @@ created in the container's own network namespace, so they are private
 to the container and never touch the host or a sibling distro's
 container — the kernel `dummy`/`bonding`/`bridge`/`8021q` modules are
 global and may be auto-loaded, which is harmless.
+
+`mount` (`smoke.mount.sh`) mounts a loop-backed ext4 device at a scratch
+point — the mount namespace is per-container, so it stays private to the
+container. `cron`/`at`/`systemd_timer` (`smoke.sched.sh`) manage a
+crontab entry, an `at` queue entry, and a systemd `.timer` unit (the
+last on systemd distros only). `timezone`/`sysctl` (`smoke.sysconf.sh`)
+set the system timezone — `timedatectl` on the systemd distros, the
+`/etc/localtime` symlink + `/etc/timezone` fallback on Alpine/Devuan, so
+both code paths are covered — and a `net.*` kernel parameter (per-netns,
+so contained to the container) with its `/etc/sysctl.d` persist drop-in.
 
 `firewall` is the cross-backend abstraction (one declaration → "allow
 this service / port inbound"); `smoke.firewall.sh` installs `iptables`
@@ -241,6 +255,27 @@ documented **IPv4-only graceful skip** — the same path a real
 IPv4-only-iptables host takes (so that skip path is itself exercised
 live). The IPv6 dual-stack apply is still covered by the six iptables-nft
 distros.
+
+## Modules deliberately not in the matrix
+
+Every stdlib module with distro-varying, container-safe live behaviour
+is now exercised above. The rest are excluded for a concrete reason, not
+an oversight:
+
+- **Hermetic — covered by `cmd/kscore-server/state_integration_test.go`,
+  not a container**: `file`, `link`, `cmd`, `config`, and also `ssh`
+  (an `authorized_keys` line) and `archive` (tar/zip extraction) — these
+  are pure file operations with no per-distro variance.
+- **Matrix-hostile — would disturb the host or can't run isolated**:
+  `network` and `route` reconcile a *real* interface's
+  addresses/routes, which would break the container's own networking;
+  `swap` activation (`swapon`) fails on an overlayfs swapfile and is
+  host-global (not namespaced) regardless; `kernel_module` loads modules
+  into the *host* kernel; `security` (SELinux/AppArmor) reads/writes
+  host-global LSM state; `system`'s `reboot` op would kill the container.
+- **Network-dependent**: `git` (clones a URL) and `langpkg`
+  (pip/npm/gem registries) need outbound network and external services,
+  which the hermetic, offline matrix deliberately avoids.
 
 ## Adding a distro
 

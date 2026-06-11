@@ -96,4 +96,16 @@ sh /src/test/e2e/state/smoke.lvm.sh
 # self-gates per interface type. Its failure fails the smoke.
 sh /src/test/e2e/state/smoke.netdev.sh
 
+# Mount phase: the `mount` module manages a filesystem's fstab entry +
+# live mount state in the container's own mount namespace (loop-backed).
+sh /src/test/e2e/state/smoke.mount.sh
+
+# Scheduled-task phase: cron + at + systemd_timer, each self-gating on
+# its tooling (crontab / atd / a booted systemd).
+sh /src/test/e2e/state/smoke.sched.sh
+
+# System-config phase: timezone (timedatectl / symlink) + sysctl (a
+# per-netns net.* key + its persist drop-in).
+sh /src/test/e2e/state/smoke.sysconf.sh
+
 echo "==> [${DISTRO}] OK"
