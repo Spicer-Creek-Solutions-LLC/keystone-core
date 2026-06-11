@@ -63,16 +63,30 @@ can't allocate a loop is skipped, not failed.
 | `smoke.disk.sh`      | The `disk`-module phase, run by `smoke.sh` after the main fixture. `disk` needs real block devices, so it backs each scenario with a loopback device (`losetup` over a sparse image), generates a disk fixture, and runs the harness on it. Self-gates on loop-device + per-fstype tool availability; tears loops/mounts down on exit. |
 | `smoke.firewall.sh`  | The `firewall`-abstraction phase, run by `smoke.sh` after the disk phase. Installs `iptables`, then applies a `firewall` fixture (`service:` + `port:`) and re-applies for idempotency. The rules apply inside the container's own network namespace, so nothing on the host is touched and no teardown is needed. Self-gates if no backend tool can be installed. |
 | `smoke.lvm.sh`       | The `lvm`-module phase, run by `smoke.sh` after the firewall phase. Installs `lvm2`, then drives the module through its create lifecycle (`pv` → `vg` → `lv`), an LV grow (`lvextend`), and — when a second loop is free — a VG PV-set reconcile (`vgextend`), each as its own harness invocation so the grow/extend paths re-apply idempotently. Each Physical Volume is a loopback device. Self-gates on `lvm2` + loop-device availability; teardown (raw `lvm` + `dmsetup` + `losetup`) is guaranteed by the trap. |
+| `smoke.netdev.sh`    | The virtual-interface phase (`bond` + `bridge` + `vlan`), run by `smoke.sh` after the lvm phase. Installs a JSON-capable `iproute2`, builds `dummy` scaffold interfaces for the members/parent, then applies a fixture that creates one bond, one bridge, and one VLAN at runtime — each with `persist: networkd` so the boot-config renderer is exercised too — and re-applies for idempotency. The interfaces live in the container's own network namespace, so nothing on the host is touched. Self-gates on JSON `iproute2`, the `dummy` module, and per-interface-type kernel-module availability. |
 
 ## Coverage scope
 
 The fixtures currently exercise `file` + `package` + `service` +
-`user`/`group` + `hostname` + `disk` + `firewall` + `lvm` — the modules
-whose backends vary across distros and now have cross-distro
-implementations. `user`/`group` route to shadow-utils on the systemd
-distros and to BusyBox `adduser`/`addgroup` on Alpine (where
-shadow-utils is absent). `hostname` uses `hostnamectl` on the systemd
-distros and the `/etc/hostname` + `hostname(1)` fallback on Alpine.
+`user`/`group` + `hostname` + `disk` + `firewall` + `lvm` +
+`bond`/`bridge`/`vlan` — the modules whose backends vary across distros
+and now have cross-distro implementations. `user`/`group` route to
+shadow-utils on the systemd distros and to BusyBox `adduser`/`addgroup`
+on Alpine (where shadow-utils is absent). `hostname` uses `hostnamectl`
+on the systemd distros and the `/etc/hostname` + `hostname(1)` fallback
+on Alpine.
+
+`bond`/`bridge`/`vlan` create a Linux virtual interface at runtime via
+`ip link add … type …` (`smoke.netdev.sh`): the phase builds `dummy`
+scaffold interfaces, then applies a fixture that creates one bond (over
+a dummy member), one bridge (over a dummy port), and one VLAN (on a
+dummy parent), each carrying `persist: networkd` so the shared
+`netpersist` renderer (a `.netdev` plus member-side enslave drop-ins)
+is exercised alongside the runtime `ip link` path. The interfaces are
+created in the container's own network namespace, so they are private
+to the container and never touch the host or a sibling distro's
+container — the kernel `dummy`/`bonding`/`bridge`/`8021q` modules are
+global and may be auto-loaded, which is harmless.
 
 `firewall` is the cross-backend abstraction (one declaration → "allow
 this service / port inbound"); `smoke.firewall.sh` installs `iptables`
@@ -174,6 +188,21 @@ busy"). The phase also pre-cleans its own (distro-unique) VG before
 creating, and its teardown removes only its own VG + dm node — never
 `dmsetup remove_all`, which is host-global and would take unrelated
 (even the host's own) inactive device-mapper devices with it.
+
+Caveat — `bond`/`bridge`/`vlan` iproute2 + kernel modules: the phase
+needs a JSON-capable `iproute2` (the providers parse `ip -d -j link
+show`; Alpine's BusyBox `ip` lacks `-j`, so the full `iproute2` package
+is installed) and the host kernel's `dummy` module (for the scaffold
+members/parent). Each interface type is gated on its own kernel module
+(`bonding` / `bridge` / `8021q`): a type whose module can't be loaded is
+dropped from the fixture with a log line, the same way the disk phase
+skips an unavailable fstype. Unlike the `network` and `route` modules —
+which reconcile a *real* interface's addresses/routes and so would
+disturb the container's own networking — these three only ever create
+*new* virtual interfaces over dummies, which is why they can join the
+matrix at all. Because the interfaces live in the container's network
+namespace (and the rendered `persist` files in its filesystem), teardown
+is hygiene only; nothing leaks to the host.
 
 Caveat — `user`/`group`: BusyBox ships no `usermod`/`groupmod`, so on
 Alpine those backends cannot modify an existing account's scalar fields

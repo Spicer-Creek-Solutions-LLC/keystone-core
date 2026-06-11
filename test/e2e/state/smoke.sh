@@ -90,4 +90,10 @@ sh /src/test/e2e/state/smoke.firewall.sh
 # loop availability). Its failure fails the smoke.
 sh /src/test/e2e/state/smoke.lvm.sh
 
+# Netdev phase: the `bond`/`bridge`/`vlan` modules create virtual
+# interfaces (over dummy scaffolds) in the container's own network
+# namespace, so they run in their own script that installs iproute2 and
+# self-gates per interface type. Its failure fails the smoke.
+sh /src/test/e2e/state/smoke.netdev.sh
+
 echo "==> [${DISTRO}] OK"
