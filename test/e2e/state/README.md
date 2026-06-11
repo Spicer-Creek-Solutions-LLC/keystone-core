@@ -62,16 +62,17 @@ can't allocate a loop is skipped, not failed.
 | `smoke.sysvinit.yaml`| Fixture for Devuan — same shape as the OpenRC one (`service` `stopped` + `enable`). sysvinit's ops are script-based (`service` / `update-rc.d`), so a keep-alive container with no booted init is enough to exercise the enable + status/exists paths. |
 | `smoke.disk.sh`      | The `disk`-module phase, run by `smoke.sh` after the main fixture. `disk` needs real block devices, so it backs each scenario with a loopback device (`losetup` over a sparse image), generates a disk fixture, and runs the harness on it. Self-gates on loop-device + per-fstype tool availability; tears loops/mounts down on exit. |
 | `smoke.firewall.sh`  | The `firewall`-abstraction phase, run by `smoke.sh` after the disk phase. Installs `iptables`, then applies a `firewall` fixture (`service:` + `port:`) and re-applies for idempotency. The rules apply inside the container's own network namespace, so nothing on the host is touched and no teardown is needed. Self-gates if no backend tool can be installed. |
+| `smoke.lvm.sh`       | The `lvm`-module phase, run by `smoke.sh` after the firewall phase. Installs `lvm2`, then drives the module through its create lifecycle (`pv` → `vg` → `lv`), an LV grow (`lvextend`), and — when a second loop is free — a VG PV-set reconcile (`vgextend`), each as its own harness invocation so the grow/extend paths re-apply idempotently. Each Physical Volume is a loopback device. Self-gates on `lvm2` + loop-device availability; teardown (raw `lvm` + `dmsetup` + `losetup`) is guaranteed by the trap. |
 
 ## Coverage scope
 
 The fixtures currently exercise `file` + `package` + `service` +
-`user`/`group` + `hostname` + `disk` + `firewall` — the modules whose
-backends vary across distros and now have cross-distro implementations.
-`user`/`group` route to shadow-utils on the systemd distros and to
-BusyBox `adduser`/`addgroup` on Alpine (where shadow-utils is absent).
-`hostname` uses `hostnamectl` on the systemd distros and the
-`/etc/hostname` + `hostname(1)` fallback on Alpine.
+`user`/`group` + `hostname` + `disk` + `firewall` + `lvm` — the modules
+whose backends vary across distros and now have cross-distro
+implementations. `user`/`group` route to shadow-utils on the systemd
+distros and to BusyBox `adduser`/`addgroup` on Alpine (where
+shadow-utils is absent). `hostname` uses `hostnamectl` on the systemd
+distros and the `/etc/hostname` + `hostname(1)` fallback on Alpine.
 
 `firewall` is the cross-backend abstraction (one declaration → "allow
 this service / port inbound"); `smoke.firewall.sh` installs `iptables`
@@ -93,6 +94,19 @@ mounted), `btrfs` (`btrfs filesystem resize`, mounted), and `f2fs`
 (`resize.f2fs`, offline; the fill-check reads the on-disk superblock) —
 each gated on the presence of its tools.
 
+`lvm` drives the module against loop-backed Physical Volumes
+(`smoke.lvm.sh`), one harness invocation per behaviour so the grow /
+extend paths re-apply idempotently without a raw pre-seed: a **create**
+fixture (`pv` → `vg` → `lv` with a size), then an **LV grow** fixture
+that re-declares the LV larger (`lvextend` on pass 1, no-op on pass 2),
+then — when a second loop is free — a **VG reconcile** fixture that
+declares a second PV in the VG (`pvcreate` + `vgextend` on pass 1, no-op
+on pass 2). This exercises the `pvcreate`/`vgcreate`/`lvcreate` create
+lifecycle plus the gate-v0.5 LV-resize and VG-PV-set-reconcile
+additions. Teardown (force-`vgremove`/`pvremove` + `dmsetup` +
+`losetup -d`) is guaranteed by the trap, independent of any module
+apply.
+
 Caveat — `disk` loop devices: the phase needs the host kernel's `loop`
 module (and, for xfs/btrfs, their filesystem modules) — like the
 privileged/cgroup requirement, this is a host dependency. When loop
@@ -105,6 +119,61 @@ f2fs-tools is EPEL-only), so on Rocky the disk phase covers `ext4` +
 cover all four. A weak `losetup` (e.g. BusyBox's, lacking `-c`) makes
 the resize scenario a no-op rather than a grow — still idempotent, just
 not exercising the grow on that host.
+
+Caveat — `lvm` loops + device-mapper: the phase needs `lvm2`, the host
+kernel's `loop` module, and a working device-mapper (the
+privileged/cgroup container provides the last). It is loop-frugal — one
+loop covers the create + LV-grow scenarios, and the VG-reconcile
+scenario needs a second free loop; when one can't be allocated (a host
+short on loops, e.g. snapd holds several) that scenario **skips
+cleanly** while create + grow still run. `extents:`-based LVs,
+`vgreduce`, and the `absent` removal path are not yet exercised here
+(follow-ups).
+
+Caveat — `lvm` udev + a private LVM config: LVM in a container is
+finicky, so `smoke.lvm.sh` points the tools at a tailored
+`lvm.conf` (via `LVM_SYSTEM_DIR`). The systemd distros boot
+`systemd-udevd`, but it does not reliably create the device-mapper
+nodes a container needs, so `lvcreate`'s zeroing step fails ("device
+not cleared"); `activation { udev_sync = 0  udev_rules = 0 }` makes LVM
+manage the nodes itself. This is deliberately done in the **config**,
+not via the `DM_DISABLE_UDEV` environment variable — when udev is
+running that variable makes libdevmapper print a "Bypassing udev"
+warning to **stderr**, and the `lvm` module reads its tools' *combined*
+stdout+stderr, so the warning corrupts the `pvs`/`vgs`/`lvs` output it
+parses. (The module's combined-output parsing is a latent fragility —
+any LVM stderr warning would trip it — flagged as a follow-up; the
+phase simply avoids emitting one.) The config also sets
+`obtain_device_list_from_udev = 0` (scan `/dev` directly, since a
+no-udev distro's udev-sourced list is empty) and a `global_filter` that
+accepts **only the loop devices this phase allocates**: a privileged
+container shares the host's loop devices and device-mapper, so a bare
+`/dev/loop*` glob would expose foreign VGs (a leftover from a crashed
+run, or a sibling distro mid-teardown in the same matrix) and drag the
+VG PV-set reconcile into a spurious `vgreduce`. Scoping the filter to
+the phase's own loops isolates it — and keeps LVM from ever scanning
+the host's real disks. `use_devicesfile = 0` is set — when the running
+LVM is new enough to know the setting — so the filter actually applies:
+newer LVM (RHEL 9 / Rocky) defaults to a "devices file" that ignores
+`global_filter` (and warns about it on stderr, re-tripping the
+combined-output parse); disabling it restores uniform filter-based
+scanning. The setting only exists in LVM ≥ 2.03.12, and an older LVM
+(Ubuntu 22.04's 2.03.11) warns "unknown" about it — the same
+parse-corrupting noise — so the phase emits the line only after an `lvm
+config devices/use_devicesfile` capability probe confirms it is
+recognised. Across the matrix this exercises four LVM versions
+(2.03.11 / .22 / .33 / .41), each with its own container quirks.
+
+Caveat — `lvm` device-mapper namespace: device-mapper is a host-global
+namespace shared by every privileged container, so the VG name is made
+**unique per distro** (`ksvg_<distro>`). With a shared `ksvg`/`kslv`,
+the `ksvg-kslv` dm node collides across the matrix's
+sequentially-run containers when a sibling's teardown lags
+(`lvcreate` fails "device-mapper: create ioctl … Device or resource
+busy"). The phase also pre-cleans its own (distro-unique) VG before
+creating, and its teardown removes only its own VG + dm node — never
+`dmsetup remove_all`, which is host-global and would take unrelated
+(even the host's own) inactive device-mapper devices with it.
 
 Caveat — `user`/`group`: BusyBox ships no `usermod`/`groupmod`, so on
 Alpine those backends cannot modify an existing account's scalar fields

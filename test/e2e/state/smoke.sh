@@ -85,4 +85,9 @@ sh /src/test/e2e/state/smoke.disk.sh
 # failure fails the smoke.
 sh /src/test/e2e/state/smoke.firewall.sh
 
+# LVM phase: the `lvm` module needs real block devices + device-mapper,
+# so it runs in its own loop-device-backed script (self-gating on lvm2 +
+# loop availability). Its failure fails the smoke.
+sh /src/test/e2e/state/smoke.lvm.sh
+
 echo "==> [${DISTRO}] OK"
