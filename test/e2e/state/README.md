@@ -103,15 +103,25 @@ both code paths are covered — and a `net.*` kernel parameter (per-netns,
 so contained to the container) with its `/etc/sysctl.d` persist drop-in.
 
 `firewall` is the cross-backend abstraction (one declaration → "allow
-this service / port inbound"); `smoke.firewall.sh` installs `iptables`
-and applies a `service: ssh` (resolved through the named-service
-catalog → 22/tcp) plus an explicit `port: 443/tcp`, each becoming one
-rule per family — so the abstraction's backend detection, the iptables
-backend, its dual-stack (IPv4 + IPv6 when `ip6tables` is present), and
-the service catalog are all exercised live. The detector only selects
-firewalld when its daemon is running (`firewall-cmd --state` exits 0),
-which the phase never starts, so with `iptables` installed the backend
-is deterministically iptables on every distro.
+this service / port inbound"); `smoke.firewall.sh` exercises **all three
+backends**, each as its own harness invocation:
+
+- **iptables** (auto-detected) — applies `service: ssh` (resolved
+  through the named-service catalog → 22/tcp) + an explicit `port:
+  443/tcp`, covering the abstraction's detection path, the iptables
+  backend, and its dual-stack (IPv4 + IPv6 when `ip6tables` is present).
+- **nftables** (pinned via `backend: nftables`) — the abstraction
+  targets `inet filter input`, which v1.0 does not create, so the phase
+  pre-creates that base chain, then applies `service: ssh`.
+- **firewalld** (auto-detected once its daemon is running, so this also
+  covers the detector's firewalld branch) — installs + starts firewalld,
+  polls `firewall-cmd --state` until running, then applies `service:
+  ssh` in zone `public`.
+
+They run in that order because starting firewalld reconfigures netfilter;
+each earlier scenario has already asserted its idempotency by then.
+Everything is net-namespaced, so the rules apply in the container's own
+network namespace and need no teardown.
 
 `disk` exercises `mkfs` and `resize_fs` per fstype against loop-backed
 devices (`smoke.disk.sh`): a *blank* loop tests the format path, and a
@@ -233,14 +243,20 @@ before applying so `/etc/hostname` is an ordinary, settable file; the
 running UTS-namespace hostname is unaffected. On a real host (no
 bind-mount) this is a no-op.
 
-Caveat — `firewall` backend scope: the phase pins the **iptables**
-backend (installed and deterministically detected, as described above),
-so the abstraction's detection + iptables backend + dual-stack +
-catalog get live cross-distro coverage, but the **nftables** and
-**firewalld** backends are not yet exercised live — pinning `backend:
-nftables` and standing up a running firewalld daemon are follow-ups. As
-with the disk phase, when no backend tool can be installed the firewall
-phase **skips cleanly**.
+Caveat — `firewall` backend coverage: all three backends are exercised,
+but firewalld's reach is bounded by the container. **iptables** and
+**nftables** run on every distro where their tools install. **firewalld**
+runs on the systemd distros only (it needs the daemon + dbus), and even
+there only where its **D-Bus interface actually responds** in the
+container: the daemon process starts, but on some distros (observed:
+Debian 12, Ubuntu 24.04) `firewall-cmd --state` returns a D-Bus NoReply
+and the scenario self-gates. This is the same `firewall-cmd --state`
+check the module's own detector uses, so where it fails the firewalld
+backend genuinely isn't usable — the skip is correct, not a workaround.
+In a representative run firewalld covered Ubuntu 22.04, Rocky 9, openSUSE
+Leap, and Arch; Debian 12 / Ubuntu 24.04 self-gated on the dbus NoReply,
+and Alpine / Devuan self-gated as non-systemd. When no backend tool can
+be installed at all, the whole firewall phase **skips cleanly**.
 
 Caveat — `firewall` IPv6 in a container: the iptables backend is
 dual-stack (it applies the IPv6 half when `ip6tables` is present). The

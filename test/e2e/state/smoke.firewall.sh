@@ -10,23 +10,29 @@
 # declaration → "allow this service / port inbound"); it auto-detects a
 # backend (firewalld if its daemon is running, else iptables, else nft)
 # and drives the concrete backend module against the live system. This
-# phase installs `iptables` and applies a small fixture twice, asserting
-# the second pass is a zero-change no-op — so the abstraction's
-# detection + the iptables backend + its dual-stack (IPv4 + IPv6) and
-# named-service catalog are exercised live, not mocked.
+# phase exercises ALL THREE backends, each as its own harness invocation
+# asserting apply + a zero-change re-apply:
 #
-# Why iptables specifically: it is net-namespaced, so the rules apply
-# inside the container's own network namespace (the matrix containers do
-# NOT use --network=host) and vanish with the container — no host state
-# is touched, and no teardown is load-bearing. firewalld is only picked
-# by the detector when its daemon is *running* (`firewall-cmd --state`
-# exits 0); this phase never starts it, so installing iptables makes the
-# backend deterministically iptables on every distro. nftables-pinned
-# and firewalld-daemon coverage are follow-ups (see README.md).
+#   1. iptables  — auto-detected (firewalld not yet running); covers the
+#                  detection path, the iptables backend, its dual-stack
+#                  (IPv4 + IPv6), and the named-service catalog.
+#   2. nftables  — pinned via `backend: nftables`. The abstraction targets
+#                  `inet filter input`, which v1.0 does NOT create, so the
+#                  phase pre-creates that base chain first.
+#   3. firewalld — auto-detected once its daemon is running (so this also
+#                  covers the detector's firewalld branch). systemd distros
+#                  only — it needs the daemon + dbus.
 #
-# Self-gating: if no backend tool can be installed (so `iptables` is not
-# on PATH), it skips cleanly (exit 0) rather than failing the matrix —
-# the same discipline as the disk phase's loop-device gate.
+# Ordering matters: firewalld is last because starting it reconfigures
+# netfilter; each earlier scenario has already asserted its idempotency by
+# then. Everything is net-namespaced (the matrix containers do NOT use
+# --network=host), so the rules apply inside the container's own network
+# namespace and vanish with it — no host state is touched, no teardown is
+# load-bearing.
+#
+# Self-gating: each scenario skips cleanly when its tooling is missing
+# (no iptables / no nft / not a booted-systemd host or firewalld won't
+# come up), rather than failing the matrix.
 #
 # POSIX sh (dash / busybox ash / bash). No bashisms, no `local`.
 
@@ -34,6 +40,7 @@ set -eu
 
 DISTRO="${KSCORE_DISTRO:-unknown}"
 PKG_MGR="${KSCORE_PKG_MGR:?KSCORE_PKG_MGR required}"
+INIT="${KSCORE_INIT:-unknown}"
 HARNESS="${KSCORE_HARNESS:-/usr/local/bin/kscore-state-harness}"
 ROOT=/var/tmp/kscore-smoke/firewall
 mkdir -p "$ROOT"
@@ -41,9 +48,15 @@ mkdir -p "$ROOT"
 log() { echo "==> [${DISTRO}] firewall: $*"; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
-# --- ensure a backend tool (best effort; the gate below handles gaps) -
-# Debian/RHEL/SUSE ship ip6tables alongside the iptables package; Alpine
-# splits it out; Arch's iptables-nft provides the `iptables` command.
+# apply_scenario <label> <fixture-file> — run the harness on one fixture.
+apply_scenario() {
+  log "$1: applying (apply + idempotency re-apply)"
+  "$HARNESS" "$2"
+}
+
+# =====================================================================
+# Scenario 1 — iptables (auto-detected)
+# =====================================================================
 case "$PKG_MGR" in
   apt)    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq iptables >/dev/null 2>&1 || true ;;
   dnf)    dnf install -y -q iptables >/dev/null 2>&1 || true ;;
@@ -53,48 +66,119 @@ case "$PKG_MGR" in
   *) log "unknown package manager ${PKG_MGR}" ;;
 esac
 
-# --- gate: a firewall backend must be on PATH --------------------------
-if ! have iptables && ! have nft && ! have firewall-cmd; then
-  log "no firewall backend installable on ${DISTRO} — skipping firewall phase"
-  exit 0
+if have iptables; then
+  # IPv6 capability probe: the iptables backend is dual-stack when
+  # ip6tables is present. A *legacy* ip6tables (vs iptables-nft) needs the
+  # kernel's ip6table_filter module loaded; a container often can't load
+  # it (the host kernel's .ko files aren't in the container's
+  # /lib/modules), so the IPv6 filter table fails to initialize. When the
+  # probe shows it's unusable, neutralize ip6tables so the backend takes
+  # its documented IPv4-only graceful skip rather than hard-failing.
+  if have ip6tables && ! ip6tables -t filter -L INPUT >/dev/null 2>&1; then
+    ip6bin=$(command -v ip6tables)
+    log "iptables: IPv6 filter table unusable here — disabling ip6tables; running IPv4-only via the backend's graceful skip"
+    mv "$ip6bin" "${ip6bin}.smoke-disabled" 2>/dev/null || true
+  fi
+  FIX_IPT="$ROOT/ipt.yaml"
+  {
+    echo "metadata:"
+    echo "  name: kscore-cross-distro-smoke-firewall-iptables"
+    echo "  version: \"0.1\""
+    echo "firewall:"
+    echo "  allow-ssh:"
+    echo "    state: present"
+    echo "    service: ssh"
+    echo "  allow-https:"
+    echo "    state: present"
+    echo "    port: \"443/tcp\""
+  } >"$FIX_IPT"
+  log "iptables: backend auto-detected (service ssh + port 443/tcp)"
+  apply_scenario iptables "$FIX_IPT"
+else
+  log "iptables: unavailable — skipping iptables scenario"
 fi
 
-# --- IPv6 capability probe (container environment) ---------------------
-# The iptables backend is dual-stack: when ip6tables is present it applies
-# the IPv6 half too. A *legacy* ip6tables (vs iptables-nft) needs the
-# kernel's ip6table_filter module loaded; in a container that module often
-# can't be loaded (the host kernel's .ko files aren't in the container's
-# /lib/modules), so the IPv6 filter table fails to initialize ("Table does
-# not exist"). That makes the container an effectively IPv4-only-iptables
-# host. When the probe shows the IPv6 filter table is unusable, neutralize
-# ip6tables so the backend takes its documented IPv4-only graceful skip
-# (the same path a real IPv4-only host takes) rather than hard-failing the
-# dual-stack apply. iptables-nft auto-initializes the table, so this
-# leaves the dual-stack distros untouched.
-if have ip6tables && ! ip6tables -t filter -L INPUT >/dev/null 2>&1; then
-  ip6bin=$(command -v ip6tables)
-  log "IPv6 filter table unusable here (no loadable ip6 netfilter module) — disabling ip6tables; firewall phase runs IPv4-only via the backend's graceful skip"
-  mv "$ip6bin" "${ip6bin}.smoke-disabled" 2>/dev/null || true
+# =====================================================================
+# Scenario 2 — nftables (pinned via backend: nftables)
+# =====================================================================
+case "$PKG_MGR" in
+  apt)    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nftables >/dev/null 2>&1 || true ;;
+  dnf)    dnf install -y -q nftables >/dev/null 2>&1 || true ;;
+  apk)    apk add --no-cache nftables >/dev/null 2>&1 || true ;;
+  zypper) zypper --non-interactive install nftables >/dev/null 2>&1 || true ;;
+  pacman) pacman -S --noconfirm --needed nftables >/dev/null 2>&1 || true ;;
+esac
+
+if have nft; then
+  # The abstraction's nftables sub-decl targets `inet filter input`; v1.0
+  # requires it to already exist (chain creation is a V1X item), so
+  # pre-create the base chain — the realistic "firewall framework already
+  # set up its standard inbound chain" precondition.
+  nft add table inet filter 2>/dev/null || true
+  nft add chain inet filter input "{ type filter hook input priority 0 ; policy accept ; }" 2>/dev/null || true
+  if nft list chain inet filter input >/dev/null 2>&1; then
+    FIX_NFT="$ROOT/nft.yaml"
+    {
+      echo "metadata:"
+      echo "  name: kscore-cross-distro-smoke-firewall-nftables"
+      echo "  version: \"0.1\""
+      echo "firewall:"
+      echo "  allow-ssh-nft:"
+      echo "    state: present"
+      echo "    backend: nftables"
+      echo "    service: ssh"
+    } >"$FIX_NFT"
+    log "nftables: backend pinned (inet filter input pre-created, service ssh)"
+    apply_scenario nftables "$FIX_NFT"
+  else
+    log "nftables: could not create inet filter input chain — skipping nftables scenario"
+  fi
+else
+  log "nftables: nft unavailable — skipping nftables scenario"
 fi
 
-# --- fixture -----------------------------------------------------------
-# `service: ssh` resolves through the named-service catalog (→ 22/tcp);
-# `port:` exercises the explicit-port path. On the iptables backend each
-# becomes one rule per family (IPv4 + IPv6 when ip6tables is present).
-FIX="$ROOT/smoke.firewall.yaml"
-{
-  echo "metadata:"
-  echo "  name: kscore-cross-distro-smoke-firewall"
-  echo "  version: \"0.1\""
-  echo "firewall:"
-  echo "  allow-ssh:"
-  echo "    state: present"
-  echo "    service: ssh"
-  echo "  allow-https:"
-  echo "    state: present"
-  echo "    port: \"443/tcp\""
-} >"$FIX"
+# =====================================================================
+# Scenario 3 — firewalld (auto-detected; systemd distros only)
+# =====================================================================
+if [ "$INIT" = systemd ] && have systemctl; then
+  case "$PKG_MGR" in
+    apt)    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq firewalld >/dev/null 2>&1 || true ;;
+    dnf)    dnf install -y -q firewalld >/dev/null 2>&1 || true ;;
+    zypper) zypper --non-interactive install firewalld >/dev/null 2>&1 || true ;;
+    pacman) pacman -S --noconfirm --needed firewalld >/dev/null 2>&1 || true ;;
+  esac
+  if have firewall-cmd; then
+    systemctl unmask firewalld >/dev/null 2>&1 || true
+    systemctl start firewalld >/dev/null 2>&1 || true
+    # Poll until the daemon reports running (it needs dbus + a netfilter
+    # backend; container startup can lag or fail).
+    _i=0
+    while [ "$_i" -lt 20 ]; do
+      if firewall-cmd --state 2>/dev/null | grep -q running; then break; fi
+      sleep 1
+      _i=$((_i + 1))
+    done
+    if firewall-cmd --state 2>/dev/null | grep -q running; then
+      FIX_FWD="$ROOT/fwd.yaml"
+      {
+        echo "metadata:"
+        echo "  name: kscore-cross-distro-smoke-firewall-firewalld"
+        echo "  version: \"0.1\""
+        echo "firewall:"
+        echo "  allow-ssh-fwd:"
+        echo "    state: present"
+        echo "    service: ssh"
+      } >"$FIX_FWD"
+      log "firewalld: daemon running, backend auto-detected (zone public, service ssh)"
+      apply_scenario firewalld "$FIX_FWD"
+    else
+      log "firewalld: daemon did not come up — skipping firewalld scenario"
+    fi
+  else
+    log "firewalld: firewall-cmd unavailable — skipping firewalld scenario"
+  fi
+else
+  log "firewalld: not a booted-systemd host — skipping firewalld scenario"
+fi
 
-log "applying firewall fixture (apply + idempotency re-apply)"
-"$HARNESS" "$FIX"
 log "OK"
