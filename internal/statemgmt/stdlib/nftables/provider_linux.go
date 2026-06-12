@@ -119,7 +119,15 @@ func parseChainRules(out string) []RuleHandle {
 			continue
 		}
 		if !inChain {
-			if strings.HasPrefix(t, "chain ") && strings.HasSuffix(t, "{") {
+			// The chain-opening line is `chain <name> {`, but `nft
+			// --handle list chain` annotates it with a handle comment
+			// (`chain input { # handle 1`); strip that before the suffix
+			// check, or the chain is never entered and no rules parse.
+			header := t
+			if txt, _, ok := splitHandle(t); ok {
+				header = txt
+			}
+			if strings.HasPrefix(header, "chain ") && strings.HasSuffix(header, "{") {
 				inChain = true
 			}
 			continue

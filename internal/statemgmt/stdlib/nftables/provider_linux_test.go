@@ -63,6 +63,31 @@ func TestParseChainRules(t *testing.T) {
 	}
 }
 
+// `nft --handle list chain` (what ListRuleHandles actually runs)
+// annotates the chain-opening line with its own handle comment. The
+// parser must still enter the chain and read the rules — regression for
+// a bug where `chain input { # handle 1` failed the `HasSuffix "{"`
+// check, so the chain was never entered and every rule looked missing
+// (breaking the firewall nftables backend's idempotency).
+const sampleChainDumpWithChainHandle = `table inet filter {
+	chain input { # handle 1
+		type filter hook input priority filter; policy accept;
+		tcp dport 22 accept # handle 2
+	}
+}
+`
+
+func TestParseChainRules_ChainLineHasHandle(t *testing.T) {
+	t.Parallel()
+	got := parseChainRules(sampleChainDumpWithChainHandle)
+	want := []RuleHandle{
+		{Text: "tcp dport 22 accept", Handle: 2},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("parseChainRules with chain-handle =\n%#v\nwant\n%#v", got, want)
+	}
+}
+
 func TestSplitHandle(t *testing.T) {
 	t.Parallel()
 	if txt, h, ok := splitHandle("tcp dport 22 accept # handle 5"); !ok || h != 5 || txt != "tcp dport 22 accept" {
