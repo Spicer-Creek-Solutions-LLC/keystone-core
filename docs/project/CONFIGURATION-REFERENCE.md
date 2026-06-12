@@ -282,7 +282,7 @@ SecretsBackendConfig is one operator-declared backend instance. Exactly one of [
 
 ## `secrets.backends.file`
 
-SecretsFileBackendConfig drives the encrypted-file backend (internal/secrets/file). MasterKey is the scheme-prefixed value resolved by `file.ResolveMasterKey` — `env:VAR_NAME`, `file:/path/to/keyfile`, or `inline:<hex\|base64>`.
+SecretsFileBackendConfig drives the encrypted-file backend (internal/secrets/file). MasterKey is the scheme-prefixed value resolved by `masterkey.Resolve` — `env:VAR_NAME`, `file:/path/to/keyfile`, or `inline:<hex\|base64>`.
 
 | Key | Type | Description |
 |-----|------|-------------|

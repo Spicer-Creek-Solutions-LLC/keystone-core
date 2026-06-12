@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"go.keystone-core.io/keystone-core/internal/masterkey"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 )
 
@@ -30,7 +31,7 @@ import (
 const (
 	magicLen      = 16
 	versionLen    = 1
-	keyIDLen      = FingerprintLen
+	keyIDLen      = masterkey.FingerprintLen
 	nonceLen      = 12
 	lenFieldLen   = 4
 	envelopeFixed = magicLen + versionLen + keyIDLen + nonceLen + lenFieldLen
@@ -50,19 +51,19 @@ var FileMagic = [magicLen]byte{
 // envelope-specific cause via [errors.Is] against the more specific
 // sentinels below.
 var (
-	errEnvelopeShort         = errors.New("file: envelope is too short")
-	errEnvelopeMagic         = errors.New("file: envelope magic mismatch (not a KSCORE-SECRETS file)")
-	errEnvelopeVersion       = errors.New("file: envelope format version is unsupported")
-	errEnvelopeKeyMismatch   = errors.New("file: master key fingerprint mismatch (wrong key or rotated key)")
-	errEnvelopeLenOverflow   = errors.New("file: envelope ciphertext length overflows the available bytes")
-	errEnvelopeAuthFailed    = errors.New("file: decryption failed (corrupted or tampered ciphertext)")
+	errEnvelopeShort       = errors.New("file: envelope is too short")
+	errEnvelopeMagic       = errors.New("file: envelope magic mismatch (not a KSCORE-SECRETS file)")
+	errEnvelopeVersion     = errors.New("file: envelope format version is unsupported")
+	errEnvelopeKeyMismatch = errors.New("file: master key fingerprint mismatch (wrong key or rotated key)")
+	errEnvelopeLenOverflow = errors.New("file: envelope ciphertext length overflows the available bytes")
+	errEnvelopeAuthFailed  = errors.New("file: decryption failed (corrupted or tampered ciphertext)")
 )
 
 // encode produces the on-disk framed envelope for plaintext using
 // the supplied master key. A fresh nonce is generated per call —
 // reusing a nonce with the same key under AES-GCM is catastrophic, so
 // the generator MUST be the package-level crypto/rand.
-func encode(plaintext []byte, key MasterKey) ([]byte, error) {
+func encode(plaintext []byte, key masterkey.Key) ([]byte, error) {
 	block, err := aes.NewCipher(key.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("%w: aes cipher: %v", secrets.ErrInvalidBackend, err)
@@ -99,7 +100,7 @@ func encode(plaintext []byte, key MasterKey) ([]byte, error) {
 // decode verifies the framed envelope and returns the plaintext.
 // All errors wrap [secrets.ErrInvalidBackend] plus a more specific
 // sentinel for envelope-layer diagnostics.
-func decode(framed []byte, key MasterKey) ([]byte, error) {
+func decode(framed []byte, key masterkey.Key) ([]byte, error) {
 	if len(framed) < envelopeFixed {
 		return nil, fmt.Errorf("%w: %w (have %d bytes, need at least %d)", secrets.ErrInvalidBackend, errEnvelopeShort, len(framed), envelopeFixed)
 	}

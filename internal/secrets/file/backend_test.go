@@ -15,12 +15,13 @@ import (
 	"testing"
 	"time"
 
+	"go.keystone-core.io/keystone-core/internal/masterkey"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 )
 
 func makeInlineKey(t *testing.T) string {
 	t.Helper()
-	bytes := make([]byte, KeyLen)
+	bytes := make([]byte, masterkey.KeyLen)
 	for i := range bytes {
 		bytes[i] = byte(i*7 + 3)
 	}
@@ -57,7 +58,7 @@ func TestNewBackend_Validation(t *testing.T) {
 	}{
 		{
 			name:    "missing path",
-			cfg:     Config{MasterKeySource: "inline:" + hex.EncodeToString(make([]byte, KeyLen))},
+			cfg:     Config{MasterKeySource: "inline:" + hex.EncodeToString(make([]byte, masterkey.KeyLen))},
 			wantSub: "Path is required",
 		},
 		{
@@ -152,7 +153,7 @@ func TestBackend_StartWithWrongKey(t *testing.T) {
 	defer b1.Stop(context.Background())
 
 	// Open with a different key.
-	wrongKeyBytes := make([]byte, KeyLen)
+	wrongKeyBytes := make([]byte, masterkey.KeyLen)
 	for i := range wrongKeyBytes {
 		wrongKeyBytes[i] = 0xff
 	}

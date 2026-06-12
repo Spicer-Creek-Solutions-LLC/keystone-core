@@ -77,7 +77,7 @@ const (
 
 // SecretsFileBackendConfig drives the encrypted-file backend
 // (internal/secrets/file). MasterKey is the scheme-prefixed value
-// resolved by `file.ResolveMasterKey` — `env:VAR_NAME`,
+// resolved by `masterkey.Resolve` — `env:VAR_NAME`,
 // `file:/path/to/keyfile`, or `inline:<hex|base64>`.
 type SecretsFileBackendConfig struct {
 	Path      string `koanf:"path"`
