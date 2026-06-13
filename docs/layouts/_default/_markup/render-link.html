@@ -1,0 +1,41 @@
+{{- /* Link render hook for the mounted canonical docs.
+
+  The docs under docs/project, docs/runbooks, docs/adr use relative
+  Markdown links written for the repo (e.g. ROADMAP.md, ../../SECURITY.md,
+  ../../internal/foo.go). Hugo does not rewrite those, so on the rendered
+  site they 404. This hook resolves each relative link against the page's
+  real repo source directory and rewrites it to either:
+    - the rendered in-site URL, when the target is another mounted doc, or
+    - an absolute Codeberg source URL, for repo-root files / source code.
+  Absolute URLs, anchors, and mailto: pass through unchanged. */ -}}
+{{- $dest := .Destination -}}
+{{- $u := urls.Parse $dest -}}
+{{- $out := $dest -}}
+{{- if not (or $u.IsAbs (strings.HasPrefix $dest "#") (strings.HasPrefix $dest "mailto:") (eq $dest "")) -}}
+  {{- $codeberg := "https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main" -}}
+  {{- $frag := "" -}}{{- with $u.Fragment }}{{ $frag = printf "#%s" . }}{{ end -}}
+  {{- $relpath := $u.Path -}}
+  {{- $rp := .Page.RelPermalink -}}
+  {{- $repoDir := "" -}}
+  {{- if hasPrefix $rp "/docs/reference/" }}{{ $repoDir = "docs/project" }}
+  {{- else if hasPrefix $rp "/docs/operations/" }}{{ $repoDir = "docs/runbooks" }}
+  {{- else if hasPrefix $rp "/docs/adr/" }}{{ $repoDir = "docs/adr" }}{{ end -}}
+  {{- if and $repoDir $relpath -}}
+    {{- $target := path.Clean (path.Join $repoDir $relpath) -}}
+    {{- $isDoc := false -}}{{- $urlPrefix := "" -}}
+    {{- if hasPrefix $target "docs/project/" }}{{ $urlPrefix = "/docs/reference" }}{{ $isDoc = true }}
+    {{- else if hasPrefix $target "docs/runbooks/" }}{{ $urlPrefix = "/docs/operations" }}{{ $isDoc = true }}
+    {{- else if hasPrefix $target "docs/adr/" }}{{ $urlPrefix = "/docs/adr" }}{{ $isDoc = true }}{{ end -}}
+    {{- if and $isDoc (hasSuffix $target ".md") -}}
+      {{- $base := strings.TrimSuffix ".md" (path.Base $target) -}}
+      {{- if eq (lower $base) "readme" -}}
+        {{- $out = printf "%s/%s" $urlPrefix $frag -}}
+      {{- else -}}
+        {{- $out = printf "%s/%s/%s" $urlPrefix (urlize $base) $frag -}}
+      {{- end -}}
+    {{- else -}}
+      {{- $out = printf "%s/%s%s" $codeberg $target $frag -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
+<a href="{{ $out | safeURL }}"{{ with .Title }} title="{{ . }}"{{ end }}>{{ .Text | safeHTML }}</a>

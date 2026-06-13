@@ -37,7 +37,7 @@ export CGO_ENABLED := 0
 # ---- Phony declarations ---------------------------------------------------
 
 .PHONY: help \
-        build build-all-platforms clean clean-all clean-check deps install-tools install-lychee install-hugo docs-site \
+        build build-all-platforms clean clean-all clean-check deps install-tools install-lychee install-hugo docs-site docs-links-site \
         test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check test-integration slo profile test-cross-distro check deps deps-outdated deps-outdated-issue \
         fmt lint lint-fix smoke test-packaging \
         proto proto-lint proto-breaking \
@@ -296,6 +296,22 @@ docs-site: ## Build the Hugo documentation site (Hextra) to docs/public/
 	  echo "docs-site: Hugo Extended required — run 'make install-hugo'"; exit 1; }; \
 	cd docs && "$$hugo" --gc --minify && \
 	echo "docs-site: built docs/public/"
+
+docs-links-site: ## Link-check the rendered Hugo site (lychee over docs/public/)
+	# Builds the site, then checks the rendered links offline. A render
+	# hook rewrites the canonical docs' relative links to in-site URLs or
+	# absolute Codeberg source URLs, so the rendered site is self-consistent
+	# (the external Codeberg/GitHub URLs are skipped in offline mode).
+	# Not --config .lychee.toml: that file excludes docs/public (so the
+	# source `docs-links` gate skips the build output). --offline already
+	# skips every external URL (the config's excludes are all external
+	# domains), so the rendered-site check only verifies local links.
+	@$(MAKE) --no-print-directory docs-site >/dev/null
+	@if command -v lychee >/dev/null 2>&1; then \
+		lychee --no-progress --offline --root-dir "$(CURDIR)/docs/public" "docs/public/**/*.html"; \
+	else \
+		echo "docs-links-site: needs lychee on PATH (run 'make install-tools')"; exit 1; \
+	fi
 
 vanity-regen: ## Regenerate the Go-vanity-import static HTML under deploy/vanity/site/
 	# Source of truth: deploy/vanity/vangen.json. Output lands under

@@ -1,24 +1,39 @@
 # Documentation site — `docs.keystone-core.io`
 
 This directory holds the static-site source for `docs.keystone-core.io`,
-the public-facing documentation surface. During v0.1.x (the current
-soft-launch line), the only content here is a **branded placeholder
-page** that points visitors at the rendered Markdown documentation in
-the source repository. The full Hugo-based site lands at the
-[gate-v0.5 milestone](../../docs/project/ROADMAP.md) (see the
-"Hugo docs site" ROADMAP entry).
+the public-facing documentation surface.
+
+The full Hugo site has now landed (the gate-v0.5
+["Hugo docs site"](../../docs/project/ROADMAP.md) milestone): the Hugo
+source lives under [`../../docs/`](../../docs/) and renders with
+`make docs-site` (see [`docs/SITE.md`](../../docs/SITE.md)). The
+**branded placeholder** here remains the served page until the rendered
+site is actually deployed at `docs.keystone-core.io` — there is no
+hosting infrastructure for that domain yet (it is still aspirational; it
+is excluded from the CI link gate in [`.lychee.toml`](../../.lychee.toml)
+for that reason).
+
+## Publishing the real site
+
+The published artifact is the **`make docs-site` output** (`docs/public/`,
+a build artifact — gitignored, not committed). The deploy step is:
+
+1. `make install-hugo` (one-time: pinned Hugo Extended).
+2. `make docs-site` → renders `docs/public/`.
+3. Serve `docs/public/` at the root of the `docs.keystone-core.io`
+   virtual host (the same serving shape as the placeholder below).
+
+`make docs-links-site` link-checks the rendered output (CI gates both
+the build and the links on every PR). When the site goes live, swap the
+web host's document root from `deploy/docs/site/` (placeholder) to the
+generated `docs/public/`.
 
 ## What's in here
 
-- [`site/index.html`](site/index.html) — the placeholder page served
-  at `docs.keystone-core.io`. Links visitors to the canonical docs
-  in the source repo + a brief "real site coming with v0.5" note.
-
-Once the Hugo work lands at v0.5, this directory becomes the staging
-ground for the generated Hugo output (or the Hugo source moves to
-`docs/content/` per Hugo convention, and `deploy/docs/site/` holds
-the published artifact). Either way, the deployment shape stays the
-same: serve `site/` at `docs.keystone-core.io`.
+- [`site/index.html`](site/index.html) — the **placeholder** page
+  currently served at `docs.keystone-core.io`. Links visitors to the
+  canonical docs in the source repo. Retired once `docs/public/` is
+  deployed.
 
 ## How the placeholder is meant to be deployed
 

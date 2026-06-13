@@ -26,13 +26,14 @@ not the rendered pages.
 ## Building
 
 ```sh
-make install-hugo   # one-time: pinned Hugo Extended into $(GOPATH)/bin
-make docs-site      # renders to docs/public/ (gitignored)
+make install-hugo     # one-time: pinned Hugo Extended into $(GOPATH)/bin
+make docs-site        # renders to docs/public/ (gitignored)
+make docs-links-site  # build + link-check the rendered site (lychee)
 ```
 
 Hugo Extended is required (Hextra compiles SCSS). The theme is pulled as
-a Hugo module per `go.mod` / `go.sum`. CI builds the site on every PR as
-a gate (it must render cleanly).
+a Hugo module per `go.mod` / `go.sum`. CI builds the site **and**
+link-checks the rendered output on every PR (both must pass).
 
 ## Layout
 
@@ -42,11 +43,24 @@ a gate (it must render cleanly).
 | `go.mod` / `go.sum`      | Hugo-module pin for the Hextra theme.          |
 | `content/`              | Hand-authored pages: the landing page + the section index pages that organise the mounted trees. |
 | `layouts/shortcodes/`    | Local shortcode shims (e.g. an `alert` compat shim for the Docsy-style callout used in a few docs). |
+| `layouts/_default/_markup/render-link.html` | Link render hook (see below). |
 | `public/`                | Build output (gitignored).                     |
 
-## Not yet wired (follow-ups)
+## Link rewriting
 
-Per-page front-matter/title curation and sidebar ordering, full-text
-search tuning, a link-check pass over the rendered `public/` output, and
-the `docs.keystone-core.io` publish path (`deploy/docs/`) land in
-follow-up PRs.
+The mounted docs use relative Markdown links written for the repo
+(`ROADMAP.md`, `../../RELEASE-PLAYBOOK.md`, `../../internal/foo.go`).
+A link render hook (`layouts/_default/_markup/render-link.html`) resolves
+each one against the page's real repo source directory and rewrites it to
+either the **rendered in-site URL** (when the target is another mounted
+doc) or an **absolute Codeberg source URL** (for repo-root files and
+source code). So the rendered site is self-consistent and
+`make docs-links-site` passes — without editing any canonical file.
+
+## Deployment
+
+The published artifact is the `make docs-site` output (`docs/public/`).
+See [`../deploy/docs/README.md`](../deploy/docs/README.md) for the
+publish path — serving `docs/public/` at `docs.keystone-core.io`. No
+hosting infrastructure for that domain exists yet (it is still
+aspirational), so a branded placeholder is served there in the meantime.
