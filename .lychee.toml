@@ -33,5 +33,10 @@ exclude_path = [
   "docs/themes",
   "docs/node_modules",
   "docs/resources",
-  "docs/public"
+  "docs/public",
+  # Hugo content (the site's hand-authored pages) uses site-relative
+  # links (/docs/..., ../page/) that resolve in the rendered site, not at
+  # the source-file level. Those are link-checked by `make docs-links-site`
+  # over docs/public/ instead; this source `.md` gate would false-positive.
+  "docs/content"
 ]
