@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: Apache-2.0
+baseURL = "https://docs.keystone-core.io/"
+title = "Keystone Core"
+
+enableGitInfo = false
+enableRobotsTXT = true
+
+[module]
+  [[module.imports]]
+    path = "github.com/imfing/hextra"
+  # Mount the existing canonical Markdown trees into the content tree in
+  # place — the files stay where they are (docs/project, docs/runbooks,
+  # docs/adr remain the source of truth per AGENTS.md §7), and the
+  # auto-generated CLI/CONFIG/API references keep being written to
+  # docs/project by `make docs-sync`. Hugo renders them; nothing is moved
+  # or duplicated. Declaring any content mount replaces the default, so
+  # the base `content` mount is re-stated here.
+  [[module.mounts]]
+    source = "content"
+    target = "content"
+  [[module.mounts]]
+    source = "project"
+    target = "content/docs/reference"
+  [[module.mounts]]
+    source = "runbooks"
+    target = "content/docs/operations"
+  [[module.mounts]]
+    source = "adr"
+    target = "content/docs/adr"
+
+[markup]
+  [markup.highlight]
+    noClasses = false
+  [markup.goldmark.renderer]
+    unsafe = true
+
+[params]
+  description = "Keystone Core — the runtime operations control plane. GitOps deploys it; we keep it running."
+  [params.navbar]
+    displayTitle = true
+  [params.footer]
+    displayCopyright = true

@@ -37,7 +37,7 @@ export CGO_ENABLED := 0
 # ---- Phony declarations ---------------------------------------------------
 
 .PHONY: help \
-        build build-all-platforms clean clean-all clean-check deps install-tools install-lychee \
+        build build-all-platforms clean clean-all clean-check deps install-tools install-lychee install-hugo docs-site \
         test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check test-integration slo profile test-cross-distro check deps deps-outdated deps-outdated-issue \
         fmt lint lint-fix smoke test-packaging \
         proto proto-lint proto-breaking \
@@ -187,6 +187,9 @@ install-tools: ## Install dev tools (Go-installable + lychee binary)
 	@command -v vangen >/dev/null || go install 4d63.com/vangen@latest
 	@command -v changie >/dev/null || go install github.com/miniscruff/changie@latest
 	@command -v lychee >/dev/null || $(MAKE) --no-print-directory install-lychee
+	@# Hugo Extended for the docs site. Check $(GOPATH)/bin/hugo
+	@# specifically (a non-extended `hugo` may shadow it on PATH).
+	@hb="$$(go env GOPATH)/bin/hugo"; { [ -x "$$hb" ] && "$$hb" version 2>/dev/null | grep -q extended; } || $(MAKE) --no-print-directory install-hugo
 
 # Lychee is a Rust binary, not Go-installable. Pull the prebuilt release for
 # the current GOOS/GOARCH so docs-links can run without docker — the Forgejo
@@ -214,6 +217,33 @@ install-lychee: ## Install pinned lychee binary into $(GOPATH)/bin
 	mv "$$bin" "$$dest/lychee"; \
 	echo "install-lychee: installed $$dest/lychee"; \
 	"$$dest/lychee" --version
+
+# Hugo Extended is required to build the docs site (the Hextra theme
+# compiles SCSS, which the standard Hugo build can't do). Pinned so the
+# rendered site is reproducible across dev + CI. Installed into
+# $(GOPATH)/bin so `make docs-site` finds it ahead of any non-extended
+# `hugo` elsewhere on PATH.
+HUGO_VERSION ?= 0.154.5
+
+install-hugo: ## Install pinned Hugo Extended into $(GOPATH)/bin
+	@goos="$$(go env GOOS)"; goarch="$$(go env GOARCH)"; \
+	case "$$goos-$$goarch" in \
+	  linux-amd64)  target="linux-amd64" ;; \
+	  linux-arm64)  target="linux-arm64" ;; \
+	  darwin-amd64) target="darwin-universal" ;; \
+	  darwin-arm64) target="darwin-universal" ;; \
+	  *) echo "hugo: unsupported $$goos-$$goarch (manual install required)"; exit 1 ;; \
+	esac; \
+	url="https://github.com/gohugoio/hugo/releases/download/v$(HUGO_VERSION)/hugo_extended_$(HUGO_VERSION)_$$target.tar.gz"; \
+	dest="$$(go env GOPATH)/bin"; mkdir -p "$$dest"; \
+	tmp="$$(mktemp -d)"; trap "rm -rf $$tmp" EXIT; \
+	echo "install-hugo: downloading hugo_extended $(HUGO_VERSION) for $$target"; \
+	curl -sSfL "$$url" -o "$$tmp/hugo.tar.gz"; \
+	tar -xzf "$$tmp/hugo.tar.gz" -C "$$tmp"; \
+	if [ ! -f "$$tmp/hugo" ]; then echo "install-hugo: binary not found in tarball"; exit 1; fi; \
+	mv "$$tmp/hugo" "$$dest/hugo"; \
+	echo "install-hugo: installed $$dest/hugo"; \
+	"$$dest/hugo" version
 
 # ---- Test -----------------------------------------------------------------
 
@@ -254,6 +284,18 @@ docs-sync-check: ## Assert auto-generated reference docs are in sync with the ge
 		diff -q docs/project/CONFIGURATION-REFERENCE.md $$tmpdir/CONFIGURATION.md && \
 		diff -q docs/project/API-REFERENCE.md           $$tmpdir/API.md && \
 		echo "docs-sync-check: ok"
+
+docs-site: ## Build the Hugo documentation site (Hextra) to docs/public/
+	# Renders the canonical Markdown (docs/project, docs/runbooks,
+	# docs/adr — mounted in place via docs/hugo.toml) into a searchable
+	# static site. Needs Hugo Extended (run `make install-hugo`). The
+	# Hextra theme is fetched as a Hugo module per docs/go.mod.
+	@hugo="$$(go env GOPATH)/bin/hugo"; \
+	[ -x "$$hugo" ] || hugo=hugo; \
+	"$$hugo" version 2>/dev/null | grep -q extended || { \
+	  echo "docs-site: Hugo Extended required — run 'make install-hugo'"; exit 1; }; \
+	cd docs && "$$hugo" --gc --minify && \
+	echo "docs-site: built docs/public/"
 
 vanity-regen: ## Regenerate the Go-vanity-import static HTML under deploy/vanity/site/
 	# Source of truth: deploy/vanity/vangen.json. Output lands under
