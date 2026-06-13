@@ -326,7 +326,7 @@ Usage:
   kscore-identity [command]
 
 Available Commands:
-  ca          Inspect and manage the embedded CA (info / rotate-signing / export)
+  ca          Inspect and manage the embedded CA (info / rotate-signing / export / encrypt)
   completion  Generate the autocompletion script for the specified shell
   help        Help about any command
   status      Show provider health + token + CA expiry snapshot

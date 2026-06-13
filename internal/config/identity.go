@@ -2,6 +2,11 @@
 
 package config
 
+import (
+	"fmt"
+	"strings"
+)
+
 // IdentityConfig drives the embedded identity provider boot in
 // kscore-server (Epic 09 task 12). All fields have v0.1 defaults
 // that work for a single-server dev / external-tester install;
@@ -37,4 +42,29 @@ type IdentityConfig struct {
 	// Useful for development / CI when the test harness doesn't
 	// want join-token persistence to bleed across runs.
 	JoinTokensInMemory bool `koanf:"join_tokens_in_memory"`
+
+	// EncryptionKey turns on encryption-at-rest for the CA private
+	// keys under StoragePath. Empty (the default) keeps the plaintext
+	// FileCAStorage surface — fully backward-compatible. When set, it
+	// is a scheme-prefixed master-key source resolved by
+	// masterkey.Resolve — `env:VAR_NAME`, `file:/path/to/keyfile`, or
+	// `inline:<hex|base64>` — and the provider uses
+	// EncryptedFileCAStorage. Migrate an existing plaintext directory
+	// with `kscore-identity ca encrypt` before enabling this.
+	EncryptionKey string `koanf:"encryption_key"`
+}
+
+// Validate checks the EncryptionKey scheme prefix when set. The key is
+// not resolved here (that would read the env var / file); resolution
+// happens at provider boot, mirroring the secrets backend.
+func (c IdentityConfig) Validate() error {
+	if c.EncryptionKey == "" {
+		return nil
+	}
+	for _, scheme := range []string{"env:", "file:", "inline:"} {
+		if strings.HasPrefix(c.EncryptionKey, scheme) {
+			return nil
+		}
+	}
+	return fmt.Errorf("identity: encryption_key must be scheme-prefixed (env:, file:, or inline:); got %q", c.EncryptionKey)
 }
