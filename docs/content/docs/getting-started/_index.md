@@ -13,4 +13,6 @@ Keystone Core installed.
 {{< cards >}}
   {{< card link="blueprint-authoring/" title="Authoring a Blueprint" subtitle="Package a parameterized, rollback-able deployment from state files." >}}
   {{< card link="module-authoring/" title="Authoring & Publishing a Module" subtitle="Write a Starlark module, test it, sign it, and publish it to a registry." >}}
+  {{< card link="secrets/" title="Managing Secrets" subtitle="Enable the encrypted-file backend and put / get / list / delete secrets." >}}
+  {{< card link="audit-policy/" title="Audit Log & Policies" subtitle="Query the audit log and write, validate, and evaluate a Rego policy." >}}
 {{< /cards >}}
