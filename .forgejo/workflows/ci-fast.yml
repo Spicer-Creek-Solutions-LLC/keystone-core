@@ -116,13 +116,14 @@ jobs:
       # so the gate is deterministic; external URLs are checked
       # via the separate `make docs-links-online` target (not in CI).
       - run: make docs-links
-      # Build the Hugo documentation site (Hextra) — gates that the
-      # rendered site builds from the canonical Markdown on every PR.
-      # install-hugo pulls a pinned Hugo Extended; docs-site fetches the
-      # Hextra theme as a Hugo module (docs/go.mod) and renders to
-      # docs/public/ (gitignored). See the "Hugo docs site" ROADMAP entry.
+      # Build the Hugo documentation site (Hextra) and link-check the
+      # rendered output. Gates that the site builds from the canonical
+      # Markdown AND that its rendered links resolve on every PR.
+      # install-hugo pulls a pinned Hugo Extended; docs-links-site fetches
+      # the Hextra theme (docs/go.mod), renders to docs/public/, and runs
+      # lychee offline over the result. See the "Hugo docs site" ROADMAP.
       - run: make install-hugo
-      - run: make docs-site
+      - run: make docs-links-site
 
   # DCO sign-off gate. Every non-merge commit on a PR must carry a
   # `Signed-off-by:` trailer per docs/project/DCO.md + AGENTS.md § 4.
