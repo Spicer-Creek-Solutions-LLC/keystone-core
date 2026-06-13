@@ -1,0 +1,14 @@
+{{- /* Compatibility shim for the Docsy alert shortcode used in a few
+       canonical docs (e.g. SECURITY-RELEASE.md), so those files render
+       unchanged under Hextra. Params: title (optional),
+       color (info | warning | danger; default info). Inner is rendered
+       HTML (percent-form shortcode). */ -}}
+{{- $title := .Get "title" -}}
+{{- $color := .Get "color" | default "info" -}}
+{{- $border := "#3b82f6" -}}
+{{- if eq $color "warning" }}{{ $border = "#f59e0b" }}{{ end -}}
+{{- if eq $color "danger" }}{{ $border = "#ef4444" }}{{ end -}}
+<div class="ks-alert ks-alert-{{ $color }}" style="border-left: 4px solid {{ $border }}; padding: 0.8em 1em; margin: 1em 0; background: rgba(128,128,128,0.08); border-radius: 4px;">
+{{- with $title }}<p style="font-weight: 600; margin: 0 0 0.4em;">{{ . }}</p>{{ end -}}
+{{ .Inner }}
+</div>
