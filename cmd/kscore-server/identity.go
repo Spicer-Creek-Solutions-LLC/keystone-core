@@ -7,11 +7,32 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/identity"
+	"go.keystone-core.io/keystone-core/internal/masterkey"
 	"go.keystone-core.io/keystone-core/internal/state"
 )
+
+// newCAStorage selects the CA storage backend from the identity config:
+// plaintext FileCAStorage by default, or EncryptedFileCAStorage when
+// cfg.EncryptionKey is set (resolved via the shared masterkey package).
+func newCAStorage(cfg config.IdentityConfig, log *slog.Logger) (identity.CAStorage, error) {
+	if cfg.EncryptionKey == "" {
+		return identity.NewFileCAStorage(cfg.StoragePath)
+	}
+	key, err := masterkey.Resolve(cfg.EncryptionKey)
+	if err != nil {
+		return nil, fmt.Errorf("resolve encryption key: %w", err)
+	}
+	if strings.HasPrefix(cfg.EncryptionKey, "inline:") {
+		log.Warn("identity CA encryption key resolved from an inline: source — not recommended for production",
+			"fingerprint", key.Fingerprint())
+	}
+	log.Info("identity CA encryption-at-rest enabled", "key_fingerprint", key.Fingerprint())
+	return identity.NewEncryptedFileCAStorage(cfg.StoragePath, key)
+}
 
 // startIdentityProvider wires the v0.1 embedded identity provider
 // per the Epic 09 task 12 boot recipe:
@@ -26,7 +47,7 @@ import (
 // Returns a Started provider; the caller is responsible for
 // invoking Stop on shutdown.
 func startIdentityProvider(ctx context.Context, cfg config.IdentityConfig, store state.Store, log *slog.Logger) (*identity.EmbeddedProvider, error) {
-	caStorage, err := identity.NewFileCAStorage(cfg.StoragePath)
+	caStorage, err := newCAStorage(cfg, log)
 	if err != nil {
 		return nil, fmt.Errorf("ca storage: %w", err)
 	}

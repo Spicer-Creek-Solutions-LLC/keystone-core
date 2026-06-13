@@ -239,6 +239,9 @@ func (c *Config) Validate() error {
 	if err := c.Secrets.Validate(); err != nil {
 		return err
 	}
+	if err := c.Identity.Validate(); err != nil {
+		return err
+	}
 	if err := c.Events.Validate(c.NATS); err != nil {
 		return err
 	}

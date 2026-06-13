@@ -22,11 +22,11 @@ var ErrCAStorageNotFound = errors.New("identity: CA storage not found")
 var ErrInvalidCAStorage = errors.New("identity: invalid CA storage")
 
 // CAStorage is the persistence surface for [CAManager]. Concrete
-// implementations include [FileCAStorage] (plaintext PEM, v0.1
-// default) and, in a future gate-v0.5 PR, an encrypted variant
-// (see ROADMAP "Encrypt CA material at rest"). The CAManager only
-// touches storage through this interface so encryption swap-in is
-// a wire change at the construction site.
+// implementations are [FileCAStorage] (plaintext PEM) and
+// [EncryptedFileCAStorage] (the private-key files sealed with
+// AES-256-GCM). The CAManager only touches storage through this
+// interface, so the encrypted variant is a drop-in selected at the
+// construction site (server config `identity.encryption_key`).
 //
 // Implementations MUST be goroutine-safe — the CAManager calls
 // Save during rotation while readers may be calling Load (e.g.
@@ -51,10 +51,10 @@ type CAStorage interface {
 //
 // The directory itself is created with mode 0700 if absent.
 //
-// Encryption-at-rest is a v0.5 gate per the ROADMAP entry "Encrypt
-// CA material at rest" — until then plaintext on a restricted-mode
-// directory is the v0.1 surface, matching the §4.10 "with optional
-// encryption key" note's deferral semantics.
+// This variant protects the private keys with filesystem permissions
+// only (0600 key files in a 0700 directory). For encryption-at-rest of
+// the key material — PROJECT-DETAILS §4.10's "optional encryption key" —
+// use [EncryptedFileCAStorage], which is a drop-in over the same layout.
 type FileCAStorage struct {
 	dir string
 }
@@ -111,19 +111,10 @@ func (s *FileCAStorage) HasSigningCA() (bool, error) {
 }
 
 func (s *FileCAStorage) savePair(certName, keyName string, cert *x509.Certificate, key crypto.Signer) error {
-	if cert == nil {
-		return fmt.Errorf("%w: cert is nil", ErrInvalidCAStorage)
-	}
-	if key == nil {
-		return fmt.Errorf("%w: key is nil", ErrInvalidCAStorage)
-	}
-	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
-	keyDER, err := x509.MarshalPKCS8PrivateKey(key)
+	certPEM, keyPEM, err := marshalCAPair(cert, key)
 	if err != nil {
-		return fmt.Errorf("%w: marshal key: %v", ErrInvalidCAStorage, err)
+		return err
 	}
-	keyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
-
 	if err := os.WriteFile(filepath.Join(s.dir, certName), certPEM, 0o644); err != nil { //nolint:gosec // cert is public material
 		return fmt.Errorf("%w: write %s: %v", ErrInvalidCAStorage, certName, err)
 	}
@@ -134,46 +125,90 @@ func (s *FileCAStorage) savePair(certName, keyName string, cert *x509.Certificat
 }
 
 func (s *FileCAStorage) loadPair(certName, keyName string) (*x509.Certificate, crypto.Signer, error) {
-	certPath := filepath.Join(s.dir, certName)
-	keyPath := filepath.Join(s.dir, keyName)
+	certPEM, keyPEM, err := readCAPairFiles(s.dir, certName, keyName)
+	if err != nil {
+		return nil, nil, err
+	}
+	cert, err := parseCACertPEM(certName, certPEM)
+	if err != nil {
+		return nil, nil, err
+	}
+	signer, err := parseCAKeyPEM(keyName, keyPEM)
+	if err != nil {
+		return nil, nil, err
+	}
+	return cert, signer, nil
+}
 
-	certPEM, err := os.ReadFile(certPath) //nolint:gosec // operator-owned path
+// marshalCAPair encodes a CA cert + key to their PEM forms (CERTIFICATE
+// and PKCS#8 PRIVATE KEY). Shared by [FileCAStorage] (which writes the
+// key PEM as-is) and [EncryptedFileCAStorage] (which seals it first).
+func marshalCAPair(cert *x509.Certificate, key crypto.Signer) (certPEM, keyPEM []byte, err error) {
+	if cert == nil {
+		return nil, nil, fmt.Errorf("%w: cert is nil", ErrInvalidCAStorage)
+	}
+	if key == nil {
+		return nil, nil, fmt.Errorf("%w: key is nil", ErrInvalidCAStorage)
+	}
+	certPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+	keyDER, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%w: marshal key: %v", ErrInvalidCAStorage, err)
+	}
+	keyPEM = pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
+	return certPEM, keyPEM, nil
+}
+
+// readCAPairFiles reads the raw cert + key file bytes, mapping a missing
+// file to [ErrCAStorageNotFound]. The key bytes are the on-disk form —
+// plaintext PEM for [FileCAStorage], a sealed envelope for
+// [EncryptedFileCAStorage].
+func readCAPairFiles(dir, certName, keyName string) (certPEM, keyBytes []byte, err error) {
+	certPEM, err = os.ReadFile(filepath.Join(dir, certName)) //nolint:gosec // operator-owned path
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil, fmt.Errorf("%w: %s", ErrCAStorageNotFound, certName)
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: read %s: %v", ErrInvalidCAStorage, certName, err)
 	}
-	keyPEM, err := os.ReadFile(keyPath) //nolint:gosec // operator-owned path
+	keyBytes, err = os.ReadFile(filepath.Join(dir, keyName)) //nolint:gosec // operator-owned path
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, nil, fmt.Errorf("%w: %s", ErrCAStorageNotFound, keyName)
 	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: read %s: %v", ErrInvalidCAStorage, keyName, err)
 	}
+	return certPEM, keyBytes, nil
+}
 
-	certBlock, _ := pem.Decode(certPEM)
-	if certBlock == nil || certBlock.Type != "CERTIFICATE" {
-		return nil, nil, fmt.Errorf("%w: %s: PEM block not CERTIFICATE", ErrInvalidCAStorage, certName)
+// parseCACertPEM decodes a CERTIFICATE PEM block into an x509 cert.
+func parseCACertPEM(certName string, certPEM []byte) (*x509.Certificate, error) {
+	block, _ := pem.Decode(certPEM)
+	if block == nil || block.Type != "CERTIFICATE" {
+		return nil, fmt.Errorf("%w: %s: PEM block not CERTIFICATE", ErrInvalidCAStorage, certName)
 	}
-	cert, err := x509.ParseCertificate(certBlock.Bytes)
+	cert, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w: parse %s: %v", ErrInvalidCAStorage, certName, err)
+		return nil, fmt.Errorf("%w: parse %s: %v", ErrInvalidCAStorage, certName, err)
 	}
+	return cert, nil
+}
 
-	keyBlock, _ := pem.Decode(keyPEM)
-	if keyBlock == nil || keyBlock.Type != "PRIVATE KEY" {
-		return nil, nil, fmt.Errorf("%w: %s: PEM block not PRIVATE KEY", ErrInvalidCAStorage, keyName)
+// parseCAKeyPEM decodes a PKCS#8 PRIVATE KEY PEM block into a signer.
+func parseCAKeyPEM(keyName string, keyPEM []byte) (crypto.Signer, error) {
+	block, _ := pem.Decode(keyPEM)
+	if block == nil || block.Type != "PRIVATE KEY" {
+		return nil, fmt.Errorf("%w: %s: PEM block not PRIVATE KEY", ErrInvalidCAStorage, keyName)
 	}
-	key, err := x509.ParsePKCS8PrivateKey(keyBlock.Bytes)
+	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		return nil, nil, fmt.Errorf("%w: parse %s: %v", ErrInvalidCAStorage, keyName, err)
+		return nil, fmt.Errorf("%w: parse %s: %v", ErrInvalidCAStorage, keyName, err)
 	}
 	signer, ok := key.(crypto.Signer)
 	if !ok {
-		return nil, nil, fmt.Errorf("%w: %s: key does not implement crypto.Signer", ErrInvalidCAStorage, keyName)
+		return nil, fmt.Errorf("%w: %s: key does not implement crypto.Signer", ErrInvalidCAStorage, keyName)
 	}
-	return cert, signer, nil
+	return signer, nil
 }
 
 func (s *FileCAStorage) hasPair(certName, keyName string) (bool, error) {
