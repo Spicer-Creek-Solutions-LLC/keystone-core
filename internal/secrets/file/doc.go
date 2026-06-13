@@ -15,7 +15,7 @@
 // the disk fsync and a per-path layout adds complexity without a v1.0
 // win.
 //
-// Master-key resolution lives in [ResolveMasterKey]; v1.0 schemes are
+// Master-key resolution lives in the masterkey package (`masterkey.Resolve`); v1.0 schemes are
 // `env:`, `file:`, `inline:`. Cloud KMS schemes (`gcp-kms:` /
 // `aws-kms:` / `azure-kv:`) are detected and rejected with a v2.x+
 // pointer per FEATURES.md.

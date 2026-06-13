@@ -10,13 +10,14 @@ import (
 	"strings"
 	"testing"
 
+	"go.keystone-core.io/keystone-core/internal/masterkey"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 )
 
 func TestEncodeDecode_RoundTrip(t *testing.T) {
 	t.Parallel()
 
-	key, _ := NewRandomMasterKey()
+	key, _ := masterkey.NewRandom()
 	plaintext := []byte(`{"version":1,"secrets":{"kv/foo":{"data":{"password":"hunter2"}}}}`)
 
 	framed, err := encode(plaintext, key)
@@ -42,7 +43,7 @@ func TestEncodeDecode_RoundTrip(t *testing.T) {
 func TestEncode_NonceUniqueness(t *testing.T) {
 	t.Parallel()
 
-	key, _ := NewRandomMasterKey()
+	key, _ := masterkey.NewRandom()
 	plaintext := []byte("same plaintext, twice")
 
 	a, err := encode(plaintext, key)
@@ -66,7 +67,7 @@ func TestEncode_NonceUniqueness(t *testing.T) {
 func TestDecode_RejectsShortInput(t *testing.T) {
 	t.Parallel()
 
-	key, _ := NewRandomMasterKey()
+	key, _ := masterkey.NewRandom()
 	_, err := decode([]byte("too short"), key)
 	if err == nil {
 		t.Fatalf("decode short input = nil err")
@@ -82,7 +83,7 @@ func TestDecode_RejectsShortInput(t *testing.T) {
 func TestDecode_RejectsWrongMagic(t *testing.T) {
 	t.Parallel()
 
-	key, _ := NewRandomMasterKey()
+	key, _ := masterkey.NewRandom()
 	framed, err := encode([]byte("hi"), key)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
@@ -99,7 +100,7 @@ func TestDecode_RejectsWrongMagic(t *testing.T) {
 func TestDecode_RejectsUnknownVersion(t *testing.T) {
 	t.Parallel()
 
-	key, _ := NewRandomMasterKey()
+	key, _ := masterkey.NewRandom()
 	framed, err := encode([]byte("hi"), key)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
@@ -115,8 +116,8 @@ func TestDecode_RejectsUnknownVersion(t *testing.T) {
 func TestDecode_RejectsWrongKey(t *testing.T) {
 	t.Parallel()
 
-	key1, _ := NewRandomMasterKey()
-	key2, _ := NewRandomMasterKey()
+	key1, _ := masterkey.NewRandom()
+	key2, _ := masterkey.NewRandom()
 	framed, err := encode([]byte("hi"), key1)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
@@ -130,7 +131,7 @@ func TestDecode_RejectsWrongKey(t *testing.T) {
 func TestDecode_RejectsTamperedCiphertext(t *testing.T) {
 	t.Parallel()
 
-	key, _ := NewRandomMasterKey()
+	key, _ := masterkey.NewRandom()
 	framed, err := encode([]byte("hello"), key)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
@@ -147,7 +148,7 @@ func TestDecode_RejectsTamperedCiphertext(t *testing.T) {
 func TestDecode_RejectsLengthOverflow(t *testing.T) {
 	t.Parallel()
 
-	key, _ := NewRandomMasterKey()
+	key, _ := masterkey.NewRandom()
 	framed, err := encode([]byte("hi"), key)
 	if err != nil {
 		t.Fatalf("encode: %v", err)
@@ -287,7 +288,7 @@ func TestEncode_DistinctNoncesAcrossManyEncrypts(t *testing.T) {
 	t.Parallel()
 	// Defense against PRNG starvation / accidental key reuse.
 	const n = 200
-	key, _ := NewRandomMasterKey()
+	key, _ := masterkey.NewRandom()
 	seen := make(map[string]struct{}, n)
 	for i := 0; i < n; i++ {
 		framed, err := encode([]byte("payload"), key)
@@ -307,8 +308,8 @@ func TestEncode_DistinctNoncesAcrossManyEncrypts(t *testing.T) {
 func TestEnvelopeErrors_ContainContext(t *testing.T) {
 	t.Parallel()
 
-	key1, _ := NewRandomMasterKey()
-	key2, _ := NewRandomMasterKey()
+	key1, _ := masterkey.NewRandom()
+	key2, _ := masterkey.NewRandom()
 	framed, _ := encode([]byte("hi"), key1)
 	_, err := decode(framed, key2)
 	if !strings.Contains(err.Error(), "fingerprint mismatch") {

@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"go.keystone-core.io/keystone-core/internal/masterkey"
 	"go.keystone-core.io/keystone-core/internal/secrets"
 )
 
@@ -23,7 +24,7 @@ const DefaultBackendName = "file"
 // Config drives [NewBackend]. Path is the canonical state-file
 // location (the operator's `secrets.backends[].file.path`).
 // MasterKeySource is the scheme-prefixed config value resolved by
-// [ResolveMasterKey].
+// [masterkey.Resolve].
 //
 // Name overrides the backend's `Name()` so a multi-file-backend
 // operator deployment (two encrypted files for two namespaces) has
@@ -58,7 +59,7 @@ type Config struct {
 // consistent. Realistic deployments don't bottleneck on this.
 type Backend struct {
 	cfg    Config
-	key    MasterKey
+	key    masterkey.Key
 	name   string
 	logger *slog.Logger
 	clock  func() time.Time
@@ -78,9 +79,12 @@ func NewBackend(cfg Config) (*Backend, error) {
 	if cfg.MasterKeySource == "" {
 		return nil, fmt.Errorf("%w: file backend: MasterKeySource is required", secrets.ErrInvalidBackend)
 	}
-	key, err := ResolveMasterKey(cfg.MasterKeySource)
+	key, err := masterkey.Resolve(cfg.MasterKeySource)
 	if err != nil {
-		return nil, err
+		// Re-wrap so the file backend's public contract still exposes
+		// ErrInvalidBackend (the masterkey.ErrInvalidKey cause is kept
+		// in the chain).
+		return nil, fmt.Errorf("%w: %w", secrets.ErrInvalidBackend, err)
 	}
 	name := cfg.Name
 	if name == "" {

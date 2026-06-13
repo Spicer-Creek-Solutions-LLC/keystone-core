@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package file
+package masterkey
 
 import (
 	"encoding/base64"
@@ -10,19 +10,17 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"go.keystone-core.io/keystone-core/internal/secrets"
 )
 
-func TestNewRandomMasterKey(t *testing.T) {
+func TestNewRandom(t *testing.T) {
 	t.Parallel()
 
-	k, err := NewRandomMasterKey()
+	k, err := NewRandom()
 	if err != nil {
-		t.Fatalf("NewRandomMasterKey: %v", err)
+		t.Fatalf("NewRandom: %v", err)
 	}
 	if k.IsZero() {
-		t.Errorf("NewRandomMasterKey returned zero value")
+		t.Errorf("NewRandom returned zero value")
 	}
 	if len(k.Bytes()) != KeyLen {
 		t.Errorf("Bytes() = %d, want %d", len(k.Bytes()), KeyLen)
@@ -35,7 +33,7 @@ func TestNewRandomMasterKey(t *testing.T) {
 	}
 }
 
-func TestMasterKey_NoLeak(t *testing.T) {
+func TestKey_NoLeak(t *testing.T) {
 	t.Parallel()
 
 	// Build a known-bytes key. Fingerprint + String MUST NOT expose
@@ -44,9 +42,9 @@ func TestMasterKey_NoLeak(t *testing.T) {
 	for i := range keyBytes {
 		keyBytes[i] = byte(i + 1)
 	}
-	k, err := MasterKeyFromBytes(keyBytes)
+	k, err := FromBytes(keyBytes)
 	if err != nil {
-		t.Fatalf("MasterKeyFromBytes: %v", err)
+		t.Fatalf("FromBytes: %v", err)
 	}
 
 	formatted := k.String()
@@ -63,25 +61,25 @@ func TestMasterKey_NoLeak(t *testing.T) {
 	}
 }
 
-func TestMasterKeyFromBytes_WrongLength(t *testing.T) {
+func TestFromBytes_WrongLength(t *testing.T) {
 	t.Parallel()
 
 	cases := []int{0, 16, 31, 33, 64}
 	for _, n := range cases {
-		_, err := MasterKeyFromBytes(make([]byte, n))
+		_, err := FromBytes(make([]byte, n))
 		if err == nil {
-			t.Errorf("MasterKeyFromBytes(%d bytes) = nil err, want failure", n)
+			t.Errorf("FromBytes(%d bytes) = nil err, want failure", n)
 			continue
 		}
-		if !errors.Is(err, secrets.ErrInvalidBackend) {
-			t.Errorf("MasterKeyFromBytes(%d bytes) err does not wrap ErrInvalidBackend: %v", n, err)
+		if !errors.Is(err, ErrInvalidKey) {
+			t.Errorf("FromBytes(%d bytes) err does not wrap ErrInvalidKey: %v", n, err)
 		}
 	}
 }
 
-func TestMasterKey_BytesDefensiveCopy(t *testing.T) {
+func TestKey_BytesDefensiveCopy(t *testing.T) {
 	t.Parallel()
-	k, _ := NewRandomMasterKey()
+	k, _ := NewRandom()
 	first := k.Bytes()
 	first[0] ^= 0xff // mutate the returned slice
 	second := k.Bytes()
@@ -90,23 +88,28 @@ func TestMasterKey_BytesDefensiveCopy(t *testing.T) {
 	}
 }
 
-func TestMasterKey_FingerprintDeterministic(t *testing.T) {
+func TestKey_FingerprintDeterministic(t *testing.T) {
 	t.Parallel()
-	a, _ := MasterKeyFromBytes(make([]byte, KeyLen))
-	b, _ := MasterKeyFromBytes(make([]byte, KeyLen))
+	a, _ := FromBytes(make([]byte, KeyLen))
+	b, _ := FromBytes(make([]byte, KeyLen))
 	if a.Fingerprint() != b.Fingerprint() {
 		t.Errorf("Fingerprint not deterministic across construction")
+	}
+	// FingerprintBytes shares the prefix with the hex form.
+	fpb := a.FingerprintBytes()
+	if hex.EncodeToString(fpb[:]) != a.Fingerprint() {
+		t.Errorf("FingerprintBytes != hex(Fingerprint)")
 	}
 	// A different key MUST produce a different fingerprint.
 	other := make([]byte, KeyLen)
 	other[0] = 0xff
-	c, _ := MasterKeyFromBytes(other)
+	c, _ := FromBytes(other)
 	if a.Fingerprint() == c.Fingerprint() {
 		t.Errorf("Fingerprint collision across distinct keys")
 	}
 }
 
-func TestResolveMasterKey_Schemes(t *testing.T) {
+func TestResolve_Schemes(t *testing.T) {
 	t.Parallel()
 
 	keyBytes := make([]byte, KeyLen)
@@ -119,9 +122,9 @@ func TestResolveMasterKey_Schemes(t *testing.T) {
 
 	t.Run("inline hex", func(t *testing.T) {
 		t.Parallel()
-		k, err := ResolveMasterKey("inline:" + hexKey)
+		k, err := Resolve("inline:" + hexKey)
 		if err != nil {
-			t.Fatalf("ResolveMasterKey: %v", err)
+			t.Fatalf("Resolve: %v", err)
 		}
 		if k.IsZero() {
 			t.Errorf("resolved key is zero")
@@ -130,9 +133,9 @@ func TestResolveMasterKey_Schemes(t *testing.T) {
 
 	t.Run("inline base64 std", func(t *testing.T) {
 		t.Parallel()
-		k, err := ResolveMasterKey("inline:" + b64Key)
+		k, err := Resolve("inline:" + b64Key)
 		if err != nil {
-			t.Fatalf("ResolveMasterKey: %v", err)
+			t.Fatalf("Resolve: %v", err)
 		}
 		if k.IsZero() {
 			t.Errorf("resolved key is zero")
@@ -141,9 +144,9 @@ func TestResolveMasterKey_Schemes(t *testing.T) {
 
 	t.Run("inline base64 raw", func(t *testing.T) {
 		t.Parallel()
-		k, err := ResolveMasterKey("inline:" + rawB64Key)
+		k, err := Resolve("inline:" + rawB64Key)
 		if err != nil {
-			t.Fatalf("ResolveMasterKey: %v", err)
+			t.Fatalf("Resolve: %v", err)
 		}
 		if k.IsZero() {
 			t.Errorf("resolved key is zero")
@@ -157,9 +160,9 @@ func TestResolveMasterKey_Schemes(t *testing.T) {
 		if err := os.WriteFile(path, keyBytes, 0600); err != nil {
 			t.Fatalf("WriteFile: %v", err)
 		}
-		k, err := ResolveMasterKey("file:" + path)
+		k, err := Resolve("file:" + path)
 		if err != nil {
-			t.Fatalf("ResolveMasterKey: %v", err)
+			t.Fatalf("Resolve: %v", err)
 		}
 		if k.IsZero() {
 			t.Errorf("resolved key is zero")
@@ -173,9 +176,9 @@ func TestResolveMasterKey_Schemes(t *testing.T) {
 		if err := os.WriteFile(path, []byte(hexKey+"\n"), 0600); err != nil {
 			t.Fatalf("WriteFile: %v", err)
 		}
-		k, err := ResolveMasterKey("file:" + path)
+		k, err := Resolve("file:" + path)
 		if err != nil {
-			t.Fatalf("ResolveMasterKey: %v", err)
+			t.Fatalf("Resolve: %v", err)
 		}
 		if k.IsZero() {
 			t.Errorf("resolved key is zero")
@@ -183,7 +186,7 @@ func TestResolveMasterKey_Schemes(t *testing.T) {
 	})
 }
 
-func TestResolveMasterKey_Errors(t *testing.T) {
+func TestResolve_Errors(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -207,12 +210,12 @@ func TestResolveMasterKey_Errors(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			_, err := ResolveMasterKey(tc.source)
+			_, err := Resolve(tc.source)
 			if err == nil {
-				t.Fatalf("ResolveMasterKey(%q) = nil err, want %q", tc.source, tc.wantSub)
+				t.Fatalf("Resolve(%q) = nil err, want %q", tc.source, tc.wantSub)
 			}
-			if !errors.Is(err, secrets.ErrInvalidBackend) {
-				t.Errorf("err does not wrap ErrInvalidBackend: %v", err)
+			if !errors.Is(err, ErrInvalidKey) {
+				t.Errorf("err does not wrap ErrInvalidKey: %v", err)
 			}
 			if !strings.Contains(err.Error(), tc.wantSub) {
 				t.Errorf("err = %q, want substring %q", err.Error(), tc.wantSub)
@@ -221,25 +224,25 @@ func TestResolveMasterKey_Errors(t *testing.T) {
 	}
 }
 
-func TestResolveMasterKey_WrongLength(t *testing.T) {
+func TestResolve_WrongLength(t *testing.T) {
 	t.Parallel()
 
 	short := hex.EncodeToString(make([]byte, 16))
-	_, err := ResolveMasterKey("inline:" + short)
+	_, err := Resolve("inline:" + short)
 	if err == nil {
 		t.Fatalf("short key accepted")
 	}
-	if !errors.Is(err, secrets.ErrInvalidBackend) {
-		t.Errorf("err does not wrap ErrInvalidBackend: %v", err)
+	if !errors.Is(err, ErrInvalidKey) {
+		t.Errorf("err does not wrap ErrInvalidKey: %v", err)
 	}
 	if !strings.Contains(err.Error(), "16 bytes, want 32") {
 		t.Errorf("err = %q, want length-mismatch message", err.Error())
 	}
 }
 
-// TestResolveMasterKey_EnvScheme is intentionally non-parallel — it
-// uses t.Setenv, which forbids parallel ancestors.
-func TestResolveMasterKey_EnvScheme(t *testing.T) {
+// TestResolve_EnvScheme is intentionally non-parallel — it uses
+// t.Setenv, which forbids parallel ancestors.
+func TestResolve_EnvScheme(t *testing.T) {
 	const varName = "KSCORE_TEST_MASTER_KEY_OK"
 	keyBytes := make([]byte, KeyLen)
 	for i := range keyBytes {
@@ -248,26 +251,26 @@ func TestResolveMasterKey_EnvScheme(t *testing.T) {
 	hexKey := hex.EncodeToString(keyBytes)
 
 	t.Setenv(varName, hexKey)
-	k, err := ResolveMasterKey("env:" + varName)
+	k, err := Resolve("env:" + varName)
 	if err != nil {
-		t.Fatalf("ResolveMasterKey: %v", err)
+		t.Fatalf("Resolve: %v", err)
 	}
 	if k.IsZero() {
 		t.Errorf("resolved key is zero")
 	}
 }
 
-// TestResolveMasterKey_EnvEmpty exercises the "env var set but
-// empty" branch. Non-parallel for the same reason.
-func TestResolveMasterKey_EnvEmpty(t *testing.T) {
+// TestResolve_EnvEmpty exercises the "env var set but empty" branch.
+// Non-parallel for the same reason.
+func TestResolve_EnvEmpty(t *testing.T) {
 	const varName = "KSCORE_TEST_MASTER_KEY_EMPTY"
 	t.Setenv(varName, "")
-	_, err := ResolveMasterKey("env:" + varName)
+	_, err := Resolve("env:" + varName)
 	if err == nil {
 		t.Fatalf("empty env var accepted")
 	}
-	if !errors.Is(err, secrets.ErrInvalidBackend) {
-		t.Errorf("err does not wrap ErrInvalidBackend: %v", err)
+	if !errors.Is(err, ErrInvalidKey) {
+		t.Errorf("err does not wrap ErrInvalidKey: %v", err)
 	}
 	if !strings.Contains(err.Error(), "is empty") {
 		t.Errorf("err = %q, want is-empty message", err.Error())
