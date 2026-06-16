@@ -1,4 +1,7 @@
-# Keystone Core
+<h1 align="center">
+  <img src="assets/logo.png" alt="Keystone Core logo" width="200"><br>
+  Keystone Core
+</h1>
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-v0.x_pre--release-orange)](docs/project/VERSIONING.md)
