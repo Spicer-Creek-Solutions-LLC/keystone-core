@@ -27,6 +27,14 @@ enableRobotsTXT = true
   [[module.mounts]]
     source = "adr"
     target = "content/docs/adr"
+  # Mount the canonical brand assets (repo-root assets/) into the Hugo
+  # static tree so the navbar logo is served verbatim from the single
+  # source of truth — the file is not copied or duplicated into docs/.
+  # (Hextra's navbar references the logo by URL via relURL, so it must be
+  # a published static file rather than an assets/ pipeline resource.)
+  [[module.mounts]]
+    source = "../assets"
+    target = "static/keystone"
 
 [markup]
   [markup.highlight]
@@ -38,5 +46,9 @@ enableRobotsTXT = true
   description = "Keystone Core — the runtime operations control plane. GitOps deploys it; we keep it running."
   [params.navbar]
     displayTitle = true
+    [params.navbar.logo]
+      path = "keystone/logo.svg"
+      width = 41
+      height = 32
   [params.footer]
     displayCopyright = true

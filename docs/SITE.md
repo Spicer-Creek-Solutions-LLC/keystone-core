@@ -23,6 +23,12 @@ The auto-generated CLI / configuration / API references keep being
 written to `docs/project/` by `make docs-sync` — edit the generators,
 not the rendered pages.
 
+The same mount-don't-copy rule covers branding: the repo-root `assets/`
+directory (the canonical logo) is mounted to `static/keystone`, so the
+navbar logo (`[params.navbar.logo]` in `hugo.toml`) is served verbatim
+from the single source of truth — replace `assets/logo.svg` to update it
+everywhere.
+
 ## Building
 
 ```sh
