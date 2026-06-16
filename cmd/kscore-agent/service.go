@@ -55,8 +55,8 @@ var runnerFactory = func() systemd.Runner { return systemd.NewDefaultRunner() }
 func newServiceCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:           "service",
-		Short:         "Manage the keystone-core-agent systemd unit",
-		Long:          "Linux-only: write/remove the keystone-core-agent.service unit and report its systemd status. v1.0 ships install / uninstall / status; start and stop are deferred (use systemctl directly).",
+		Short:         "Manage the kscore-agent systemd unit",
+		Long:          "Linux-only: write/remove the kscore-agent.service unit and report its systemd status. v1.0 ships install / uninstall / status; start and stop are deferred (use systemctl directly).",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -70,8 +70,8 @@ func newServiceInstallCommand() *cobra.Command {
 	flags := &serviceFlags{}
 	cmd := &cobra.Command{
 		Use:           "install",
-		Short:         "Render + install the keystone-core-agent systemd unit",
-		Long:          "Renders /etc/systemd/system/keystone-core-agent.service, runs systemctl daemon-reload, optionally enables and starts the service. Idempotent — same content on a re-run is a no-op.",
+		Short:         "Render + install the kscore-agent systemd unit",
+		Long:          "Renders /etc/systemd/system/kscore-agent.service, runs systemctl daemon-reload, optionally enables and starts the service. Idempotent — same content on a re-run is a no-op.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -81,11 +81,11 @@ func newServiceInstallCommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.Binary, "binary", "",
 		"absolute path to the kscore-agent binary (KSCORE_SERVICE_BINARY; default = /usr/local/bin/kscore-agent)")
 	cmd.Flags().StringVar(&flags.ConfigPath, "config-path", "",
-		"absolute path to the agent config (KSCORE_SERVICE_CONFIG_PATH; default = /etc/keystone-core/keystone-core-agent.yaml)")
+		fmt.Sprintf("absolute path to the agent config (KSCORE_SERVICE_CONFIG_PATH; default = %s)", systemd.DefaultConfigPath))
 	cmd.Flags().StringVar(&flags.UnitDir, "unit-dir", "",
 		"directory the unit file is written to (KSCORE_SERVICE_UNIT_DIR; default = /etc/systemd/system)")
 	cmd.Flags().StringVar(&flags.UnitName, "unit-name", "",
-		"unit filename (KSCORE_SERVICE_UNIT_NAME; default = keystone-core-agent.service)")
+		fmt.Sprintf("unit filename (KSCORE_SERVICE_UNIT_NAME; default = %s)", systemd.DefaultUnitName))
 	cmd.Flags().StringVar(&flags.User, "user", "",
 		"unit User= (KSCORE_SERVICE_USER; default = root)")
 	cmd.Flags().StringVar(&flags.Group, "group", "",
@@ -107,7 +107,7 @@ func newServiceUninstallCommand() *cobra.Command {
 	flags := &serviceFlags{}
 	cmd := &cobra.Command{
 		Use:           "uninstall",
-		Short:         "Stop, disable, and remove the keystone-core-agent systemd unit",
+		Short:         "Stop, disable, and remove the kscore-agent systemd unit",
 		Long:          "Reverses install: systemctl stop + disable, removes the unit file, runs daemon-reload. Idempotent — no-op if no unit is installed.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -118,7 +118,7 @@ func newServiceUninstallCommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.UnitDir, "unit-dir", "",
 		"directory containing the unit file (KSCORE_SERVICE_UNIT_DIR; default = /etc/systemd/system)")
 	cmd.Flags().StringVar(&flags.UnitName, "unit-name", "",
-		"unit filename (KSCORE_SERVICE_UNIT_NAME; default = keystone-core-agent.service)")
+		fmt.Sprintf("unit filename (KSCORE_SERVICE_UNIT_NAME; default = %s)", systemd.DefaultUnitName))
 	cmd.Flags().BoolVar(&flags.DryRun, "dry-run", false,
 		"report what would happen without invoking systemctl (KSCORE_SERVICE_DRY_RUN)")
 	return cmd
@@ -139,7 +139,7 @@ func newServiceStatusCommand() *cobra.Command {
 	cmd.Flags().StringVar(&flags.UnitDir, "unit-dir", "",
 		"directory containing the unit file (KSCORE_SERVICE_UNIT_DIR; default = /etc/systemd/system)")
 	cmd.Flags().StringVar(&flags.UnitName, "unit-name", "",
-		"unit filename (KSCORE_SERVICE_UNIT_NAME; default = keystone-core-agent.service)")
+		fmt.Sprintf("unit filename (KSCORE_SERVICE_UNIT_NAME; default = %s)", systemd.DefaultUnitName))
 	return cmd
 }
 

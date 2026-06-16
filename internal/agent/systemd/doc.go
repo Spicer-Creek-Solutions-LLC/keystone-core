@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package systemd renders + installs the keystone-core-agent
+// Package systemd renders + installs the kscore-agent
 // systemd unit. Three operations are exposed:
 //
 //   - Render(params) → []byte: build the unit file.
 //   - Install(ctx, params, opts): atomic-write to
-//     /etc/systemd/system/keystone-core-agent.service, run
+//     /etc/systemd/system/kscore-agent.service, run
 //     daemon-reload, optionally enable --now.
 //   - Uninstall(ctx, opts): stop + disable + remove + daemon-reload.
 //   - Status(ctx) (StatusResult, error): wraps systemctl

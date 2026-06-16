@@ -24,8 +24,8 @@ func TestNewConfigurer_FillsDefaults(t *testing.T) {
 	if c.defaults.NodeRole != defaultNodeRole {
 		t.Errorf("NodeRole = %q, want %q", c.defaults.NodeRole, defaultNodeRole)
 	}
-	if c.defaults.ConfigPath != defaultConfigPath {
-		t.Errorf("ConfigPath = %q, want %q", c.defaults.ConfigPath, defaultConfigPath)
+	if c.defaults.ConfigPath != bootstrap.DefaultAgentConfigPath {
+		t.Errorf("ConfigPath = %q, want %q", c.defaults.ConfigPath, bootstrap.DefaultAgentConfigPath)
 	}
 	if c.defaults.JoinURL != defaultJoinURL {
 		t.Errorf("JoinURL = %q, want %q", c.defaults.JoinURL, defaultJoinURL)
@@ -114,7 +114,7 @@ func TestConfigurationFromValues_DemoModeAccepted(t *testing.T) {
 		AgentID:     "agent-1",
 		NodeRole:    "worker",
 		JoinURL:     "nats://server:4222",
-		ConfigPath:  "/etc/keystone-core/keystone-core-agent.yaml",
+		ConfigPath:  "/etc/kscore/agent.yaml",
 	}
 	cfg, err := configurationFromValues(v)
 	if err != nil {

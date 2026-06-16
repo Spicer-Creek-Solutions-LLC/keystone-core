@@ -461,12 +461,12 @@ Bootstrap is **transactional with rollback**. Re-runs must be idempotent.
 
 **On-disk layout**:
 ```
-/etc/keystone-core/keystone-core-agent.yaml      # config
-/etc/keystone-core/certs/{ca.crt,agent.crt,agent.key}
-/etc/keystone-core/nats/creds.txt                # NATS creds
-/var/lib/keystone-core/blueprint-tracker.json    # bootstrap state
-/var/lib/keystone-core/snapshots/                # rollback snapshots
-/var/lib/keystone-core/blueprints/               # downloaded blueprints
+/etc/kscore/agent.yaml                           # config
+/etc/kscore/certs/{ca.crt,agent.crt,agent.key}
+/etc/kscore/nats/creds.txt                       # NATS creds
+/var/lib/kscore-agent/bootstrap.json             # bootstrap state
+/var/lib/kscore-agent/snapshots/                 # rollback snapshots
+/var/lib/kscore-agent/blueprints/                # downloaded blueprints
 ```
 
 **Agent config (top-level keys)**: `agent.{id, cluster, heartbeat_interval, metadata_interval, command_timeout, labels}`, `nats.{mode, urls, embedded.*, tls.*}`, `security.{authorization, command_filter}`.

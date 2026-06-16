@@ -23,7 +23,7 @@ type Options struct {
 	// /etc/systemd/system.
 	UnitDir string
 
-	// UnitName is the filename. Defaults to keystone-core-agent.service.
+	// UnitName is the filename. Defaults to kscore-agent.service.
 	UnitName string
 
 	// Runner abstracts systemctl. Defaults to NewDefaultRunner()
@@ -67,12 +67,12 @@ func (o Options) fillDefaults() Options {
 // distinguish first-install from converged-already; Reloaded /
 // Enabled / Started flag the systemctl side effects.
 type InstallResult struct {
-	UnitPath  string
-	Created   bool
-	Updated   bool
-	Reloaded  bool
-	Enabled   bool
-	Started   bool
+	UnitPath    string
+	Created     bool
+	Updated     bool
+	Reloaded    bool
+	Enabled     bool
+	Started     bool
 	BytesOnDisk int
 }
 

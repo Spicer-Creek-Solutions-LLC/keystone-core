@@ -74,7 +74,7 @@ func TestInstall_EnableAndStartCombines(t *testing.T) {
 	got := fake.CallNames()
 	want := []string{
 		"systemctl daemon-reload",
-		"systemctl enable --now keystone-core-agent.service",
+		"systemctl enable --now kscore-agent.service",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("calls = %v, want %v", got, want)
@@ -91,7 +91,7 @@ func TestInstall_EnableOnly(t *testing.T) {
 	got := fake.CallNames()
 	want := []string{
 		"systemctl daemon-reload",
-		"systemctl enable keystone-core-agent.service",
+		"systemctl enable kscore-agent.service",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("calls = %v, want %v", got, want)
@@ -108,7 +108,7 @@ func TestInstall_StartOnly(t *testing.T) {
 	got := fake.CallNames()
 	want := []string{
 		"systemctl daemon-reload",
-		"systemctl start keystone-core-agent.service",
+		"systemctl start kscore-agent.service",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("calls = %v, want %v", got, want)
@@ -201,8 +201,8 @@ func TestUninstall_FullCycle(t *testing.T) {
 	fake := opts.Runner.(*FakeRunner)
 	got := fake.CallNames()
 	want := []string{
-		"systemctl stop keystone-core-agent.service",
-		"systemctl disable keystone-core-agent.service",
+		"systemctl stop kscore-agent.service",
+		"systemctl disable kscore-agent.service",
 		"systemctl daemon-reload",
 	}
 	if !reflect.DeepEqual(got, want) {
@@ -233,8 +233,8 @@ func TestUninstall_TolerantOfStopDisableErrors(t *testing.T) {
 	fake.Calls = nil
 	// Stop + disable both error (e.g. service was never active) —
 	// uninstall should still remove the unit + daemon-reload.
-	fake.Responses["systemctl stop keystone-core-agent.service"] = FakeResponse{Err: errors.New("inactive")}
-	fake.Responses["systemctl disable keystone-core-agent.service"] = FakeResponse{Err: errors.New("not enabled")}
+	fake.Responses["systemctl stop kscore-agent.service"] = FakeResponse{Err: errors.New("inactive")}
+	fake.Responses["systemctl disable kscore-agent.service"] = FakeResponse{Err: errors.New("not enabled")}
 
 	res, err := Uninstall(context.Background(), opts)
 	if err != nil {
@@ -270,8 +270,8 @@ func TestStatus_ActiveEnabled(t *testing.T) {
 	}
 	fake := opts.Runner.(*FakeRunner)
 	fake.Calls = nil
-	fake.Responses["systemctl is-active keystone-core-agent.service"] = FakeResponse{Output: []byte("active\n")}
-	fake.Responses["systemctl is-enabled keystone-core-agent.service"] = FakeResponse{Output: []byte("enabled\n")}
+	fake.Responses["systemctl is-active kscore-agent.service"] = FakeResponse{Output: []byte("active\n")}
+	fake.Responses["systemctl is-enabled kscore-agent.service"] = FakeResponse{Output: []byte("enabled\n")}
 
 	res, err := Status(context.Background(), opts)
 	if err != nil {
@@ -292,8 +292,8 @@ func TestStatus_InactiveDisabled(t *testing.T) {
 	}
 	fake := opts.Runner.(*FakeRunner)
 	fake.Calls = nil
-	fake.Responses["systemctl is-active keystone-core-agent.service"] = FakeResponse{Output: []byte("inactive\n"), Err: errors.New("exit 3")}
-	fake.Responses["systemctl is-enabled keystone-core-agent.service"] = FakeResponse{Output: []byte("disabled\n"), Err: errors.New("exit 1")}
+	fake.Responses["systemctl is-active kscore-agent.service"] = FakeResponse{Output: []byte("inactive\n"), Err: errors.New("exit 3")}
+	fake.Responses["systemctl is-enabled kscore-agent.service"] = FakeResponse{Output: []byte("disabled\n"), Err: errors.New("exit 1")}
 
 	res, err := Status(context.Background(), opts)
 	if err != nil {
@@ -316,8 +316,8 @@ func TestStatus_StaticEnabled(t *testing.T) {
 	}
 	fake := opts.Runner.(*FakeRunner)
 	fake.Calls = nil
-	fake.Responses["systemctl is-active keystone-core-agent.service"] = FakeResponse{Output: []byte("active\n")}
-	fake.Responses["systemctl is-enabled keystone-core-agent.service"] = FakeResponse{Output: []byte("static\n")}
+	fake.Responses["systemctl is-active kscore-agent.service"] = FakeResponse{Output: []byte("active\n")}
+	fake.Responses["systemctl is-enabled kscore-agent.service"] = FakeResponse{Output: []byte("static\n")}
 
 	res, err := Status(context.Background(), opts)
 	if err != nil {

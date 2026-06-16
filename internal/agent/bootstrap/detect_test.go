@@ -33,8 +33,8 @@ func TestDefaultDetector_Smoke(t *testing.T) {
 	}
 	// AgentInstalled depends on host state — we only assert the
 	// AgentConfigPath default got set.
-	if res.AgentConfigPath != defaultAgentConfigPath {
-		t.Errorf("AgentConfigPath = %q, want %q", res.AgentConfigPath, defaultAgentConfigPath)
+	if res.AgentConfigPath != DefaultAgentConfigPath {
+		t.Errorf("AgentConfigPath = %q, want %q", res.AgentConfigPath, DefaultAgentConfigPath)
 	}
 }
 

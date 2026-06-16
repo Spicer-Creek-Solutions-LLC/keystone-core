@@ -14,7 +14,7 @@ import (
 // DefaultUnitName is the canonical filename. Operators override
 // via Options.UnitPath if they're staging multiple agents on one
 // host (rare but supported).
-const DefaultUnitName = "keystone-core-agent.service"
+const DefaultUnitName = "kscore-agent.service"
 
 // DefaultUnitDir is where systemd reads operator-installed units.
 // /etc/systemd/system overrides /lib/systemd/system, so we install
@@ -28,8 +28,10 @@ const DefaultUnitDir = "/etc/systemd/system"
 const DefaultBinaryPath = "/usr/bin/kscore-agent"
 
 // DefaultConfigPath matches the bootstrap installer's render
-// target so a `kscore-agent bootstrap` followed by
-// `kscore-agent service install` lines up by default.
+// target (bootstrap.DefaultAgentConfigPath) so a `kscore-agent
+// bootstrap` followed by `kscore-agent service install` lines up by
+// default. The two packages stay decoupled; the equality is enforced
+// by bootstrap/paths_invariant_test.go.
 const DefaultConfigPath = "/etc/kscore/agent.yaml"
 
 // DefaultReadWritePaths is the set systemd's ProtectSystem=strict
@@ -117,7 +119,7 @@ func (p Params) validate() error {
 	return nil
 }
 
-// Render builds the keystone-core-agent.service body. Caller
+// Render builds the kscore-agent.service body. Caller
 // writes the bytes to disk via Install (which handles
 // atomic-write + daemon-reload).
 func Render(p Params) ([]byte, error) {

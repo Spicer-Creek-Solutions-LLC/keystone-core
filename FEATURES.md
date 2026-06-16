@@ -212,7 +212,7 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 - **Bootstrap phases** (detect → configure → validate → install → verify with rollback on failure). *Reasoning: safe re-runs.*
 - **Systemd service install + management**. *Reasoning: standard Linux daemon UX.*
 - **Self-signed CA bootstrap path** (demo) + CSR path (production). *Reasoning: zero-config dev + real-prod story.*
-- **Agent config on disk** (`/etc/keystone-core/keystone-core-agent.yaml`, certs in `certs/`). *Reasoning: standard FHS layout.*
+- **Agent config on disk** (`/etc/kscore/agent.yaml`, certs in `certs/`). *Reasoning: standard FHS layout.*
 - **Graceful shutdown** (SIGTERM → unsubscribe, drain in-flight, exit). *Reasoning: clean rolling restarts.*
 - **Reconnect with exponential backoff**. *Reasoning: handles flaky control plane links.*
 - **Plugin host integration** (loads from module system — see Domain 18). *Reasoning: required for state apply + extensibility.*

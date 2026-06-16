@@ -13,7 +13,7 @@
 //     v1.0 supports demo mode end-to-end; production / enterprise
 //     modes are deferred to v0.x (see docs/project/ROADMAP.md).
 //   - service install|uninstall|status — manage the
-//     keystone-core-agent systemd unit. Linux-only in v1.0.
+//     kscore-agent systemd unit. Linux-only in v1.0.
 package main
 
 import (
@@ -244,9 +244,9 @@ func registerBootstrapFlags(cmd *cobra.Command, f *bootstrapFlags) {
 	cmd.Flags().StringVar(&f.JoinToken, "join-token", "",
 		"optional bootstrap PSK / token (KSCORE_BOOTSTRAP_JOIN_TOKEN)")
 	cmd.Flags().StringVar(&f.ConfigPath, "config-path", "",
-		"absolute path where keystone-core-agent.yaml is rendered (KSCORE_BOOTSTRAP_CONFIG_PATH; default = /etc/keystone-core/keystone-core-agent.yaml)")
+		fmt.Sprintf("absolute path where agent.yaml is rendered (KSCORE_BOOTSTRAP_CONFIG_PATH; default = %s)", bootstrap.DefaultAgentConfigPath))
 	cmd.Flags().StringVar(&f.StatePath, "state-path", "",
-		"absolute path for the bootstrap FSM state file (KSCORE_BOOTSTRAP_STATE_PATH; default = /var/lib/keystone-core/bootstrap.json)")
+		fmt.Sprintf("absolute path for the bootstrap FSM state file (KSCORE_BOOTSTRAP_STATE_PATH; default = %s)", bootstrap.DefaultStatePath))
 	cmd.Flags().BoolVar(&f.DryRun, "dry-run", false,
 		"report what would happen without writing the config (KSCORE_BOOTSTRAP_DRY_RUN)")
 }
@@ -358,7 +358,7 @@ func buildConfigurer(cfg *config.Config, f *bootstrapFlags, log *slog.Logger) (b
 	agentID := firstNonEmpty(f.AgentID, cfg.Agent.AgentID, hostnameOr(""))
 	nodeRole := firstNonEmpty(f.NodeRole, "worker")
 	join := firstNonEmpty(f.Join, firstURL(cfg.NATS.URLs))
-	cfgPath := firstNonEmpty(f.ConfigPath, "/etc/keystone-core/keystone-core-agent.yaml")
+	cfgPath := firstNonEmpty(f.ConfigPath, bootstrap.DefaultAgentConfigPath)
 
 	if !f.NonInteractive {
 		return tui.NewConfigurer(tui.Defaults{
