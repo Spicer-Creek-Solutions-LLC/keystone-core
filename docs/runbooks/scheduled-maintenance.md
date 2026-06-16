@@ -40,19 +40,19 @@ kscore-cluster-backup create \
   --label "pre-maintenance"
 
 # Verify backup
-kscore-cluster-backup verify /backup/pre-maintenance-*/latest.tar.gz
+kscore-cluster-backup verify --input /backup/pre-maintenance-*/latest.tar.gz
 ```
 
 #### Step 3: Record Current State
 
 ```bash
 # Record cluster state
-kscorectl cluster health > /tmp/pre-maintenance-health.txt
-kscorectl cluster members > /tmp/pre-maintenance-members.txt
-kscorectl agents list > /tmp/pre-maintenance-agents.txt
+kscore-cluster status > /tmp/pre-maintenance-health.txt
+kscore-cluster members > /tmp/pre-maintenance-members.txt
+kscorectl agent list > /tmp/pre-maintenance-agents.txt
 
 # Record version info
-kscorectl version > /tmp/pre-maintenance-version.txt
+kscorectl --version > /tmp/pre-maintenance-version.txt
 ```
 
 ### During Maintenance
@@ -88,7 +88,7 @@ for node in ks-server-1 ks-server-2 ks-server-3; do
   ssh $node "sudo systemctl restart kscore-server"
   # Wait for node to become healthy
   sleep 30
-  kscorectl cluster health
+  kscore-cluster status
 done
 ```
 
@@ -96,8 +96,8 @@ done
 
 ```bash
 # After each significant change:
-kscorectl cluster health
-kscorectl agents list --status online -o json | jq length
+kscore-cluster status
+kscorectl agent list --status connected -o json | jq length
 ```
 
 ### Post-Maintenance
@@ -117,12 +117,12 @@ kscorectl maintenance status
 
 ```bash
 # Compare cluster state
-diff /tmp/pre-maintenance-health.txt <(kscorectl cluster health)
-diff /tmp/pre-maintenance-members.txt <(kscorectl cluster members)
+diff /tmp/pre-maintenance-health.txt <(kscore-cluster status)
+diff /tmp/pre-maintenance-members.txt <(kscore-cluster members)
 
 # Verify all agents reconnected
 BEFORE=$(cat /tmp/pre-maintenance-agents.txt | grep -c online)
-AFTER=$(kscorectl agents list --status online -o json | jq length)
+AFTER=$(kscorectl agent list --status connected -o json | jq length)
 echo "Agents before: $BEFORE, after: $AFTER"
 
 # Run smoke tests
@@ -133,7 +133,7 @@ kscore-test smoke
 
 ```bash
 # Full health check
-kscorectl cluster health --verbose
+kscore-cluster status
 
 # Check queued operations processed
 kscorectl maintenance queue --status
@@ -212,7 +212,7 @@ for node in ks-server-1 ks-server-2 ks-server-3; do
 
   # Wait for healthy
   sleep 30
-  kscorectl cluster health
+  kscore-cluster status
 done
 ```
 

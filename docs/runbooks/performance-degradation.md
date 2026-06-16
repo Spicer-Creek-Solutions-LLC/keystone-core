@@ -37,7 +37,7 @@ This runbook covers diagnosis and remediation of performance degradation in Keys
 
 ```bash
 # Overall health check
-kscorectl cluster health
+kscore-cluster status
 
 # Check control plane resource usage
 for node in ks-server-1 ks-server-2 ks-server-3; do
@@ -46,7 +46,7 @@ for node in ks-server-1 ks-server-2 ks-server-3; do
 done
 
 # Check agent health summary
-kscorectl agents list -o json | jq -r '.[].status' | sort | uniq -c
+kscorectl agent list -o json | jq -r '.[].status' | sort | uniq -c
 ```
 
 #### Step 1.2: Review Key Metrics
@@ -391,10 +391,10 @@ systemctl restart kscore-server
 
 ```bash
 # One-liner health check
-kscorectl cluster health && echo "Healthy" || echo "UNHEALTHY"
+kscore-cluster status && echo "Healthy" || echo "UNHEALTHY"
 
 # Quick latency test
-time kscorectl agents list --limit 1 > /dev/null
+time kscorectl agent list --limit 1 > /dev/null
 
 # Check recent errors
 journalctl -u kscore-server --since "1 hour ago" -p err

@@ -46,7 +46,7 @@ ss -s
 nats server report connections 2>/dev/null || echo "NATS CLI not available"
 
 # Check agent count
-kscorectl agents list -o json | jq length
+kscorectl agent list -o json | jq length
 
 # Check database size
 du -sh /var/lib/keystone-core/
@@ -68,7 +68,7 @@ aws ec2 modify-instance-attribute \
 aws ec2 start-instances --instance-ids i-xxx
 
 # Verify
-kscorectl cluster health
+kscore-cluster status
 ```
 
 #### Step 3: Update Configuration
@@ -129,7 +129,7 @@ kscorectl cluster join \
   --advertise-addr $(hostname -I | awk '{print $1}')
 
 # Verify cluster membership
-kscorectl cluster members
+kscore-cluster members
 ```
 
 #### Step 4: Rebalance Workload
@@ -137,10 +137,10 @@ kscorectl cluster members
 ```bash
 # Agents will automatically rebalance over time
 # To force immediate rebalancing:
-kscorectl cluster rebalance
+kscore-cluster rebalance
 
 # Monitor rebalancing progress
-watch -n 5 'kscorectl agents list -o json | jq "group_by(.control_plane_node) | .[] | {node: .[0].control_plane_node, count: length}"'
+watch -n 5 'kscorectl agent list -o json | jq "group_by(.control_plane_node) | .[] | {node: .[0].control_plane_node, count: length}"'
 ```
 
 ### Database Scaling
@@ -186,7 +186,7 @@ EOF
 
 # 5. Restart and verify
 systemctl restart kscore-server
-kscorectl cluster health
+kscore-cluster status
 ```
 
 #### PostgreSQL Read Replicas
@@ -362,7 +362,7 @@ kscorectl cluster drain ks-server-4
 sleep 300
 
 # Remove from cluster
-kscorectl cluster member remove ks-server-4
+kscore-cluster remove ks-server-4
 
 # Decommission infrastructure
 ```

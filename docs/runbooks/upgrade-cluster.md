@@ -39,15 +39,15 @@ family arrive with the HA work tracked in
 ```bash
 # 1. Confirm current versions.
 sudo systemctl status kscore-server --no-pager | head -5
-dpkg -l kscore-server kscore-cli kscore-agent 2>/dev/null || \
-    rpm -q kscore-server kscore-cli kscore-agent
+dpkg -l kscore-server kscorectl kscore-agent 2>/dev/null || \
+    rpm -q kscore-server kscorectl kscore-agent
 
 # 2. Confirm cluster (server) is healthy before the change.
 curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
 
 # 3. Confirm agents are connected (the events stream is the
 #    authoritative signal; Prometheus is a lagging indicator).
-kscorectl events list --type agent_connected --since 1h
+kscore-events list --type agent_connected --since 1h
 
 # 4. Sample recent error baseline so post-upgrade comparison is
 #    meaningful. Replace <PROM_URL> with your scrape target.
@@ -96,13 +96,13 @@ curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
 
 ## CLI upgrade
 
-The `kscore-cli` package bundles `kscorectl` + every dispatched
-sub-binary (`kscore-audit`, `kscore-secrets`, …). Upgrade it in
+The `kscorectl` package bundles the `kscorectl` CLI and the companion
+`kscore-*` tools (`kscore-audit`, `kscore-secrets`, …). Upgrade it in
 lockstep with the server.
 
 ```bash
-sudo apt install -y ./kscore-cli_<version>_linux_amd64.deb   # Debian/Ubuntu
-sudo dnf install -y ./kscore-cli-<version>.x86_64.rpm        # Rocky/RHEL
+sudo apt install -y ./kscorectl_<version>_linux_amd64.deb   # Debian/Ubuntu
+sudo dnf install -y ./kscorectl-<version>.x86_64.rpm        # Rocky/RHEL
 
 # Sanity-check the new CLI.
 kscorectl --version
@@ -133,7 +133,7 @@ sudo systemctl start kscore-agent
 
 # 4. Verify the agent reconnected by watching the control-plane
 #    events stream from the operator workstation.
-kscorectl events list --type agent_connected --since 5m \
+kscore-events list --type agent_connected --since 5m \
     --filter "metadata.agent_id == '<host-id>'"
 ```
 
@@ -151,7 +151,7 @@ After the server + CLI + (relevant) agent upgrades land:
 - [ ] `kscore-server --version` and `kscorectl --version` both
       report the target version
 - [ ] Every upgraded agent reappears in
-      `kscorectl events list --type agent_connected --since 30m`
+      `kscore-events list --type agent_connected --since 30m`
 - [ ] A representative state apply still works:
 
 ```bash
@@ -165,7 +165,7 @@ kscorectl state drift --agent <agent-id>
 - [ ] Audit log accepts new writes:
 
 ```bash
-kscorectl audit log --limit 5
+kscore-audit log --limit 5
 ```
 
 - [ ] No new alerts firing in your Prometheus / observability stack

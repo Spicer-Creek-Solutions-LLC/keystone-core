@@ -170,7 +170,7 @@ forward-fix.
 - [ ] State apply works against a representative agent (try a
       previously-working YAML; should land idempotent with zero
       changes)
-- [ ] Audit log accepts new writes (a `kscorectl audit log --limit 5`
+- [ ] Audit log accepts new writes (a `kscore-audit log --limit 5`
       after the verification commands above should show those very
       commands as new entries)
 - [ ] Error-rate metrics return to the pre-incident baseline within
@@ -192,8 +192,8 @@ sudo journalctl -u kscore-server --since "2 hours ago" > "$D/server.log"
 sudo journalctl -u kscore-agent --since "2 hours ago" > "$D/agent.log" 2>/dev/null || true
 sudo cp /etc/kscore/server.yaml "$D/server.yaml.at-rollback"
 sudo cp /var/lib/kscore/keystone.db "$D/keystone.db.at-rollback" 2>/dev/null || true
-sudo dpkg -l kscore-server kscore-cli kscore-agent > "$D/installed-packages.txt" 2>/dev/null || \
-    sudo rpm -q kscore-server kscore-cli kscore-agent > "$D/installed-packages.txt"
+sudo dpkg -l kscore-server kscorectl kscore-agent > "$D/installed-packages.txt" 2>/dev/null || \
+    sudo rpm -q kscore-server kscorectl kscore-agent > "$D/installed-packages.txt"
 sudo tar czf "${D}.tar.gz" -C /tmp "$(basename $D)"
 echo "Diagnostic bundle: ${D}.tar.gz"
 ```
