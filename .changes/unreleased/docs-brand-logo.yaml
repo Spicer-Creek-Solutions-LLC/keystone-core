@@ -1,0 +1,9 @@
+kind: Docs
+body: |-
+  **Keystone logo added to the README and docs site.** The canonical
+  brand logo (`assets/logo.svg` + `assets/logo.png`) now appears
+  centered atop the README and as the Hextra navbar logo sitewide,
+  replacing the theme's stock placeholder. The logo is mounted, not
+  copied: `docs/hugo.toml` mounts repo-root `assets/` into the Hugo
+  static tree (`static/keystone`) so it is served verbatim from the
+  single source of truth — `SITE.md` documents the mount.
