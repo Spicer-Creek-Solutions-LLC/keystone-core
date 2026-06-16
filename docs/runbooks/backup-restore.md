@@ -68,7 +68,7 @@ kscore-cluster-backup create \
 
 ```bash
 # Verify backup integrity
-kscore-cluster-backup verify /backup/keystone/backup-2024-01-15.tar.gz
+kscore-cluster-backup verify --input /backup/keystone/backup-2024-01-15.tar.gz
 
 # Expected output:
 # Verifying backup...
@@ -207,7 +207,7 @@ kscore-cluster-backup create --dest /backup --debug
 
 ```bash
 # Verify backup integrity
-kscore-cluster-backup verify /backup/backup.tar.gz
+kscore-cluster-backup verify --input /backup/backup.tar.gz
 
 # Check decryption key
 kscore-cluster-backup verify /backup/backup.tar.gz --decrypt-identity /path/to/key

@@ -42,8 +42,8 @@ Total-host-loss) + the RTO/RPO drill procedure.
 **…there's a security incident.**
 → [`security-incident.md`](security-incident.md). Five-phase response
 (immediate / investigation / containment / verification /
-post-incident) with real `kscorectl audit log` /
-`kscorectl events stream` / `kscorectl identity *` commands.
+post-incident) with real `kscore-audit log` /
+`kscore-events subscribe` / `kscore-identity *` commands.
 
 **…something is slow or timing out.**
 → [`performance-degradation.md`](performance-degradation.md) for the

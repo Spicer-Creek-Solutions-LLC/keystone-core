@@ -95,12 +95,12 @@ target host:
 ```bash
 # Debian / Ubuntu
 ls kscore-server_*_linux_amd64.deb \
-   kscore-cli_*_linux_amd64.deb \
+   kscorectl_*_linux_amd64.deb \
    kscore-agent_*_linux_amd64.deb
 
 # Rocky / RHEL
 ls kscore-server-*.x86_64.rpm \
-   kscore-cli-*.x86_64.rpm \
+   kscorectl-*.x86_64.rpm \
    kscore-agent-*.x86_64.rpm
 ```
 
@@ -109,12 +109,12 @@ ls kscore-server-*.x86_64.rpm \
 ```bash
 # Debian / Ubuntu
 sudo apt install -y ./kscore-server_*_linux_amd64.deb \
-                    ./kscore-cli_*_linux_amd64.deb \
+                    ./kscorectl_*_linux_amd64.deb \
                     ./kscore-agent_*_linux_amd64.deb
 
 # Rocky / RHEL
 sudo dnf install -y ./kscore-server-*.x86_64.rpm \
-                    ./kscore-cli-*.x86_64.rpm \
+                    ./kscorectl-*.x86_64.rpm \
                     ./kscore-agent-*.x86_64.rpm
 ```
 
@@ -317,7 +317,7 @@ sudo systemctl start kscore-agent
 sudo systemctl status kscore-agent --no-pager | head -10
 
 # Server-side: confirm the agent registered.
-kscorectl events list --type agent_connected --since 5m
+kscore-events list --type agent_connected --since 5m
 
 # Optional: tail the agent journal to see reconnect / heartbeat logs.
 sudo journalctl -u kscore-agent -f
@@ -338,11 +338,11 @@ If the agent never appears in the events list, jump to
       (the embedded server creates the commands + events streams on
       first start)
 - [ ] At least one entry in
-      `kscorectl audit log --limit 5` (every CLI invocation against
+      `kscore-audit log --limit 5` (every CLI invocation against
       the server writes an audit record — proves the audit pipeline
       is healthy end-to-end)
 - [ ] If you started the agent: it appears in
-      `kscorectl events list --type agent_connected --since 5m`
+      `kscore-events list --type agent_connected --since 5m`
 - [ ] A representative state apply works:
 
 ```bash

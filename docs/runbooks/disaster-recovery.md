@@ -73,7 +73,7 @@ kscore-cluster-backup verify --input /var/backups/kscore/<snapshot>.tar
       window from your Postgres tooling.
 - [ ] You have root on the recovery host.
 - [ ] The recovery host has the same major-version
-      `kscore-server` / `kscore-cli` packages installed as the
+      `kscore-server` / `kscorectl` packages installed as the
       snapshot was taken on. Cross-version restore is not
       supported on the v0.x line.
 - [ ] Stakeholders have been notified per
@@ -149,7 +149,7 @@ curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
 
 - `/health/ready` returns `ready=true` with every component
   `status=ok`.
-- `kscorectl audit log --limit 5` accepts the new request and the
+- `kscore-audit log --limit 5` accepts the new request and the
   call itself appears in the returned tail.
 - A `kscorectl state check ./examples/hello.yaml --agent <agent-id>`
   against a known-good YAML succeeds.
@@ -231,7 +231,7 @@ kscore-side audit log to identify the gap.
 - `journalctl -u kscore-server` shows JetStream-side errors:
   `jetstream stream replay failed`, `consumer not found`,
   `stream file corrupt`.
-- `kscorectl events list --since 5m` returns no entries even though
+- `kscore-events list --since 5m` returns no entries even though
   agents are actively heartbeating.
 
 **Impact**: in-flight events between the corruption point and the
@@ -263,17 +263,17 @@ sleep 35
 sudo journalctl -u kscore-server -n 100 --no-pager \
     | grep -i jetstream
 curl -fsS http://127.0.0.1:8080/health/ready | jq '.components'
-kscorectl events list --since 1m --limit 5
+kscore-events list --since 1m --limit 5
 ```
 
 **Verification**:
 
 - `/health/ready` returns `ready=true` with the
   `nats`/`jetstream` component `status=ok`.
-- `kscorectl audit log --limit 5` accepts new writes — the audit
+- `kscore-audit log --limit 5` accepts new writes — the audit
   pipeline depends on JetStream, so this is the load-bearing
   signal.
-- New `kscorectl events list` queries return entries within ~10s
+- New `kscore-events list` queries return entries within ~10s
   of post-restart wall-clock.
 
 **Data loss**: any event published to JetStream between the
@@ -334,7 +334,7 @@ curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
 - `/health/ready` returns `ready=true` with the `identity`
   component `status=ok`.
 - A known-good agent reconnects per its mTLS handshake — confirm
-  via `kscorectl events list --type agent_connected --since 5m`.
+  via `kscore-events list --type agent_connected --since 5m`.
 
 **Data loss**: any cert / key material issued after the snapshot
 is lost. Agents holding post-snapshot identities need to be
@@ -396,7 +396,7 @@ curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
 
 - `/health/ready` returns `ready=true`.
 - Re-bootstrapped agents appear in
-  `kscorectl events list --type agent_connected --since 30m`.
+  `kscore-events list --type agent_connected --since 30m`.
 - State applies and audit-log writes work end-to-end.
 
 **Data loss**: no in-database data loss (SQLite / Postgres / JetStream
@@ -428,11 +428,11 @@ worst-case v0.1 DR scenario.
 #    cross-version restore.
 sudo apt install -y \
     ./kscore-server_<version>_linux_amd64.deb \
-    ./kscore-cli_<version>_linux_amd64.deb   # Debian/Ubuntu
+    ./kscorectl_<version>_linux_amd64.deb   # Debian/Ubuntu
 # or
 sudo dnf install -y \
     ./kscore-server-<version>.x86_64.rpm \
-    ./kscore-cli-<version>.x86_64.rpm        # Rocky/RHEL
+    ./kscorectl-<version>.x86_64.rpm        # Rocky/RHEL
 
 # 3. Stop the freshly-postinst-started service so the restore
 #    doesn't race against a running server.
@@ -474,7 +474,7 @@ curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
   minutes:
 
 ```bash
-kscorectl events list --type agent_connected --since 30m
+kscore-events list --type agent_connected --since 30m
 ```
 
 - A spot-check state apply succeeds end-to-end:
@@ -487,7 +487,7 @@ kscorectl state drift --agent <agent-id>
 - Audit log accepts new writes:
 
 ```bash
-kscorectl audit log --limit 5
+kscore-audit log --limit 5
 ```
 
 **Data loss**: bounded by snapshot freshness (state + config) and
@@ -569,8 +569,8 @@ After completing any DR scenario:
 - [ ] `curl /health/ready` returns `ready=true` with every component
       reporting `status=ok`.
 - [ ] All agents that should have reconnected are visible via
-      `kscorectl events list --type agent_connected --since 30m`.
-- [ ] Audit log accepts new writes (`kscorectl audit log --limit 5`
+      `kscore-events list --type agent_connected --since 30m`.
+- [ ] Audit log accepts new writes (`kscore-audit log --limit 5`
       shows recent entries including the verification calls
       themselves).
 - [ ] A representative state apply / drift round-trip succeeds:
@@ -615,15 +615,15 @@ echo "wall-clock end:   <end-time-UTC>"   >> "$D/restore-manifest.txt"
 echo "scenario:         <1-6>"            >> "$D/restore-manifest.txt"
 
 # Versions.
-sudo dpkg -l kscore-server kscore-cli kscore-agent > "$D/installed-packages.txt" 2>/dev/null || \
-    sudo rpm -q kscore-server kscore-cli kscore-agent > "$D/installed-packages.txt"
+sudo dpkg -l kscore-server kscorectl kscore-agent > "$D/installed-packages.txt" 2>/dev/null || \
+    sudo rpm -q kscore-server kscorectl kscore-agent > "$D/installed-packages.txt"
 /usr/bin/kscore-server --version >> "$D/installed-packages.txt"
 
 # Health snapshot.
 curl -fsS http://127.0.0.1:8080/health/ready > "$D/health-ready.json" 2>/dev/null || true
 
 # Audit log tail (last 200 entries -- captures restore-time activity).
-kscorectl audit log --limit 200 -o json > "$D/audit-tail.json" 2>/dev/null || true
+kscore-audit log --limit 200 -o json > "$D/audit-tail.json" 2>/dev/null || true
 
 # Storage sizes (sanity-check the restore actually populated the data plane).
 sudo du -sh /var/lib/kscore /var/lib/kscore/* 2>/dev/null > "$D/storage-sizes.txt"

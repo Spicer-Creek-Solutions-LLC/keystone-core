@@ -28,7 +28,7 @@ sudo systemctl status kscore-agent  --no-pager | head -15
 sudo journalctl -u kscore-server -n 200 --no-pager
 
 # Audit log accepting writes? (proxy for "is the pipeline healthy")
-kscorectl audit log --limit 5
+kscore-audit log --limit 5
 ```
 
 ## Issue categories
@@ -140,7 +140,7 @@ sudo rpm --restore kscore-server      # RPM (best-effort)
 
 **Symptoms**: `kscore-agent` service is running but the control
 plane never sees the agent — no entry in
-`kscorectl events list --type agent_connected`.
+`kscore-events list --type agent_connected`.
 
 **Diagnosis**:
 
@@ -190,7 +190,7 @@ nc -zv <server-host> 4222     # NATS client port
 
 ```bash
 # Server-side: how fresh are heartbeats?
-kscorectl events list --type agent_heartbeat --since 5m
+kscore-events list --type agent_heartbeat --since 5m
 
 # Agent-side: heartbeat-publish errors in the journal?
 sudo journalctl -u kscore-agent | grep -i heartbeat | tail -10
@@ -229,8 +229,8 @@ sudo journalctl -u kscore-server | grep "nats embedded server started" | tail -5
 
 # JetStream working? The audit log + events stream both depend on
 # JetStream; if they accept writes, JetStream is healthy.
-kscorectl audit log --limit 1
-kscorectl events list --since 5m --limit 3
+kscore-audit log --limit 1
+kscore-events list --since 5m --limit 3
 ```
 
 **Resolution (embedded mode)**:
@@ -409,7 +409,7 @@ go tool pprof /tmp/cpu.pprof
 - Embedded NATS JetStream snapshot/compaction loops — raise
   `nats.jetstream.maxstorage` or move to external NATS.
 - High audit-log write rate — sample the audit query API
-  (`kscorectl audit log --limit 100`) to see what's noisy.
+  (`kscore-audit log --limit 100`) to see what's noisy.
 - gRPC reflection isn't enabled in dev mode by default; if you
   turned it on, the introspection load is observable.
 
@@ -429,7 +429,7 @@ go tool pprof /tmp/heap.pprof
 **Resolution**: typical leak shapes:
 
 - Long-lived gRPC streams not being cleaned up — confirm streaming
-  consumers (`kscorectl events subscribe`, etc.) close their context
+  consumers (`kscore-events subscribe`, etc.) close their context
   on exit.
 - A misconfigured JetStream consumer pulling without ack'ing.
 
@@ -446,7 +446,7 @@ curl -s "http://<PROM_URL>/api/v1/query?query=histogram_quantile(0.99,sum(rate(k
 
 # Database query times (SQLite — slow log not native; correlate
 # with audit-log timing).
-kscorectl audit log --limit 50 -o json | jq -r '.[]|[.timestamp,.elapsed_ms]|@tsv'
+kscore-audit log --limit 50 -o json | jq -r '.[]|[.timestamp,.elapsed_ms]|@tsv'
 ```
 
 **Resolution**:
@@ -478,8 +478,8 @@ sudo sed -i 's/^\(\s*master_key:\s*\).*$/\1REDACTED/'    "$D/server.yaml.redacte
 sudo cp /etc/kscore/agent.yaml "$D/agent.yaml.redacted" 2>/dev/null || true
 
 # Versions.
-sudo dpkg -l kscore-server kscore-cli kscore-agent > "$D/installed-packages.txt" 2>/dev/null || \
-    sudo rpm -q kscore-server kscore-cli kscore-agent > "$D/installed-packages.txt"
+sudo dpkg -l kscore-server kscorectl kscore-agent > "$D/installed-packages.txt" 2>/dev/null || \
+    sudo rpm -q kscore-server kscorectl kscore-agent > "$D/installed-packages.txt"
 /usr/bin/kscore-server --version >> "$D/installed-packages.txt"
 
 # System info.
@@ -492,7 +492,7 @@ ss -tlnp >> "$D/system-info.txt"
 curl -fsS http://127.0.0.1:8080/health/ready > "$D/health-ready.json" 2>/dev/null || true
 
 # Audit log tail (last 100 entries).
-kscorectl audit log --limit 100 -o json > "$D/audit-tail.json" 2>/dev/null || true
+kscore-audit log --limit 100 -o json > "$D/audit-tail.json" 2>/dev/null || true
 
 # Bundle.
 sudo tar czf "${D}.tar.gz" -C /tmp "$(basename $D)"

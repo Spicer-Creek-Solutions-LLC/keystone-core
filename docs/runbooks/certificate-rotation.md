@@ -62,7 +62,7 @@ ls -la /backup/certs-*/
 
 ```bash
 # Rotate CA using the identity plugin
-kscorectl identity ca rotate --force
+kscore-identity ca rotate-signing
 
 # Regenerate all agent certificates
 kscorectl agents certificates regenerate --all --force
@@ -89,7 +89,7 @@ chmod 600 /etc/keystone-core/certs/server.key
 
 ```bash
 # Rotate CA (careful - affects all certificates)
-kscorectl identity ca rotate --force
+kscore-identity ca rotate-signing
 
 # This will:
 # 1. Generate new CA
@@ -129,7 +129,7 @@ for node in ks-server-1 ks-server-2 ks-server-3; do
 
   # Wait for healthy
   sleep 30
-  until kscorectl cluster health | grep -q "healthy"; do
+  until kscore-cluster status | grep -q "healthy"; do
     sleep 5
   done
 
@@ -145,7 +145,7 @@ done
 # This is handled automatically via NATS
 
 # Verify agents have updated certificates
-kscorectl agents list -o wide
+kscorectl agent list
 
 # For manual agent update:
 # On each agent node:

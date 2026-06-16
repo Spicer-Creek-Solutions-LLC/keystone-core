@@ -13,8 +13,8 @@ standard Linux forensics tooling.
 > a cluster-membership API, an audit-log "search/analyze/timeline"
 > surface, or a packaged incident-bundle generator. Where this
 > runbook reaches for those capabilities it falls back to the
-> primitives that exist — `kscorectl audit log` filters,
-> `kscorectl events list/replay`, `kscorectl identity ca
+> primitives that exist — `kscore-audit log` filters,
+> `kscore-events list/replay`, `kscore-identity ca
 > rotate-signing`, REST `DELETE /api/v1/apikeys/{id}` via `curl`, and
 > per-host `systemctl stop`. The orchestrated surfaces are tracked
 > in [`docs/project/ROADMAP.md`](../project/ROADMAP.md).
@@ -169,8 +169,8 @@ for bin in /usr/bin/kscore-server /usr/bin/kscore-agent /usr/bin/kscorectl \
 done
 
 # Installed package versions.
-sudo dpkg -l kscore-server kscore-cli kscore-agent > "$EVIDENCE/installed.txt" 2>/dev/null || \
-    sudo rpm -q kscore-server kscore-cli kscore-agent > "$EVIDENCE/installed.txt"
+sudo dpkg -l kscore-server kscorectl kscore-agent > "$EVIDENCE/installed.txt" 2>/dev/null || \
+    sudo rpm -q kscore-server kscorectl kscore-agent > "$EVIDENCE/installed.txt"
 ```
 
 ### 1.5 Preserve the audit chain
@@ -178,7 +178,7 @@ sudo dpkg -l kscore-server kscore-cli kscore-agent > "$EVIDENCE/installed.txt" 2
 The audit log is the primary post-incident source of truth. v0.1
 writes audit entries to the configured store (SQLite by default,
 Postgres optional) as append-only rows; the public API exposes only
-read paths (`kscorectl audit log` / `audit export` / `audit report`
+read paths (`kscore-audit log` / `audit export` / `audit report`
 / `audit stats`) — no mutate/delete API exists.
 
 That means: if the DB row count for the audit table decreases
@@ -192,7 +192,7 @@ sudo -u kscore sqlite3 /var/lib/kscore/keystone.db \
 
 # Export the last 7 days of audit entries to a sealed file. The
 # export subcommand was added in Epic 12 task 15.
-kscorectl audit export \
+kscore-audit export \
     --format jsonl \
     --since 7d \
     --output-file "$EVIDENCE/audit-7d.jsonl"
@@ -217,13 +217,13 @@ does not ship a notifier integration.
 
 ### 2.1 Query the audit log
 
-`kscorectl audit log` supports `--since`, `--until`, `--user`,
+`kscore-audit log` supports `--since`, `--until`, `--user`,
 `--action`, `--resource-type`, `--policy-id`, `--min-severity`,
 `--limit`, `--cursor`. Combine with `jq` for ad-hoc analysis.
 
 ```bash
 # All actions by a specific principal in the suspect window.
-kscorectl audit log \
+kscore-audit log \
     --user "<principal>" \
     --since "2026-05-24T00:00:00Z" \
     --until "2026-05-24T06:00:00Z" \
@@ -231,19 +231,19 @@ kscorectl audit log \
 
 # All actions matching an action pattern (e.g. anything that
 # touched secrets).
-kscorectl audit log \
+kscore-audit log \
     --action "secret.read" \
     --since 24h \
     -o json | tee "$EVIDENCE/audit-secret-reads.json"
 
 # High-severity events only.
-kscorectl audit log \
+kscore-audit log \
     --min-severity high \
     --since 7d \
     -o json | tee "$EVIDENCE/audit-high-severity.json"
 
 # Tail-style live monitor while investigation runs.
-watch -n 10 'kscorectl audit log --limit 20'
+watch -n 10 'kscore-audit log --limit 20'
 ```
 
 v0.1 does NOT ship `audit search`, `audit analyze`, or
@@ -268,18 +268,18 @@ auth is often visible here.
 
 ```bash
 # Live tail.
-kscorectl events watch --since 5m
+kscore-events watch --since 5m
 
 # Connection / disconnection patterns.
-kscorectl events list --type agent_connected    --since 24h
-kscorectl events list --type agent_disconnected --since 24h
+kscore-events list --type agent_connected    --since 24h
+kscore-events list --type agent_disconnected --since 24h
 
 # Command-exec events tied to a suspect agent.
-kscorectl events list --category job --since 24h -o json \
+kscore-events list --category job --since 24h -o json \
     | jq 'select(.source == "<agent-id>")'
 
 # Severity-filtered replay over a wider window.
-kscorectl events replay \
+kscore-events replay \
     --since 7d \
     --min-severity error \
     -o json > "$EVIDENCE/events-7d-errors.json"
@@ -289,17 +289,17 @@ kscorectl events replay \
 
 ```bash
 # CA inventory + current signing-CA fingerprint.
-kscorectl identity ca info -o json > "$EVIDENCE/ca-info.json"
+kscore-identity ca info -o json > "$EVIDENCE/ca-info.json"
 
 # IdentityService runtime status (IdentityService gRPC IS
 # registered in v0.1, unlike ClusterGRPCServer).
-kscorectl identity status -o json > "$EVIDENCE/identity-status.json"
+kscore-identity status -o json > "$EVIDENCE/identity-status.json"
 
 # Outstanding bootstrap tokens. Unused tokens that should have
 # been one-shot consumed are red flags.
-kscorectl identity token list -o json > "$EVIDENCE/tokens-all.json"
-kscorectl identity token list --unused    -o json > "$EVIDENCE/tokens-unused.json"
-kscorectl identity token list --unexpired -o json > "$EVIDENCE/tokens-unexpired.json"
+kscore-identity token list -o json > "$EVIDENCE/tokens-all.json"
+kscore-identity token list --unused    -o json > "$EVIDENCE/tokens-unused.json"
+kscore-identity token list --unexpired -o json > "$EVIDENCE/tokens-unexpired.json"
 ```
 
 ### 2.4 Inspect API keys
@@ -377,10 +377,10 @@ curl -i -H "Authorization: Bearer <revoked-key>" \
 
 ```bash
 # Revoke by token id.
-kscorectl identity token revoke <token-id>
+kscore-identity token revoke <token-id>
 
 # Cleanup the revoked / expired token registry (housekeeping).
-kscorectl identity token cleanup
+kscore-identity token cleanup
 ```
 
 ### 3.3 Rotate the signing CA
@@ -395,10 +395,10 @@ break.
 # under the new CA before they can reconnect. The root CA is
 # NOT rotated by this command -- root rotation is operator-driven
 # manual ceremony and is not in v0.1 scope.
-kscorectl identity ca rotate-signing
+kscore-identity ca rotate-signing
 
 # Verify the new signing-CA fingerprint surfaced.
-kscorectl identity ca info -o json | jq '.signing_ca.fingerprint'
+kscore-identity ca info -o json | jq '.signing_ca.fingerprint'
 ```
 
 Plan for the bootstrap-chain disruption — every agent will need a
@@ -472,7 +472,7 @@ sudo $EDITOR /etc/kscore/agent.yaml   # set agent.id + nats.urls
 sudo systemctl start kscore-agent
 
 # From the operator workstation: confirm the agent reconnected.
-kscorectl events list --type agent_connected --since 5m
+kscore-events list --type agent_connected --since 5m
 ```
 
 ---
@@ -484,14 +484,14 @@ trustworthy state:
 
 - [ ] `curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'`
       returns `ready=true` with every component reporting `status=ok`
-- [ ] `kscorectl audit log --limit 5` shows the verification queries
+- [ ] `kscore-audit log --limit 5` shows the verification queries
       themselves landing — proves the audit pipeline is healthy and
       the read path works
-- [ ] `kscorectl events list --type agent_connected --since 30m`
+- [ ] `kscore-events list --type agent_connected --since 30m`
       shows every expected agent reconnected
-- [ ] `kscorectl identity ca info` shows the expected signing-CA
+- [ ] `kscore-identity ca info` shows the expected signing-CA
       fingerprint (rotated, if rotation was part of containment)
-- [ ] `kscorectl identity token list --unused` is empty or matches
+- [ ] `kscore-identity token list --unused` is empty or matches
       the expected post-rebuild enrollment-token inventory
 - [ ] `curl -sS -H "Authorization: Bearer $API_KEY"
       http://127.0.0.1:8080/api/v1/apikeys` shows only the API keys
@@ -499,7 +499,7 @@ trustworthy state:
 - [ ] No process on any host is listening on a port that wasn't
       listening before the incident (`ss -tlnp`)
 - [ ] Binary hashes match the package manager's expected hashes
-      (`dpkg --verify kscore-server kscore-cli kscore-agent` or
+      (`dpkg --verify kscore-server kscorectl kscore-agent` or
       `rpm -V`)
 - [ ] No alerts firing in your Prometheus / observability stack for
       `kscore_health_ready{component=...} == 0` or
@@ -530,8 +530,8 @@ done
 cp "$EVIDENCE/audit-timeline.tsv" "$D/timeline.tsv" 2>/dev/null || true
 
 # Versions.
-sudo dpkg -l kscore-server kscore-cli kscore-agent > "$D/installed.txt" 2>/dev/null || \
-    sudo rpm -q kscore-server kscore-cli kscore-agent > "$D/installed.txt"
+sudo dpkg -l kscore-server kscorectl kscore-agent > "$D/installed.txt" 2>/dev/null || \
+    sudo rpm -q kscore-server kscorectl kscore-agent > "$D/installed.txt"
 /usr/bin/kscore-server --version >> "$D/installed.txt"
 
 # Health snapshot post-recovery.
@@ -594,17 +594,17 @@ checks to run during the meeting:
 
 ```bash
 # Audit: bulk secret reads from a single principal.
-kscorectl audit log --action "secret.read" --since 24h -o json \
+kscore-audit log --action "secret.read" --since 24h -o json \
     | jq -r '.[] | .user' | sort | uniq -c | sort -rn | head -10
 
 # Audit: any policy delete attempts (policy CRUD is Unimplemented
 # in v0.1 -- successful policy deletes should NOT exist; any audit
 # row claiming one is a forensic artifact worth investigating).
-kscorectl audit log --action "policy.delete" --since 30d
+kscore-audit log --action "policy.delete" --since 30d
 
 # Events: agent disconnects clustered in time (possible mass
 # eviction or NATS broker disruption).
-kscorectl events list --type agent_disconnected --since 1h -o json \
+kscore-events list --type agent_disconnected --since 1h -o json \
     | jq -r '.[] | .timestamp' | cut -c1-16 | sort | uniq -c
 
 # Filesystem: kscore binaries modified outside the package
