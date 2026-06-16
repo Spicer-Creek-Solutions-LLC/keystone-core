@@ -36,11 +36,6 @@ type Detector interface {
 	Detect(ctx context.Context) (*DetectionResult, error)
 }
 
-// defaultAgentConfigPath is the v1.0 location for the agent's
-// runtime config. PROJECT-DETAILS §4.6 lists this as the on-disk
-// layout default.
-const defaultAgentConfigPath = "/etc/keystone-core/keystone-core-agent.yaml"
-
 // NewDefaultDetector returns the production Detector. gopsutil
 // supplies kernel + arch; /etc/os-release supplies distro family
 // + version on Linux; init-system + package-manager probes look
@@ -60,7 +55,7 @@ func (d *defaultDetector) Detect(ctx context.Context) (*DetectionResult, error) 
 	out := &DetectionResult{
 		OS:              runtime.GOOS,
 		Architecture:    runtime.GOARCH,
-		AgentConfigPath: defaultAgentConfigPath,
+		AgentConfigPath: DefaultAgentConfigPath,
 	}
 
 	if hi, err := host.InfoWithContext(ctx); err != nil {
@@ -95,11 +90,11 @@ func (d *defaultDetector) Detect(ctx context.Context) (*DetectionResult, error) 
 	out.InitSystem = detectInitSystem()
 	out.PackageManager = detectPackageManager()
 
-	if _, err := os.Stat(defaultAgentConfigPath); err == nil {
+	if _, err := os.Stat(DefaultAgentConfigPath); err == nil {
 		out.AgentInstalled = true
 	} else if !errors.Is(err, os.ErrNotExist) {
 		d.log.Warn("bootstrap: stat agent config",
-			"path", defaultAgentConfigPath, "err", err)
+			"path", DefaultAgentConfigPath, "err", err)
 	}
 
 	return out, nil
@@ -179,4 +174,3 @@ func detectPackageManager() string {
 	}
 	return "none"
 }
-

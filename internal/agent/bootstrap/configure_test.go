@@ -13,7 +13,7 @@ func TestConfiguration_Validate(t *testing.T) {
 		Mode:        ModeDemo,
 		ClusterName: "default",
 		AgentID:     "agent-1",
-		ConfigPath:  "/etc/keystone-core/keystone-core-agent.yaml",
+		ConfigPath:  "/etc/kscore/agent.yaml",
 	}
 	tests := []struct {
 		name    string
@@ -74,7 +74,7 @@ func TestValidateForV10(t *testing.T) {
 		Mode:        ModeDemo,
 		ClusterName: "default",
 		AgentID:     "agent-1",
-		ConfigPath:  "/etc/keystone-core/keystone-core-agent.yaml",
+		ConfigPath:  "/etc/kscore/agent.yaml",
 	}
 	tests := []struct {
 		name    string

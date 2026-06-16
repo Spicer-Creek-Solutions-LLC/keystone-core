@@ -79,12 +79,12 @@ func TestRender_WithExtraEnv(t *testing.T) {
 
 func TestRender_WithEnvironmentFile(t *testing.T) {
 	body, err := Render(Params{
-		EnvironmentFile: "/etc/keystone-core/agent.env",
+		EnvironmentFile: "/etc/kscore/agent.env",
 	})
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
-	if !strings.Contains(string(body), "EnvironmentFile=/etc/keystone-core/agent.env") {
+	if !strings.Contains(string(body), "EnvironmentFile=/etc/kscore/agent.env") {
 		t.Errorf("missing EnvironmentFile= line:\n%s", body)
 	}
 }

@@ -100,7 +100,7 @@ func TestValidateConfigPath(t *testing.T) {
 		in      string
 		wantErr string
 	}{
-		{"happy abs", "/etc/keystone-core/keystone-core-agent.yaml", ""},
+		{"happy abs", "/etc/kscore/agent.yaml", ""},
 		{"happy abs nested", "/var/keystone/agent.yaml", ""},
 		{"empty", "", "required"},
 		{"relative", "etc/agent.yaml", "must be absolute"},

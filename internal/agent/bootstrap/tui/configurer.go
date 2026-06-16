@@ -21,8 +21,8 @@ import (
 //
 // Defaults seed the form so the user can ⏎ through the demo flow
 // in seconds. Defaults come from cfg.Agent + sensible fallbacks
-// (hostname for AgentID, /etc/keystone-core/keystone-core-agent.yaml
-// for ConfigPath); operators override per-field as needed.
+// (hostname for AgentID, /etc/kscore/agent.yaml for ConfigPath);
+// operators override per-field as needed.
 type Configurer struct {
 	defaults Defaults
 	log      *slog.Logger
@@ -40,9 +40,8 @@ type Defaults struct {
 }
 
 const (
-	defaultNodeRole   = "worker"
-	defaultConfigPath = "/etc/keystone-core/keystone-core-agent.yaml"
-	defaultJoinURL    = "nats://localhost:4222"
+	defaultNodeRole = "worker"
+	defaultJoinURL  = "nats://localhost:4222"
 )
 
 // NewConfigurer constructs a wizard. Logger is required so the
@@ -56,7 +55,7 @@ func NewConfigurer(d Defaults, log *slog.Logger) *Configurer {
 		d.NodeRole = defaultNodeRole
 	}
 	if d.ConfigPath == "" {
-		d.ConfigPath = defaultConfigPath
+		d.ConfigPath = bootstrap.DefaultAgentConfigPath
 	}
 	if d.JoinURL == "" {
 		d.JoinURL = defaultJoinURL
@@ -204,8 +203,8 @@ func (c *Configurer) buildForm(detection *bootstrap.DetectionResult, v *formValu
 
 	configPath := huh.NewInput().
 		Title("Config path").
-		Description("Where the rendered keystone-core-agent.yaml lands. Must be absolute.").
-		Placeholder(defaultConfigPath).
+		Description("Where the rendered agent.yaml lands. Must be absolute.").
+		Placeholder(bootstrap.DefaultAgentConfigPath).
 		Validate(validateConfigPath).
 		Value(&v.ConfigPath)
 	dryRun := huh.NewConfirm().

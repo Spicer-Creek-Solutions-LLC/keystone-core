@@ -45,7 +45,7 @@ Available Commands:
   bootstrap   Bootstrap the agent (interactive wizard or --non-interactive flags)
   completion  Generate the autocompletion script for the specified shell
   help        Help about any command
-  service     Manage the keystone-core-agent systemd unit
+  service     Manage the kscore-agent systemd unit
 
 Flags:
       --config string   path to YAML config file (KSCORE_-prefixed env vars overlay)

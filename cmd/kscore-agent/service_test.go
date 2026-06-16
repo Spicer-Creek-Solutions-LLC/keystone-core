@@ -105,7 +105,7 @@ func TestServiceInstall_HappyPath(t *testing.T) {
 	got := fake.CallNames()
 	want := []string{
 		"systemctl daemon-reload",
-		"systemctl enable keystone-core-agent.service",
+		"systemctl enable kscore-agent.service",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("calls = %v, want %v", got, want)
@@ -231,7 +231,7 @@ func TestServiceInstall_EnvVarFallback(t *testing.T) {
 		t.Fatalf("install failed: %v", err)
 	}
 	got := fake.CallNames()
-	wantEnable := "systemctl enable keystone-core-agent.service"
+	wantEnable := "systemctl enable kscore-agent.service"
 	found := false
 	for _, c := range got {
 		if c == wantEnable {

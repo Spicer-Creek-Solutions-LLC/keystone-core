@@ -12,8 +12,8 @@ import (
 
 // EngineConfig wires the Engine's dependencies. Detector,
 // Configurer, Validator, Installer, Verifier are required;
-// StatePath defaults to /var/lib/keystone-core/bootstrap.json
-// when empty (PROJECT-DETAILS §4.6 layout).
+// StatePath defaults to DefaultStatePath
+// (/var/lib/kscore-agent/bootstrap.json) when empty.
 type EngineConfig struct {
 	StatePath  string
 	Logger     *slog.Logger
@@ -24,8 +24,6 @@ type EngineConfig struct {
 	Installer  Installer
 	Verifier   Verifier
 }
-
-const defaultStatePath = "/var/lib/keystone-core/bootstrap.json"
 
 // Engine drives the Detect → Configure → Validate → Install →
 // Verify FSM. Persists State after each phase so a re-run resumes
@@ -62,7 +60,7 @@ func NewEngine(cfg EngineConfig) (*Engine, error) {
 		return nil, errors.New("bootstrap: EngineConfig.Verifier is required")
 	}
 	if cfg.StatePath == "" {
-		cfg.StatePath = defaultStatePath
+		cfg.StatePath = DefaultStatePath
 	}
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
