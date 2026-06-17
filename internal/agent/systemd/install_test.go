@@ -146,8 +146,8 @@ func TestInstall_DetectsContentChange(t *testing.T) {
 
 	// Mutate params (User+Group) → content changes → rewrite.
 	res, err := Install(context.Background(), Params{
-		User:  "keystone-core",
-		Group: "keystone-core",
+		User:  "kscore",
+		Group: "kscore",
 	}, opts)
 	if err != nil {
 		t.Fatalf("Install (changed): %v", err)

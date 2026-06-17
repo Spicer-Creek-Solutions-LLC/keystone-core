@@ -99,7 +99,7 @@ clean: ## Remove build artifacts and runtime state
 	# Runtime state (integration tests, dev mode).
 	rm -rf data/ tmp/ temp/
 	rm -f *.db *.db-shm *.db-wal
-	rm -f keystone-core.yaml kscore-agent.yaml *.creds
+	rm -f kscore-agent.yaml *.creds
 	# Editor/OS junk.
 	rm -f *.bak *.tmp .DS_Store
 	# Hugo (post-v1.0, but already gitignored).

@@ -42,7 +42,6 @@ data/
 *.db
 *.db-shm
 *.db-wal
-keystone-core.yaml
 kscore-agent.yaml
 *.creds
 *.pem

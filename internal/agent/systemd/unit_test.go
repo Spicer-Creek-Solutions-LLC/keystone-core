@@ -41,18 +41,18 @@ func TestRender_DefaultsHappyPath(t *testing.T) {
 
 func TestRender_WithUserGroup(t *testing.T) {
 	body, err := Render(Params{
-		User:  "keystone-core",
-		Group: "keystone-core",
+		User:  "kscore",
+		Group: "kscore",
 	})
 	if err != nil {
 		t.Fatalf("Render: %v", err)
 	}
 	s := string(body)
-	if !strings.Contains(s, "User=keystone-core") {
-		t.Error("missing User=keystone-core")
+	if !strings.Contains(s, "User=kscore") {
+		t.Error("missing User=kscore")
 	}
-	if !strings.Contains(s, "Group=keystone-core") {
-		t.Error("missing Group=keystone-core")
+	if !strings.Contains(s, "Group=kscore") {
+		t.Error("missing Group=kscore")
 	}
 }
 
@@ -104,7 +104,7 @@ func TestRender_RejectsRelativeConfig(t *testing.T) {
 }
 
 func TestRender_RejectsHalfSetUserGroup(t *testing.T) {
-	_, err := Render(Params{User: "keystone-core"})
+	_, err := Render(Params{User: "kscore"})
 	if err == nil || !strings.Contains(err.Error(), "Group") {
 		t.Errorf("err = %v, want User+Group together", err)
 	}

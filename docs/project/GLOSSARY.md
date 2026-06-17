@@ -290,6 +290,27 @@ A filter expression using Common Expression Language syntax for targeting agents
 
 An extension that provides additional state management or execution capabilities, running in a sandboxed environment.
 
+### Naming: `kscore` vs `keystone-core`
+
+Two names appear deliberately, by scope:
+
+- **`kscore`** — runtime / on-disk identity: binaries (`kscore-server`,
+  `kscore-agent`, `kscorectl`, `kscore-*`), config and data directories
+  (`/etc/kscore`, `/etc/kscore/agent.yaml`, `/var/lib/kscore`,
+  `/var/lib/kscore-agent`, `/var/log/kscore`), the systemd units
+  (`kscore-server.service`, `kscore-agent.service`), and the dedicated
+  system user/group (`kscore`).
+- **`keystone-core`** — project / brand identity: the project name, the
+  repository, the Go vanity module (`go.keystone-core.io/keystone-core`),
+  the domain (`keystone-core.io`), release-artifact names
+  (`keystone-core_<version>_<platform>.tar.gz`), the maintainer address,
+  the `# Managed by keystone-core` markers written into managed system
+  files, and the gitops-rollback commit author.
+
+New code follows this split. When in doubt: if a human types it or a URL
+contains it, it is usually `keystone-core`; if the OS stores or runs it,
+it is `kscore`.
+
 ### Policy
 
 A set of rules that govern authorization decisions, written in Rego (OPA) or CEL.
