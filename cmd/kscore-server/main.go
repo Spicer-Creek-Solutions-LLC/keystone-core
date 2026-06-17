@@ -508,6 +508,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	cpGRPC, err := controlplane.NewGRPCServer(controlplane.GRPCServerConfig{
 		Dispatcher: batchDisp,
 		Store:      store,
+		Controller: srv.ConnectionManager(),
 		Logger:     log,
 		// Executor injected after Start once CommandDispatcher exists.
 	})

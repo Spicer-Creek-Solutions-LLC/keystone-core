@@ -25,6 +25,8 @@ const (
 	ControlPlaneService_ServerStatus_FullMethodName          = "/keystone.core.v1.ControlPlaneService/ServerStatus"
 	ControlPlaneService_ListAgents_FullMethodName            = "/keystone.core.v1.ControlPlaneService/ListAgents"
 	ControlPlaneService_GetAgent_FullMethodName              = "/keystone.core.v1.ControlPlaneService/GetAgent"
+	ControlPlaneService_QuarantineAgent_FullMethodName       = "/keystone.core.v1.ControlPlaneService/QuarantineAgent"
+	ControlPlaneService_UnquarantineAgent_FullMethodName     = "/keystone.core.v1.ControlPlaneService/UnquarantineAgent"
 	ControlPlaneService_ExecuteCommand_FullMethodName        = "/keystone.core.v1.ControlPlaneService/ExecuteCommand"
 	ControlPlaneService_BatchExecuteCommand_FullMethodName   = "/keystone.core.v1.ControlPlaneService/BatchExecuteCommand"
 	ControlPlaneService_GetCommandStatus_FullMethodName      = "/keystone.core.v1.ControlPlaneService/GetCommandStatus"
@@ -43,6 +45,12 @@ type ControlPlaneServiceClient interface {
 	ServerStatus(ctx context.Context, in *ServerStatusRequest, opts ...grpc.CallOption) (*ServerStatusResponse, error)
 	ListAgents(ctx context.Context, in *ListAgentsRequest, opts ...grpc.CallOption) (*ListAgentsResponse, error)
 	GetAgent(ctx context.Context, in *GetAgentRequest, opts ...grpc.CallOption) (*GetAgentResponse, error)
+	// QuarantineAgent isolates an agent: transitions it to DISABLED so
+	// its heartbeats are rejected and no commands dispatch to it (incident
+	// response). UnquarantineAgent reverses it back to CONNECTED (the
+	// monitor re-stales it if the agent is actually gone).
+	QuarantineAgent(ctx context.Context, in *QuarantineAgentRequest, opts ...grpc.CallOption) (*QuarantineAgentResponse, error)
+	UnquarantineAgent(ctx context.Context, in *UnquarantineAgentRequest, opts ...grpc.CallOption) (*UnquarantineAgentResponse, error)
 	// ExecuteCommand dispatches a single command to one agent and
 	// streams CommandOutputChunk(s) followed by a CommandCompletion.
 	ExecuteCommand(ctx context.Context, in *ExecuteCommandRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecuteCommandResponse], error)
@@ -99,6 +107,26 @@ func (c *controlPlaneServiceClient) GetAgent(ctx context.Context, in *GetAgentRe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetAgentResponse)
 	err := c.cc.Invoke(ctx, ControlPlaneService_GetAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlPlaneServiceClient) QuarantineAgent(ctx context.Context, in *QuarantineAgentRequest, opts ...grpc.CallOption) (*QuarantineAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QuarantineAgentResponse)
+	err := c.cc.Invoke(ctx, ControlPlaneService_QuarantineAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlPlaneServiceClient) UnquarantineAgent(ctx context.Context, in *UnquarantineAgentRequest, opts ...grpc.CallOption) (*UnquarantineAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UnquarantineAgentResponse)
+	err := c.cc.Invoke(ctx, ControlPlaneService_UnquarantineAgent_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -220,6 +248,12 @@ type ControlPlaneServiceServer interface {
 	ServerStatus(context.Context, *ServerStatusRequest) (*ServerStatusResponse, error)
 	ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error)
 	GetAgent(context.Context, *GetAgentRequest) (*GetAgentResponse, error)
+	// QuarantineAgent isolates an agent: transitions it to DISABLED so
+	// its heartbeats are rejected and no commands dispatch to it (incident
+	// response). UnquarantineAgent reverses it back to CONNECTED (the
+	// monitor re-stales it if the agent is actually gone).
+	QuarantineAgent(context.Context, *QuarantineAgentRequest) (*QuarantineAgentResponse, error)
+	UnquarantineAgent(context.Context, *UnquarantineAgentRequest) (*UnquarantineAgentResponse, error)
 	// ExecuteCommand dispatches a single command to one agent and
 	// streams CommandOutputChunk(s) followed by a CommandCompletion.
 	ExecuteCommand(*ExecuteCommandRequest, grpc.ServerStreamingServer[ExecuteCommandResponse]) error
@@ -260,6 +294,12 @@ func (UnimplementedControlPlaneServiceServer) ListAgents(context.Context, *ListA
 }
 func (UnimplementedControlPlaneServiceServer) GetAgent(context.Context, *GetAgentRequest) (*GetAgentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetAgent not implemented")
+}
+func (UnimplementedControlPlaneServiceServer) QuarantineAgent(context.Context, *QuarantineAgentRequest) (*QuarantineAgentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method QuarantineAgent not implemented")
+}
+func (UnimplementedControlPlaneServiceServer) UnquarantineAgent(context.Context, *UnquarantineAgentRequest) (*UnquarantineAgentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UnquarantineAgent not implemented")
 }
 func (UnimplementedControlPlaneServiceServer) ExecuteCommand(*ExecuteCommandRequest, grpc.ServerStreamingServer[ExecuteCommandResponse]) error {
 	return status.Error(codes.Unimplemented, "method ExecuteCommand not implemented")
@@ -359,6 +399,42 @@ func _ControlPlaneService_GetAgent_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControlPlaneServiceServer).GetAgent(ctx, req.(*GetAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlPlaneService_QuarantineAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QuarantineAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlPlaneServiceServer).QuarantineAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlPlaneService_QuarantineAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlPlaneServiceServer).QuarantineAgent(ctx, req.(*QuarantineAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlPlaneService_UnquarantineAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnquarantineAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlPlaneServiceServer).UnquarantineAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlPlaneService_UnquarantineAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlPlaneServiceServer).UnquarantineAgent(ctx, req.(*UnquarantineAgentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -529,6 +605,14 @@ var ControlPlaneService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetAgent",
 			Handler:    _ControlPlaneService_GetAgent_Handler,
+		},
+		{
+			MethodName: "QuarantineAgent",
+			Handler:    _ControlPlaneService_QuarantineAgent_Handler,
+		},
+		{
+			MethodName: "UnquarantineAgent",
+			Handler:    _ControlPlaneService_UnquarantineAgent_Handler,
 		},
 		{
 			MethodName: "GetCommandStatus",

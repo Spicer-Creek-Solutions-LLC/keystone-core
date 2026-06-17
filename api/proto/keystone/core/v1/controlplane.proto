@@ -16,6 +16,13 @@ service ControlPlaneService {
   rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
   rpc GetAgent(GetAgentRequest) returns (GetAgentResponse);
 
+  // QuarantineAgent isolates an agent: transitions it to DISABLED so
+  // its heartbeats are rejected and no commands dispatch to it (incident
+  // response). UnquarantineAgent reverses it back to CONNECTED (the
+  // monitor re-stales it if the agent is actually gone).
+  rpc QuarantineAgent(QuarantineAgentRequest) returns (QuarantineAgentResponse);
+  rpc UnquarantineAgent(UnquarantineAgentRequest) returns (UnquarantineAgentResponse);
+
   // ExecuteCommand dispatches a single command to one agent and
   // streams CommandOutputChunk(s) followed by a CommandCompletion.
   rpc ExecuteCommand(ExecuteCommandRequest) returns (stream ExecuteCommandResponse);
@@ -86,6 +93,27 @@ message GetAgentRequest {
 
 message GetAgentResponse {
   Agent agent = 1;
+}
+
+// ---- Quarantine -----------------------------------------------------------
+
+message QuarantineAgentRequest {
+  string agent_id = 1;
+  string reason = 2; // optional operator note for the audit trail
+}
+
+message QuarantineAgentResponse {
+  string agent_id = 1;
+  AgentStatus status = 2;
+}
+
+message UnquarantineAgentRequest {
+  string agent_id = 1;
+}
+
+message UnquarantineAgentResponse {
+  string agent_id = 1;
+  AgentStatus status = 2;
 }
 
 // ---- ExecuteCommand -------------------------------------------------------
