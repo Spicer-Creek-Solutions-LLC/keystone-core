@@ -492,8 +492,9 @@ func handleInsertResult(txlog *TransactionLog, table, id string, written bool, e
 const migrateInsertAgentSQL = `INSERT INTO agents (
     id, hostname, os, architecture, ip_addresses,
     platform_version, agent_version, labels, status,
-    registered_at, last_heartbeat_at, metrics
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`
+    registered_at, last_heartbeat_at, metrics,
+    cert_chain_pem, cert_fingerprint, cert_not_after, spiffe_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`
 
 const migrateInsertCommandSQL = `INSERT INTO commands (
     id, agent_id, command, args, env,
@@ -549,6 +550,8 @@ func (m *Migrator) insertAgentTarget(ctx context.Context, a *AgentRecord, skipEx
 		nullableString(a.PlatformVersion), nullableString(a.AgentVersion),
 		labels, string(a.Status),
 		a.RegisteredAt.UTC(), nullableTime(a.LastHeartbeatAt), metrics,
+		nullableString(a.CertChainPEM), nullableString(a.CertFingerprint),
+		nullableTime(a.CertNotAfter), nullableString(a.SPIFFEID),
 	)
 	if err != nil {
 		return false, err

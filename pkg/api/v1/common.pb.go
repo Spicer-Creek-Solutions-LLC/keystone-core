@@ -329,6 +329,13 @@ type Agent struct {
 	RegisteredAt    *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=registered_at,json=registeredAt,proto3" json:"registered_at,omitempty"`
 	LastHeartbeatAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=last_heartbeat_at,json=lastHeartbeatAt,proto3" json:"last_heartbeat_at,omitempty"`
 	Metrics         map[string]string      `protobuf:"bytes,12,rep,name=metrics,proto3" json:"metrics,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Cert metadata captured when the control plane issued the agent's
+	// X509 SVID. Empty/zero for agents registered before this was
+	// recorded. (The issued chain itself is server-internal — used by
+	// `agent verify` — and is not exposed here.)
+	CertFingerprint string                 `protobuf:"bytes,13,opt,name=cert_fingerprint,json=certFingerprint,proto3" json:"cert_fingerprint,omitempty"`
+	CertNotAfter    *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=cert_not_after,json=certNotAfter,proto3" json:"cert_not_after,omitempty"`
+	SpiffeId        string                 `protobuf:"bytes,15,opt,name=spiffe_id,json=spiffeId,proto3" json:"spiffe_id,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -445,6 +452,27 @@ func (x *Agent) GetMetrics() map[string]string {
 		return x.Metrics
 	}
 	return nil
+}
+
+func (x *Agent) GetCertFingerprint() string {
+	if x != nil {
+		return x.CertFingerprint
+	}
+	return ""
+}
+
+func (x *Agent) GetCertNotAfter() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CertNotAfter
+	}
+	return nil
+}
+
+func (x *Agent) GetSpiffeId() string {
+	if x != nil {
+		return x.SpiffeId
+	}
+	return ""
 }
 
 // Command is one execution of a shell command on an agent. Maps to
@@ -1286,7 +1314,7 @@ var File_keystone_core_v1_common_proto protoreflect.FileDescriptor
 
 const file_keystone_core_v1_common_proto_rawDesc = "" +
 	"\n" +
-	"\x1dkeystone/core/v1/common.proto\x12\x10keystone.core.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x8e\x05\n" +
+	"\x1dkeystone/core/v1/common.proto\x12\x10keystone.core.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x98\x06\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\bhostname\x18\x02 \x01(\tR\bhostname\x12\x0e\n" +
@@ -1300,7 +1328,10 @@ const file_keystone_core_v1_common_proto_rawDesc = "" +
 	"\rregistered_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\fregisteredAt\x12F\n" +
 	"\x11last_heartbeat_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\x0flastHeartbeatAt\x12>\n" +
-	"\ametrics\x18\f \x03(\v2$.keystone.core.v1.Agent.MetricsEntryR\ametrics\x1a9\n" +
+	"\ametrics\x18\f \x03(\v2$.keystone.core.v1.Agent.MetricsEntryR\ametrics\x12)\n" +
+	"\x10cert_fingerprint\x18\r \x01(\tR\x0fcertFingerprint\x12@\n" +
+	"\x0ecert_not_after\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\fcertNotAfter\x12\x1b\n" +
+	"\tspiffe_id\x18\x0f \x01(\tR\bspiffeId\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1a:\n" +
@@ -1473,33 +1504,34 @@ var file_keystone_core_v1_common_proto_depIdxs = []int32{
 	20, // 2: keystone.core.v1.Agent.registered_at:type_name -> google.protobuf.Timestamp
 	20, // 3: keystone.core.v1.Agent.last_heartbeat_at:type_name -> google.protobuf.Timestamp
 	16, // 4: keystone.core.v1.Agent.metrics:type_name -> keystone.core.v1.Agent.MetricsEntry
-	17, // 5: keystone.core.v1.Command.env:type_name -> keystone.core.v1.Command.EnvEntry
-	1,  // 6: keystone.core.v1.Command.status:type_name -> keystone.core.v1.CommandStatus
-	20, // 7: keystone.core.v1.Command.started_at:type_name -> google.protobuf.Timestamp
-	20, // 8: keystone.core.v1.Command.completed_at:type_name -> google.protobuf.Timestamp
-	20, // 9: keystone.core.v1.CommandOutputChunk.at:type_name -> google.protobuf.Timestamp
-	1,  // 10: keystone.core.v1.CommandCompletion.status:type_name -> keystone.core.v1.CommandStatus
-	20, // 11: keystone.core.v1.CommandCompletion.completed_at:type_name -> google.protobuf.Timestamp
-	18, // 12: keystone.core.v1.Target.labels:type_name -> keystone.core.v1.Target.LabelsEntry
-	9,  // 13: keystone.core.v1.BatchJob.target:type_name -> keystone.core.v1.Target
-	2,  // 14: keystone.core.v1.BatchJob.status:type_name -> keystone.core.v1.BatchJobStatus
-	20, // 15: keystone.core.v1.BatchJob.created_at:type_name -> google.protobuf.Timestamp
-	20, // 16: keystone.core.v1.BatchJob.started_at:type_name -> google.protobuf.Timestamp
-	20, // 17: keystone.core.v1.BatchJob.completed_at:type_name -> google.protobuf.Timestamp
-	20, // 18: keystone.core.v1.BatchAgentResult.started_at:type_name -> google.protobuf.Timestamp
-	20, // 19: keystone.core.v1.BatchAgentResult.completed_at:type_name -> google.protobuf.Timestamp
-	3,  // 20: keystone.core.v1.BatchAgentLifecycle.kind:type_name -> keystone.core.v1.BatchAgentLifecycleKind
-	20, // 21: keystone.core.v1.BatchAgentLifecycle.at:type_name -> google.protobuf.Timestamp
-	2,  // 22: keystone.core.v1.BatchTerminal.status:type_name -> keystone.core.v1.BatchJobStatus
-	20, // 23: keystone.core.v1.BatchTerminal.at:type_name -> google.protobuf.Timestamp
-	4,  // 24: keystone.core.v1.Principal.auth_method:type_name -> keystone.core.v1.AuthMethod
-	19, // 25: keystone.core.v1.Principal.metadata:type_name -> keystone.core.v1.Principal.MetadataEntry
-	20, // 26: keystone.core.v1.Principal.authenticated_at:type_name -> google.protobuf.Timestamp
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	20, // 5: keystone.core.v1.Agent.cert_not_after:type_name -> google.protobuf.Timestamp
+	17, // 6: keystone.core.v1.Command.env:type_name -> keystone.core.v1.Command.EnvEntry
+	1,  // 7: keystone.core.v1.Command.status:type_name -> keystone.core.v1.CommandStatus
+	20, // 8: keystone.core.v1.Command.started_at:type_name -> google.protobuf.Timestamp
+	20, // 9: keystone.core.v1.Command.completed_at:type_name -> google.protobuf.Timestamp
+	20, // 10: keystone.core.v1.CommandOutputChunk.at:type_name -> google.protobuf.Timestamp
+	1,  // 11: keystone.core.v1.CommandCompletion.status:type_name -> keystone.core.v1.CommandStatus
+	20, // 12: keystone.core.v1.CommandCompletion.completed_at:type_name -> google.protobuf.Timestamp
+	18, // 13: keystone.core.v1.Target.labels:type_name -> keystone.core.v1.Target.LabelsEntry
+	9,  // 14: keystone.core.v1.BatchJob.target:type_name -> keystone.core.v1.Target
+	2,  // 15: keystone.core.v1.BatchJob.status:type_name -> keystone.core.v1.BatchJobStatus
+	20, // 16: keystone.core.v1.BatchJob.created_at:type_name -> google.protobuf.Timestamp
+	20, // 17: keystone.core.v1.BatchJob.started_at:type_name -> google.protobuf.Timestamp
+	20, // 18: keystone.core.v1.BatchJob.completed_at:type_name -> google.protobuf.Timestamp
+	20, // 19: keystone.core.v1.BatchAgentResult.started_at:type_name -> google.protobuf.Timestamp
+	20, // 20: keystone.core.v1.BatchAgentResult.completed_at:type_name -> google.protobuf.Timestamp
+	3,  // 21: keystone.core.v1.BatchAgentLifecycle.kind:type_name -> keystone.core.v1.BatchAgentLifecycleKind
+	20, // 22: keystone.core.v1.BatchAgentLifecycle.at:type_name -> google.protobuf.Timestamp
+	2,  // 23: keystone.core.v1.BatchTerminal.status:type_name -> keystone.core.v1.BatchJobStatus
+	20, // 24: keystone.core.v1.BatchTerminal.at:type_name -> google.protobuf.Timestamp
+	4,  // 25: keystone.core.v1.Principal.auth_method:type_name -> keystone.core.v1.AuthMethod
+	19, // 26: keystone.core.v1.Principal.metadata:type_name -> keystone.core.v1.Principal.MetadataEntry
+	20, // 27: keystone.core.v1.Principal.authenticated_at:type_name -> google.protobuf.Timestamp
+	28, // [28:28] is the sub-list for method output_type
+	28, // [28:28] is the sub-list for method input_type
+	28, // [28:28] is the sub-list for extension type_name
+	28, // [28:28] is the sub-list for extension extendee
+	0,  // [0:28] is the sub-list for field type_name
 }
 
 func init() { file_keystone_core_v1_common_proto_init() }

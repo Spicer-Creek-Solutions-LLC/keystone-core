@@ -94,6 +94,17 @@ type AgentRecord struct {
 	RegisteredAt    time.Time
 	LastHeartbeatAt time.Time
 	Metrics         map[string]any
+
+	// Cert metadata captured when the control plane issues the agent's
+	// X509 SVID (see SVIDBootstrapIssuer). All empty/zero for agents
+	// registered before this was recorded. CertChainPEM is the issued
+	// leaf+intermediates, kept so `agent verify` can re-check the chain
+	// against the current trust bundle; the other three are derived
+	// (cached for cheap list/display without re-parsing).
+	CertChainPEM    string
+	CertFingerprint string    // hex SHA-256 of the leaf
+	CertNotAfter    time.Time // leaf expiry
+	SPIFFEID        string
 }
 
 // CommandRecord is the persistent shape of a single command execution.

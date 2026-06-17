@@ -13,7 +13,9 @@ import (
 const agentSelect = `SELECT
     id, hostname, os, architecture, ip_addresses,
     COALESCE(platform_version, ''), COALESCE(agent_version, ''),
-    labels, status, registered_at, last_heartbeat_at, metrics
+    labels, status, registered_at, last_heartbeat_at, metrics,
+    COALESCE(cert_chain_pem, ''), COALESCE(cert_fingerprint, ''),
+    cert_not_after, COALESCE(spiffe_id, '')
 FROM agents`
 
 func (s *SQLiteStore) CreateAgent(ctx context.Context, a *AgentRecord) error {
@@ -37,12 +39,15 @@ func (s *SQLiteStore) CreateAgent(ctx context.Context, a *AgentRecord) error {
 	_, err = s.db.ExecContext(ctx, `INSERT INTO agents (
     id, hostname, os, architecture, ip_addresses,
     platform_version, agent_version, labels, status,
-    registered_at, last_heartbeat_at, metrics
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    registered_at, last_heartbeat_at, metrics,
+    cert_chain_pem, cert_fingerprint, cert_not_after, spiffe_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		a.ID, a.Hostname, a.OS, a.Architecture, ipAddrs,
 		nullableString(a.PlatformVersion), nullableString(a.AgentVersion),
 		labels, string(a.Status),
 		tsArgRequired(a.RegisteredAt), tsArgNullable(a.LastHeartbeatAt), metrics,
+		nullableString(a.CertChainPEM), nullableString(a.CertFingerprint),
+		tsArgNullable(a.CertNotAfter), nullableString(a.SPIFFEID),
 	)
 	if err != nil {
 		return fmt.Errorf("state: CreateAgent: %w", err)
@@ -137,12 +142,15 @@ func (s *SQLiteStore) UpdateAgent(ctx context.Context, a *AgentRecord) error {
 	res, err := s.db.ExecContext(ctx, `UPDATE agents SET
     hostname = ?, os = ?, architecture = ?, ip_addresses = ?,
     platform_version = ?, agent_version = ?, labels = ?, status = ?,
-    registered_at = ?, last_heartbeat_at = ?, metrics = ?
+    registered_at = ?, last_heartbeat_at = ?, metrics = ?,
+    cert_chain_pem = ?, cert_fingerprint = ?, cert_not_after = ?, spiffe_id = ?
 WHERE id = ?`,
 		a.Hostname, a.OS, a.Architecture, ipAddrs,
 		nullableString(a.PlatformVersion), nullableString(a.AgentVersion),
 		labels, string(a.Status),
 		tsArgRequired(a.RegisteredAt), tsArgNullable(a.LastHeartbeatAt), metrics,
+		nullableString(a.CertChainPEM), nullableString(a.CertFingerprint),
+		tsArgNullable(a.CertNotAfter), nullableString(a.SPIFFEID),
 		a.ID,
 	)
 	if err != nil {
@@ -205,16 +213,17 @@ func nullableString(s string) sql.NullString {
 // scanAgent populates an AgentRecord from a *sql.Row or *sql.Rows.
 func scanAgent(r rowLike) (*AgentRecord, error) {
 	var (
-		a              AgentRecord
-		ipAddrs, lbls  string
-		statusRaw      string
-		registeredAt   string
-		lastHB, metrics sql.NullString
+		a                       AgentRecord
+		ipAddrs, lbls           string
+		statusRaw               string
+		registeredAt            string
+		lastHB, metrics, certNA sql.NullString
 	)
 	if err := r.Scan(
 		&a.ID, &a.Hostname, &a.OS, &a.Architecture, &ipAddrs,
 		&a.PlatformVersion, &a.AgentVersion, &lbls, &statusRaw,
 		&registeredAt, &lastHB, &metrics,
+		&a.CertChainPEM, &a.CertFingerprint, &certNA, &a.SPIFFEID,
 	); err != nil {
 		return nil, err
 	}
@@ -234,6 +243,9 @@ func scanAgent(r rowLike) (*AgentRecord, error) {
 	}
 	if a.LastHeartbeatAt, err = tsParseNullable(lastHB); err != nil {
 		return nil, fmt.Errorf("state: scanAgent last_heartbeat_at: %w", err)
+	}
+	if a.CertNotAfter, err = tsParseNullable(certNA); err != nil {
+		return nil, fmt.Errorf("state: scanAgent cert_not_after: %w", err)
 	}
 
 	if metrics.Valid {

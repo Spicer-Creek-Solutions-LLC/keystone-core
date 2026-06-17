@@ -190,6 +190,11 @@ func agentRecordToProto(r *state.AgentRecord) *v1.Agent {
 	if !r.LastHeartbeatAt.IsZero() {
 		out.LastHeartbeatAt = timestamppb.New(r.LastHeartbeatAt)
 	}
+	out.CertFingerprint = r.CertFingerprint
+	out.SpiffeId = r.SPIFFEID
+	if !r.CertNotAfter.IsZero() {
+		out.CertNotAfter = timestamppb.New(r.CertNotAfter)
+	}
 	return out
 }
 

@@ -5,8 +5,10 @@ package controlplane
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -183,6 +185,29 @@ func (i *SVIDBootstrapIssuer) Issue(ctx context.Context, agentID string) (AgentC
 	base.PrivateKeyPEM = keyPEM
 	base.TrustBundlePEM = bundlePEM
 	return base, nil
+}
+
+// agentCertMeta extracts metadata from an issued chain PEM (the leaf is
+// the first CERTIFICATE block): hex SHA-256 fingerprint of the leaf, its
+// NotAfter, and the spiffe:// URI SAN (empty if none). Best-effort —
+// callers treat a parse error as "metadata unavailable", not fatal.
+func agentCertMeta(chainPEM string) (fingerprint string, notAfter time.Time, spiffeID string, err error) {
+	block, _ := pem.Decode([]byte(chainPEM))
+	if block == nil {
+		return "", time.Time{}, "", errors.New("no PEM CERTIFICATE block")
+	}
+	leaf, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return "", time.Time{}, "", fmt.Errorf("parse leaf: %w", err)
+	}
+	sum := sha256.Sum256(leaf.Raw)
+	for _, u := range leaf.URIs {
+		if u != nil && u.Scheme == "spiffe" {
+			spiffeID = u.String()
+			break
+		}
+	}
+	return hex.EncodeToString(sum[:]), leaf.NotAfter, spiffeID, nil
 }
 
 // encodeChainPEM concatenates PEM CERTIFICATE blocks for every

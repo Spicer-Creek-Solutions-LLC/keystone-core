@@ -31,6 +31,14 @@ message Agent {
   google.protobuf.Timestamp registered_at = 10;
   google.protobuf.Timestamp last_heartbeat_at = 11;
   map<string, string> metrics = 12;
+
+  // Cert metadata captured when the control plane issued the agent's
+  // X509 SVID. Empty/zero for agents registered before this was
+  // recorded. (The issued chain itself is server-internal — used by
+  // `agent verify` — and is not exposed here.)
+  string cert_fingerprint = 13;
+  google.protobuf.Timestamp cert_not_after = 14;
+  string spiffe_id = 15;
 }
 
 // AgentStatus is an agent's lifecycle state. Transition rules are
