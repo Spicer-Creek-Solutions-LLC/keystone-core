@@ -385,6 +385,206 @@ func (x *GetAgentResponse) GetAgent() *Agent {
 	return nil
 }
 
+type QuarantineAgentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"` // optional operator note for the audit trail
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QuarantineAgentRequest) Reset() {
+	*x = QuarantineAgentRequest{}
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QuarantineAgentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QuarantineAgentRequest) ProtoMessage() {}
+
+func (x *QuarantineAgentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QuarantineAgentRequest.ProtoReflect.Descriptor instead.
+func (*QuarantineAgentRequest) Descriptor() ([]byte, []int) {
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *QuarantineAgentRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *QuarantineAgentRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type QuarantineAgentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Status        AgentStatus            `protobuf:"varint,2,opt,name=status,proto3,enum=keystone.core.v1.AgentStatus" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QuarantineAgentResponse) Reset() {
+	*x = QuarantineAgentResponse{}
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QuarantineAgentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QuarantineAgentResponse) ProtoMessage() {}
+
+func (x *QuarantineAgentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QuarantineAgentResponse.ProtoReflect.Descriptor instead.
+func (*QuarantineAgentResponse) Descriptor() ([]byte, []int) {
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *QuarantineAgentResponse) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *QuarantineAgentResponse) GetStatus() AgentStatus {
+	if x != nil {
+		return x.Status
+	}
+	return AgentStatus_AGENT_STATUS_UNSPECIFIED
+}
+
+type UnquarantineAgentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnquarantineAgentRequest) Reset() {
+	*x = UnquarantineAgentRequest{}
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnquarantineAgentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnquarantineAgentRequest) ProtoMessage() {}
+
+func (x *UnquarantineAgentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnquarantineAgentRequest.ProtoReflect.Descriptor instead.
+func (*UnquarantineAgentRequest) Descriptor() ([]byte, []int) {
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *UnquarantineAgentRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+type UnquarantineAgentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Status        AgentStatus            `protobuf:"varint,2,opt,name=status,proto3,enum=keystone.core.v1.AgentStatus" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnquarantineAgentResponse) Reset() {
+	*x = UnquarantineAgentResponse{}
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnquarantineAgentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnquarantineAgentResponse) ProtoMessage() {}
+
+func (x *UnquarantineAgentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnquarantineAgentResponse.ProtoReflect.Descriptor instead.
+func (*UnquarantineAgentResponse) Descriptor() ([]byte, []int) {
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *UnquarantineAgentResponse) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *UnquarantineAgentResponse) GetStatus() AgentStatus {
+	if x != nil {
+		return x.Status
+	}
+	return AgentStatus_AGENT_STATUS_UNSPECIFIED
+}
+
 type ExecuteCommandRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	AgentId        string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
@@ -400,7 +600,7 @@ type ExecuteCommandRequest struct {
 
 func (x *ExecuteCommandRequest) Reset() {
 	*x = ExecuteCommandRequest{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[6]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -412,7 +612,7 @@ func (x *ExecuteCommandRequest) String() string {
 func (*ExecuteCommandRequest) ProtoMessage() {}
 
 func (x *ExecuteCommandRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[6]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -425,7 +625,7 @@ func (x *ExecuteCommandRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteCommandRequest.ProtoReflect.Descriptor instead.
 func (*ExecuteCommandRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{6}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ExecuteCommandRequest) GetAgentId() string {
@@ -491,7 +691,7 @@ type ExecuteCommandResponse struct {
 
 func (x *ExecuteCommandResponse) Reset() {
 	*x = ExecuteCommandResponse{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[7]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -503,7 +703,7 @@ func (x *ExecuteCommandResponse) String() string {
 func (*ExecuteCommandResponse) ProtoMessage() {}
 
 func (x *ExecuteCommandResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[7]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -516,7 +716,7 @@ func (x *ExecuteCommandResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExecuteCommandResponse.ProtoReflect.Descriptor instead.
 func (*ExecuteCommandResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{7}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ExecuteCommandResponse) GetEvent() isExecuteCommandResponse_Event {
@@ -596,7 +796,7 @@ type BatchExecuteCommandRequest struct {
 
 func (x *BatchExecuteCommandRequest) Reset() {
 	*x = BatchExecuteCommandRequest{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[8]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -608,7 +808,7 @@ func (x *BatchExecuteCommandRequest) String() string {
 func (*BatchExecuteCommandRequest) ProtoMessage() {}
 
 func (x *BatchExecuteCommandRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[8]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -621,7 +821,7 @@ func (x *BatchExecuteCommandRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchExecuteCommandRequest.ProtoReflect.Descriptor instead.
 func (*BatchExecuteCommandRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{8}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *BatchExecuteCommandRequest) GetTarget() *Target {
@@ -710,7 +910,7 @@ type BatchExecuteCommandResponse struct {
 
 func (x *BatchExecuteCommandResponse) Reset() {
 	*x = BatchExecuteCommandResponse{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[9]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -722,7 +922,7 @@ func (x *BatchExecuteCommandResponse) String() string {
 func (*BatchExecuteCommandResponse) ProtoMessage() {}
 
 func (x *BatchExecuteCommandResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[9]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -735,7 +935,7 @@ func (x *BatchExecuteCommandResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchExecuteCommandResponse.ProtoReflect.Descriptor instead.
 func (*BatchExecuteCommandResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{9}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *BatchExecuteCommandResponse) GetEvent() isBatchExecuteCommandResponse_Event {
@@ -837,7 +1037,7 @@ type BatchAgentOutput struct {
 
 func (x *BatchAgentOutput) Reset() {
 	*x = BatchAgentOutput{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[10]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -849,7 +1049,7 @@ func (x *BatchAgentOutput) String() string {
 func (*BatchAgentOutput) ProtoMessage() {}
 
 func (x *BatchAgentOutput) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[10]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -862,7 +1062,7 @@ func (x *BatchAgentOutput) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchAgentOutput.ProtoReflect.Descriptor instead.
 func (*BatchAgentOutput) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{10}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *BatchAgentOutput) GetAgentId() string {
@@ -890,7 +1090,7 @@ type BatchPreview struct {
 
 func (x *BatchPreview) Reset() {
 	*x = BatchPreview{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[11]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -902,7 +1102,7 @@ func (x *BatchPreview) String() string {
 func (*BatchPreview) ProtoMessage() {}
 
 func (x *BatchPreview) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[11]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -915,7 +1115,7 @@ func (x *BatchPreview) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatchPreview.ProtoReflect.Descriptor instead.
 func (*BatchPreview) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{11}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *BatchPreview) GetAgentIds() []string {
@@ -934,7 +1134,7 @@ type GetBatchJobRequest struct {
 
 func (x *GetBatchJobRequest) Reset() {
 	*x = GetBatchJobRequest{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[12]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -946,7 +1146,7 @@ func (x *GetBatchJobRequest) String() string {
 func (*GetBatchJobRequest) ProtoMessage() {}
 
 func (x *GetBatchJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[12]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -959,7 +1159,7 @@ func (x *GetBatchJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBatchJobRequest.ProtoReflect.Descriptor instead.
 func (*GetBatchJobRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{12}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetBatchJobRequest) GetBatchJobId() string {
@@ -978,7 +1178,7 @@ type GetBatchJobResponse struct {
 
 func (x *GetBatchJobResponse) Reset() {
 	*x = GetBatchJobResponse{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[13]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -990,7 +1190,7 @@ func (x *GetBatchJobResponse) String() string {
 func (*GetBatchJobResponse) ProtoMessage() {}
 
 func (x *GetBatchJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[13]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1003,7 +1203,7 @@ func (x *GetBatchJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBatchJobResponse.ProtoReflect.Descriptor instead.
 func (*GetBatchJobResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{13}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetBatchJobResponse) GetBatch() *BatchJob {
@@ -1026,7 +1226,7 @@ type ListBatchJobsRequest struct {
 
 func (x *ListBatchJobsRequest) Reset() {
 	*x = ListBatchJobsRequest{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[14]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1038,7 +1238,7 @@ func (x *ListBatchJobsRequest) String() string {
 func (*ListBatchJobsRequest) ProtoMessage() {}
 
 func (x *ListBatchJobsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[14]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1051,7 +1251,7 @@ func (x *ListBatchJobsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBatchJobsRequest.ProtoReflect.Descriptor instead.
 func (*ListBatchJobsRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{14}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ListBatchJobsRequest) GetStatus() BatchJobStatus {
@@ -1098,7 +1298,7 @@ type ListBatchJobsResponse struct {
 
 func (x *ListBatchJobsResponse) Reset() {
 	*x = ListBatchJobsResponse{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[15]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1110,7 +1310,7 @@ func (x *ListBatchJobsResponse) String() string {
 func (*ListBatchJobsResponse) ProtoMessage() {}
 
 func (x *ListBatchJobsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[15]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1123,7 +1323,7 @@ func (x *ListBatchJobsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBatchJobsResponse.ProtoReflect.Descriptor instead.
 func (*ListBatchJobsResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{15}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListBatchJobsResponse) GetBatches() []*BatchJob {
@@ -1142,7 +1342,7 @@ type CancelBatchJobRequest struct {
 
 func (x *CancelBatchJobRequest) Reset() {
 	*x = CancelBatchJobRequest{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[16]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1154,7 +1354,7 @@ func (x *CancelBatchJobRequest) String() string {
 func (*CancelBatchJobRequest) ProtoMessage() {}
 
 func (x *CancelBatchJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[16]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1167,7 +1367,7 @@ func (x *CancelBatchJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelBatchJobRequest.ProtoReflect.Descriptor instead.
 func (*CancelBatchJobRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{16}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CancelBatchJobRequest) GetBatchJobId() string {
@@ -1185,7 +1385,7 @@ type CancelBatchJobResponse struct {
 
 func (x *CancelBatchJobResponse) Reset() {
 	*x = CancelBatchJobResponse{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[17]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1197,7 +1397,7 @@ func (x *CancelBatchJobResponse) String() string {
 func (*CancelBatchJobResponse) ProtoMessage() {}
 
 func (x *CancelBatchJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[17]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1210,7 +1410,7 @@ func (x *CancelBatchJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelBatchJobResponse.ProtoReflect.Descriptor instead.
 func (*CancelBatchJobResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{17}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{21}
 }
 
 type ListBatchAgentResultsRequest struct {
@@ -1222,7 +1422,7 @@ type ListBatchAgentResultsRequest struct {
 
 func (x *ListBatchAgentResultsRequest) Reset() {
 	*x = ListBatchAgentResultsRequest{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[18]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1234,7 +1434,7 @@ func (x *ListBatchAgentResultsRequest) String() string {
 func (*ListBatchAgentResultsRequest) ProtoMessage() {}
 
 func (x *ListBatchAgentResultsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[18]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1247,7 +1447,7 @@ func (x *ListBatchAgentResultsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBatchAgentResultsRequest.ProtoReflect.Descriptor instead.
 func (*ListBatchAgentResultsRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{18}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ListBatchAgentResultsRequest) GetBatchJobId() string {
@@ -1266,7 +1466,7 @@ type ListBatchAgentResultsResponse struct {
 
 func (x *ListBatchAgentResultsResponse) Reset() {
 	*x = ListBatchAgentResultsResponse{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[19]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1278,7 +1478,7 @@ func (x *ListBatchAgentResultsResponse) String() string {
 func (*ListBatchAgentResultsResponse) ProtoMessage() {}
 
 func (x *ListBatchAgentResultsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[19]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1291,7 +1491,7 @@ func (x *ListBatchAgentResultsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBatchAgentResultsResponse.ProtoReflect.Descriptor instead.
 func (*ListBatchAgentResultsResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{19}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListBatchAgentResultsResponse) GetResults() []*BatchAgentResult {
@@ -1311,7 +1511,7 @@ type GetBatchAgentResultRequest struct {
 
 func (x *GetBatchAgentResultRequest) Reset() {
 	*x = GetBatchAgentResultRequest{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[20]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1323,7 +1523,7 @@ func (x *GetBatchAgentResultRequest) String() string {
 func (*GetBatchAgentResultRequest) ProtoMessage() {}
 
 func (x *GetBatchAgentResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[20]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1336,7 +1536,7 @@ func (x *GetBatchAgentResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBatchAgentResultRequest.ProtoReflect.Descriptor instead.
 func (*GetBatchAgentResultRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{20}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GetBatchAgentResultRequest) GetBatchJobId() string {
@@ -1362,7 +1562,7 @@ type GetBatchAgentResultResponse struct {
 
 func (x *GetBatchAgentResultResponse) Reset() {
 	*x = GetBatchAgentResultResponse{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[21]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1374,7 +1574,7 @@ func (x *GetBatchAgentResultResponse) String() string {
 func (*GetBatchAgentResultResponse) ProtoMessage() {}
 
 func (x *GetBatchAgentResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[21]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1387,7 +1587,7 @@ func (x *GetBatchAgentResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBatchAgentResultResponse.ProtoReflect.Descriptor instead.
 func (*GetBatchAgentResultResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{21}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetBatchAgentResultResponse) GetResult() *BatchAgentResult {
@@ -1406,7 +1606,7 @@ type GetCommandStatusRequest struct {
 
 func (x *GetCommandStatusRequest) Reset() {
 	*x = GetCommandStatusRequest{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[22]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1418,7 +1618,7 @@ func (x *GetCommandStatusRequest) String() string {
 func (*GetCommandStatusRequest) ProtoMessage() {}
 
 func (x *GetCommandStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[22]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1431,7 +1631,7 @@ func (x *GetCommandStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCommandStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetCommandStatusRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{22}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *GetCommandStatusRequest) GetCommandId() string {
@@ -1450,7 +1650,7 @@ type GetCommandStatusResponse struct {
 
 func (x *GetCommandStatusResponse) Reset() {
 	*x = GetCommandStatusResponse{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[23]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1462,7 +1662,7 @@ func (x *GetCommandStatusResponse) String() string {
 func (*GetCommandStatusResponse) ProtoMessage() {}
 
 func (x *GetCommandStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[23]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1475,7 +1675,7 @@ func (x *GetCommandStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCommandStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetCommandStatusResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{23}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *GetCommandStatusResponse) GetCommand() *Command {
@@ -1499,7 +1699,7 @@ type ListCommandHistoryRequest struct {
 
 func (x *ListCommandHistoryRequest) Reset() {
 	*x = ListCommandHistoryRequest{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[24]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1511,7 +1711,7 @@ func (x *ListCommandHistoryRequest) String() string {
 func (*ListCommandHistoryRequest) ProtoMessage() {}
 
 func (x *ListCommandHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[24]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1524,7 +1724,7 @@ func (x *ListCommandHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCommandHistoryRequest.ProtoReflect.Descriptor instead.
 func (*ListCommandHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{24}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *ListCommandHistoryRequest) GetAgentId() string {
@@ -1580,7 +1780,7 @@ type ListCommandHistoryResponse struct {
 
 func (x *ListCommandHistoryResponse) Reset() {
 	*x = ListCommandHistoryResponse{}
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[25]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1592,7 +1792,7 @@ func (x *ListCommandHistoryResponse) String() string {
 func (*ListCommandHistoryResponse) ProtoMessage() {}
 
 func (x *ListCommandHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[25]
+	mi := &file_keystone_core_v1_controlplane_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1605,7 +1805,7 @@ func (x *ListCommandHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListCommandHistoryResponse.ProtoReflect.Descriptor instead.
 func (*ListCommandHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{25}
+	return file_keystone_core_v1_controlplane_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *ListCommandHistoryResponse) GetCommands() []*Command {
@@ -1662,7 +1862,18 @@ const file_keystone_core_v1_controlplane_proto_rawDesc = "" +
 	"\x0fGetAgentRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\"A\n" +
 	"\x10GetAgentResponse\x12-\n" +
-	"\x05agent\x18\x01 \x01(\v2\x17.keystone.core.v1.AgentR\x05agent\"\xba\x02\n" +
+	"\x05agent\x18\x01 \x01(\v2\x17.keystone.core.v1.AgentR\x05agent\"K\n" +
+	"\x16QuarantineAgentRequest\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"k\n" +
+	"\x17QuarantineAgentResponse\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x125\n" +
+	"\x06status\x18\x02 \x01(\x0e2\x1d.keystone.core.v1.AgentStatusR\x06status\"5\n" +
+	"\x18UnquarantineAgentRequest\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\"m\n" +
+	"\x19UnquarantineAgentResponse\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x125\n" +
+	"\x06status\x18\x02 \x01(\x0e2\x1d.keystone.core.v1.AgentStatusR\x06status\"\xba\x02\n" +
 	"\x15ExecuteCommandRequest\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\tR\acommand\x12\x12\n" +
@@ -1757,12 +1968,14 @@ const file_keystone_core_v1_controlplane_proto_rawDesc = "" +
 	"\bcommands\x18\x01 \x03(\v2\x19.keystone.core.v1.CommandR\bcommands\x12&\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tR\rnextPageToken\x12\x1f\n" +
 	"\vtotal_count\x18\x03 \x01(\x05R\n" +
-	"totalCount2\xea\t\n" +
+	"totalCount2\xc0\v\n" +
 	"\x13ControlPlaneService\x12]\n" +
 	"\fServerStatus\x12%.keystone.core.v1.ServerStatusRequest\x1a&.keystone.core.v1.ServerStatusResponse\x12W\n" +
 	"\n" +
 	"ListAgents\x12#.keystone.core.v1.ListAgentsRequest\x1a$.keystone.core.v1.ListAgentsResponse\x12Q\n" +
-	"\bGetAgent\x12!.keystone.core.v1.GetAgentRequest\x1a\".keystone.core.v1.GetAgentResponse\x12e\n" +
+	"\bGetAgent\x12!.keystone.core.v1.GetAgentRequest\x1a\".keystone.core.v1.GetAgentResponse\x12f\n" +
+	"\x0fQuarantineAgent\x12(.keystone.core.v1.QuarantineAgentRequest\x1a).keystone.core.v1.QuarantineAgentResponse\x12l\n" +
+	"\x11UnquarantineAgent\x12*.keystone.core.v1.UnquarantineAgentRequest\x1a+.keystone.core.v1.UnquarantineAgentResponse\x12e\n" +
 	"\x0eExecuteCommand\x12'.keystone.core.v1.ExecuteCommandRequest\x1a(.keystone.core.v1.ExecuteCommandResponse0\x01\x12t\n" +
 	"\x13BatchExecuteCommand\x12,.keystone.core.v1.BatchExecuteCommandRequest\x1a-.keystone.core.v1.BatchExecuteCommandResponse0\x01\x12i\n" +
 	"\x10GetCommandStatus\x12).keystone.core.v1.GetCommandStatusRequest\x1a*.keystone.core.v1.GetCommandStatusResponse\x12o\n" +
@@ -1785,7 +1998,7 @@ func file_keystone_core_v1_controlplane_proto_rawDescGZIP() []byte {
 	return file_keystone_core_v1_controlplane_proto_rawDescData
 }
 
-var file_keystone_core_v1_controlplane_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_keystone_core_v1_controlplane_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_keystone_core_v1_controlplane_proto_goTypes = []any{
 	(*ServerStatusRequest)(nil),           // 0: keystone.core.v1.ServerStatusRequest
 	(*ServerStatusResponse)(nil),          // 1: keystone.core.v1.ServerStatusResponse
@@ -1793,99 +2006,109 @@ var file_keystone_core_v1_controlplane_proto_goTypes = []any{
 	(*ListAgentsResponse)(nil),            // 3: keystone.core.v1.ListAgentsResponse
 	(*GetAgentRequest)(nil),               // 4: keystone.core.v1.GetAgentRequest
 	(*GetAgentResponse)(nil),              // 5: keystone.core.v1.GetAgentResponse
-	(*ExecuteCommandRequest)(nil),         // 6: keystone.core.v1.ExecuteCommandRequest
-	(*ExecuteCommandResponse)(nil),        // 7: keystone.core.v1.ExecuteCommandResponse
-	(*BatchExecuteCommandRequest)(nil),    // 8: keystone.core.v1.BatchExecuteCommandRequest
-	(*BatchExecuteCommandResponse)(nil),   // 9: keystone.core.v1.BatchExecuteCommandResponse
-	(*BatchAgentOutput)(nil),              // 10: keystone.core.v1.BatchAgentOutput
-	(*BatchPreview)(nil),                  // 11: keystone.core.v1.BatchPreview
-	(*GetBatchJobRequest)(nil),            // 12: keystone.core.v1.GetBatchJobRequest
-	(*GetBatchJobResponse)(nil),           // 13: keystone.core.v1.GetBatchJobResponse
-	(*ListBatchJobsRequest)(nil),          // 14: keystone.core.v1.ListBatchJobsRequest
-	(*ListBatchJobsResponse)(nil),         // 15: keystone.core.v1.ListBatchJobsResponse
-	(*CancelBatchJobRequest)(nil),         // 16: keystone.core.v1.CancelBatchJobRequest
-	(*CancelBatchJobResponse)(nil),        // 17: keystone.core.v1.CancelBatchJobResponse
-	(*ListBatchAgentResultsRequest)(nil),  // 18: keystone.core.v1.ListBatchAgentResultsRequest
-	(*ListBatchAgentResultsResponse)(nil), // 19: keystone.core.v1.ListBatchAgentResultsResponse
-	(*GetBatchAgentResultRequest)(nil),    // 20: keystone.core.v1.GetBatchAgentResultRequest
-	(*GetBatchAgentResultResponse)(nil),   // 21: keystone.core.v1.GetBatchAgentResultResponse
-	(*GetCommandStatusRequest)(nil),       // 22: keystone.core.v1.GetCommandStatusRequest
-	(*GetCommandStatusResponse)(nil),      // 23: keystone.core.v1.GetCommandStatusResponse
-	(*ListCommandHistoryRequest)(nil),     // 24: keystone.core.v1.ListCommandHistoryRequest
-	(*ListCommandHistoryResponse)(nil),    // 25: keystone.core.v1.ListCommandHistoryResponse
-	nil,                                   // 26: keystone.core.v1.ExecuteCommandRequest.EnvEntry
-	nil,                                   // 27: keystone.core.v1.BatchExecuteCommandRequest.EnvEntry
-	(*timestamppb.Timestamp)(nil),         // 28: google.protobuf.Timestamp
-	(AgentStatus)(0),                      // 29: keystone.core.v1.AgentStatus
-	(*Agent)(nil),                         // 30: keystone.core.v1.Agent
-	(*CommandOutputChunk)(nil),            // 31: keystone.core.v1.CommandOutputChunk
-	(*CommandCompletion)(nil),             // 32: keystone.core.v1.CommandCompletion
-	(*Target)(nil),                        // 33: keystone.core.v1.Target
-	(*BatchAgentLifecycle)(nil),           // 34: keystone.core.v1.BatchAgentLifecycle
-	(*BatchTerminal)(nil),                 // 35: keystone.core.v1.BatchTerminal
-	(*BatchJob)(nil),                      // 36: keystone.core.v1.BatchJob
-	(BatchJobStatus)(0),                   // 37: keystone.core.v1.BatchJobStatus
-	(*BatchAgentResult)(nil),              // 38: keystone.core.v1.BatchAgentResult
-	(*Command)(nil),                       // 39: keystone.core.v1.Command
-	(CommandStatus)(0),                    // 40: keystone.core.v1.CommandStatus
+	(*QuarantineAgentRequest)(nil),        // 6: keystone.core.v1.QuarantineAgentRequest
+	(*QuarantineAgentResponse)(nil),       // 7: keystone.core.v1.QuarantineAgentResponse
+	(*UnquarantineAgentRequest)(nil),      // 8: keystone.core.v1.UnquarantineAgentRequest
+	(*UnquarantineAgentResponse)(nil),     // 9: keystone.core.v1.UnquarantineAgentResponse
+	(*ExecuteCommandRequest)(nil),         // 10: keystone.core.v1.ExecuteCommandRequest
+	(*ExecuteCommandResponse)(nil),        // 11: keystone.core.v1.ExecuteCommandResponse
+	(*BatchExecuteCommandRequest)(nil),    // 12: keystone.core.v1.BatchExecuteCommandRequest
+	(*BatchExecuteCommandResponse)(nil),   // 13: keystone.core.v1.BatchExecuteCommandResponse
+	(*BatchAgentOutput)(nil),              // 14: keystone.core.v1.BatchAgentOutput
+	(*BatchPreview)(nil),                  // 15: keystone.core.v1.BatchPreview
+	(*GetBatchJobRequest)(nil),            // 16: keystone.core.v1.GetBatchJobRequest
+	(*GetBatchJobResponse)(nil),           // 17: keystone.core.v1.GetBatchJobResponse
+	(*ListBatchJobsRequest)(nil),          // 18: keystone.core.v1.ListBatchJobsRequest
+	(*ListBatchJobsResponse)(nil),         // 19: keystone.core.v1.ListBatchJobsResponse
+	(*CancelBatchJobRequest)(nil),         // 20: keystone.core.v1.CancelBatchJobRequest
+	(*CancelBatchJobResponse)(nil),        // 21: keystone.core.v1.CancelBatchJobResponse
+	(*ListBatchAgentResultsRequest)(nil),  // 22: keystone.core.v1.ListBatchAgentResultsRequest
+	(*ListBatchAgentResultsResponse)(nil), // 23: keystone.core.v1.ListBatchAgentResultsResponse
+	(*GetBatchAgentResultRequest)(nil),    // 24: keystone.core.v1.GetBatchAgentResultRequest
+	(*GetBatchAgentResultResponse)(nil),   // 25: keystone.core.v1.GetBatchAgentResultResponse
+	(*GetCommandStatusRequest)(nil),       // 26: keystone.core.v1.GetCommandStatusRequest
+	(*GetCommandStatusResponse)(nil),      // 27: keystone.core.v1.GetCommandStatusResponse
+	(*ListCommandHistoryRequest)(nil),     // 28: keystone.core.v1.ListCommandHistoryRequest
+	(*ListCommandHistoryResponse)(nil),    // 29: keystone.core.v1.ListCommandHistoryResponse
+	nil,                                   // 30: keystone.core.v1.ExecuteCommandRequest.EnvEntry
+	nil,                                   // 31: keystone.core.v1.BatchExecuteCommandRequest.EnvEntry
+	(*timestamppb.Timestamp)(nil),         // 32: google.protobuf.Timestamp
+	(AgentStatus)(0),                      // 33: keystone.core.v1.AgentStatus
+	(*Agent)(nil),                         // 34: keystone.core.v1.Agent
+	(*CommandOutputChunk)(nil),            // 35: keystone.core.v1.CommandOutputChunk
+	(*CommandCompletion)(nil),             // 36: keystone.core.v1.CommandCompletion
+	(*Target)(nil),                        // 37: keystone.core.v1.Target
+	(*BatchAgentLifecycle)(nil),           // 38: keystone.core.v1.BatchAgentLifecycle
+	(*BatchTerminal)(nil),                 // 39: keystone.core.v1.BatchTerminal
+	(*BatchJob)(nil),                      // 40: keystone.core.v1.BatchJob
+	(BatchJobStatus)(0),                   // 41: keystone.core.v1.BatchJobStatus
+	(*BatchAgentResult)(nil),              // 42: keystone.core.v1.BatchAgentResult
+	(*Command)(nil),                       // 43: keystone.core.v1.Command
+	(CommandStatus)(0),                    // 44: keystone.core.v1.CommandStatus
 }
 var file_keystone_core_v1_controlplane_proto_depIdxs = []int32{
-	28, // 0: keystone.core.v1.ServerStatusResponse.build_date:type_name -> google.protobuf.Timestamp
-	28, // 1: keystone.core.v1.ServerStatusResponse.started_at:type_name -> google.protobuf.Timestamp
-	29, // 2: keystone.core.v1.ListAgentsRequest.status:type_name -> keystone.core.v1.AgentStatus
-	30, // 3: keystone.core.v1.ListAgentsResponse.agents:type_name -> keystone.core.v1.Agent
-	30, // 4: keystone.core.v1.GetAgentResponse.agent:type_name -> keystone.core.v1.Agent
-	26, // 5: keystone.core.v1.ExecuteCommandRequest.env:type_name -> keystone.core.v1.ExecuteCommandRequest.EnvEntry
-	31, // 6: keystone.core.v1.ExecuteCommandResponse.output:type_name -> keystone.core.v1.CommandOutputChunk
-	32, // 7: keystone.core.v1.ExecuteCommandResponse.completion:type_name -> keystone.core.v1.CommandCompletion
-	33, // 8: keystone.core.v1.BatchExecuteCommandRequest.target:type_name -> keystone.core.v1.Target
-	27, // 9: keystone.core.v1.BatchExecuteCommandRequest.env:type_name -> keystone.core.v1.BatchExecuteCommandRequest.EnvEntry
-	34, // 10: keystone.core.v1.BatchExecuteCommandResponse.lifecycle:type_name -> keystone.core.v1.BatchAgentLifecycle
-	10, // 11: keystone.core.v1.BatchExecuteCommandResponse.output:type_name -> keystone.core.v1.BatchAgentOutput
-	35, // 12: keystone.core.v1.BatchExecuteCommandResponse.terminal:type_name -> keystone.core.v1.BatchTerminal
-	11, // 13: keystone.core.v1.BatchExecuteCommandResponse.preview:type_name -> keystone.core.v1.BatchPreview
-	31, // 14: keystone.core.v1.BatchAgentOutput.output:type_name -> keystone.core.v1.CommandOutputChunk
-	36, // 15: keystone.core.v1.GetBatchJobResponse.batch:type_name -> keystone.core.v1.BatchJob
-	37, // 16: keystone.core.v1.ListBatchJobsRequest.status:type_name -> keystone.core.v1.BatchJobStatus
-	28, // 17: keystone.core.v1.ListBatchJobsRequest.since:type_name -> google.protobuf.Timestamp
-	28, // 18: keystone.core.v1.ListBatchJobsRequest.until:type_name -> google.protobuf.Timestamp
-	36, // 19: keystone.core.v1.ListBatchJobsResponse.batches:type_name -> keystone.core.v1.BatchJob
-	38, // 20: keystone.core.v1.ListBatchAgentResultsResponse.results:type_name -> keystone.core.v1.BatchAgentResult
-	38, // 21: keystone.core.v1.GetBatchAgentResultResponse.result:type_name -> keystone.core.v1.BatchAgentResult
-	39, // 22: keystone.core.v1.GetCommandStatusResponse.command:type_name -> keystone.core.v1.Command
-	40, // 23: keystone.core.v1.ListCommandHistoryRequest.status:type_name -> keystone.core.v1.CommandStatus
-	28, // 24: keystone.core.v1.ListCommandHistoryRequest.since:type_name -> google.protobuf.Timestamp
-	28, // 25: keystone.core.v1.ListCommandHistoryRequest.until:type_name -> google.protobuf.Timestamp
-	39, // 26: keystone.core.v1.ListCommandHistoryResponse.commands:type_name -> keystone.core.v1.Command
-	0,  // 27: keystone.core.v1.ControlPlaneService.ServerStatus:input_type -> keystone.core.v1.ServerStatusRequest
-	2,  // 28: keystone.core.v1.ControlPlaneService.ListAgents:input_type -> keystone.core.v1.ListAgentsRequest
-	4,  // 29: keystone.core.v1.ControlPlaneService.GetAgent:input_type -> keystone.core.v1.GetAgentRequest
-	6,  // 30: keystone.core.v1.ControlPlaneService.ExecuteCommand:input_type -> keystone.core.v1.ExecuteCommandRequest
-	8,  // 31: keystone.core.v1.ControlPlaneService.BatchExecuteCommand:input_type -> keystone.core.v1.BatchExecuteCommandRequest
-	22, // 32: keystone.core.v1.ControlPlaneService.GetCommandStatus:input_type -> keystone.core.v1.GetCommandStatusRequest
-	24, // 33: keystone.core.v1.ControlPlaneService.ListCommandHistory:input_type -> keystone.core.v1.ListCommandHistoryRequest
-	12, // 34: keystone.core.v1.ControlPlaneService.GetBatchJob:input_type -> keystone.core.v1.GetBatchJobRequest
-	14, // 35: keystone.core.v1.ControlPlaneService.ListBatchJobs:input_type -> keystone.core.v1.ListBatchJobsRequest
-	16, // 36: keystone.core.v1.ControlPlaneService.CancelBatchJob:input_type -> keystone.core.v1.CancelBatchJobRequest
-	18, // 37: keystone.core.v1.ControlPlaneService.ListBatchAgentResults:input_type -> keystone.core.v1.ListBatchAgentResultsRequest
-	20, // 38: keystone.core.v1.ControlPlaneService.GetBatchAgentResult:input_type -> keystone.core.v1.GetBatchAgentResultRequest
-	1,  // 39: keystone.core.v1.ControlPlaneService.ServerStatus:output_type -> keystone.core.v1.ServerStatusResponse
-	3,  // 40: keystone.core.v1.ControlPlaneService.ListAgents:output_type -> keystone.core.v1.ListAgentsResponse
-	5,  // 41: keystone.core.v1.ControlPlaneService.GetAgent:output_type -> keystone.core.v1.GetAgentResponse
-	7,  // 42: keystone.core.v1.ControlPlaneService.ExecuteCommand:output_type -> keystone.core.v1.ExecuteCommandResponse
-	9,  // 43: keystone.core.v1.ControlPlaneService.BatchExecuteCommand:output_type -> keystone.core.v1.BatchExecuteCommandResponse
-	23, // 44: keystone.core.v1.ControlPlaneService.GetCommandStatus:output_type -> keystone.core.v1.GetCommandStatusResponse
-	25, // 45: keystone.core.v1.ControlPlaneService.ListCommandHistory:output_type -> keystone.core.v1.ListCommandHistoryResponse
-	13, // 46: keystone.core.v1.ControlPlaneService.GetBatchJob:output_type -> keystone.core.v1.GetBatchJobResponse
-	15, // 47: keystone.core.v1.ControlPlaneService.ListBatchJobs:output_type -> keystone.core.v1.ListBatchJobsResponse
-	17, // 48: keystone.core.v1.ControlPlaneService.CancelBatchJob:output_type -> keystone.core.v1.CancelBatchJobResponse
-	19, // 49: keystone.core.v1.ControlPlaneService.ListBatchAgentResults:output_type -> keystone.core.v1.ListBatchAgentResultsResponse
-	21, // 50: keystone.core.v1.ControlPlaneService.GetBatchAgentResult:output_type -> keystone.core.v1.GetBatchAgentResultResponse
-	39, // [39:51] is the sub-list for method output_type
-	27, // [27:39] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	32, // 0: keystone.core.v1.ServerStatusResponse.build_date:type_name -> google.protobuf.Timestamp
+	32, // 1: keystone.core.v1.ServerStatusResponse.started_at:type_name -> google.protobuf.Timestamp
+	33, // 2: keystone.core.v1.ListAgentsRequest.status:type_name -> keystone.core.v1.AgentStatus
+	34, // 3: keystone.core.v1.ListAgentsResponse.agents:type_name -> keystone.core.v1.Agent
+	34, // 4: keystone.core.v1.GetAgentResponse.agent:type_name -> keystone.core.v1.Agent
+	33, // 5: keystone.core.v1.QuarantineAgentResponse.status:type_name -> keystone.core.v1.AgentStatus
+	33, // 6: keystone.core.v1.UnquarantineAgentResponse.status:type_name -> keystone.core.v1.AgentStatus
+	30, // 7: keystone.core.v1.ExecuteCommandRequest.env:type_name -> keystone.core.v1.ExecuteCommandRequest.EnvEntry
+	35, // 8: keystone.core.v1.ExecuteCommandResponse.output:type_name -> keystone.core.v1.CommandOutputChunk
+	36, // 9: keystone.core.v1.ExecuteCommandResponse.completion:type_name -> keystone.core.v1.CommandCompletion
+	37, // 10: keystone.core.v1.BatchExecuteCommandRequest.target:type_name -> keystone.core.v1.Target
+	31, // 11: keystone.core.v1.BatchExecuteCommandRequest.env:type_name -> keystone.core.v1.BatchExecuteCommandRequest.EnvEntry
+	38, // 12: keystone.core.v1.BatchExecuteCommandResponse.lifecycle:type_name -> keystone.core.v1.BatchAgentLifecycle
+	14, // 13: keystone.core.v1.BatchExecuteCommandResponse.output:type_name -> keystone.core.v1.BatchAgentOutput
+	39, // 14: keystone.core.v1.BatchExecuteCommandResponse.terminal:type_name -> keystone.core.v1.BatchTerminal
+	15, // 15: keystone.core.v1.BatchExecuteCommandResponse.preview:type_name -> keystone.core.v1.BatchPreview
+	35, // 16: keystone.core.v1.BatchAgentOutput.output:type_name -> keystone.core.v1.CommandOutputChunk
+	40, // 17: keystone.core.v1.GetBatchJobResponse.batch:type_name -> keystone.core.v1.BatchJob
+	41, // 18: keystone.core.v1.ListBatchJobsRequest.status:type_name -> keystone.core.v1.BatchJobStatus
+	32, // 19: keystone.core.v1.ListBatchJobsRequest.since:type_name -> google.protobuf.Timestamp
+	32, // 20: keystone.core.v1.ListBatchJobsRequest.until:type_name -> google.protobuf.Timestamp
+	40, // 21: keystone.core.v1.ListBatchJobsResponse.batches:type_name -> keystone.core.v1.BatchJob
+	42, // 22: keystone.core.v1.ListBatchAgentResultsResponse.results:type_name -> keystone.core.v1.BatchAgentResult
+	42, // 23: keystone.core.v1.GetBatchAgentResultResponse.result:type_name -> keystone.core.v1.BatchAgentResult
+	43, // 24: keystone.core.v1.GetCommandStatusResponse.command:type_name -> keystone.core.v1.Command
+	44, // 25: keystone.core.v1.ListCommandHistoryRequest.status:type_name -> keystone.core.v1.CommandStatus
+	32, // 26: keystone.core.v1.ListCommandHistoryRequest.since:type_name -> google.protobuf.Timestamp
+	32, // 27: keystone.core.v1.ListCommandHistoryRequest.until:type_name -> google.protobuf.Timestamp
+	43, // 28: keystone.core.v1.ListCommandHistoryResponse.commands:type_name -> keystone.core.v1.Command
+	0,  // 29: keystone.core.v1.ControlPlaneService.ServerStatus:input_type -> keystone.core.v1.ServerStatusRequest
+	2,  // 30: keystone.core.v1.ControlPlaneService.ListAgents:input_type -> keystone.core.v1.ListAgentsRequest
+	4,  // 31: keystone.core.v1.ControlPlaneService.GetAgent:input_type -> keystone.core.v1.GetAgentRequest
+	6,  // 32: keystone.core.v1.ControlPlaneService.QuarantineAgent:input_type -> keystone.core.v1.QuarantineAgentRequest
+	8,  // 33: keystone.core.v1.ControlPlaneService.UnquarantineAgent:input_type -> keystone.core.v1.UnquarantineAgentRequest
+	10, // 34: keystone.core.v1.ControlPlaneService.ExecuteCommand:input_type -> keystone.core.v1.ExecuteCommandRequest
+	12, // 35: keystone.core.v1.ControlPlaneService.BatchExecuteCommand:input_type -> keystone.core.v1.BatchExecuteCommandRequest
+	26, // 36: keystone.core.v1.ControlPlaneService.GetCommandStatus:input_type -> keystone.core.v1.GetCommandStatusRequest
+	28, // 37: keystone.core.v1.ControlPlaneService.ListCommandHistory:input_type -> keystone.core.v1.ListCommandHistoryRequest
+	16, // 38: keystone.core.v1.ControlPlaneService.GetBatchJob:input_type -> keystone.core.v1.GetBatchJobRequest
+	18, // 39: keystone.core.v1.ControlPlaneService.ListBatchJobs:input_type -> keystone.core.v1.ListBatchJobsRequest
+	20, // 40: keystone.core.v1.ControlPlaneService.CancelBatchJob:input_type -> keystone.core.v1.CancelBatchJobRequest
+	22, // 41: keystone.core.v1.ControlPlaneService.ListBatchAgentResults:input_type -> keystone.core.v1.ListBatchAgentResultsRequest
+	24, // 42: keystone.core.v1.ControlPlaneService.GetBatchAgentResult:input_type -> keystone.core.v1.GetBatchAgentResultRequest
+	1,  // 43: keystone.core.v1.ControlPlaneService.ServerStatus:output_type -> keystone.core.v1.ServerStatusResponse
+	3,  // 44: keystone.core.v1.ControlPlaneService.ListAgents:output_type -> keystone.core.v1.ListAgentsResponse
+	5,  // 45: keystone.core.v1.ControlPlaneService.GetAgent:output_type -> keystone.core.v1.GetAgentResponse
+	7,  // 46: keystone.core.v1.ControlPlaneService.QuarantineAgent:output_type -> keystone.core.v1.QuarantineAgentResponse
+	9,  // 47: keystone.core.v1.ControlPlaneService.UnquarantineAgent:output_type -> keystone.core.v1.UnquarantineAgentResponse
+	11, // 48: keystone.core.v1.ControlPlaneService.ExecuteCommand:output_type -> keystone.core.v1.ExecuteCommandResponse
+	13, // 49: keystone.core.v1.ControlPlaneService.BatchExecuteCommand:output_type -> keystone.core.v1.BatchExecuteCommandResponse
+	27, // 50: keystone.core.v1.ControlPlaneService.GetCommandStatus:output_type -> keystone.core.v1.GetCommandStatusResponse
+	29, // 51: keystone.core.v1.ControlPlaneService.ListCommandHistory:output_type -> keystone.core.v1.ListCommandHistoryResponse
+	17, // 52: keystone.core.v1.ControlPlaneService.GetBatchJob:output_type -> keystone.core.v1.GetBatchJobResponse
+	19, // 53: keystone.core.v1.ControlPlaneService.ListBatchJobs:output_type -> keystone.core.v1.ListBatchJobsResponse
+	21, // 54: keystone.core.v1.ControlPlaneService.CancelBatchJob:output_type -> keystone.core.v1.CancelBatchJobResponse
+	23, // 55: keystone.core.v1.ControlPlaneService.ListBatchAgentResults:output_type -> keystone.core.v1.ListBatchAgentResultsResponse
+	25, // 56: keystone.core.v1.ControlPlaneService.GetBatchAgentResult:output_type -> keystone.core.v1.GetBatchAgentResultResponse
+	43, // [43:57] is the sub-list for method output_type
+	29, // [29:43] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_keystone_core_v1_controlplane_proto_init() }
@@ -1894,12 +2117,12 @@ func file_keystone_core_v1_controlplane_proto_init() {
 		return
 	}
 	file_keystone_core_v1_common_proto_init()
-	file_keystone_core_v1_controlplane_proto_msgTypes[7].OneofWrappers = []any{
+	file_keystone_core_v1_controlplane_proto_msgTypes[11].OneofWrappers = []any{
 		(*ExecuteCommandResponse_CommandId)(nil),
 		(*ExecuteCommandResponse_Output)(nil),
 		(*ExecuteCommandResponse_Completion)(nil),
 	}
-	file_keystone_core_v1_controlplane_proto_msgTypes[9].OneofWrappers = []any{
+	file_keystone_core_v1_controlplane_proto_msgTypes[13].OneofWrappers = []any{
 		(*BatchExecuteCommandResponse_BatchJobId)(nil),
 		(*BatchExecuteCommandResponse_Lifecycle)(nil),
 		(*BatchExecuteCommandResponse_Output)(nil),
@@ -1912,7 +2135,7 @@ func file_keystone_core_v1_controlplane_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_keystone_core_v1_controlplane_proto_rawDesc), len(file_keystone_core_v1_controlplane_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   28,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

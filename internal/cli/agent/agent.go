@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Package agent implements the `kscorectl agent` subcommand tree.
-// v0.x ships `list` only; per-agent operations (get, disable, …) are
-// future tickets.
+// Package agent implements the `kscorectl agent` subcommand tree:
+// `list`, plus the incident-response pair `quarantine` /
+// `unquarantine`. Other per-agent operations (get, …) are future
+// tickets.
 package agent
 
 import (
@@ -57,6 +58,8 @@ func NewCommand(deps Deps) *cobra.Command {
 		"output format: table | json")
 
 	cmd.AddCommand(listCmd(g))
+	cmd.AddCommand(quarantineCmd(g))
+	cmd.AddCommand(unquarantineCmd(g))
 
 	return cmd
 }

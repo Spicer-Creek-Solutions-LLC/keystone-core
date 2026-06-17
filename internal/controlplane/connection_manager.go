@@ -326,6 +326,14 @@ func (m *ConnectionManager) Disable(ctx context.Context, id string) error {
 	return m.transition(ctx, id, state.AgentStatusDisabled)
 }
 
+// Enable reverses Disable, restoring the agent to AgentStatusConnected
+// (its heartbeats are accepted again). This mirrors Register's optimistic
+// Connected state; if the agent is actually gone, the monitor stales it
+// on the next sweep like any other silent agent.
+func (m *ConnectionManager) Enable(ctx context.Context, id string) error {
+	return m.transition(ctx, id, state.AgentStatusConnected)
+}
+
 // Delete removes the agent from the store and cache. Cascade rules are
 // owned by the store layer (see schema.go).
 func (m *ConnectionManager) Delete(ctx context.Context, id string) error {

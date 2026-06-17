@@ -18,7 +18,9 @@ type fakeClient struct {
 	v1.ControlPlaneServiceClient // embedded so we satisfy the interface;
 	//                                unset methods panic if called.
 
-	ListAgentsFn func(ctx context.Context, in *v1.ListAgentsRequest) (*v1.ListAgentsResponse, error)
+	ListAgentsFn   func(ctx context.Context, in *v1.ListAgentsRequest) (*v1.ListAgentsResponse, error)
+	QuarantineFn   func(ctx context.Context, in *v1.QuarantineAgentRequest) (*v1.QuarantineAgentResponse, error)
+	UnquarantineFn func(ctx context.Context, in *v1.UnquarantineAgentRequest) (*v1.UnquarantineAgentResponse, error)
 }
 
 func (f *fakeClient) ListAgents(ctx context.Context, in *v1.ListAgentsRequest, _ ...grpc.CallOption) (*v1.ListAgentsResponse, error) {

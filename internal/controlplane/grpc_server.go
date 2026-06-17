@@ -19,14 +19,25 @@ import (
 	"go.keystone-core.io/keystone-core/internal/state"
 )
 
+// AgentController isolates (and re-admits) an agent. Satisfied by
+// *ConnectionManager; injected so the operator server can quarantine a
+// compromised agent without owning the heartbeat cache itself. When nil
+// the Quarantine/Unquarantine RPCs respond with codes.Unimplemented.
+type AgentController interface {
+	Disable(ctx context.Context, id string) error
+	Enable(ctx context.Context, id string) error
+}
+
 // GRPCServerConfig wires the operator-facing ControlPlaneService.
 // Dispatcher and Store are required; BatchExecutor is optional —
 // when nil the streaming RPCs respond with codes.Unavailable so the
 // binary can boot before task 12 lands the NATS-backed executor.
+// Controller is optional; when nil the quarantine RPCs are Unimplemented.
 type GRPCServerConfig struct {
 	Dispatcher *BatchDispatcher
 	Store      state.AgentStore
 	Executor   BatchExecutor
+	Controller AgentController
 	Logger     *slog.Logger
 }
 
@@ -40,6 +51,7 @@ type GRPCServer struct {
 	dispatcher *BatchDispatcher
 	store      state.AgentStore
 	executor   BatchExecutor
+	controller AgentController
 	log        *slog.Logger
 }
 
@@ -66,6 +78,7 @@ func NewGRPCServer(cfg GRPCServerConfig) (*GRPCServer, error) {
 		dispatcher: cfg.Dispatcher,
 		store:      cfg.Store,
 		executor:   cfg.Executor,
+		controller: cfg.Controller,
 		log:        cfg.Logger,
 	}, nil
 }
@@ -106,6 +119,52 @@ func (s *GRPCServer) GetAgent(ctx context.Context, req *v1.GetAgentRequest) (*v1
 		return nil, status.Errorf(codes.Internal, "get agent: %v", err)
 	}
 	return &v1.GetAgentResponse{Agent: agentRecordToProto(rec)}, nil
+}
+
+// QuarantineAgent isolates an agent (transitions it to DISABLED) so its
+// heartbeats are rejected and no commands dispatch to it. Used during
+// incident response.
+func (s *GRPCServer) QuarantineAgent(ctx context.Context, req *v1.QuarantineAgentRequest) (*v1.QuarantineAgentResponse, error) {
+	if s.controller == nil {
+		return nil, status.Error(codes.Unimplemented, "agent quarantine is not enabled on this server")
+	}
+	if req.GetAgentId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "agent_id is required")
+	}
+	if err := s.controller.Disable(ctx, req.GetAgentId()); err != nil {
+		if errors.Is(err, ErrNotRegistered) {
+			return nil, status.Errorf(codes.NotFound, "agent %q not found", req.GetAgentId())
+		}
+		return nil, status.Errorf(codes.Internal, "quarantine agent: %v", err)
+	}
+	s.log.InfoContext(ctx, "agent quarantined",
+		"agent_id", req.GetAgentId(), "reason", req.GetReason())
+	return &v1.QuarantineAgentResponse{
+		AgentId: req.GetAgentId(),
+		Status:  v1.AgentStatus_AGENT_STATUS_DISABLED,
+	}, nil
+}
+
+// UnquarantineAgent reverses QuarantineAgent, restoring the agent to
+// CONNECTED; the monitor re-stales it if it is actually gone.
+func (s *GRPCServer) UnquarantineAgent(ctx context.Context, req *v1.UnquarantineAgentRequest) (*v1.UnquarantineAgentResponse, error) {
+	if s.controller == nil {
+		return nil, status.Error(codes.Unimplemented, "agent quarantine is not enabled on this server")
+	}
+	if req.GetAgentId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "agent_id is required")
+	}
+	if err := s.controller.Enable(ctx, req.GetAgentId()); err != nil {
+		if errors.Is(err, ErrNotRegistered) {
+			return nil, status.Errorf(codes.NotFound, "agent %q not found", req.GetAgentId())
+		}
+		return nil, status.Errorf(codes.Internal, "unquarantine agent: %v", err)
+	}
+	s.log.InfoContext(ctx, "agent unquarantined", "agent_id", req.GetAgentId())
+	return &v1.UnquarantineAgentResponse{
+		AgentId: req.GetAgentId(),
+		Status:  v1.AgentStatus_AGENT_STATUS_CONNECTED,
+	}, nil
 }
 
 // agentRecordToProto projects state.AgentRecord onto the v1.Agent

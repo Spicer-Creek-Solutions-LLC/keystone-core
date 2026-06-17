@@ -680,6 +680,13 @@ func (s *Server) CommandDispatcher() *controlplane.CommandDispatcher {
 	return s.cmdDispatcher
 }
 
+// ConnectionManager exposes the agent connection manager so the
+// operator-facing ControlPlaneService can quarantine/unquarantine
+// agents through the same instance that owns the heartbeat cache.
+func (s *Server) ConnectionManager() *controlplane.ConnectionManager {
+	return s.connMgr
+}
+
 // ---- per-step shutdown helpers ------------------------------------------
 
 // stopGRPC stops the gRPC server. Wraps GracefulStop in a goroutine
