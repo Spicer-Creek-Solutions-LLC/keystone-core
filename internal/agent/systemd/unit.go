@@ -55,9 +55,10 @@ type Params struct {
 	ConfigPath string
 
 	// User and Group are optional. When empty, systemd runs the
-	// service as root. v1.0 documents `keystone-core` as the
-	// recommended dedicated user once the operator creates one
-	// (no auto-creation in v1.0; tracked in ROADMAP).
+	// service as root. The recommended dedicated user is `kscore`
+	// (the server package's postinst creates it; the agent runs as
+	// root by default since it executes operator-issued commands).
+	// Auto-creation from `service install` is tracked in ROADMAP.
 	User  string
 	Group string
 

@@ -183,7 +183,7 @@ v1.x:
   - "Type=notify systemd integration (sd_notify)"
   - "Bootstrap wizard: storage backend + blueprint selection screens"
   - "Bootstrap: no rollback / transactional revert"
-  - "Dedicated `keystone-core` system user auto-creation"
+  - "Dedicated `kscore` system user auto-creation"
   - "Auto-rotation of in-memory NATS creds"
 
 v2.x+:

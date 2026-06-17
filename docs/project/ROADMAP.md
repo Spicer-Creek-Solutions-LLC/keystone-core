@@ -1458,12 +1458,12 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: Failed bootstrap re-runs cleanly; for true rollback, operator runs `kscore-agent bootstrap --rollback`.
 - **References**: Epic 06 task 6; `internal/agent/bootstrap/doc.go:19`.
 
-#### Dedicated `keystone-core` system user auto-creation
+#### Dedicated `kscore` system user auto-creation
 
 - **Priority**: v1.x
-- **What**: v1.0 systemd unit defaults to root; `--user/--group` flags let operators run as a dedicated user, but the user must already exist (no auto-create).
+- **What**: v1.0 systemd unit defaults to root; `--user/--group` flags let operators run as a dedicated user, but for the `service install` path the user must already exist (no auto-create). The server `.deb`/`.rpm` postinst already creates the `kscore` system user — this entry covers extending that to the `service install` flow.
 - **Why now**: User creation belongs in package-mgmt territory (rpm/deb post-install via `useradd --system`), and packaging is part of the air-gap / supply-chain work. The default-user flip is handled inside the package post-install (not as a surprise to in-place tarball upgrades), so it stays non-breaking.
-- **Acceptance for unblock**: Packaging creates the `keystone-core` system user as part of `apt install` / `dnf install`. After that, `service install` can default `--user keystone-core --group keystone-core` and update the rendered ReadWritePaths to match.
+- **Acceptance for unblock**: The `service install` path can default `--user kscore --group kscore` (the user the server package already creates) and update the rendered ReadWritePaths to match.
 - **References**: Epic 06 task 9 `_(landed)_`; the air-gap / supply-chain packaging work.
 
 #### Auto-rotation of in-memory NATS creds
