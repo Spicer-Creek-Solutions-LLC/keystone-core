@@ -16,6 +16,7 @@ import (
 
 	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 
+	"go.keystone-core.io/keystone-core/internal/identity"
 	"go.keystone-core.io/keystone-core/internal/state"
 )
 
@@ -28,6 +29,14 @@ type AgentController interface {
 	Enable(ctx context.Context, id string) error
 }
 
+// CertVerifier supplies the trust material for VerifyAgent to re-check an
+// agent's stored certificate. Satisfied by *identity.EmbeddedProvider.
+// When nil the VerifyAgent RPC responds with codes.Unimplemented.
+type CertVerifier interface {
+	GetTrustBundle(ctx context.Context) (*identity.TrustBundle, error)
+	TrustDomain() string
+}
+
 // GRPCServerConfig wires the operator-facing ControlPlaneService.
 // Dispatcher and Store are required; BatchExecutor is optional —
 // when nil the streaming RPCs respond with codes.Unavailable so the
@@ -38,6 +47,7 @@ type GRPCServerConfig struct {
 	Store      state.AgentStore
 	Executor   BatchExecutor
 	Controller AgentController
+	Verifier   CertVerifier
 	Logger     *slog.Logger
 }
 
@@ -52,6 +62,7 @@ type GRPCServer struct {
 	store      state.AgentStore
 	executor   BatchExecutor
 	controller AgentController
+	verifier   CertVerifier
 	log        *slog.Logger
 }
 
@@ -79,6 +90,7 @@ func NewGRPCServer(cfg GRPCServerConfig) (*GRPCServer, error) {
 		store:      cfg.Store,
 		executor:   cfg.Executor,
 		controller: cfg.Controller,
+		verifier:   cfg.Verifier,
 		log:        cfg.Logger,
 	}, nil
 }
@@ -165,6 +177,49 @@ func (s *GRPCServer) UnquarantineAgent(ctx context.Context, req *v1.Unquarantine
 		AgentId: req.GetAgentId(),
 		Status:  v1.AgentStatus_AGENT_STATUS_CONNECTED,
 	}, nil
+}
+
+// VerifyAgent re-checks the agent's stored certificate against the
+// current trust bundle. An agent with no stored cert returns
+// has_cert=false (not an error).
+func (s *GRPCServer) VerifyAgent(ctx context.Context, req *v1.VerifyAgentRequest) (*v1.VerifyAgentResponse, error) {
+	if s.verifier == nil {
+		return nil, status.Error(codes.Unimplemented, "agent cert verification is not enabled on this server")
+	}
+	if req.GetAgentId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "agent_id is required")
+	}
+	rec, err := s.store.GetAgent(ctx, req.GetAgentId())
+	if err != nil {
+		if errors.Is(err, state.ErrNotFound) {
+			return nil, status.Errorf(codes.NotFound, "agent %q not found", req.GetAgentId())
+		}
+		return nil, status.Errorf(codes.Internal, "get agent: %v", err)
+	}
+	resp := &v1.VerifyAgentResponse{AgentId: rec.ID}
+	if rec.CertChainPEM == "" {
+		return resp, nil // has_cert=false; nothing to verify
+	}
+	resp.HasCert = true
+
+	bundle, err := s.verifier.GetTrustBundle(ctx)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "trust bundle: %v", err)
+	}
+	res, err := identity.VerifyAgentCert(rec.CertChainPEM, bundle, s.verifier.TrustDomain(), time.Now())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "verify cert: %v", err)
+	}
+	resp.ChainValid = res.ChainValid
+	resp.Expired = res.Expired
+	resp.NotYetValid = res.NotYetValid
+	resp.SpiffeMatch = res.SPIFFEMatch
+	resp.Ok = res.OK()
+	resp.SpiffeId = res.SPIFFEID
+	if !res.ExpiresAt.IsZero() {
+		resp.ExpiresAt = timestamppb.New(res.ExpiresAt)
+	}
+	return resp, nil
 }
 
 // agentRecordToProto projects state.AgentRecord onto the v1.Agent

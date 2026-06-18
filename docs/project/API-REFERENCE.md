@@ -47,20 +47,21 @@ This is an index. For request / response field detail, follow the
 
 | RPC | Request | Response | Source |
 |-----|---------|----------|--------|
-| `BatchExecuteCommand` | `BatchExecuteCommandRequest` | `stream BatchExecuteCommandResponse` | [`api/proto/keystone/core/v1/controlplane.proto:34`](../../api/proto/keystone/core/v1/controlplane.proto#L34) |
-| `CancelBatchJob` | `CancelBatchJobRequest` | `CancelBatchJobResponse` | [`api/proto/keystone/core/v1/controlplane.proto:48`](../../api/proto/keystone/core/v1/controlplane.proto#L48) |
-| `ExecuteCommand` | `ExecuteCommandRequest` | `stream ExecuteCommandResponse` | [`api/proto/keystone/core/v1/controlplane.proto:28`](../../api/proto/keystone/core/v1/controlplane.proto#L28) |
+| `BatchExecuteCommand` | `BatchExecuteCommandRequest` | `stream BatchExecuteCommandResponse` | [`api/proto/keystone/core/v1/controlplane.proto:39`](../../api/proto/keystone/core/v1/controlplane.proto#L39) |
+| `CancelBatchJob` | `CancelBatchJobRequest` | `CancelBatchJobResponse` | [`api/proto/keystone/core/v1/controlplane.proto:53`](../../api/proto/keystone/core/v1/controlplane.proto#L53) |
+| `ExecuteCommand` | `ExecuteCommandRequest` | `stream ExecuteCommandResponse` | [`api/proto/keystone/core/v1/controlplane.proto:33`](../../api/proto/keystone/core/v1/controlplane.proto#L33) |
 | `GetAgent` | `GetAgentRequest` | `GetAgentResponse` | [`api/proto/keystone/core/v1/controlplane.proto:17`](../../api/proto/keystone/core/v1/controlplane.proto#L17) |
-| `GetBatchAgentResult` | `GetBatchAgentResultRequest` | `GetBatchAgentResultResponse` | [`api/proto/keystone/core/v1/controlplane.proto:54`](../../api/proto/keystone/core/v1/controlplane.proto#L54) |
-| `GetBatchJob` | `GetBatchJobRequest` | `GetBatchJobResponse` | [`api/proto/keystone/core/v1/controlplane.proto:40`](../../api/proto/keystone/core/v1/controlplane.proto#L40) |
-| `GetCommandStatus` | `GetCommandStatusRequest` | `GetCommandStatusResponse` | [`api/proto/keystone/core/v1/controlplane.proto:36`](../../api/proto/keystone/core/v1/controlplane.proto#L36) |
+| `GetBatchAgentResult` | `GetBatchAgentResultRequest` | `GetBatchAgentResultResponse` | [`api/proto/keystone/core/v1/controlplane.proto:59`](../../api/proto/keystone/core/v1/controlplane.proto#L59) |
+| `GetBatchJob` | `GetBatchJobRequest` | `GetBatchJobResponse` | [`api/proto/keystone/core/v1/controlplane.proto:45`](../../api/proto/keystone/core/v1/controlplane.proto#L45) |
+| `GetCommandStatus` | `GetCommandStatusRequest` | `GetCommandStatusResponse` | [`api/proto/keystone/core/v1/controlplane.proto:41`](../../api/proto/keystone/core/v1/controlplane.proto#L41) |
 | `ListAgents` | `ListAgentsRequest` | `ListAgentsResponse` | [`api/proto/keystone/core/v1/controlplane.proto:16`](../../api/proto/keystone/core/v1/controlplane.proto#L16) |
-| `ListBatchAgentResults` | `ListBatchAgentResultsRequest` | `ListBatchAgentResultsResponse` | [`api/proto/keystone/core/v1/controlplane.proto:51`](../../api/proto/keystone/core/v1/controlplane.proto#L51) |
-| `ListBatchJobs` | `ListBatchJobsRequest` | `ListBatchJobsResponse` | [`api/proto/keystone/core/v1/controlplane.proto:44`](../../api/proto/keystone/core/v1/controlplane.proto#L44) |
-| `ListCommandHistory` | `ListCommandHistoryRequest` | `ListCommandHistoryResponse` | [`api/proto/keystone/core/v1/controlplane.proto:37`](../../api/proto/keystone/core/v1/controlplane.proto#L37) |
+| `ListBatchAgentResults` | `ListBatchAgentResultsRequest` | `ListBatchAgentResultsResponse` | [`api/proto/keystone/core/v1/controlplane.proto:56`](../../api/proto/keystone/core/v1/controlplane.proto#L56) |
+| `ListBatchJobs` | `ListBatchJobsRequest` | `ListBatchJobsResponse` | [`api/proto/keystone/core/v1/controlplane.proto:49`](../../api/proto/keystone/core/v1/controlplane.proto#L49) |
+| `ListCommandHistory` | `ListCommandHistoryRequest` | `ListCommandHistoryResponse` | [`api/proto/keystone/core/v1/controlplane.proto:42`](../../api/proto/keystone/core/v1/controlplane.proto#L42) |
 | `QuarantineAgent` | `QuarantineAgentRequest` | `QuarantineAgentResponse` | [`api/proto/keystone/core/v1/controlplane.proto:23`](../../api/proto/keystone/core/v1/controlplane.proto#L23) |
 | `ServerStatus` | `ServerStatusRequest` | `ServerStatusResponse` | [`api/proto/keystone/core/v1/controlplane.proto:14`](../../api/proto/keystone/core/v1/controlplane.proto#L14) |
 | `UnquarantineAgent` | `UnquarantineAgentRequest` | `UnquarantineAgentResponse` | [`api/proto/keystone/core/v1/controlplane.proto:24`](../../api/proto/keystone/core/v1/controlplane.proto#L24) |
+| `VerifyAgent` | `VerifyAgentRequest` | `VerifyAgentResponse` | [`api/proto/keystone/core/v1/controlplane.proto:29`](../../api/proto/keystone/core/v1/controlplane.proto#L29) |
 
 ### CoordinationService
 

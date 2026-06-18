@@ -1,0 +1,14 @@
+kind: Added
+body: |-
+  **`kscorectl agent verify` re-checks agent certificates against the
+  trust bundle.** `verify <agent-id>` (or `verify --all` for the fleet)
+  validates each agent's stored certificate against the control plane's
+  current trust bundle: it chains to a trusted authority, is within its
+  validity window, and carries a matching `agent/*` SPIFFE identity.
+  Useful after a CA rotation to confirm agents are still trusted. Exits
+  non-zero when any agent with a stored cert fails, so it scripts cleanly;
+  agents with no stored cert report `has_cert=false` and are skipped, not
+  failed. Backed by a new `VerifyAgent` RPC and a reusable
+  `identity.VerifyAgentCert` helper (chain + expiry + SPIFFE checks
+  reported separately, so an expired-but-trusted cert is distinguishable
+  from an untrusted one).

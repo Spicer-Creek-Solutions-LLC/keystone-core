@@ -21,6 +21,11 @@ type fakeClient struct {
 	ListAgentsFn   func(ctx context.Context, in *v1.ListAgentsRequest) (*v1.ListAgentsResponse, error)
 	QuarantineFn   func(ctx context.Context, in *v1.QuarantineAgentRequest) (*v1.QuarantineAgentResponse, error)
 	UnquarantineFn func(ctx context.Context, in *v1.UnquarantineAgentRequest) (*v1.UnquarantineAgentResponse, error)
+	VerifyFn       func(ctx context.Context, in *v1.VerifyAgentRequest) (*v1.VerifyAgentResponse, error)
+}
+
+func (f *fakeClient) VerifyAgent(ctx context.Context, in *v1.VerifyAgentRequest, _ ...grpc.CallOption) (*v1.VerifyAgentResponse, error) {
+	return f.VerifyFn(ctx, in)
 }
 
 func (f *fakeClient) ListAgents(ctx context.Context, in *v1.ListAgentsRequest, _ ...grpc.CallOption) (*v1.ListAgentsResponse, error) {

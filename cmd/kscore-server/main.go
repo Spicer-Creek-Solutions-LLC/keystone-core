@@ -505,13 +505,19 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	if err != nil {
 		return fmt.Errorf("batch dispatcher: %w", err)
 	}
-	cpGRPC, err := controlplane.NewGRPCServer(controlplane.GRPCServerConfig{
+	cpCfg := controlplane.GRPCServerConfig{
 		Dispatcher: batchDisp,
 		Store:      store,
 		Controller: srv.ConnectionManager(),
 		Logger:     log,
 		// Executor injected after Start once CommandDispatcher exists.
-	})
+	}
+	// VerifyAgent needs the trust bundle; wire the identity provider when
+	// identity is enabled (nil pointer must not become a non-nil iface).
+	if identityProvider != nil {
+		cpCfg.Verifier = identityProvider
+	}
+	cpGRPC, err := controlplane.NewGRPCServer(cpCfg)
 	if err != nil {
 		return fmt.Errorf("controlplane grpc: %w", err)
 	}
