@@ -27,6 +27,7 @@ const (
 	ControlPlaneService_GetAgent_FullMethodName              = "/keystone.core.v1.ControlPlaneService/GetAgent"
 	ControlPlaneService_QuarantineAgent_FullMethodName       = "/keystone.core.v1.ControlPlaneService/QuarantineAgent"
 	ControlPlaneService_UnquarantineAgent_FullMethodName     = "/keystone.core.v1.ControlPlaneService/UnquarantineAgent"
+	ControlPlaneService_VerifyAgent_FullMethodName           = "/keystone.core.v1.ControlPlaneService/VerifyAgent"
 	ControlPlaneService_ExecuteCommand_FullMethodName        = "/keystone.core.v1.ControlPlaneService/ExecuteCommand"
 	ControlPlaneService_BatchExecuteCommand_FullMethodName   = "/keystone.core.v1.ControlPlaneService/BatchExecuteCommand"
 	ControlPlaneService_GetCommandStatus_FullMethodName      = "/keystone.core.v1.ControlPlaneService/GetCommandStatus"
@@ -51,6 +52,10 @@ type ControlPlaneServiceClient interface {
 	// monitor re-stales it if the agent is actually gone).
 	QuarantineAgent(ctx context.Context, in *QuarantineAgentRequest, opts ...grpc.CallOption) (*QuarantineAgentResponse, error)
 	UnquarantineAgent(ctx context.Context, in *UnquarantineAgentRequest, opts ...grpc.CallOption) (*UnquarantineAgentResponse, error)
+	// VerifyAgent re-checks an agent's stored certificate against the
+	// current trust bundle, reporting chain validity, expiry, and whether
+	// the leaf carries a matching agent SPIFFE identity.
+	VerifyAgent(ctx context.Context, in *VerifyAgentRequest, opts ...grpc.CallOption) (*VerifyAgentResponse, error)
 	// ExecuteCommand dispatches a single command to one agent and
 	// streams CommandOutputChunk(s) followed by a CommandCompletion.
 	ExecuteCommand(ctx context.Context, in *ExecuteCommandRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ExecuteCommandResponse], error)
@@ -127,6 +132,16 @@ func (c *controlPlaneServiceClient) UnquarantineAgent(ctx context.Context, in *U
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UnquarantineAgentResponse)
 	err := c.cc.Invoke(ctx, ControlPlaneService_UnquarantineAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *controlPlaneServiceClient) VerifyAgent(ctx context.Context, in *VerifyAgentRequest, opts ...grpc.CallOption) (*VerifyAgentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VerifyAgentResponse)
+	err := c.cc.Invoke(ctx, ControlPlaneService_VerifyAgent_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -254,6 +269,10 @@ type ControlPlaneServiceServer interface {
 	// monitor re-stales it if the agent is actually gone).
 	QuarantineAgent(context.Context, *QuarantineAgentRequest) (*QuarantineAgentResponse, error)
 	UnquarantineAgent(context.Context, *UnquarantineAgentRequest) (*UnquarantineAgentResponse, error)
+	// VerifyAgent re-checks an agent's stored certificate against the
+	// current trust bundle, reporting chain validity, expiry, and whether
+	// the leaf carries a matching agent SPIFFE identity.
+	VerifyAgent(context.Context, *VerifyAgentRequest) (*VerifyAgentResponse, error)
 	// ExecuteCommand dispatches a single command to one agent and
 	// streams CommandOutputChunk(s) followed by a CommandCompletion.
 	ExecuteCommand(*ExecuteCommandRequest, grpc.ServerStreamingServer[ExecuteCommandResponse]) error
@@ -300,6 +319,9 @@ func (UnimplementedControlPlaneServiceServer) QuarantineAgent(context.Context, *
 }
 func (UnimplementedControlPlaneServiceServer) UnquarantineAgent(context.Context, *UnquarantineAgentRequest) (*UnquarantineAgentResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UnquarantineAgent not implemented")
+}
+func (UnimplementedControlPlaneServiceServer) VerifyAgent(context.Context, *VerifyAgentRequest) (*VerifyAgentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VerifyAgent not implemented")
 }
 func (UnimplementedControlPlaneServiceServer) ExecuteCommand(*ExecuteCommandRequest, grpc.ServerStreamingServer[ExecuteCommandResponse]) error {
 	return status.Error(codes.Unimplemented, "method ExecuteCommand not implemented")
@@ -435,6 +457,24 @@ func _ControlPlaneService_UnquarantineAgent_Handler(srv interface{}, ctx context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(ControlPlaneServiceServer).UnquarantineAgent(ctx, req.(*UnquarantineAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _ControlPlaneService_VerifyAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlPlaneServiceServer).VerifyAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ControlPlaneService_VerifyAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlPlaneServiceServer).VerifyAgent(ctx, req.(*VerifyAgentRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -613,6 +653,10 @@ var ControlPlaneService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UnquarantineAgent",
 			Handler:    _ControlPlaneService_UnquarantineAgent_Handler,
+		},
+		{
+			MethodName: "VerifyAgent",
+			Handler:    _ControlPlaneService_VerifyAgent_Handler,
 		},
 		{
 			MethodName: "GetCommandStatus",

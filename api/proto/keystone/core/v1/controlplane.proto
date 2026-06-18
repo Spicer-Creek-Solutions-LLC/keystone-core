@@ -23,6 +23,11 @@ service ControlPlaneService {
   rpc QuarantineAgent(QuarantineAgentRequest) returns (QuarantineAgentResponse);
   rpc UnquarantineAgent(UnquarantineAgentRequest) returns (UnquarantineAgentResponse);
 
+  // VerifyAgent re-checks an agent's stored certificate against the
+  // current trust bundle, reporting chain validity, expiry, and whether
+  // the leaf carries a matching agent SPIFFE identity.
+  rpc VerifyAgent(VerifyAgentRequest) returns (VerifyAgentResponse);
+
   // ExecuteCommand dispatches a single command to one agent and
   // streams CommandOutputChunk(s) followed by a CommandCompletion.
   rpc ExecuteCommand(ExecuteCommandRequest) returns (stream ExecuteCommandResponse);
@@ -114,6 +119,27 @@ message UnquarantineAgentRequest {
 message UnquarantineAgentResponse {
   string agent_id = 1;
   AgentStatus status = 2;
+}
+
+// ---- VerifyAgent ----------------------------------------------------------
+
+message VerifyAgentRequest {
+  string agent_id = 1;
+}
+
+message VerifyAgentResponse {
+  string agent_id = 1;
+  // has_cert is false when the agent has no stored certificate (e.g.
+  // registered before cert capture, or API-key-only) — the boolean
+  // verdicts below are then meaningless and ok is false.
+  bool has_cert = 2;
+  bool chain_valid = 3;
+  bool expired = 4;
+  bool not_yet_valid = 5;
+  bool spiffe_match = 6;
+  bool ok = 7; // overall: chains, in-window, and matching agent identity
+  string spiffe_id = 8;
+  google.protobuf.Timestamp expires_at = 9;
 }
 
 // ---- ExecuteCommand -------------------------------------------------------

@@ -60,6 +60,7 @@ func NewCommand(deps Deps) *cobra.Command {
 	cmd.AddCommand(listCmd(g))
 	cmd.AddCommand(quarantineCmd(g))
 	cmd.AddCommand(unquarantineCmd(g))
+	cmd.AddCommand(verifyCmd(g))
 
 	return cmd
 }
