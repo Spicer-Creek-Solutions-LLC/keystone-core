@@ -1,0 +1,19 @@
+kind: Docs
+body: |-
+  **Operations runbooks accuracy sweep, phase 2.** The runbooks now
+  document only what v0.1 actually ships, and reference the real commands:
+  the new `kscorectl agent quarantine`/`unquarantine` (incident isolation)
+  and `agent verify --all` (post-CA-rotation cert check) replace the
+  fictional `agents quarantine`/`agents verify`; encrypted/portable backup
+  and restore are re-pointed to the real `kscore-backup` binary (the runbook
+  had conflated it with `kscore-cluster-backup`, which only does
+  unencrypted cluster snapshots) and `kscore-bootstrap restore/import` (which
+  never existed) is corrected to the real restore commands; the `database:`
+  config blocks become the real `storage: {driver, dsn}` schema. Capabilities
+  that genuinely don't exist in v0.1 — maintenance mode, scheduled jobs,
+  multi-cluster federation, cluster drain/undrain, per-agent cert
+  regeneration, and incremental backups — are now honest scope-note callouts
+  pointing at the roadmap (with the real v0.1 workaround where one exists,
+  e.g. `kscore-cluster remove` for node eviction). All remaining on-disk
+  paths are normalized to the ratified `kscore` convention across the
+  runbooks plus DESIGN / E2E-VM-TESTING / DEVELOPMENT and the epic-06 notes.

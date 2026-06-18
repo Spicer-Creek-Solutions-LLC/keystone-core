@@ -370,8 +370,8 @@ KSCORE_E2E_TESTS=1 make e2e-test
 make security
 ```
 
-For HA and IPv6 E2E runs, both server and agent configs use `nats.jetstream.storedir: /var/lib/keystone-core/jetstream`,
-require the container filesystem to allow writes under `/var/lib/keystone-core`, and the servers set
+For HA and IPv6 E2E runs, both server and agent configs use `nats.jetstream.storedir: /var/lib/kscore/jetstream`,
+require the container filesystem to allow writes under `/var/lib/kscore`, and the servers set
 `server.allowinsecurenonloopback: true` because TLS is disabled in test environments.
 
 ### VM E2E Testing

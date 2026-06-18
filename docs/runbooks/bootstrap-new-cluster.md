@@ -473,7 +473,7 @@ tracing:
 
 ### Backups
 
-- [ ] Schedule `kscore-cluster-backup create` runs (cron / systemd
+- [ ] Schedule `kscore-cluster-backup backup` runs (cron / systemd
       timer / your scheduler of choice). See
       [`backup-restore.md`](backup-restore.md) for the create
       cadence and destination guidance.
