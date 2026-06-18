@@ -64,10 +64,11 @@ func (f *fakeSubscriber) deliver(t *testing.T, subject string, env envelope.Enve
 // fakeIssuer returns a deterministic credential and records the
 // agent IDs it was called with. failNext induces a one-shot error.
 type fakeIssuer struct {
-	mu       sync.Mutex
-	called   []string
-	failNext bool
-	failErr  error
+	mu           sync.Mutex
+	called       []string
+	failNext     bool
+	failErr      error
+	certChainPEM string // when set, returned as AgentCredentials.CertChainPEM
 }
 
 func (f *fakeIssuer) Issue(_ context.Context, agentID string) (controlplane.AgentCredentials, error) {
@@ -79,9 +80,10 @@ func (f *fakeIssuer) Issue(_ context.Context, agentID string) (controlplane.Agen
 	}
 	f.called = append(f.called, agentID)
 	return controlplane.AgentCredentials{
-		APIKey:   "key-for-" + agentID,
-		AgentID:  agentID,
-		IssuedAt: time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC),
+		APIKey:       "key-for-" + agentID,
+		AgentID:      agentID,
+		IssuedAt:     time.Date(2026, 5, 8, 12, 0, 0, 0, time.UTC),
+		CertChainPEM: f.certChainPEM,
 	}, nil
 }
 
@@ -241,9 +243,9 @@ func TestBootstrapHandler_RejectsMalformedSubject(t *testing.T) {
 	env := makeRegisterEnvelope(t, "agent-1", []byte("x"))
 
 	for _, badSubject := range []string{
-		"kscore.default.bootstrap.register",          // missing id token
-		"kscore.default.bootstrap.agent-1.foo",       // wrong suffix
-		"weird.default.bootstrap.agent-1.register",   // wrong root
+		"kscore.default.bootstrap.register",        // missing id token
+		"kscore.default.bootstrap.agent-1.foo",     // wrong suffix
+		"weird.default.bootstrap.agent-1.register", // wrong root
 	} {
 		if err := sub.deliver(t, badSubject, env); err != nil {
 			t.Errorf("deliver(%q) = %v, want nil (handler swallows)", badSubject, err)

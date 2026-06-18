@@ -304,6 +304,20 @@ func (h *BootstrapHandler) handle(ctx context.Context, subject string, env envel
 		rec.AgentVersion = req.Agent.AgentVersion
 		rec.Labels = req.Agent.Labels
 	}
+	// Capture the issued cert so `agent verify` can later re-check it
+	// against the trust bundle. Best-effort: metadata-parse failure
+	// must not abort registration.
+	if creds.CertChainPEM != "" {
+		rec.CertChainPEM = creds.CertChainPEM
+		if fp, notAfter, spiffeID, err := agentCertMeta(creds.CertChainPEM); err != nil {
+			h.logger.Warn("controlplane: bootstrap: parse issued cert metadata",
+				"agent_id", req.AgentID, "err", err)
+		} else {
+			rec.CertFingerprint = fp
+			rec.CertNotAfter = notAfter
+			rec.SPIFFEID = spiffeID
+		}
+	}
 	if err := h.store.CreateAgent(ctx, rec); err != nil {
 		// API key was issued but agent record creation failed.
 		// Documented v1.0 trade-off: operator can revoke the key via

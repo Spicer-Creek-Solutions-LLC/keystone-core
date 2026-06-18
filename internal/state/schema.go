@@ -55,7 +55,74 @@ func applySchema(ctx context.Context, db *sql.DB, backend Backend) error {
 	if err := migrateAddCommandsPrincipal(ctx, db, backend); err != nil {
 		return fmt.Errorf("state: applySchema migrate principal: %w", err)
 	}
+	if err := migrateAddAgentCertColumns(ctx, db, backend); err != nil {
+		return fmt.Errorf("state: applySchema migrate agent cert columns: %w", err)
+	}
 	return nil
+}
+
+// agentCertColumns are the cert-metadata columns added to the agents
+// table. cert_not_after is a timestamp; the rest are TEXT. Postgres
+// uses TIMESTAMPTZ for the timestamp column, SQLite uses TEXT (RFC3339).
+var agentCertColumns = []struct{ name, sqliteType, pgType string }{
+	{"cert_chain_pem", "TEXT", "TEXT"},
+	{"cert_fingerprint", "TEXT", "TEXT"},
+	{"cert_not_after", "TEXT", "TIMESTAMPTZ"},
+	{"spiffe_id", "TEXT", "TEXT"},
+}
+
+// migrateAddAgentCertColumns adds the cert-metadata columns to the agents
+// table if absent. Idempotent on both backends; same pattern as
+// migrateAddCommandsPrincipal (fresh installs get the columns from the
+// baseline CREATE TABLE, this upgrades pre-existing databases).
+func migrateAddAgentCertColumns(ctx context.Context, db *sql.DB, backend Backend) error {
+	switch backend {
+	case BackendPostgreSQL:
+		for _, c := range agentCertColumns {
+			if _, err := db.ExecContext(ctx,
+				fmt.Sprintf(`ALTER TABLE agents ADD COLUMN IF NOT EXISTS %s %s`, c.name, c.pgType)); err != nil {
+				return fmt.Errorf("add column %s: %w", c.name, err)
+			}
+		}
+		return nil
+	case BackendSQLite:
+		existing, err := sqliteColumns(ctx, db, "agents")
+		if err != nil {
+			return err
+		}
+		for _, c := range agentCertColumns {
+			if existing[c.name] {
+				continue
+			}
+			if _, err := db.ExecContext(ctx,
+				fmt.Sprintf(`ALTER TABLE agents ADD COLUMN %s %s`, c.name, c.sqliteType)); err != nil {
+				return fmt.Errorf("add column %s: %w", c.name, err)
+			}
+		}
+		return nil
+	}
+	return nil
+}
+
+// sqliteColumns returns the set of existing column names for a table.
+func sqliteColumns(ctx context.Context, db *sql.DB, table string) (map[string]bool, error) {
+	rows, err := db.QueryContext(ctx, fmt.Sprintf(`PRAGMA table_info(%s)`, table))
+	if err != nil {
+		return nil, fmt.Errorf("pragma table_info: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	cols := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notnull, pk int
+		var dfltValue sql.NullString
+		if err := rows.Scan(&cid, &name, &typ, &notnull, &dfltValue, &pk); err != nil {
+			return nil, fmt.Errorf("scan table_info: %w", err)
+		}
+		cols[name] = true
+	}
+	return cols, rows.Err()
 }
 
 // migrateAddCommandsPrincipal adds the `principal` column to the
@@ -138,7 +205,11 @@ var sqliteSchema = []string{
     status            TEXT NOT NULL,
     registered_at     TEXT NOT NULL,
     last_heartbeat_at TEXT,
-    metrics           TEXT
+    metrics           TEXT,
+    cert_chain_pem    TEXT,
+    cert_fingerprint  TEXT,
+    cert_not_after    TEXT,
+    spiffe_id         TEXT
 )`,
 	`CREATE TABLE IF NOT EXISTS commands (
     id              TEXT PRIMARY KEY,
@@ -336,7 +407,11 @@ var postgresSchema = []string{
     status            TEXT NOT NULL,
     registered_at     TIMESTAMPTZ NOT NULL,
     last_heartbeat_at TIMESTAMPTZ,
-    metrics           JSONB
+    metrics           JSONB,
+    cert_chain_pem    TEXT,
+    cert_fingerprint  TEXT,
+    cert_not_after    TIMESTAMPTZ,
+    spiffe_id         TEXT
 )`,
 	`CREATE TABLE IF NOT EXISTS commands (
     id              TEXT PRIMARY KEY,

@@ -13,7 +13,9 @@ import (
 const agentSelectPg = `SELECT
     id, hostname, os, architecture, ip_addresses,
     COALESCE(platform_version, ''), COALESCE(agent_version, ''),
-    labels, status, registered_at, last_heartbeat_at, metrics
+    labels, status, registered_at, last_heartbeat_at, metrics,
+    COALESCE(cert_chain_pem, ''), COALESCE(cert_fingerprint, ''),
+    cert_not_after, COALESCE(spiffe_id, '')
 FROM agents`
 
 func (s *PostgreSQLStore) CreateAgent(ctx context.Context, a *AgentRecord) error {
@@ -37,12 +39,15 @@ func (s *PostgreSQLStore) CreateAgent(ctx context.Context, a *AgentRecord) error
 	_, err = s.db.ExecContext(ctx, `INSERT INTO agents (
     id, hostname, os, architecture, ip_addresses,
     platform_version, agent_version, labels, status,
-    registered_at, last_heartbeat_at, metrics
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    registered_at, last_heartbeat_at, metrics,
+    cert_chain_pem, cert_fingerprint, cert_not_after, spiffe_id
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
 		a.ID, a.Hostname, a.OS, a.Architecture, ipAddrs,
 		nullableString(a.PlatformVersion), nullableString(a.AgentVersion),
 		labels, string(a.Status),
 		a.RegisteredAt.UTC(), nullableTime(a.LastHeartbeatAt), metrics,
+		nullableString(a.CertChainPEM), nullableString(a.CertFingerprint),
+		nullableTime(a.CertNotAfter), nullableString(a.SPIFFEID),
 	)
 	if err != nil {
 		return fmt.Errorf("state: CreateAgent: %w", err)
@@ -136,12 +141,15 @@ func (s *PostgreSQLStore) UpdateAgent(ctx context.Context, a *AgentRecord) error
 	res, err := s.db.ExecContext(ctx, `UPDATE agents SET
     hostname = $1, os = $2, architecture = $3, ip_addresses = $4,
     platform_version = $5, agent_version = $6, labels = $7, status = $8,
-    registered_at = $9, last_heartbeat_at = $10, metrics = $11
-WHERE id = $12`,
+    registered_at = $9, last_heartbeat_at = $10, metrics = $11,
+    cert_chain_pem = $12, cert_fingerprint = $13, cert_not_after = $14, spiffe_id = $15
+WHERE id = $16`,
 		a.Hostname, a.OS, a.Architecture, ipAddrs,
 		nullableString(a.PlatformVersion), nullableString(a.AgentVersion),
 		labels, string(a.Status),
 		a.RegisteredAt.UTC(), nullableTime(a.LastHeartbeatAt), metrics,
+		nullableString(a.CertChainPEM), nullableString(a.CertFingerprint),
+		nullableTime(a.CertNotAfter), nullableString(a.SPIFFEID),
 		a.ID,
 	)
 	if err != nil {
@@ -194,17 +202,18 @@ func agentMetricsArgPg(m map[string]any) ([]byte, error) {
 // or sql.NullTime).
 func scanAgentPg(r rowLike) (*AgentRecord, error) {
 	var (
-		a               AgentRecord
-		ipAddrs, lbls   []byte
-		statusRaw       string
-		registeredAt    time.Time
-		lastHB          sql.NullTime
-		metrics         []byte
+		a              AgentRecord
+		ipAddrs, lbls  []byte
+		statusRaw      string
+		registeredAt   time.Time
+		lastHB, certNA sql.NullTime
+		metrics        []byte
 	)
 	if err := r.Scan(
 		&a.ID, &a.Hostname, &a.OS, &a.Architecture, &ipAddrs,
 		&a.PlatformVersion, &a.AgentVersion, &lbls, &statusRaw,
 		&registeredAt, &lastHB, &metrics,
+		&a.CertChainPEM, &a.CertFingerprint, &certNA, &a.SPIFFEID,
 	); err != nil {
 		return nil, err
 	}
@@ -221,6 +230,9 @@ func scanAgentPg(r rowLike) (*AgentRecord, error) {
 	a.RegisteredAt = registeredAt
 	if lastHB.Valid {
 		a.LastHeartbeatAt = lastHB.Time
+	}
+	if certNA.Valid {
+		a.CertNotAfter = certNA.Time
 	}
 
 	if err := unmarshalJSONBytes(metrics, &a.Metrics); err != nil {
