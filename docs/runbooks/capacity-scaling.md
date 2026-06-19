@@ -49,7 +49,7 @@ nats server report connections 2>/dev/null || echo "NATS CLI not available"
 kscorectl agent list -o json | jq length
 
 # Check database size
-du -sh /var/lib/keystone-core/
+du -sh /var/lib/kscore/
 ```
 
 #### Step 2: Resize Instance
@@ -74,14 +74,14 @@ kscore-cluster status
 #### Step 3: Update Configuration
 
 ```yaml
-# /etc/keystone-core/server.yaml
+# /etc/kscore/server.yaml
 server:
   workers: 16  # Increase with CPU cores
   max_connections: 10000
 
-database:
-  sqlite:
-    cache_size: -128000  # 128MB for more memory
+storage:
+  driver: sqlite
+  dsn: /var/lib/kscore/keystone.db
 
 nats:
   max_payload: 8MB
@@ -113,20 +113,30 @@ terraform apply -var="node_count=4"
 curl -sSL https://install.keystone-core.io | sudo bash
 
 # Copy configuration from existing node
-scp ks-server-1:/etc/keystone-core/server.yaml /etc/keystone-core/
+scp ks-server-1:/etc/kscore/server.yaml /etc/kscore/
 ```
 
 #### Step 3: Join Cluster
 
-```bash
-# Get join token from cluster config or bootstrap output
-JOIN_TOKEN="$CLUSTER_JOIN_TOKEN"  # From /etc/keystone-core/server.yaml
+> **v0.x scope note**: There is no explicit join command. Cluster
+> membership is automatic — a `kscore-server` joins by starting with its
+> cluster config pointing at the existing etcd/peer endpoints, then
+> self-registers. To add a node, configure its `cluster` section to
+> reference the existing members and start the service.
 
-# Join new node to cluster
-kscorectl cluster join \
-  --server https://ks-server-1:8080 \
-  --token $JOIN_TOKEN \
-  --advertise-addr $(hostname -I | awk '{print $1}')
+```yaml
+# /etc/kscore/server.yaml on the new node
+cluster:
+  endpoints:
+    - https://ks-server-1:8080
+    - https://ks-server-2:8080
+    - https://ks-server-3:8080
+  advertise_addr: 10.0.0.4:8080  # this node's reachable address
+```
+
+```bash
+# Start the new server; it self-registers with the cluster
+systemctl start kscore-server
 
 # Verify cluster membership
 kscore-cluster members
@@ -160,28 +170,20 @@ EOF
 
 # 3. Run migration
 kscore-migrate run \
-  --source sqlite:///var/lib/keystone-core/keystone.db \
+  --source sqlite:///var/lib/kscore/keystone.db \
   --target postgres://kscore:password@postgres.example.com/kscore \
   --dry-run
 
 # If dry-run succeeds:
 kscore-migrate run \
-  --source sqlite:///var/lib/keystone-core/keystone.db \
+  --source sqlite:///var/lib/kscore/keystone.db \
   --target postgres://kscore:password@postgres.example.com/kscore
 
 # 4. Update configuration
-cat >> /etc/keystone-core/server.yaml << EOF
-database:
-  type: postgres
-  postgres:
-    host: postgres.example.com
-    port: 5432
-    database: kscore
-    user: kscore
-    password: secure-password
-    sslmode: require
-    pool:
-      max_connections: 50
+cat >> /etc/kscore/server.yaml << EOF
+storage:
+  driver: postgres
+  dsn: postgres://kscore:secure-password@postgres.example.com:5432/kscore?sslmode=require
 EOF
 
 # 5. Restart and verify
@@ -199,19 +201,21 @@ ALTER SYSTEM SET max_wal_senders = 5;
 SELECT pg_reload_conf();
 EOF
 
-# Update Keystone to use read replicas
-cat >> /etc/keystone-core/server.yaml << EOF
-database:
-  postgres:
-    primary: postgres-primary.example.com
-    replicas:
-      - postgres-replica-1.example.com
-      - postgres-replica-2.example.com
-    read_preference: replica  # Route reads to replicas
+# Point Keystone at the primary via its DSN
+cat >> /etc/kscore/server.yaml << EOF
+storage:
+  driver: postgres
+  dsn: postgres://kscore:secure-password@postgres-primary.example.com:5432/kscore?sslmode=require
 EOF
 
 systemctl restart kscore-server
 ```
+
+> **v0.x scope note**: The storage config exposes only `storage.driver`
+> and `storage.dsn` (single connection string) — there is no built-in
+> read-replica routing. To offload reads to replicas, front PostgreSQL
+> with an external pooler/load balancer (e.g. PgBouncer or HAProxy) and
+> point `storage.dsn` at it.
 
 ### NATS Scaling
 
@@ -260,7 +264,7 @@ nats stream edit KSCORE_COMMANDS \
   --max-msgs 10000000
 
 # Add more consumers for parallel processing
-# Edit /etc/keystone-core/server.yaml:
+# Edit /etc/kscore/server.yaml:
 #   nats:
 #     consumer_count: 10
 # Then restart: systemctl restart kscore-server
@@ -288,7 +292,7 @@ Practical limit: 50% of theoretical = ~50,000 agents
 
 ```yaml
 # High-scale configuration
-# /etc/keystone-core/server.yaml
+# /etc/kscore/server.yaml
 
 server:
   workers: 32
@@ -315,30 +319,15 @@ nats:
 #### Deploy Regional Cluster
 
 ```bash
-# 1. Bootstrap new regional cluster
-kscore-bootstrap seed \
-  --cluster-name us-west \
-  --region us-west-2
-
-# 2. Configure federation
-kscorectl federation add \
-  --cluster us-west \
-  --endpoint https://us-west.kscore.example.com:8080 \
-  --token "$US_WEST_FEDERATION_TOKEN"  # From us-west cluster config
-
-# 3. Configure agent routing
-cat >> /etc/keystone-core/server.yaml << EOF
-federation:
-  enabled: true
-  clusters:
-    us-east:
-      endpoint: https://us-east.kscore.example.com:8080
-    us-west:
-      endpoint: https://us-west.kscore.example.com:8080
-  routing:
-    strategy: geographic  # Route agents to nearest cluster
-EOF
+# Bootstrap a new regional cluster from a seed file
+kscore-bootstrap --seed us-west-seed.yaml
 ```
+
+> **v0.x scope note**: Multi-cluster federation is not in v0.1 (planned
+> post-v1.0/v2.x); tracked in [`ROADMAP.md`](../project/ROADMAP.md). In
+> v0.x each regional cluster is independent — there is no
+> `kscorectl federation` command or `federation` config block, and no
+> cross-cluster agent routing.
 
 ## Verification Checklist
 
@@ -354,14 +343,16 @@ EOF
 
 ### Remove Added Node
 
+> **v0.x scope note**: Graceful drain (controlled shard migration before
+> removal) is post-v1.0. In v0.x the available operation is eviction:
+> `kscore-cluster remove <member-id>` removes the member, and its shards
+> are reassigned by the cluster afterward.
+
 ```bash
-# Gracefully drain node
-kscorectl cluster drain ks-server-4
+# Identify the member ID
+kscore-cluster members
 
-# Wait for agents to migrate
-sleep 300
-
-# Remove from cluster
+# Remove (evict) the member from the cluster
 kscore-cluster remove ks-server-4
 
 # Decommission infrastructure
@@ -379,10 +370,13 @@ for node in ks-server-1 ks-server-2 ks-server-3; do
 done
 
 # 2. Restore SQLite backup
-cp /backup/keystone.db /var/lib/keystone-core/keystone.db
+cp /backup/keystone.db /var/lib/kscore/keystone.db
 
-# 3. Revert configuration
-sed -i 's/type: postgres/type: sqlite/' /etc/keystone-core/server.yaml
+# 3. Revert configuration: set storage back to the sqlite driver + dsn
+#    storage:
+#      driver: sqlite
+#      dsn: /var/lib/kscore/keystone.db
+$EDITOR /etc/kscore/server.yaml
 
 # 4. Start services
 for node in ks-server-1 ks-server-2 ks-server-3; do

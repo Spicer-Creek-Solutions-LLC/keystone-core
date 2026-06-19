@@ -21,16 +21,16 @@ This runbook is specifically about: "the cluster is down, restore it."
 > - `kscore-cluster-backup verify --input <snapshot>` — verify a
 >   snapshot's integrity (local file inspection; no server contact
 >   required)
-> - `kscore-cluster-backup create` / `restore` — the snapshot
->   create/restore subcommands talk to the server's
+> - `kscore-cluster-backup backup` / `restore` — the snapshot
+>   backup/restore subcommands talk to the server's
 >   `ClusterGRPCServer`. That gRPC service is **not yet wired at boot**
->   in v0.1 (tracked under gate-v1.0); the runnable v0.1 backup-create
+>   in v0.1 (tracked under gate-v1.0); the runnable v0.1 backup
 >   path today is `kscore-backup` (see `cmd/kscore-backup`, documented
 >   in [`backup-restore.md`](backup-restore.md)).
 >
 > The procedures below therefore treat snapshots as **tar archives of
 > `/var/lib/kscore/` plus `/etc/kscore/`** that were produced by the
-> `kscore-backup` tool, by `kscore-cluster-backup create` (where the
+> `kscore-backup` tool, by `kscore-cluster-backup backup` (where the
 > service is wired), or by an out-of-band filesystem snapshot. Postgres
 > dumps, where applicable, come from the operator's existing `pg_dump`
 > / `pg_basebackup` tooling — kscore-core does not own Postgres

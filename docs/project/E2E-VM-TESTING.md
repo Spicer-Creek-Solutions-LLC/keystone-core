@@ -152,15 +152,15 @@ Artifacts live under `build/bin/linux/amd64/` (or `arm64`).
 
 ```
 sudo useradd -r -s /usr/sbin/nologin kscore || true
-sudo mkdir -p /etc/keystone-core /var/lib/keystone-core /var/log/keystone-core
-sudo chown -R kscore:kscore /etc/keystone-core /var/lib/keystone-core /var/log/keystone-core
+sudo mkdir -p /etc/kscore /var/lib/kscore /var/log/kscore
+sudo chown -R kscore:kscore /etc/kscore /var/lib/kscore /var/log/kscore
 ```
 
 ### Control plane (all-in-one)
 
 ```
 scp build/bin/linux/amd64/kscore-server cp1:/usr/bin/kscore-server
-scp test/e2e/containers/config/server.yaml cp1:/etc/keystone-core/server.yaml
+scp test/e2e/containers/config/server.yaml cp1:/etc/kscore/server.yaml
 scp deploy/systemd/kscore-server.service cp1:/etc/systemd/system/kscore-server.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now kscore-server
@@ -170,13 +170,13 @@ Notes:
 
 - Adjust `server.yaml` listen address + ports for non-localhost access.
 - Keep `allowinsecurenonloopback: true` for test envs.
-- Update storage paths in `server.yaml` to `/var/lib/keystone-core` (or edit the unit file to match).
+- Update storage paths in `server.yaml` to `/var/lib/kscore` (or edit the unit file to match).
 
 ### Agent nodes
 
 ```
 scp build/bin/linux/amd64/kscore-agent agent1:/usr/bin/kscore-agent
-scp test/e2e/containers/config/agent-web-1.yaml agent1:/etc/keystone-core/agent.yaml
+scp test/e2e/containers/config/agent-web-1.yaml agent1:/etc/kscore/agent.yaml
 scp deploy/systemd/kscore-agent.service agent1:/etc/systemd/system/kscore-agent.service
 sudo systemctl daemon-reload
 sudo systemctl enable --now kscore-agent
@@ -279,4 +279,4 @@ so failover tests can start/stop services via SSH.
 
 - Capture logs from control plane + agents after each test suite.
 - Persist `test/e2e/performance/baselines/*.json` from VM runs.
-- Archive service logs under `/var/log/keystone-core/` and OS journal outputs.
+- Archive service logs under `/var/log/kscore/` and OS journal outputs.

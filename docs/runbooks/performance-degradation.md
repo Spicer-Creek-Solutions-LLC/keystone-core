@@ -153,14 +153,14 @@ WHERE NOT blocked_locks.granted;
 
 ```bash
 # Check database size and fragmentation
-sqlite3 /var/lib/keystone-core/keystone.db "
+sqlite3 /var/lib/kscore/keystone.db "
 SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size();
 SELECT freelist_count * page_size as fragmented FROM pragma_freelist_count(), pragma_page_size();
 "
 
 # Check for long-running queries
 # (requires query logging enabled)
-grep "duration" /var/log/keystone-core/query.log | awk '$NF > 1000' | tail -20
+grep "duration" /var/log/kscore/query.log | awk '$NF > 1000' | tail -20
 ```
 
 #### Step 2.3: NATS Analysis
@@ -206,20 +206,20 @@ ss -s
 
 ```bash
 # If CPU bound on API processing, increase worker threads
-# Edit /etc/keystone-core/server.yaml:
+# Edit /etc/kscore/server.yaml:
 #   server:
 #     workers: 16
 systemctl restart kscore-server
 
 # If CPU bound on state rendering, enable template caching
-# Edit /etc/keystone-core/server.yaml:
+# Edit /etc/kscore/server.yaml:
 #   state:
 #     template_cache:
 #       enabled: true
 systemctl restart kscore-server
 
 # If CPU bound on policy evaluation, add caching
-# Edit /etc/keystone-core/server.yaml:
+# Edit /etc/kscore/server.yaml:
 #   policy:
 #     cache:
 #       enabled: true
@@ -233,7 +233,7 @@ systemctl restart kscore-server
 kubectl patch deployment kscore-server -n kscore -p '{"spec":{"template":{"spec":{"containers":[{"name":"kscore-server","resources":{"limits":{"memory":"4Gi"}}}]}}}}'
 
 # Reduce in-memory caches
-# Edit /etc/keystone-core/server.yaml:
+# Edit /etc/kscore/server.yaml:
 #   cache:
 #     max_size: 256MB
 systemctl restart kscore-server
@@ -242,7 +242,7 @@ systemctl restart kscore-server
 curl -X POST http://localhost:8080/debug/gc
 
 # If using embedded SQLite, reduce cache
-# Edit /etc/keystone-core/server.yaml:
+# Edit /etc/kscore/server.yaml:
 #   database:
 #     sqlite:
 #       cache_size: -32000
@@ -255,7 +255,7 @@ curl -X POST http://localhost:8080/debug/gc
 # Or optimize write patterns
 
 # Enable write batching for database
-# Edit /etc/keystone-core/server.yaml:
+# Edit /etc/kscore/server.yaml:
 #   database:
 #     write_batch_size: 100
 #     sync_interval: 1s
@@ -266,7 +266,7 @@ nats-server --signal reload
 # Update jetstream.store_dir in config
 
 # Compact SQLite database (if applicable)
-sqlite3 /var/lib/keystone-core/keystone.db "VACUUM;"
+sqlite3 /var/lib/kscore/keystone.db "VACUUM;"
 ```
 
 #### Remediation: Database Slow Queries
@@ -287,17 +287,17 @@ AND state = 'active';
 "
 
 # SQLite: Vacuum
-sqlite3 /var/lib/keystone-core/keystone.db "VACUUM;"
+sqlite3 /var/lib/kscore/keystone.db "VACUUM;"
 
 # SQLite: Optimize
-sqlite3 /var/lib/keystone-core/keystone.db "PRAGMA optimize;"
+sqlite3 /var/lib/kscore/keystone.db "PRAGMA optimize;"
 ```
 
 #### Remediation: NATS Backlog
 
 ```bash
 # Increase consumer workers
-# Edit /etc/keystone-core/server.yaml:
+# Edit /etc/kscore/server.yaml:
 #   nats:
 #     consumer_workers: 10
 systemctl restart kscore-server
@@ -361,7 +361,7 @@ If remediation causes issues:
 
 ```bash
 # Restore previous configuration
-cp /etc/keystone-core/server.yaml.bak /etc/keystone-core/server.yaml
+cp /etc/kscore/server.yaml.bak /etc/kscore/server.yaml
 systemctl restart kscore-server
 
 # If database changes caused issues

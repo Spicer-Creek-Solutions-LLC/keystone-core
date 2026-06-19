@@ -56,7 +56,7 @@ curl -s "http://<PROM_URL>/api/v1/query?query=sum(rate(kscore_api_errors_total[5
 
 # 5. Take a snapshot. Skip only if you have a recent backup AND a
 #    documented restore drill in the last 30 days.
-sudo kscore-cluster-backup create \
+sudo kscore-cluster-backup backup \
     --output /var/backups/kscore/pre-upgrade-$(date -u +%Y%m%dT%H%M%S).tar \
     --description "pre-upgrade snapshot"
 

@@ -4,6 +4,12 @@
 
 This runbook covers backup creation, verification, and restoration procedures for Keystone Core.
 
+> **Two backup binaries**: `kscore-backup` produces portable encrypted artifacts
+> (tar + manifest + age encryption) — use it whenever encryption is required.
+> `kscore-cluster-backup` produces cluster shard-map snapshots only and has no
+> encryption. Pick the binary that matches the artifact you need; their flags are
+> not interchangeable.
+
 ## Prerequisites
 
 - [ ] Backup destination configured and accessible
@@ -13,89 +19,55 @@ This runbook covers backup creation, verification, and restoration procedures fo
 
 ## Backup Procedures
 
-### Create Full Backup
+### Create Cluster Snapshot
 
 ```bash
-# Create full backup to local storage
-kscore-cluster-backup create \
-  --type full \
-  --dest /backup/keystone
+# Snapshot the cluster shard-map to a local file (no encryption)
+kscore-cluster-backup backup \
+  --output /backup/keystone/snapshot-2024-01-15.json
 
-# Create full backup to S3
-kscore-cluster-backup create \
-  --type full \
-  --dest s3://keystone-backups/$(date +%Y/%m/%d)/ \
-  --encrypt \
-  --encrypt-recipient age1...
-
-# Create backup with specific label
-kscore-cluster-backup create \
-  --type full \
-  --dest /backup/keystone \
-  --label "pre-upgrade-1.6.0"
+# Snapshot with a description for later identification
+kscore-cluster-backup backup \
+  --output /backup/keystone/snapshot-2024-01-15.json \
+  --description "pre-upgrade-1.6.0"
 ```
 
-### Create Incremental Backup
+### Create Encrypted Portable Backup
 
 ```bash
-# Incremental backup (database changes only)
-kscore-cluster-backup create \
-  --type incremental \
-  --dest /backup/keystone \
-  --base-backup /backup/keystone/full-2024-01-15.tar.gz
+# Create an encrypted portable artifact (tar + manifest + age)
+kscore-backup create \
+  --age-recipients /secure/backup-recipients.txt
+
+# The recipients file lists one age public key per line; the artifact can be
+# decrypted only with the matching age identity (see restore procedures below).
 ```
 
-### Create Component-Specific Backup
-
-```bash
-# Database only
-kscore-cluster-backup create \
-  --components database \
-  --dest /backup/db-only
-
-# Configuration only
-kscore-cluster-backup create \
-  --components config,certificates \
-  --dest /backup/config-only
-
-# JetStream only
-kscore-cluster-backup create \
-  --components jetstream \
-  --dest /backup/jetstream-only
-```
+> **v0.x scope note**: Incremental backups are not in v0.1 (only full snapshots); tracked in [`ROADMAP.md`](../project/ROADMAP.md).
 
 ### Verify Backup
 
 ```bash
-# Verify backup integrity
-kscore-cluster-backup verify --input /backup/keystone/backup-2024-01-15.tar.gz
+# Verify a cluster snapshot
+kscore-cluster-backup verify --input /backup/keystone/snapshot-2024-01-15.json
 
-# Expected output:
-# Verifying backup...
-# - Manifest: OK
-# - Checksum: OK
-# - Components: 5/5 OK
-# - Decryptable: OK (if encrypted)
-# Backup verification passed
+# Verify an encrypted portable artifact (requires the age identity)
+kscore-backup verify \
+  --src /backup/keystone/backup-2024-01-15.tar.age \
+  --age-identity /secure/backup-key.txt
 ```
 
 ### List Backups
 
 ```bash
-# List local backups
-kscore-cluster-backup list --dest /backup/keystone
-
-# List S3 backups
-kscore-cluster-backup list --dest s3://keystone-backups/
-
-# List with details
-kscore-cluster-backup list --dest /backup/keystone --verbose
+# List cluster snapshots in a directory
+kscore-cluster-backup list /backup/keystone
 
 # Output:
-# Backup                           Size      Date                 Components
-# backup-2024-01-15T02-00-00.tar.gz  1.2GB    2024-01-15 02:00:00  full
-# backup-2024-01-14T02-00-00.tar.gz  1.1GB    2024-01-14 02:00:00  full
-# backup-2024-01-13T02-00-00.tar.gz  1.1GB    2024-01-13 02:00:00  full
+# Snapshot                          Size     Date                 Description
+# snapshot-2024-01-15.json          12KB     2024-01-15 02:00:00  full
+# snapshot-2024-01-14.json          11KB     2024-01-14 02:00:00  full
+# snapshot-2024-01-13.json          11KB     2024-01-13 02:00:00  full
 ```
 
 ## Restore Procedures
@@ -116,10 +88,14 @@ for node in ks-server-1 ks-server-2 ks-server-3; do
   ssh $node "sudo systemctl stop kscore-server"
 done
 
-# Restore on first node
-kscore-bootstrap restore \
-  --backup /backup/keystone/backup-2024-01-15.tar.gz \
-  --decrypt-identity /secure/backup-key.txt
+# Restore on first node from an encrypted portable artifact
+kscore-backup restore \
+  --src /backup/keystone/backup-2024-01-15.tar.age \
+  --age-identity /secure/backup-key.txt
+
+# Or restore a cluster shard-map snapshot
+kscore-cluster-backup restore \
+  --input /backup/keystone/snapshot-2024-01-15.json
 
 # Start services
 sudo systemctl start kscore-server
@@ -128,50 +104,35 @@ sudo systemctl start kscore-server
 # (existing data will be replaced with restored data via cluster sync)
 ```
 
-### Partial Restore
+### Cluster Snapshot Restore
 
 ```bash
-# Restore configuration only
-kscore-bootstrap restore \
-  --backup /backup/keystone/backup.tar.gz \
-  --components config \
-  --no-restart
+# Preview the changes a snapshot restore would make
+kscore-cluster-backup restore \
+  --input /backup/keystone/snapshot-2024-01-15.json \
+  --dry-run
+
+# Force restore even if the current shard-map differs
+kscore-cluster-backup restore \
+  --input /backup/keystone/snapshot-2024-01-15.json \
+  --force
 
 # Apply restored config
 sudo systemctl restart kscore-server
-
-# Restore certificates only
-kscore-bootstrap restore \
-  --backup /backup/keystone/backup.tar.gz \
-  --components certificates \
-  --no-restart
 ```
 
 ### Restore to Different Cluster
 
 ```bash
-# Extract backup
-mkdir /tmp/restore
-tar -xzf /backup/keystone/backup.tar.gz -C /tmp/restore
+# Inspect a portable artifact before restoring (requires the age identity)
+kscore-backup verify \
+  --src /backup/keystone/backup-2024-01-15.tar.age \
+  --age-identity /secure/backup-key.txt
 
-# Modify configuration for new environment
-vim /tmp/restore/config/server.yaml
-
-# Import into new cluster
-kscore-bootstrap import \
-  --from-backup /tmp/restore \
-  --new-cluster-name new-keystone
-```
-
-### Point-in-Time Recovery (PostgreSQL)
-
-```bash
-# Requires WAL archiving configured
-# Restore to specific timestamp
-kscore-bootstrap restore \
-  --backup /backup/base-2024-01-15.tar.gz \
-  --target-time "2024-01-15 14:30:00 UTC" \
-  --wal-archive s3://keystone-wal/
+# Restore the portable artifact onto the new cluster's nodes
+kscore-backup restore \
+  --src /backup/keystone/backup-2024-01-15.tar.age \
+  --age-identity /secure/backup-key.txt
 ```
 
 ## Verification Checklist
@@ -200,20 +161,22 @@ ls -la /backup/
 aws s3 ls s3://keystone-backups/
 
 # Run with debug logging
-kscore-cluster-backup create --dest /backup --debug
+kscore-cluster-backup backup --output /backup/snapshot.json --debug
 ```
 
 ### Restore Fails
 
 ```bash
-# Verify backup integrity
-kscore-cluster-backup verify --input /backup/backup.tar.gz
+# Verify a cluster snapshot
+kscore-cluster-backup verify --input /backup/snapshot.json
 
-# Check decryption key
-kscore-cluster-backup verify /backup/backup.tar.gz --decrypt-identity /path/to/key
+# Verify an encrypted portable artifact and its decryption key
+kscore-backup verify \
+  --src /backup/backup.tar.age \
+  --age-identity /secure/backup-key.txt
 
-# Extract and inspect manually
-tar -tzf /backup/backup.tar.gz
+# Extract and inspect a portable artifact manually
+tar -tf /backup/backup.tar
 
 # Check logs
 journalctl -u kscore-server -n 100
@@ -238,11 +201,13 @@ journalctl -u kscore-server -n 100
 
 ## Appendix: Backup Schedule Recommendations
 
-| Environment | Full Backup | Incremental | Retention |
-|-------------|-------------|-------------|-----------|
-| Production | Daily 2AM | Every 6 hours | 30 days |
-| Staging | Daily | N/A | 7 days |
-| Development | Weekly | N/A | 3 days |
+> **v0.x scope note**: Incremental backups are not in v0.1 (only full snapshots); tracked in [`ROADMAP.md`](../project/ROADMAP.md).
+
+| Environment | Full Backup | Retention |
+|-------------|-------------|-----------|
+| Production | Daily 2AM | 30 days |
+| Staging | Daily | 7 days |
+| Development | Weekly | 3 days |
 
 ## Appendix: Backup Storage Options
 
@@ -264,7 +229,6 @@ backup:
   # Retention
   retention:
     full_backups: 7
-    incremental_backups: 30
     cleanup_schedule: "0 3 * * *"  # 3AM daily
 
   # Permissions (critical)
@@ -389,7 +353,7 @@ backup:
     # Authentication options
     auth:
       # Option 1: Service account (file)
-      credentials_file: /etc/keystone-core/gcs-credentials.json
+      credentials_file: /etc/kscore/gcs-credentials.json
 
       # Option 2: Workload Identity (GKE)
       use_workload_identity: true
@@ -419,12 +383,12 @@ backup:
     auth:
       username: backup-user
       # Option 1: SSH key (recommended)
-      private_key_file: /etc/keystone-core/backup-ssh-key
+      private_key_file: /etc/kscore/backup-ssh-key
       # Option 2: Password (not recommended)
       password: ${SFTP_PASSWORD}
 
     # Known hosts verification
-    known_hosts_file: /etc/keystone-core/known_hosts
+    known_hosts_file: /etc/kscore/known_hosts
     # Or disable verification (not recommended for production)
     # skip_host_verification: true
 
@@ -493,17 +457,15 @@ backup:
 **Backup with Age encryption**:
 
 ```bash
-# Encrypt backup for multiple recipients
-kscore-cluster-backup create \
-  --dest s3://keystone-backups/ \
-  --encrypt \
-  --encrypt-recipient age1primary... \
-  --encrypt-recipient age1dr...
+# Encrypt a portable artifact for multiple recipients
+# (the recipients file lists one age public key per line)
+kscore-backup create \
+  --age-recipients /secure/backup-recipients.txt
 
 # Restore with decryption
-kscore-cluster-backup restore \
-  --backup s3://keystone-backups/backup.tar.gz.age \
-  --decrypt-identity /secure/backup-key.txt
+kscore-backup restore \
+  --src /backup/keystone/backup.tar.age \
+  --age-identity /secure/backup-key.txt
 ```
 
 ### GPG Encryption
@@ -521,7 +483,7 @@ backup:
       - security@keystone-core.io
 
     # GPG home directory (if non-default)
-    gnupg_home: /etc/keystone-core/gnupg
+    gnupg_home: /etc/kscore/gnupg
 
     # Signing key (optional)
     sign: true
@@ -580,7 +542,7 @@ vault kv put secret/keystone/backup passphrase="$(cat /secure/backup-passphrase)
 
 # Retrieve during backup
 export BACKUP_ENCRYPTION_PASSPHRASE=$(vault kv get -field=passphrase secret/keystone/backup)
-kscore-cluster-backup create --dest /backup --encrypt
+kscore-backup create --age-recipients /secure/backup-recipients.txt
 ```
 
 ### Hardware Security Modules (HSM)
@@ -605,7 +567,7 @@ backup:
     cloudhsm:
       cluster_id: cluster-abc123
       key_label: keystone-backup-key
-      credentials_file: /etc/keystone-core/cloudhsm-credentials.json
+      credentials_file: /etc/kscore/cloudhsm-credentials.json
 ```
 
 ### Encryption Key Management Best Practices
@@ -653,25 +615,10 @@ backup:
 file backup.tar.gz.age
 # Output: backup.tar.gz.age: data
 
-# Verify with specific identity
-kscore-cluster-backup verify \
-  --backup backup.tar.gz.age \
-  --decrypt-identity /secure/backup-key.txt
-
-# Test decryption without full restore
-kscore-cluster-backup test-decrypt \
-  --backup backup.tar.gz.age \
-  --identity /secure/backup-key.txt
-
-# List available decryption identities
-kscore-cluster-backup info \
-  --backup backup.tar.gz.age
-# Output:
-# Encryption: age
-# Recipients: 3
-# - age1primary... (Primary)
-# - age1dr... (DR)
-# - age1security... (Security)
+# Verify with a specific identity (also confirms the artifact is decryptable)
+kscore-backup verify \
+  --src backup.tar.age \
+  --age-identity /secure/backup-key.txt
 ```
 
 ### Disaster Recovery Key Procedures
@@ -694,9 +641,9 @@ ssss-combine -t 3 > /tmp/recovered-key.txt
 # Enter 3 shares...
 
 # Use recovered key for restore
-kscore-cluster-backup restore \
-  --backup backup.tar.gz.age \
-  --decrypt-identity /tmp/recovered-key.txt
+kscore-backup restore \
+  --src backup.tar.age \
+  --age-identity /tmp/recovered-key.txt
 
 # Securely delete temporary key
 shred -u /tmp/recovered-key.txt

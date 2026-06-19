@@ -105,9 +105,12 @@ sudo systemctl stop kscore-agent
 sudo iptables -A OUTPUT -p tcp --dport 4222 -j DROP
 ```
 
-v0.1 has no `kscorectl agents quarantine`; the host-level stop is
-the v0.1 equivalent. The orchestrated quarantine surface is tracked
-in [`docs/project/ROADMAP.md`](../project/ROADMAP.md).
+To isolate an agent at the control plane (in addition to or instead
+of the host-level stop above), use `kscorectl agent quarantine
+<agent-id>` (optionally `--reason "<note>"`). The control plane then
+rejects that agent's heartbeats and dispatches no commands to it.
+Reverse it with `kscorectl agent unquarantine <agent-id>` once the
+investigation clears the agent.
 
 ### 1.3 Capture volatile evidence
 
