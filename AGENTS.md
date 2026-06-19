@@ -93,6 +93,7 @@ Use these files instead of expanding AGENTS with mutable detail:
 - Versioning scheme + v0.5 + v1.0 gates: `docs/project/VERSIONING.md`
 - Why this project exists: `docs/project/PROBLEM-STATEMENT.md`
 - Feature inventory + version tags: `FEATURES.md`
+- State module support matrix (per-param stable/experimental status — the v0.5 "what works / what doesn't" doc): `docs/project/STATE-SUPPORT-MATRIX.md`
 - Ranked v0.x backlog (implementation-time deferrals): `docs/project/ROADMAP.md` (update whenever a task narrows scope mid-implementation)
 - Implementation reconstruction guide: `PROJECT-DETAILS.md`
 - Epic plans: `epics/` (start at `00-meta-reconstruction-plan.md`)

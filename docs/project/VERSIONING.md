@@ -79,7 +79,7 @@ The v0.5 milestone is not a calendar point; it's a checklist. v0.5.0 ships when 
 
 ### Documentation
 
-1. **A "v0.5 — what works, what doesn't" doc** lists every state-file param and each one's status (`stable` / `experimental` / `deprecated`). Operators evaluating v0.5 can know in advance what's safe to depend on.
+1. **A "v0.5 — what works, what doesn't" doc** lists every state-file param and each one's status (`stable` / `experimental` / `deprecated`). Operators evaluating v0.5 can know in advance what's safe to depend on. Delivered as [`STATE-SUPPORT-MATRIX.md`](STATE-SUPPORT-MATRIX.md).
 2. **Hugo docs site live** under [`docs/`](.). The v0.1.x Markdown surface (`README.md`, `docs/project/*.md`, `docs/runbooks/*.md`) graduates into a Hugo + Docsy site with per-page navigation and full-text search. The auto-generated CLI / config / API references regenerate via `make docs-sync` into the Hugo content tree. *Pulled forward from a former v1.x position because v0.5's "external-tester ready" audience benefits from a polished doc experience; see [`ROADMAP.md`](ROADMAP.md) § Hugo docs site.*
 
 ## v1.0 gate — "stable, production-ready"
