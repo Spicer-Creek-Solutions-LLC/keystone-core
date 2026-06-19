@@ -32,7 +32,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 #### `service` stdlib module — OpenRC / sysvinit / launchd backends
 
-- **Priority**: gate-v0.5
+- **Priority**: gate-v0.5 work **complete** (OpenRC backend landed — verified on Alpine in the cross-distro matrix; sysvinit backend also landed); launchd (macOS) is post-v1.0 (v1.x).
 - **What**: Epic 08 task 11f ships the `service` module with systemd-only. Hosts with a different init system (Alpine's default OpenRC, Gentoo OpenRC/sysvinit, older RHEL/CentOS sysvinit, macOS launchd) get `service.ErrNoBackend` from mutating ops. Add provider implementations:
   - `openrc` (Alpine / Gentoo) — task 11f2 — **landed**: `internal/statemgmt/stdlib/service/openrc.go` (rc-service for exists/status/start/stop + rc-update for the default-runlevel enable/disable & show; Lookup runs the three queries since OpenRC has no `systemctl show` equivalent), wired in `defaultProvider` after systemd via a `/run/openrc` marker + rc-service/rc-update presence
   - `sysvinit` — **landed**: `internal/statemgmt/stdlib/service/sysvinit.go`. Runtime via `service <name> start|stop|status` (universal); boot-enable per host — `chkconfig` (RHEL/CentOS) or `update-rc.d` + the `/etc/rc[2-5].d` start-symlink scan (Debian/Devuan), whichever is detected. Existence is filesystem-based (`/etc/init.d/<name>`) since there is no universal "exists" command. Wired in `defaultProvider` after OpenRC; unit-tested (no sysvinit distro in the cross-distro matrix yet, so a live matrix join is a follow-up).
@@ -43,7 +43,7 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 
 #### `package` stdlib module — dnf, apk, zypper, pacman backends
 
-- **Priority**: gate-v0.5
+- **Priority**: gate-v0.5 work **complete** (dnf + apk backends landed — verified on Rocky + Alpine in the cross-distro matrix; zypper + pacman backends also landed and unit-tested); live SUSE/Arch matrix coverage is gate-v1.0.
 - **What**: Epic 08 task 11e ships the `package` module with apt-only (Debian / Ubuntu). On hosts where no supported package manager is detected the module returns `pkg.ErrNoBackend` ("no supported package manager detected on this host") rather than silently doing nothing. Add provider implementations for the other Linux package managers:
   - `dnf` (RHEL 8+ / Rocky / Fedora) — task 11e2 — **landed**: `internal/statemgmt/stdlib/pkg/dnf.go` (dnf install/remove + rpm query; name-version pinning; rpm exit-1 → not-installed), wired in `defaultProvider` (apt probed first, then dnf+rpm)
   - `apk` (Alpine) — task 11e3 — **landed**: `internal/statemgmt/stdlib/pkg/apk.go` (single apk binary: add/del + `apk list --installed` query; name=version pinning; digit-led-token disambiguation against name-glob over-match), wired in `defaultProvider` after dnf
@@ -238,38 +238,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Progress**: **PR 1 landed** — the `getting-started` section + the two "extend the system" guides: **Authoring a Blueprint** (`kscore-blueprint init`/`validate`/`lint`/`info`/`apply`/`rollback`/`bundle`, grounded in the `modules/examples/blueprints/` examples) and **Authoring & Publishing a Module** (the Starlark `init`→`validate`→`test`→`run`→`build`→`sign`→`publish`→`install` flow + `kscore-registry serve`). Every command was verified against the real CLIs (built from `cmd/`); the guides are Hugo-native content (site-relative links, link-checked by `make docs-links-site`, so `docs/content` is excluded from the source `.md` link gate). **PR 2 landed** — the two fully-runnable operational guides: **Managing Secrets** (the `encrypted_file` backend config + master-key resolver, then `kscore-secrets put`/`get`/`list`/`delete`) and **Querying the Audit Log & Policies** (`kscore-audit log`/`stats`/`report`/`export`, plus authoring + locally `validate`/`eval`-ing a Rego policy — verified to compile + `DENY` as shown). **PR 3 landed** — the two partial-feature guides, each scoped to what actually runs with honest v1.0/v1.1 callouts: **GitOps Integration** (the webhook receiver config + `kscore-gitops verify` over an http-step workflow — verified to run — + `rollback`; explicit that v0.1 is the inbound-hooks surface, not full repo-sync) and **HA Cluster Topology** (the `cluster` config surface, single-node bring-up, and the `kscore-cluster status`/`leader`/`members`/`transfer-leader`/`rebalance`/`backup` CLI; explicit that automatic failover reassignment + the multi-process form are still in progress). All **six guides** are now live under `docs/content/docs/getting-started/`, link-checked and rendered in the Hugo site's Getting Started section.
 - **References**: epic 19 task 9 `_(landed)_`; `docs/project/GETTING-STARTED.md` (the consolidated quick start); `docs/content/docs/getting-started/`; Hugo docs site entry under gate-v0.5.
 
-<!-- Signing batch (Phase E1 + Release signing ceremony + Native package
-     repos) re-bucketed from v0.x to gate-v0.5 per planning decision
-     2026-05-31. Rationale: pre-v0.5 there are essentially no external
-     consumers of binaries, so signing's actual security value is low.
-     gate-v0.5 is the external-tester milestone — coalescing signing
-     work with that gate means the "we're ready for external testers"
-     story lands with end-to-end trust (signed commits → signed tags
-     → signed packages → repo-served install path). -->
-
-#### Phase E1: required signed commits on `main` branch protection
+#### Raise enforced coverage gate to the v0.5 bar (engine >=85% / module >=80%)
 
 - **Priority**: gate-v0.5
-- **What**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` E1 calls for a signed-commit requirement on the `main` branch protection rule (alongside the DCO check and required status checks). DCO landed as a CI gate (`.forgejo/workflows/ci-fast.yml` `dco-check` job, status-check-required on `main`) and the 11 `ci-fast.yml` jobs are required, but the "require signed commits" toggle on the `main` rule is left **off** for v0.1.x.
-- **Why deferred**: solo-maintainer v0.1.x posture. Mandatory signed commits requires a documented contributor-key onboarding flow (GPG/SSH key generation, Codeberg upload, verification cross-check) before it's reasonable to gate merges on it. `RELEASE-PLAYBOOK.md` already covers signed release tags, which is the higher-value signing surface for v0.1.x. Deferred 2026-05-27 with maintainer approval during the E1 close-out; re-bucketed 2026-05-31 to coalesce with the gate-v0.5 signing batch.
-- **Acceptance**: contributor-key onboarding flow documented (probably in `CONTRIBUTING.md` or a new `docs/project/SIGNING-KEYS.md`); the `main` branch protection rule on Codeberg has `require_signed_commits: true`; this ROADMAP entry removed and the E1 landed-note in PUBLIC-LAUNCH-CHECKLIST.md updated to mark signed-commit enforcement as live.
-- **References**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` E1; `docs/project/CODEBERG-SETTINGS-AUDIT.md`; `RELEASE-PLAYBOOK.md` signing ceremony.
-
-#### Release signing ceremony — signed tags + checksums + SBOMs
-
-- **Priority**: gate-v0.5
-- **What**: v0.1.0 shipped as a one-time carve-out with **no signed tag, no signed checksums, no signed SBOM**. Trust model collapsed to TLS-to-codeberg.org + manual `sha256sum -c`. The first gate-v0.5 release lands the full single-signer signing flow per `RELEASE-PLAYBOOK.md` §6 (Signing) + §9 (Publication): signing-key generation ceremony (RELEASE-PLAYBOOK §2 v0.x simplification), `tag.gpgsign true` wired into git config, `goreleaser` configured to emit `.sig` sidecars for archives + packages + checksums + SBOM, RELEASE-PLAYBOOK §6 v0.1.0-only callout removed, CHANGELOG verification section updated to the signed flow.
-- **Why deferred (from v0.1.0)**: soft-launch posture for v0.1.0 (per `docs/project/GOVERNANCE.md` § Launch Posture + `PUBLIC-LAUNCH-CHECKLIST.md` F1) tolerated the unsigned trust gap; signing-key setup + the per-platform key-distribution story were not blocking the curious-operator audience. Recorded as the v0.1.0-only carve-out during v0.1.0 release prep on 2026-05-27; re-bucketed 2026-05-31 from a held-to-end-of-v0.x position to gate-v0.5 once it became clear that pre-v0.5 there are essentially no external consumers for signing to protect.
-- **Acceptance**: signing key generated per `RELEASE-PLAYBOOK.md` §2 v0.x simplification; `git config tag.gpgsign true` wired into the release workstation; `make release` emits `.sig` files for `checksums.txt` + every SBOM (and ideally per-archive sidecars per `goreleaser` `signs:` block); `RELEASE-PLAYBOOK.md` §6 v0.1.0-only callout removed; `SECURITY.md` "Supply chain security & release verification" section updated; this ROADMAP entry removed when the first gate-v0.5 release ships signed.
-- **References**: `RELEASE-PLAYBOOK.md` §2 + §6 + §9 (v0.x single-signer); `CHANGELOG.md` v0.1.0 Verification section (unsigned trust-model callout); `SECURITY.md` "Supply chain security" subsection; `.goreleaser.yaml` (currently no `signs:` block).
-
-#### Native package repositories — APT, DNF/YUM
-
-- **Priority**: gate-v0.5
-- **What**: v0.1.0 ships `.deb` and `.rpm` packages attached as direct downloads on the Codeberg Release page; operators `dpkg -i` / `rpm -i` the file by hand. A hosted package-repo experience — signed `apt`/`dnf`/`zypper` indices on `apt.keystone-core.io` (or equivalent), `apt-get install kscore-cli` / `dnf install kscore-server` working out of the box — lands at gate-v0.5 alongside the signing ceremony (shared key-onboarding). Includes: hosting story (Codeberg Pages vs Cloudflare R2 vs self-hosted), signed repo metadata (apt `Release.gpg` / dnf `repomd.xml` signatures), repo-signing key onboarding parallel to the release-signing ceremony, `goreleaser` integration (or post-release publish step), `docs/project/GETTING-STARTED.md` updated to use the repo-install path as the primary recipe.
-- **Why deferred (from v0.1.0)**: soft-launch audience tolerates direct-download `dpkg -i` / `rpm -i`; the formal external-tester milestone (gate-v0.5) is when the convenience step pays off. Decision 2026-05-27 during v0.1.0 release prep; explicitly bucketed to gate-v0.5 on 2026-05-31 as part of the signing-batch re-bucketing.
-- **Acceptance**: signed apt repo serving `.deb` packages from at least one production-ready URL; signed dnf/yum repo serving `.rpm` packages from the same; install recipe in `docs/project/GETTING-STARTED.md` uses the repo path as the primary, with the direct-download path documented as a fallback; `RELEASE-PLAYBOOK.md` §9 "Publication" updated to include the publish-to-repo step; CHANGELOG entry on the release that lands it; this ROADMAP entry removed.
-- **References**: `.goreleaser.yaml` nfpms block (produces `.deb` + `.rpm`); `RELEASE-PLAYBOOK.md` §9 Publication; companion: "Release signing ceremony" (shared key-onboarding work).
+- **What**: The v0.5 gate (`docs/project/VERSIONING.md` § v0.5 gate § Engine + acceptance) requires engine coverage >85% and module coverage >80%. Actual coverage already clears this (measured 2026-06-19: `internal/statemgmt` engine 94.4%, `internal/statemgmt/stdlib` registry 90.9%, every stdlib module ≥85.3%), but the *enforced* gate (`tools/covgate`, per `docs/project/COVERAGE-GATES.md`) still checks only critical ≥70% / CLI ≥40% — the v0.1 baseline from `epics/00`. The v0.5 level is met but not locked in: a regression below the bar would pass CI.
+- **What lands**: raise the engine/module package class in `tools/covgate` to engine ≥85% / module ≥80%, confirm every engine + stdlib package passes the raised bar (they do as of 2026-06-19), and record the v0.5 thresholds in `docs/project/COVERAGE-GATES.md`.
+- **Why now**: this is the last open gate-v0.5 item — every other gate item is delivered (modules, persistence renderers, firewall, package backends, AppArmor, reboot detection + `system.rebooted`, Epics 09/11, cross-distro matrix, CA encryption, Hugo site, getting-started guides) or re-bucketed out (signing batch → v0.x). Enforcing the coverage bar makes the gate's coverage acceptance criterion durable.
+- **Acceptance**: `covgate` enforces engine ≥85% / module ≥80%; CI `coverage-gate` green at the raised bar; `COVERAGE-GATES.md` updated; this ROADMAP entry removed.
+- **References**: `tools/covgate`; `docs/project/COVERAGE-GATES.md`; `docs/project/VERSIONING.md` § v0.5 gate § Engine + acceptance; `docs/project/STATE-SUPPORT-MATRIX.md`.
 
 ## gate-v1.0 — blocks v1.0 SemVer-stability commitment
 
@@ -1051,6 +1027,38 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Why deferred (from v0.1)**: Epic 17 task 4 shipped Zipkin support because the epic explicitly listed it; the upstream deprecation surfaced afterward. Emitting the warning early gives operators the maximum runway to migrate before the gate-v1.0 freeze decision (companion above).
 - **Acceptance**: `tracing.exporter=zipkin` logs a deprecation warning at config-validation time naming OTLP as the replacement; tracing docs recommend OTLP; the exporter still works (no removal).
 - **References**: `internal/config/tracing.go` (`Validate`); `internal/tracing/exporters.go`; `internal/tracing/doc.go`; companion: "Zipkin tracing exporter: do not freeze into the v1.0 surface".
+
+<!-- Signing batch (Phase E1 + Release signing ceremony + Native package
+     repos) re-bucketed back to v0.x on 2026-06-19, reversing the
+     2026-05-31 move into gate-v0.5. The v0.5 gate checklist
+     (docs/project/VERSIONING.md § v0.5 gate) carries no signing /
+     supply-chain item, and all three entries carry an inherent v0.x
+     priority; signing remains real pre-v1.0 work but does not block the
+     v0.5 external-tester milestone. -->
+
+#### Phase E1: required signed commits on `main` branch protection
+
+- **Priority**: v0.x
+- **What**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` E1 calls for a signed-commit requirement on the `main` branch protection rule (alongside the DCO check and required status checks). DCO landed as a CI gate (`.forgejo/workflows/ci-fast.yml` `dco-check` job, status-check-required on `main`) and the 11 `ci-fast.yml` jobs are required, but the "require signed commits" toggle on the `main` rule is left **off** for v0.1.x.
+- **Why deferred**: solo-maintainer v0.1.x posture. Mandatory signed commits requires a documented contributor-key onboarding flow (GPG/SSH key generation, Codeberg upload, verification cross-check) before it's reasonable to gate merges on it. `RELEASE-PLAYBOOK.md` already covers signed release tags, which is the higher-value signing surface for v0.1.x. Deferred 2026-05-27 with maintainer approval during the E1 close-out; briefly re-bucketed to gate-v0.5 (2026-05-31) then returned to v0.x (2026-06-19) once the v0.5 gate checklist was confirmed to carry no signing item.
+- **Acceptance**: contributor-key onboarding flow documented (probably in `CONTRIBUTING.md` or a new `docs/project/SIGNING-KEYS.md`); the `main` branch protection rule on Codeberg has `require_signed_commits: true`; this ROADMAP entry removed and the E1 landed-note in PUBLIC-LAUNCH-CHECKLIST.md updated to mark signed-commit enforcement as live.
+- **References**: `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` E1; `docs/project/CODEBERG-SETTINGS-AUDIT.md`; `RELEASE-PLAYBOOK.md` signing ceremony.
+
+#### Release signing ceremony — signed tags + checksums + SBOMs
+
+- **Priority**: v0.x
+- **What**: v0.1.0 shipped as a one-time carve-out with **no signed tag, no signed checksums, no signed SBOM**. Trust model collapsed to TLS-to-codeberg.org + manual `sha256sum -c`. A v0.x release lands the full single-signer signing flow per `RELEASE-PLAYBOOK.md` §6 (Signing) + §9 (Publication): signing-key generation ceremony (RELEASE-PLAYBOOK §2 v0.x simplification), `tag.gpgsign true` wired into git config, `goreleaser` configured to emit `.sig` sidecars for archives + packages + checksums + SBOM, RELEASE-PLAYBOOK §6 v0.1.0-only callout removed, CHANGELOG verification section updated to the signed flow.
+- **Why deferred (from v0.1.0)**: soft-launch posture for v0.1.0 (per `docs/project/GOVERNANCE.md` § Launch Posture + `PUBLIC-LAUNCH-CHECKLIST.md` F1) tolerated the unsigned trust gap; signing-key setup + the per-platform key-distribution story were not blocking the curious-operator audience. Recorded as the v0.1.0-only carve-out during v0.1.0 release prep on 2026-05-27; briefly re-bucketed to gate-v0.5 (2026-05-31) then returned to v0.x (2026-06-19).
+- **Acceptance**: signing key generated per `RELEASE-PLAYBOOK.md` §2 v0.x simplification; `git config tag.gpgsign true` wired into the release workstation; `make release` emits `.sig` files for `checksums.txt` + every SBOM (and ideally per-archive sidecars per `goreleaser` `signs:` block); `RELEASE-PLAYBOOK.md` §6 v0.1.0-only callout removed; `SECURITY.md` "Supply chain security & release verification" section updated; this ROADMAP entry removed when a v0.x release ships signed.
+- **References**: `RELEASE-PLAYBOOK.md` §2 + §6 + §9 (v0.x single-signer); `CHANGELOG.md` v0.1.0 Verification section (unsigned trust-model callout); `SECURITY.md` "Supply chain security" subsection; `.goreleaser.yaml` (currently no `signs:` block).
+
+#### Native package repositories — APT, DNF/YUM
+
+- **Priority**: v0.x
+- **What**: v0.1.0 ships `.deb` and `.rpm` packages attached as direct downloads on the Codeberg Release page; operators `dpkg -i` / `rpm -i` the file by hand. A hosted package-repo experience — signed `apt`/`dnf`/`zypper` indices on `apt.keystone-core.io` (or equivalent), `apt-get install kscore-cli` / `dnf install kscore-server` working out of the box — lands in a v0.x release alongside the signing ceremony (shared key-onboarding). Includes: hosting story (Codeberg Pages vs Cloudflare R2 vs self-hosted), signed repo metadata (apt `Release.gpg` / dnf `repomd.xml` signatures), repo-signing key onboarding parallel to the release-signing ceremony, `goreleaser` integration (or post-release publish step), `docs/project/GETTING-STARTED.md` updated to use the repo-install path as the primary recipe.
+- **Why deferred (from v0.1.0)**: soft-launch audience tolerates direct-download `dpkg -i` / `rpm -i`; a later v0.x release is when the convenience step pays off. Decision 2026-05-27 during v0.1.0 release prep; briefly bucketed to gate-v0.5 (2026-05-31) then returned to v0.x (2026-06-19).
+- **Acceptance**: signed apt repo serving `.deb` packages from at least one production-ready URL; signed dnf/yum repo serving `.rpm` packages from the same; install recipe in `docs/project/GETTING-STARTED.md` uses the repo path as the primary, with the direct-download path documented as a fallback; `RELEASE-PLAYBOOK.md` §9 "Publication" updated to include the publish-to-repo step; CHANGELOG entry on the release that lands it; this ROADMAP entry removed.
+- **References**: `.goreleaser.yaml` nfpms block (produces `.deb` + `.rpm`); `RELEASE-PLAYBOOK.md` §9 Publication; companion: "Release signing ceremony" (shared key-onboarding work).
 
 ## v1.x — post-v1.0 feature additions
 
