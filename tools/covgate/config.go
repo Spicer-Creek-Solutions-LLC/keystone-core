@@ -4,9 +4,26 @@ package main
 
 // Coverage thresholds. Documented in docs/project/COVERAGE-GATES.md.
 const (
+	engineThreshold   = 85.0 // state engine — internal/statemgmt (v0.5 gate)
+	moduleThreshold   = 80.0 // state stdlib modules — internal/statemgmt/stdlib* (v0.5 gate)
 	criticalThreshold = 70.0 // critical packages — business logic
 	cliThreshold      = 40.0 // CLI packages — cmd/* and internal/cli/*
 )
+
+// enginePackages hold the state engine to the v0.5 gate's engine bar
+// (>=engineThreshold). See docs/project/VERSIONING.md § v0.5 gate §
+// Engine + acceptance and docs/project/COVERAGE-GATES.md.
+var enginePackages = []string{
+	"internal/statemgmt",
+}
+
+// modulePrefixes hold the state stdlib modules (and the registry that
+// composes them) to the v0.5 gate's module bar (>=moduleThreshold).
+// A prefix because every child of internal/statemgmt/stdlib is a
+// gated state-declaration module.
+var modulePrefixes = []string{
+	"internal/statemgmt/stdlib",
+}
 
 // excludedPrefixes opts packages out of the gate entirely. Use only
 // for generated code, tooling, test scaffolding, and SDK / example
@@ -24,9 +41,8 @@ var excludedPrefixes = []string{
 // stdlib modules; the rate-limit subpackages) where every child is
 // product code held to the critical bar.
 var criticalPrefixes = []string{
-	"internal/statemgmt/stdlib", // all v1.0 state-declaration modules
-	"internal/ratelimit",        // rate-limit subpackages (extract, middleware)
-	"modules/sdk/starlark",      // Starlark SDK (product code under modules/sdk)
+	"internal/ratelimit",   // rate-limit subpackages (extract, middleware)
+	"modules/sdk/starlark", // Starlark SDK (product code under modules/sdk)
 }
 
 // criticalPackages are the v1.0 business-logic packages that hold
@@ -53,12 +69,12 @@ var criticalPackages = []string{
 	"internal/backup/age",
 	"internal/backup/dest",
 
-	// Blueprint + runbook + state mgmt
+	// Blueprint + runbook (state mgmt is held to the engine/module
+	// bars — see enginePackages / modulePrefixes)
 	"internal/blueprint",
 	"internal/runbook",
 	"internal/runbook/observer",
 	"internal/runbook/steps",
-	"internal/statemgmt",
 
 	// Cluster + clustering
 	"internal/cluster",
