@@ -6,9 +6,16 @@ called from CI via `make coverage-gate`. Targets match
 
 | Category | Threshold | Packages |
 |----------|-----------|----------|
-| Critical | ≥ 70% | Business-logic packages: most of `internal/*` and `pkg/*` |
+| Engine | ≥ 85% | The state engine: `internal/statemgmt` (the v0.5 gate bar — see `VERSIONING.md` § v0.5 gate § Engine + acceptance) |
+| Module | ≥ 80% | State stdlib modules: `internal/statemgmt/stdlib` and every child (the v0.5 gate bar) |
+| Critical | ≥ 70% | Business-logic packages: most of `internal/*` and `pkg/*` (excluding the engine/module packages above) |
 | CLI | ≥ 40% | `cmd/*` binaries and `internal/cli/*` packages |
 | Excluded | — | Generated code (`pkg/api/v1`), tooling (`tools/`), test scaffolding (`test/`), example modules (`modules/examples/`) |
+
+The Engine and Module bars (85% / 80%) lock in the v0.5 gate's coverage
+acceptance criterion. They resolve **before** the critical rules in
+`classifyPackage`, so the state engine and stdlib modules are held to the
+higher bars rather than the critical floor.
 
 ## How it works
 
@@ -61,9 +68,11 @@ Untriaged exceptions are not allowed in the file.
 1. Open `tools/covgate/config.go`.
 2. Add the package's relative path to `criticalPackages` (or to
    `criticalPrefixes` if it's a cohesive subtree like
-   `internal/statemgmt/stdlib/...`).
+   `internal/ratelimit`). A new state stdlib module under
+   `internal/statemgmt/stdlib` is picked up automatically by
+   `modulePrefixes` and held to the 80% module bar — no edit needed.
 3. Run `make test-coverage && make coverage-gate` locally to confirm
-   the new package passes the 70% bar.
+   the new package passes its bar.
 
 ## Graduating an allowList entry
 

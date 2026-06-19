@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// covgate enforces the v1.0 per-package coverage gates documented in
+// covgate enforces the per-package coverage gates documented in
 // docs/project/COVERAGE-GATES.md and called out in PROJECT-DETAILS
-// §5.3 / AGENTS.md §5: critical packages ≥70%, CLI packages ≥40%.
+// §5.3 / AGENTS.md §5: the state engine ≥85%, state stdlib modules
+// ≥80% (the v0.5 gate bars), critical packages ≥70%, CLI packages
+// ≥40%.
 //
 // Reads a coverage.out profile (mode=set), aggregates statement
 // coverage per package, classifies each package via the rules in
-// config.go (excluded / critical / cli / unmatched), and asserts
-// the per-category threshold. An optional allowList carries
+// config.go (excluded / engine / module / critical / cli / unmatched),
+// and asserts the per-category threshold. An optional allowList carries
 // per-package exceptions that are below threshold today but tracked
 // for graduation; the gate fails if an allowList entry's actual
 // coverage rises above its category threshold (forces removal —
@@ -51,12 +53,25 @@ func (p pkgStats) percent() float64 {
 // path (e.g. "internal/agent" or "cmd/kscore-server"). Returns
 // ("excluded", 0) when no gate applies.
 //
-// Resolution order: excludedPrefixes → criticalPackages exact →
-// criticalPrefixes → cli (cmd/* and internal/cli) → unmatched.
+// Resolution order: excludedPrefixes → enginePackages exact →
+// modulePrefixes → criticalPackages exact → criticalPrefixes → cli
+// (cmd/* and internal/cli) → unmatched. Engine/module precede the
+// critical rules so the state engine and stdlib modules get the
+// higher v0.5 gate bars rather than the critical floor.
 func classifyPackage(relPath string) (category string, threshold float64) {
 	for _, prefix := range excludedPrefixes {
 		if strings.HasPrefix(relPath, prefix) {
 			return "excluded", 0
+		}
+	}
+	for _, p := range enginePackages {
+		if relPath == p {
+			return "engine", engineThreshold
+		}
+	}
+	for _, prefix := range modulePrefixes {
+		if strings.HasPrefix(relPath, prefix) {
+			return "module", moduleThreshold
 		}
 	}
 	for _, p := range criticalPackages {
@@ -169,8 +184,8 @@ type result struct {
 
 func main() {
 	var (
-		profile          string
-		strictUnmatched  bool
+		profile         string
+		strictUnmatched bool
 	)
 	flag.StringVar(&profile, "profile", "coverage.out", "path to go-cover profile")
 	flag.BoolVar(&strictUnmatched, "strict-unmatched", false, "fail if any package is unmatched by the classification rules")
@@ -207,7 +222,7 @@ func main() {
 			} else {
 				warns++
 			}
-		case "critical", "cli":
+		case "engine", "module", "critical", "cli":
 			r.verdict = "PASS"
 			if r.pct < threshold {
 				// Check the allowList.
