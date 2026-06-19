@@ -33,11 +33,10 @@ gate-v0.5:
   - "Hugo docs site"
   # Pulled forward from v1.x to gate-v0.5 (pairs with Hugo for the tester doc experience):
   - "Expanded getting-started guides (per-domain tutorials)"
-  # Signing batch re-bucketed from v0.x to gate-v0.5 per 2026-05-31 planning decision —
-  # external-tester milestone is the first audience that signing actually protects:
-  - "Phase E1: required signed commits on `main` branch protection"
-  - "Release signing ceremony — signed tags + checksums + SBOMs"
-  - "Native package repositories — APT, DNF/YUM"
+  # The last open gate-v0.5 item: lock in the coverage acceptance criterion
+  # (actual coverage already exceeds the bar; this enforces it). The signing
+  # batch was returned to v0.x on 2026-06-19 (the v0.5 gate has no signing item).
+  - "Raise enforced coverage gate to the v0.5 bar (engine >=85% / module >=80%)"
 
 gate-v1.0:
   # Boot-integration foundation is the critical-path prerequisite for the
@@ -131,6 +130,11 @@ v0.x:
   - "kscore-audit search subcommand"
   - "Backup destinations: Backblaze B2 documentation + smoke test"
   - "Zipkin tracing exporter: deprecation warning → OTLP"
+  # Signing batch returned from gate-v0.5 to v0.x on 2026-06-19 (the v0.5 gate
+  # checklist carries no signing item; all three are inherently v0.x work):
+  - "Phase E1: required signed commits on `main` branch protection"
+  - "Release signing ceremony — signed tags + checksums + SBOMs"
+  - "Native package repositories — APT, DNF/YUM"
 
 v1.x:
   - "Logging: context-aware threading of deep helpers"
