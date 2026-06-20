@@ -126,6 +126,8 @@ This repository was reset to a clean reconstruction baseline on 2026-05-05. The 
 
 The 19 reconstruction epics in [`epics/`](epics/) sequence dependency-ordered v1.0 work. Track current progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md). The versioning scheme — three milestone tiers `v0.1` → `v0.5` (external-tester ready, all Linux) → `v1.0` (all 19 epics + SemVer stability) — is in [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md).
 
+**The v0.5 external-tester gate is met.** Every item on the [`v0.5 gate checklist`](docs/project/VERSIONING.md#v05-gate--external-tester-ready-all-linux) is delivered: all major Linux families pass the cross-distro CI matrix; the network, storage, firewall, package, and security modules clear the external-tester bar; engine/module coverage is enforced at the v0.5 levels (≥85% / ≥80%); and the [state support matrix](docs/project/STATE-SUPPORT-MATRIX.md) and documentation site are live. The v0.5.0 release itself is pending the release-signing ceremony (see [`RELEASE-PLAYBOOK.md`](RELEASE-PLAYBOOK.md)).
+
 ## What v1.0 commits to
 
 The full success bar — all 19 epics complete, contracts frozen, SemVer stability begins — is in [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md). The headline commitment: a coherent release that demonstrates one system can:

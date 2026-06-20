@@ -1,0 +1,10 @@
+kind: Docs
+body: |-
+  **Marked the v0.5 external-tester gate as met across the docs.** The
+  README project-status now states the v0.5 gate checklist is complete
+  (with the v0.5.0 release itself pending the signing ceremony); Epic 08's
+  last open acceptance box — the cross-distro Docker matrix — is checked
+  now that the live 8-distro matrix runs every applicable module; and
+  `FEATURES.md` corrects the stale `gate-v0.5` tag on hosted package-repo
+  generation to `v0.x` (it and the signing batch were re-bucketed off the
+  v0.5 gate on 2026-06-19). Epics 09 and 11 were already fully checked.
