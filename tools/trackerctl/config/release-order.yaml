@@ -33,10 +33,6 @@ gate-v0.5:
   - "Hugo docs site"
   # Pulled forward from v1.x to gate-v0.5 (pairs with Hugo for the tester doc experience):
   - "Expanded getting-started guides (per-domain tutorials)"
-  # The last open gate-v0.5 item: lock in the coverage acceptance criterion
-  # (actual coverage already exceeds the bar; this enforces it). The signing
-  # batch was returned to v0.x on 2026-06-19 (the v0.5 gate has no signing item).
-  - "Raise enforced coverage gate to the v0.5 bar (engine >=85% / module >=80%)"
 
 gate-v1.0:
   # Boot-integration foundation is the critical-path prerequisite for the
