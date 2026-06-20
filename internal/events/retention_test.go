@@ -379,8 +379,7 @@ func TestScheduler_TicksRepeatedly(t *testing.T) {
 func TestScheduler_ErrorsDoNotStopScheduler(t *testing.T) {
 	t.Parallel()
 	store := &retentionStubStore{
-		err:           errors.New("transient store err"),
-		applySignaled: make(chan struct{}, 8),
+		err: errors.New("transient store err"),
 	}
 	e, _ := NewRetentionEnforcer(
 		WithRetentionStore(store),
@@ -395,16 +394,20 @@ func TestScheduler_ErrorsDoNotStopScheduler(t *testing.T) {
 		_ = e.Stop(stopCtx)
 	})
 
-	// Wait for at least 3 ticks despite each returning an error.
-	for i := 0; i < 3; i++ {
-		select {
-		case <-store.applySignaled:
-		case <-time.After(200 * time.Millisecond):
-			t.Fatalf("tick %d never fired (errors stopped scheduler?)", i)
+	// The scheduler must keep ticking even though every pass errors.
+	// Poll runsFailed — the counter being asserted — rather than the
+	// per-call entry signal: the stub signals on ApplyRetention ENTRY,
+	// but the enforcer increments runsFailed only AFTER it returns, so
+	// observing 3 entry signals and then reading RunsFailed raced the
+	// 3rd increment (RunsFailed == 2 under load). The deadline just
+	// waits longer on a slow runner; on success the loop exits as soon
+	// as the count reaches 3 (~60ms at a 20ms interval).
+	deadline := time.Now().Add(5 * time.Second)
+	for e.RunsFailed() < 3 {
+		if time.Now().After(deadline) {
+			t.Fatalf("RunsFailed = %d after 5s, want >= 3 (errors stopped scheduler?)", e.RunsFailed())
 		}
-	}
-	if e.RunsFailed() < 3 {
-		t.Errorf("RunsFailed = %d, want >= 3", e.RunsFailed())
+		time.Sleep(2 * time.Millisecond)
 	}
 }
 
