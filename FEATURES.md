@@ -73,7 +73,7 @@ Complete feature inventory for Keystone Core, organized by domain. Each feature 
 - **PDF export of the docs site** (Hugo print pipeline). Source: `docs/`. **[v1.x]**. *Reasoning: web docs at v0.5 (above) satisfy the tester audience; PDF generation is a separate ceremony — toolchain, page-break tuning, archive-class freezing — not justified for the v0.5 milestone.*
 - **HA / IPv6 / HA+IPv6 E2E topologies** [v1.x]. *Reasoning: clustering ships in v0.1 but full topology matrix can land iteratively.*
 - **Hot-reload dev server (`air`)** [v1.0.x]. *Reasoning: dev-only, ship with v1.0 dot release.*
-- **Repository generation (DNF/APT)** [gate-v0.5]. *Reasoning: tarballs + direct-download .deb/.rpm cover v0.1.x trial users; hosted package repos pair with the gate-v0.5 signing batch. Windows MSI re-bucketed to v2.x+ with the Windows agent entry on 2026-05-31.*
+- **Repository generation (DNF/APT)** [v0.x]. *Reasoning: tarballs + direct-download .deb/.rpm cover v0.1.x trial users; hosted package repos pair with the v0.x signing batch (both re-bucketed out of gate-v0.5 on 2026-06-19 — neither is on the v0.5 gate checklist). Windows MSI re-bucketed to v2.x+ with the Windows agent entry on 2026-05-31.*
 - **VM bootstrap test harness** [v1.x]. *Reasoning: container E2E sufficient for v1.0.*
 - **Full security scanning suite** (semgrep, trivy, syft, grype, hadolint) [v1.x]. *Reasoning: gitleaks + govulncheck + gosec sufficient for v1.0.*
 - **Goreleaser signing ceremony / multi-party release** [v1.x]. *Reasoning: heavy ceremony documented in current `RELEASE-PLAYBOOK.md`; single-signer release acceptable for v1.0.*

@@ -83,7 +83,7 @@ See `PROJECT-DETAILS.md §4.8`.
 - [x] `kscorectl state check tests/webserver.yaml` is dry-run; reports planned changes without applying.
 - [x] `kscorectl state drift tests/webserver.yaml` returns `DriftReport`; `--fix` re-applies.
 - [x] `kscorectl state history` lists past runs; `kscorectl state rollback <run-id>` reverts.
-- [ ] All ~40 modules pass cross-distro Docker matrix (Debian 12, Ubuntu 22.04/24.04, RHEL 9, Rocky 9, Alpine 3.19) for applicable modules. _(gate-v0.5 — scaffold landed, matrix expansion tracked under ROADMAP "Cross-distro state stdlib docker matrix harness")_
+- [x] All ~40 modules pass cross-distro Docker matrix (Debian 12, Ubuntu 22.04/24.04, RHEL 9, Rocky 9, Alpine 3.19) for applicable modules. _(gate-v0.5 — landed: the live matrix runs every distro-varying, container-safe module across 8 distros (the six required plus openSUSE / Arch / Devuan) with idempotency asserted; see ROADMAP "Cross-distro state stdlib docker matrix harness")_
 - [x] Idempotency verified: same state apply twice produces zero changes on second run for every module.
 - [x] Coverage >80% per stdlib module; >85% on engine.
 - [x] Requisite cycles detected with full cycle path in error message.
