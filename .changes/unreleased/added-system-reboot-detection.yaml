@@ -1,0 +1,16 @@
+kind: Added
+body: |-
+  **Cross-distro reboot detection and a `system.rebooted` event across
+  the reboot disconnect.** The `system` module's reboot-needed check
+  previously gated solely on the Debian/Ubuntu
+  `/var/run/reboot-required` marker, so RHEL/Rocky/Fedora always
+  reported no reboot needed; when the marker is absent it now also
+  consults `needs-restarting -r` (dnf-utils), by binary detection.
+  Separately, the agent now stamps its Linux boot-ID on every heartbeat,
+  and when a managed host reboots — heartbeat stops, server marks it
+  stale, a new boot-ID proves the gap was a planned reboot — the control
+  plane emits a new canonical `system.rebooted` event (carrying the
+  old/new boot-ID and whether the reboot coincided with a real
+  disconnect) instead of leaving an unexplained gap. Correlating the
+  event with the originating reboot command, and persisting boot-IDs
+  across server restarts, stay v0.x.

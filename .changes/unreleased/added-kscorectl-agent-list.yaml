@@ -1,0 +1,9 @@
+kind: Added
+body: |-
+  **`kscorectl agent list` subcommand.** Lists registered agents over
+  the gRPC `ControlPlaneService`, rendered as a table
+  (id/status/hostname/os/last-heartbeat/labels) or JSON. Supports
+  `--status` (pending/connected/stale/disabled), `--label key=value`,
+  and `--limit` filters, and inherits the standard
+  `--server`/`--api-key`/`--output` flags (with the `KSCORE_API_KEY`
+  fallback) from the parent `agent` command.

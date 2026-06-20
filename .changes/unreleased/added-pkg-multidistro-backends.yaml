@@ -1,0 +1,15 @@
+kind: Added
+body: |-
+  **`package` module gains dnf, apk, zypper, and pacman backends.** v0.1
+  shipped apt-only (Debian/Ubuntu) and returned `ErrNoBackend` on every
+  other host. The module now auto-detects and dispatches to the native
+  package manager on each supported Linux family — apt (Debian/Ubuntu),
+  dnf+rpm (RHEL/Rocky/Fedora), apk (Alpine), zypper (openSUSE/SLES), and
+  pacman (Arch). dnf and apk are the gate-v0.5 set; zypper and pacman
+  were pulled forward from post-v1.0. Each backend handles its own
+  version-pin syntax (`name=version` for apt/apk/zypper, dnf's
+  `name-version`); pacman, a rolling release with no version-pin install
+  spec, returns `ErrVersionPinUnsupported` rather than silently
+  installing latest. Detection order is apt → dnf → apk → zypper →
+  pacman, so a mixed EPEL-on-RHEL host still resolves to its primary
+  manager.

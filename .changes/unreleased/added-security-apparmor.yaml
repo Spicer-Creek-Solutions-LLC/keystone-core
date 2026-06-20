@@ -1,0 +1,13 @@
+kind: Added
+body: |-
+  **`security` module gains AppArmor per-profile mode management.** The
+  module shipped SELinux-only (mode + booleans); it now also manages
+  AppArmor profiles on Debian/Ubuntu via `apparmor.profile: <name>` +
+  `apparmor.profile_mode: enforce|complain|disable`. The op is selected
+  by which params are set — the same dispatch the module already uses
+  for SELinux — so existing SELinux declarations are unchanged.
+  Idempotency reads `aa-status --json`; mode changes shell out to
+  `aa-enforce`/`aa-complain`/`aa-disable`. Returns
+  `ErrAppArmorUnavailable` when the tooling is absent or AppArmor is not
+  the active LSM. Framework on/off and `apparmor_parser` load/reload
+  stay v0.x.
