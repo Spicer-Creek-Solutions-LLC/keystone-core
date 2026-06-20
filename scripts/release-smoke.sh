@@ -18,7 +18,8 @@
 #                                to the smoke run. Default: 0.
 #
 # Host requirements:
-#   sha256sum, tar, unzip, docker.
+#   sha256sum (or shasum on macOS), tar, unzip, and docker or podman
+#   (honors CONTAINER_ENGINE).
 #   NOT required: rpm, dpkg-deb. The linux-side checks (binary
 #   --version, .deb / .rpm content) run inside debian:12-slim via
 #   scripts/release-smoke-container.sh — debian has dpkg-deb natively
@@ -87,6 +88,20 @@ pass() { printf 'PASS: %s\n' "$*"; }
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 2; }
 info() { printf '  %s\n' "$*"; }
 
+# Container engine: honor CONTAINER_ENGINE, else docker, else podman.
+# Mirrors the Makefile docs-lint-container `cre` idiom so a macOS release
+# host can run the install smoke under either engine.
+CRE="${CONTAINER_ENGINE:-}"
+[ -z "$CRE" ] && CRE="$(command -v docker >/dev/null 2>&1 && echo docker || true)"
+[ -z "$CRE" ] && CRE="$(command -v podman >/dev/null 2>&1 && echo podman || true)"
+
+# sha256 -c that works on Linux (sha256sum) and macOS (shasum -a 256).
+sha256_check() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum --quiet -c "$1"
+  elif command -v shasum >/dev/null 2>&1; then shasum -a 256 -c "$1"
+  else fail "neither sha256sum nor shasum available to verify checksums"; fi
+}
+
 # -- 1. checksums.txt -----------------------------------------------------
 
 check_checksums() {
@@ -94,8 +109,8 @@ check_checksums() {
   local f="$dist/checksums.txt"
   [ -f "$f" ] || fail "checksums.txt missing"
   pass "checksums.txt exists ($(wc -l <"$f") entries)"
-  ( cd "$dist" && sha256sum --quiet -c checksums.txt ) \
-    || fail "sha256sum -c failed against checksums.txt"
+  ( cd "$dist" && sha256_check checksums.txt ) \
+    || fail "sha256 -c failed against checksums.txt"
   pass "all listed files verify against their sha256"
 }
 
@@ -164,23 +179,23 @@ check_archives() {
 # -- 3. linux-side checks (binary --version, deb content, rpm content) ----
 
 check_linux_in_container() {
-  if command -v docker >/dev/null; then
-    printf '\n== linux artifacts (debian:12-slim) ==\n'
+  if [ -n "$CRE" ]; then
+    printf '\n== linux artifacts (debian:12-slim via %s) ==\n' "$CRE"
     # Mount /dist read-only and /smoke read-only with just the in-container
     # script (one file, not the full scripts/ tree). The container script
     # installs rpm via apt, then runs binary --version + deb/rpm content
     # checks. Output is forwarded; container exit code propagates.
-    docker run --rm \
+    "$CRE" run --rm \
       -v "$dist:/dist:ro" \
       -v "$script_dir/release-smoke-container.sh:/smoke.sh:ro" \
       debian:12-slim \
       bash /smoke.sh /dist \
       || fail "linux-side artifact checks failed (see container output above)"
   else
-    printf '\n== linux artifacts (native — no docker available) ==\n'
-    # Native fallback for environments without docker (e.g. Forgejo
-    # runner image). release-smoke-container.sh self-adapts: dpkg-deb
-    # is expected, rpm is installed via apt-get only if missing.
+    printf '\n== linux artifacts (native — no container engine available) ==\n'
+    # Native fallback for environments without docker/podman (e.g.
+    # Forgejo runner image). release-smoke-container.sh self-adapts:
+    # dpkg-deb is expected, rpm is installed via apt-get only if missing.
     bash "$script_dir/release-smoke-container.sh" "$dist" \
       || fail "linux-side artifact checks failed (native mode)"
   fi
@@ -194,8 +209,8 @@ check_install_smoke() {
     info "RELEASE_SMOKE_CONTAINERS=0 (skipped — set =1 to enable)"
     return 0
   fi
-  if ! command -v docker >/dev/null; then
-    info "docker unavailable — skipping install smoke (RELEASE_SMOKE_CONTAINERS=1 ignored)"
+  if [ -z "$CRE" ]; then
+    info "no container engine (docker/podman) — skipping install smoke (RELEASE_SMOKE_CONTAINERS=1 ignored)"
     return 0
   fi
 
@@ -211,7 +226,7 @@ check_install_smoke() {
   rpm=$(ls "$dist"/kscore-server_*_linux_"${host_arch}".rpm | head -n1)
 
   info "debian:12-slim + $(basename "$deb")"
-  docker run --rm -v "$dist:/dist:ro" debian:12-slim bash -c '
+  "$CRE" run --rm -v "$dist:/dist:ro" debian:12-slim bash -c '
     set -e
     dpkg -i /dist/'"$(basename "$deb")"' >/dev/null 2>&1
     [ -x /usr/bin/kscore-server ] || { echo "binary not installed at /usr/bin/kscore-server"; exit 1; }
@@ -221,7 +236,7 @@ check_install_smoke() {
   pass "debian:12-slim: dpkg -i + --version + systemd unit present"
 
   info "rockylinux:9 + $(basename "$rpm")"
-  docker run --rm -v "$dist:/dist:ro" rockylinux:9 bash -c '
+  "$CRE" run --rm -v "$dist:/dist:ro" rockylinux:9 bash -c '
     set -e
     rpm -i --nodeps /dist/'"$(basename "$rpm")"' >/dev/null 2>&1
     [ -x /usr/bin/kscore-server ] || { echo "binary not installed at /usr/bin/kscore-server"; exit 1; }
