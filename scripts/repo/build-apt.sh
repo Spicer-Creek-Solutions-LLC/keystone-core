@@ -44,7 +44,11 @@ aptroot="$out/apt"
 pool="$aptroot/pool/$COMPONENT"
 distdir="$aptroot/dists/$channel"
 
-rm -rf "$aptroot"
+# Accumulate: do NOT wipe the pool — the repo carries multiple versions
+# so users can pin/downgrade. New packages are merged in (a rebuilt same
+# version overwrites by filename; a new version coexists), and the
+# indices below are regenerated over the whole pool. The publish flow
+# seeds this pool from the server first (server-canonical).
 mkdir -p "$pool"
 for arch in $ARCHES; do
   mkdir -p "$distdir/$COMPONENT/binary-$arch"
@@ -60,7 +64,10 @@ set -euo pipefail
 cd "$APTROOT"
 for arch in $ARCHES; do
   idx="dists/$CHANNEL/$COMPONENT/binary-$arch/Packages"
-  dpkg-scanpackages --arch "$arch" "pool/$COMPONENT" > "$idx" 2>/dev/null
+  # --multiversion: emit a stanza for EVERY version in the pool, not just
+  # the newest, so clients can pin/downgrade (apt installs the highest by
+  # default; `apt-get install kscore-cli=<ver>` selects an older one).
+  dpkg-scanpackages --multiversion --arch "$arch" "pool/$COMPONENT" > "$idx" 2>/dev/null
   gzip -9c "$idx" > "$idx.gz"
 done
 apt-ftparchive \

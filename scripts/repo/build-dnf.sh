@@ -31,8 +31,11 @@ packages=${1:?usage: build-dnf.sh <packages-dir> <out-dir> <channel>}
 out=${2:?missing out-dir}
 channel=${3:?missing channel}
 
+# Accumulate: do NOT wipe the tree — the repo carries multiple versions
+# for pin/downgrade. New rpms are merged in and the per-arch metadata is
+# regenerated over everything present. The publish flow seeds this from
+# the server first (server-canonical).
 rpmroot="$out/rpm/$channel"
-rm -rf "$rpmroot"
 mkdir -p "$rpmroot/x86_64" "$rpmroot/aarch64"
 
 # Route each .rpm to its arch dir. goreleaser names nfpm rpms
@@ -49,6 +52,9 @@ done
 
 run_createrepo() {
   local dir=$1
+  # Refresh metadata cleanly (keep the .rpm files, drop stale repodata so
+  # no orphaned indexes linger in the cache or on the server).
+  rm -rf "$dir/repodata"
   if ! want_container createrepo_c; then
     createrepo_c --quiet "$dir"
     return 0

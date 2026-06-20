@@ -47,7 +47,7 @@ export CGO_ENABLED := 0
         dev dev-server dev-agent \
         e2e-build e2e-up e2e-down e2e-logs e2e-test e2e-test-docker \
         release-snapshot release release-dry-run release-config-check release-smoke \
-        repo-build repo-smoke repo-clean \
+        repo-build repo-smoke repo-publish repo-clean \
         security-secrets security-vulns security-sast security-licenses
 
 # ---- Help (default) -------------------------------------------------------
@@ -623,6 +623,12 @@ repo-build: ## Build signed apt + dnf repositories from dist/ into dist/repos/ (
 
 repo-smoke: ## Install-test dist/repos/ in debian:12-slim (apt) + rockylinux:9 (dnf)
 	scripts/repo/smoke.sh dist/repos/
+
+repo-publish: ## Publish to the server: pull, merge dist/, sign, push (REPO_PUBLISH_DEST=user@host:/path REPO_SIGN=key:<id>; flags via REPO_PUBLISH_FLAGS)
+	# Server-canonical, multi-version. First ever publish: append
+	# REPO_PUBLISH_FLAGS=--first-publish. Preview with =--dry-run. See
+	# deploy/repos/README.md.
+	scripts/repo/publish.sh $(REPO_PUBLISH_FLAGS)
 
 repo-clean: ## Remove the generated dist/repos/ tree
 	rm -rf dist/repos/

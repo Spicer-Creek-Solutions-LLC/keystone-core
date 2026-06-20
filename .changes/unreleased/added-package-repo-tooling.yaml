@@ -18,6 +18,13 @@ body: |-
   from macOS with only `gpg` + a container engine — signing always runs
   on the host, keeping the key out of any container. `release-smoke` is
   likewise docker/podman-agnostic and macOS-safe. Operator install
-  templates land under `deploy/repos/`. Publishing to the live host (scp)
-  and leading the getting-started guide with the `apt install` /
-  `dnf install` path are follow-ups.
+  templates land under `deploy/repos/`. `make repo-publish` ships the tree
+  to the self-hosted server over rsync-over-ssh: it is **server-canonical
+  with an incremental local cache** and **multi-version**, so it pulls the
+  current repo, merges the new release, regenerates the metadata over
+  every published version (users can pin/downgrade —
+  `apt-get install kscore-cli=<ver>`), verifies signatures, and uploads
+  with `--delay-updates` for a near-atomic switchover, refusing to publish
+  a test-key or unsigned tree. Leading the getting-started guide with the
+  `apt install` / `dnf install` path and per-package RPM signing remain
+  follow-ups.

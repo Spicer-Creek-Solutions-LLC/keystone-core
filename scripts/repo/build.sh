@@ -94,7 +94,7 @@ out=$(cd "$out" && pwd)
 # operator's keyring.
 export REPO_GPG_KEY=""
 testkey_home=""
-cleanup() { [ -n "$testkey_home" ] && rm -rf "$testkey_home"; }
+cleanup() { [ -n "$testkey_home" ] && rm -rf "$testkey_home"; return 0; }
 trap cleanup EXIT
 
 case "$sign" in
@@ -149,5 +149,7 @@ echo ""
 echo "repo-build: ok — repository tree at $out"
 echo "  apt: $out/apt/dists/$channel"
 echo "  rpm: $out/rpm/$channel"
-[ "$sign" = test ] && echo "  NOTE: test-key signed — see TESTKEY-DO-NOT-PUBLISH; do not scp this tree."
+if [ "$sign" = test ]; then
+  echo "  NOTE: test-key signed — see TESTKEY-DO-NOT-PUBLISH; do not scp this tree."
+fi
 exit 0

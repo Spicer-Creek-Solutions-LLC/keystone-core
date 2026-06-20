@@ -92,16 +92,54 @@ make repo-smoke      # serves dist/repos/ and installs kscore-cli in
 With a test- or real-key-signed tree this exercises signature
 verification end-to-end (`signed-by` for apt, `repo_gpgcheck=1` for dnf).
 
-## Publish (Phase 2 — not yet automated)
+## Publish
 
-The production repositories are self-hosted and published by `scp`-ing
-the built tree to the web root on the server behind
-`repos.keystone-core.io`. The scp publish script, the live signing key,
-and flipping [`GETTING-STARTED.md`](../../docs/project/GETTING-STARTED.md)
-to lead with the repo-install path are tracked as the Phase-2 follow-up
-in the ROADMAP entry. Until then, build with a real key and copy
-`dist/repos/` to the web root manually; the `keystone-core-archive-keyring.asc`
-at the web root is what the install snippets below import.
+The production repositories are self-hosted behind `repos.keystone-core.io`
+and published with `make repo-publish` (rsync over ssh). The model is
+**server-canonical with an incremental local cache**: the server holds
+the authoritative set of every published version, and the build host is
+just a cache — losing it only triggers a re-pull.
+
+```sh
+make repo-publish \
+  REPO_PUBLISH_DEST=deploy@repos.keystone-core.io:/srv/www/repos \
+  REPO_SIGN=key:ABCD1234
+```
+
+Each publish:
+
+1. **pulls** the server's current repo into the local cache (`REPO_DIR`,
+   default `dist/repos/`),
+2. **merges** this release's `dist/*.deb,*.rpm` and regenerates the
+   metadata over the **full** set, so every published version stays
+   installable — users can pin/downgrade
+   (`apt-get install kscore-cli=<ver>` / `dnf install kscore-cli-<ver>`),
+3. **verifies** the signatures locally (and refuses a test-key or
+   unsigned tree),
+4. **uploads** with `rsync --delay-updates` (near-atomic: a client's
+   `apt-get update` never sees metadata pointing at a not-yet-uploaded
+   package),
+5. **verifies the live URL** when `REPO_PUBLIC_URL` is set.
+
+The destination (`REPO_PUBLISH_DEST`) is taken verbatim — host, user, and
+remote path are entirely yours to set. The GPG key signs on the host;
+nothing here uploads key material.
+
+| Variable | Purpose |
+|----------|---------|
+| `REPO_PUBLISH_DEST` | rsync web-root destination (`user@host:/path`) — **required** |
+| `REPO_SIGN` | `key:<gpg-id>` — required; `test`/`skip` are refused |
+| `REPO_DIR` | local cache dir (default `dist/repos/`) |
+| `REPO_PUBLIC_URL` | `https://repos.keystone-core.io` for the live check (optional) |
+| `REPO_PUBLISH_FLAGS` | `--first-publish` (empty server) or `--dry-run` |
+
+The very first publish to an empty server takes
+`REPO_PUBLISH_FLAGS=--first-publish` (skips the pull and the prune).
+
+Still a follow-up: flipping
+[`GETTING-STARTED.md`](../../docs/project/GETTING-STARTED.md) to lead with
+the repo-install path, and per-package RPM signing (`gpgcheck=1`) with the
+release-signing ceremony.
 
 ## Operator install
 
