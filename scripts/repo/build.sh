@@ -28,9 +28,12 @@
 #                 unless they disable signature checks)
 #
 # Host requirements:
-#   apt-ftparchive, dpkg-scanpackages, gzip, gpg.
-#   createrepo_c if present, else docker (the rpm metadata is built in a
-#   rockylinux:9 container — same fallback pattern as release-smoke.sh).
+#   gpg (signing runs on the host so the key never enters a container).
+#   The Debian/rpm index tools (apt-ftparchive, dpkg-scanpackages,
+#   createrepo_c) run natively when present, else in debian:12-slim /
+#   rockylinux:9 via docker or podman — so a macOS release host only
+#   needs gpg + a container engine. Honors CONTAINER_ENGINE; set
+#   KSCORE_REPO_CONTAINER=1 to force the container path on Linux too.
 #
 # Exit codes:
 #   0  repository built
@@ -61,10 +64,17 @@ done
 die() { echo "repo-build: $*" >&2; exit "${2:-2}"; }
 need() { command -v "$1" >/dev/null 2>&1 || die "missing required tool: $1 ($2)" 1; }
 
-need apt-ftparchive "Debian apt-utils — apt-get install apt-utils"
-need dpkg-scanpackages "Debian dpkg-dev — apt-get install dpkg-dev"
-need gzip "coreutils"
+# gpg signs on the host so the key never enters a container. The Debian/
+# rpm index tools are resolved per build-apt.sh / build-dnf.sh (native or
+# containerised), so they are NOT required on the host — that is what
+# lets a macOS release host get by with gpg + a container engine.
 need gpg "GnuPG"
+if ! command -v apt-ftparchive >/dev/null 2>&1 || ! command -v createrepo_c >/dev/null 2>&1 \
+   || [ "${KSCORE_REPO_CONTAINER:-0}" = "1" ]; then
+  command -v docker >/dev/null 2>&1 || command -v podman >/dev/null 2>&1 \
+    || command -v "${CONTAINER_ENGINE:-}" >/dev/null 2>&1 \
+    || die "host lacks the native index tools; docker or podman is required (or set CONTAINER_ENGINE)" 1
+fi
 
 [ -d "$packages" ] || die "packages dir does not exist: $packages" 1
 packages=$(cd "$packages" && pwd)

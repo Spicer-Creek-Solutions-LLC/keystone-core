@@ -11,7 +11,13 @@ body: |-
   ephemeral throwaway key for local validation (`REPO_SIGN=test`), or
   unsigned dev builds (`REPO_SIGN=skip`). `make repo-smoke` install-tests
   the tree in fresh `debian:12-slim` (apt) and `rockylinux:9` (dnf)
-  containers, exercising signature verification end-to-end. Operator
-  install templates land under `deploy/repos/`. Publishing to the live
-  host (scp) and leading the getting-started guide with the
-  `apt install` / `dnf install` path are follow-ups.
+  containers (over `file://`), exercising signature verification
+  end-to-end. The Linux-only index tools (`apt-ftparchive`,
+  `dpkg-scanpackages`, `createrepo_c`) run in those containers via
+  **docker or podman** when absent on the host, so the whole flow runs
+  from macOS with only `gpg` + a container engine — signing always runs
+  on the host, keeping the key out of any container. `release-smoke` is
+  likewise docker/podman-agnostic and macOS-safe. Operator install
+  templates land under `deploy/repos/`. Publishing to the live host (scp)
+  and leading the getting-started guide with the `apt install` /
+  `dnf install` path are follow-ups.

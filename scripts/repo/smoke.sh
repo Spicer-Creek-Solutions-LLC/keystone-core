@@ -4,17 +4,21 @@
 #
 # scripts/repo/smoke.sh — install-test a built package-repository tree.
 #
-# Serves the repo tree over a throwaway local HTTP server and installs
-# kscore-cli from it in fresh debian:12-slim (apt) and rockylinux:9 (dnf)
-# containers — the repo-side analogue of release-smoke.sh's package
-# install checks. When the tree carries a signing pubkey
-# (keystone-core-archive-keyring.asc), signature verification is
-# exercised end-to-end (apt signed-by + dnf repo_gpgcheck=1).
+# Mounts the repo tree into fresh debian:12-slim (apt) and rockylinux:9
+# (dnf) containers and installs kscore-cli from it via file:// — the
+# repo-side analogue of release-smoke.sh's package install checks. When
+# the tree carries a signing pubkey (keystone-core-archive-keyring.asc),
+# signature verification is exercised end-to-end (apt signed-by + dnf
+# repo_gpgcheck=1).
+#
+# file:// (not a host HTTP server) is deliberate: it works identically on
+# Linux and macOS, where docker/podman run a Linux VM and a host-side
+# server is not reachable as localhost from inside a container.
 #
 # Usage:
 #   scripts/repo/smoke.sh <repo-tree-dir> [channel]
 #
-# Host requirements: docker, python3.
+# Host requirements: docker or podman (honors CONTAINER_ENGINE).
 #
 # Exit codes:
 #   0  apt + dnf install smoke passed
@@ -24,43 +28,33 @@
 
 set -euo pipefail
 
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/repo/lib.sh
+. "$here/lib.sh"
+
 tree=${1:?usage: smoke.sh <repo-tree-dir> [channel]}
 channel=${2:-stable}
-port=${REPO_SMOKE_PORT:-8973}
 
 [ -d "$tree" ] || { echo "repo-smoke: $tree does not exist" >&2; exit 1; }
 tree=$(cd "$tree" && pwd)
-command -v docker  >/dev/null 2>&1 || { echo "repo-smoke: docker required" >&2; exit 1; }
-command -v python3 >/dev/null 2>&1 || { echo "repo-smoke: python3 required" >&2; exit 1; }
+engine=$(container_engine) || { echo "repo-smoke: docker or podman required" >&2; exit 1; }
 
 keyring=""
 [ -f "$tree/keystone-core-archive-keyring.asc" ] && keyring=/repo/keystone-core-archive-keyring.asc
 [ -n "$keyring" ] || echo "repo-smoke: WARNING — no signing pubkey in tree; testing with signature checks DISABLED" >&2
 
-# ---- Serve the tree on localhost -----------------------------------------
-python3 -m http.server "$port" --bind 127.0.0.1 --directory "$tree" >/dev/null 2>&1 &
-http_pid=$!
-cleanup() { kill "$http_pid" 2>/dev/null || true; }
-trap cleanup EXIT
-# Wait for the server to accept connections.
-for _ in $(seq 1 50); do
-  (exec 3<>/dev/tcp/127.0.0.1/"$port") 2>/dev/null && { exec 3>&- 3<&-; break; }
-  sleep 0.2
-done
-
-base="http://127.0.0.1:$port"
 fail=0
 
 # ---- APT (debian:12-slim) ------------------------------------------------
-echo "== repo-smoke: apt install in debian:12-slim =="
+echo "== repo-smoke: apt install in debian:12-slim (via $engine) =="
 if [ -n "$keyring" ]; then
-  apt_src="deb [signed-by=/etc/apt/keyrings/keystone-core.gpg] $base/apt $channel main"
+  apt_src="deb [signed-by=/etc/apt/keyrings/keystone-core.gpg] file:/repo/apt $channel main"
   apt_key_setup="install -d /etc/apt/keyrings && gpg --dearmor < $keyring > /etc/apt/keyrings/keystone-core.gpg"
 else
-  apt_src="deb [trusted=yes] $base/apt $channel main"
+  apt_src="deb [trusted=yes] file:/repo/apt $channel main"
   apt_key_setup="true"
 fi
-if docker run --rm --network host -v "$tree":/repo:ro debian:12-slim bash -c "
+if "$engine" run --rm -v "$tree":/repo:ro debian:12-slim bash -c "
   set -e
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
@@ -74,19 +68,19 @@ if docker run --rm --network host -v "$tree":/repo:ro debian:12-slim bash -c "
 "; then echo "  apt smoke: PASS"; else echo "  apt smoke: FAIL" >&2; fail=1; fi
 
 # ---- DNF (rockylinux:9) --------------------------------------------------
-echo "== repo-smoke: dnf install in rockylinux:9 =="
+echo "== repo-smoke: dnf install in rockylinux:9 (via $engine) =="
 if [ -n "$keyring" ]; then
   dnf_gpg="repo_gpgcheck=1
 gpgkey=file://$keyring"
 else
   dnf_gpg="repo_gpgcheck=0"
 fi
-if docker run --rm --network host -v "$tree":/repo:ro rockylinux:9 bash -c "
+if "$engine" run --rm -v "$tree":/repo:ro rockylinux:9 bash -c "
   set -e
   cat > /etc/yum.repos.d/keystone-core.repo <<EOF
 [keystone-core]
 name=Keystone Core
-baseurl=$base/rpm/$channel/\\\$basearch
+baseurl=file:///repo/rpm/$channel/\\\$basearch
 enabled=1
 gpgcheck=0
 $dnf_gpg

@@ -65,6 +65,23 @@ make repo-build REPO_SIGN=skip           # unsigned (dev only)
 `REPO_SIGN=test` writes a `TESTKEY-DO-NOT-PUBLISH` marker into the tree.
 The publish step (Phase 2) refuses to push a tree carrying that marker.
 
+### Running from macOS (or any host without the Debian/rpm tools)
+
+The repository index tools (`apt-ftparchive`, `dpkg-scanpackages`,
+`createrepo_c`) are Linux-only. When they are not on the host — the
+release-from-a-Mac case — `repo-build` generates the metadata inside
+`debian:12-slim` / `rockylinux:9` via **docker or podman** automatically;
+only `gpg` and a container engine are needed on the host. **Signing
+always runs on the host, so the GPG key never enters a container.**
+
+- The container engine is resolved as `CONTAINER_ENGINE` (if set) → else
+  `docker` → else `podman`.
+- `make repo-smoke` mounts the tree and installs over `file://` (no host
+  HTTP server), so it works the same on macOS, where the engine runs a
+  Linux VM and a host-side server is not reachable from a container.
+- Set `KSCORE_REPO_CONTAINER=1` to force the container path on a Linux
+  host (used to validate the macOS code path).
+
 ## Verify locally
 
 ```sh

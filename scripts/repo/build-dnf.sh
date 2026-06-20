@@ -23,6 +23,10 @@
 
 set -euo pipefail
 
+here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=scripts/repo/lib.sh
+. "$here/lib.sh"
+
 packages=${1:?usage: build-dnf.sh <packages-dir> <out-dir> <channel>}
 out=${2:?missing out-dir}
 channel=${3:?missing channel}
@@ -45,20 +49,22 @@ done
 
 run_createrepo() {
   local dir=$1
-  if command -v createrepo_c >/dev/null 2>&1; then
+  if ! want_container createrepo_c; then
     createrepo_c --quiet "$dir"
-  elif command -v docker >/dev/null 2>&1; then
-    # Build metadata in a container, then chown the output back to the
-    # invoking user so `make clean` / scp don't trip over root-owned files.
-    docker run --rm -v "$dir":/data rockylinux:9 sh -c \
-      'dnf -q -y install createrepo_c >/dev/null 2>&1 && createrepo_c --quiet /data' \
-      || { echo "build-dnf: createrepo_c container run failed" >&2; return 2; }
-    docker run --rm -v "$dir":/data rockylinux:9 \
-      chown -R "$(id -u):$(id -g)" /data
-  else
-    echo "build-dnf: need createrepo_c or docker to build rpm metadata" >&2
-    return 1
+    return 0
   fi
+  local engine
+  engine=$(container_engine) || {
+    echo "build-dnf: need createrepo_c on host, or docker/podman" >&2; return 1; }
+  # Build metadata in a container (the macOS reality — createrepo_c is
+  # Linux-only), then chown the output back to the invoking user so
+  # `make clean` / scp don't trip over root-owned files.
+  echo "build-dnf: generating $(basename "$dir") metadata in rockylinux:9 via $engine"
+  "$engine" run --rm -v "$dir":/data rockylinux:9 sh -c \
+    'dnf -q -y install createrepo_c >/dev/null 2>&1 && createrepo_c --quiet /data' \
+    || { echo "build-dnf: createrepo_c container run failed" >&2; return 2; }
+  "$engine" run --rm -v "$dir":/data rockylinux:9 \
+    chown -R "$(id -u):$(id -g)" /data
 }
 
 for arch in x86_64 aarch64; do
