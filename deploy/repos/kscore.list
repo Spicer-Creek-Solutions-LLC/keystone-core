@@ -1,0 +1,11 @@
+# Keystone Core APT repository — https://repos.keystone-core.io
+#
+# Install to /etc/apt/sources.list.d/keystone-core.list. Import the
+# signing key first (see deploy/repos/README.md):
+#
+#   sudo install -d /etc/apt/keyrings
+#   curl -fsSL https://repos.keystone-core.io/keystone-core-archive-keyring.asc \
+#     | sudo gpg --dearmor -o /etc/apt/keyrings/keystone-core.gpg
+#
+# Then:  sudo apt-get update && sudo apt-get install kscore-cli
+deb [signed-by=/etc/apt/keyrings/keystone-core.gpg] https://repos.keystone-core.io/apt stable main

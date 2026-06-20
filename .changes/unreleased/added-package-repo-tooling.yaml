@@ -1,0 +1,17 @@
+kind: Added
+body: |-
+  **Tooling to build signed APT and DNF/YUM package repositories.** New
+  `make repo-build` / `repo-smoke` / `repo-clean` targets (backed by
+  `scripts/repo/`) turn the `.deb` / `.rpm` artifacts from
+  `make release-snapshot` into a host-agnostic static repository tree —
+  an `apt-ftparchive` `dists/stable` pool with a signed `InRelease`, and
+  per-arch `createrepo_c` metadata with a signed `repomd.xml.asc` — ready
+  to serve from `repos.keystone-core.io`. Signing supports a real GPG key
+  (`REPO_SIGN=key:<id>`, the same key as the release ceremony), an
+  ephemeral throwaway key for local validation (`REPO_SIGN=test`), or
+  unsigned dev builds (`REPO_SIGN=skip`). `make repo-smoke` install-tests
+  the tree in fresh `debian:12-slim` (apt) and `rockylinux:9` (dnf)
+  containers, exercising signature verification end-to-end. Operator
+  install templates land under `deploy/repos/`. Publishing to the live
+  host (scp) and leading the getting-started guide with the
+  `apt install` / `dnf install` path are follow-ups.

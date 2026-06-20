@@ -47,6 +47,7 @@ export CGO_ENABLED := 0
         dev dev-server dev-agent \
         e2e-build e2e-up e2e-down e2e-logs e2e-test e2e-test-docker \
         release-snapshot release release-dry-run release-config-check release-smoke \
+        repo-build repo-smoke repo-clean \
         security-secrets security-vulns security-sast security-licenses
 
 # ---- Help (default) -------------------------------------------------------
@@ -607,6 +608,24 @@ release: ## Build the full release artifact set into dist/ WITHOUT publishing.
 	# the playbook's manual signing + upload steps take it from
 	# here.
 	goreleaser release --skip=publish --clean
+
+# ---- Package repositories (apt/dnf) ---------------------------------------
+# Build + verify the hosted apt/dnf repositories for
+# repos.keystone-core.io from the .deb/.rpm in dist/. See
+# deploy/repos/README.md. REPO_SIGN selects the signing mode:
+#   key:<keyid>  sign with a real gpg key (the publish flow)
+#   test         ephemeral throwaway key — local validation (default)
+#   skip         unsigned (dev only)
+REPO_SIGN ?= test
+
+repo-build: ## Build signed apt + dnf repositories from dist/ into dist/repos/ (REPO_SIGN=test|skip|key:<id>)
+	scripts/repo/build.sh --packages dist/ --out dist/repos/ --sign "$(REPO_SIGN)"
+
+repo-smoke: ## Install-test dist/repos/ in debian:12-slim (apt) + rockylinux:9 (dnf)
+	scripts/repo/smoke.sh dist/repos/
+
+repo-clean: ## Remove the generated dist/repos/ tree
+	rm -rf dist/repos/
 
 # ---- Security -------------------------------------------------------------
 
