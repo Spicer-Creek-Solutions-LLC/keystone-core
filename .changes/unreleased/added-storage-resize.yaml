@@ -1,0 +1,14 @@
+kind: Added
+body: |-
+  **`disk` filesystem resize and `lvm` LV/VG reconciliation.** Both
+  modules were create-only — an LV below its declared size, a VG whose
+  PV set had drifted, or a filesystem not filling a grown device was
+  left unreconciled. Now `disk` with `resize_fs: true` grows ext2/3/4
+  (`resize2fs`), xfs (`xfs_growfs`), btrfs (`btrfs filesystem resize`),
+  and f2fs (`resize.f2fs`) to fill the block device, each only when it
+  does not already fill it (idempotent, never shrinks). `lvm` grows a
+  size-based LV (`lvextend`, optionally `--resizefs`) using "at least"
+  semantics that never shrink, and reconciles an existing VG's PV set
+  (`vgextend`/`vgreduce`, matched against LVM's canonical `pv_name`).
+  `vgreduce` runs without `-f`, so LVM refuses to drop a PV still
+  holding extents. `extents`-based LVs stay create-only.

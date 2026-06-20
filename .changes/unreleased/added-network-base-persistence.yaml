@@ -1,0 +1,15 @@
+kind: Added
+body: |-
+  **Boot-survive persistence for the network-base modules (`network`,
+  `route`, `bond`, `bridge`, `vlan`).** These modules previously
+  reconciled only the live runtime config (`ip` ops), which does not
+  survive a reboot. A new opt-in `persist: networkd|netplan|auto`
+  declaration additionally renders a boot-survive file — a
+  systemd-networkd unit/drop-in under `/etc/systemd/network/` or a
+  netplan YAML document under `/etc/netplan/` — mirroring the declared
+  addresses, routes, MTU, and device attributes. It is additive to the
+  runtime reconcile (the file is for the next boot; the runtime is
+  already live), and `auto` picks netplan when `/etc/netplan` exists
+  else networkd. networkd drop-ins are the multi-route / multi-member
+  backend (netplan replaces lists across files). NetworkManager, RHEL
+  `ifcfg-*`, and `ifupdown` renderers remain v0.x.

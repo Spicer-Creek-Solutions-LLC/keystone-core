@@ -1,0 +1,14 @@
+kind: Added
+body: |-
+  **CA private keys can be encrypted at rest (`EncryptedFileCAStorage`).**
+  Setting `identity.encryption_key` (an `env:`/`file:`/`inline:`
+  master-key source) seals the persisted CA private-key files
+  (`root-key.pem`, `signing-key.pem`) as AES-256-GCM envelopes while
+  leaving the certificate files as ordinary public PEM; leaving it empty
+  keeps the backward-compatible plaintext `FileCAStorage`. The envelope
+  carries a master-key fingerprint and per-write nonce, so a wrong key
+  fails fast on the fingerprint guard, a tampered file fails GCM
+  authentication, and a still-plaintext key is reported with a migration
+  hint rather than failing opaquely. The key bytes never log — only the
+  fingerprint. `kscore-identity ca encrypt` migrates an existing
+  plaintext CA directory in place.

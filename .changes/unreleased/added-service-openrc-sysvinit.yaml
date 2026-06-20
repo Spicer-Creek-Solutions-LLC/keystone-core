@@ -1,0 +1,11 @@
+kind: Added
+body: |-
+  **`service` module gains OpenRC and sysvinit backends.** v0.1 shipped
+  systemd-only and returned `ErrNoBackend` from mutating ops on
+  non-systemd hosts. The module now auto-detects the host init system
+  and dispatches accordingly: systemd (Debian/Ubuntu/RHEL/Rocky), OpenRC
+  (Alpine/Gentoo, via `rc-service` + `rc-update` managing the default
+  runlevel), and sysvinit (older RHEL/CentOS/Devuan, via `chkconfig` /
+  `update-rc.d`). OpenRC is the gate-v0.5 backend; sysvinit was pulled
+  forward from post-v1.0. launchd (macOS) remains post-v1.0. systemd
+  stays preferred when more than one init system is present.

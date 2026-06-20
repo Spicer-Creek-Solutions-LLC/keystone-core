@@ -1,0 +1,13 @@
+kind: Fixed
+body: |-
+  **Command-completion audit records now carry the requesting
+  principal.** When an agent reported a command result, the
+  control-plane's terminal audit callback fired with an empty principal
+  because the dispatch-time identity was stamped into the NATS message
+  but never persisted on the command record — so the audit log lost the
+  actor that requested the dispatch. The `commands` table gains a
+  `principal` column (added via an idempotent inline migration on both
+  Postgres and SQLite), populated on dispatch and surfaced on both the
+  result and timeout-sweep terminal paths. `Principal` (the operator /
+  SPIFFE identity that requested the dispatch) is documented as distinct
+  from `User` (the OS user the command runs as on the host).
