@@ -1,16 +1,17 @@
 # Keystone Core DNF/YUM repository — https://repos.keystone-core.io
 #
-# Install to /etc/yum.repos.d/keystone-core.repo, then:
-#   sudo dnf install kscore-cli
+# v0.1–v0.7: the repository is UNSIGNED — matching the unsigned release
+# posture (RELEASE-PLAYBOOK §6). Integrity is TLS-to-repos.keystone-core.io;
+# the same trust level as the direct-download `.rpm` + `sha256sum -c` path,
+# with `dnf install` convenience on top. Install to
+# /etc/yum.repos.d/keystone-core.repo, then: sudo dnf install kscore-cli
 #
-# repo_gpgcheck=1 verifies the GPG signature on the repository metadata
-# (repomd.xml.asc). gpgcheck=0 because per-package RPM header signing is
-# a separate hardening step that lands with the release-signing ceremony;
-# the signed metadata already chains to each package's checksum.
+# v0.8+ (signed): the repository gains a GPG signature. Set
+# repo_gpgcheck=1 and add
+#   gpgkey=https://repos.keystone-core.io/keystone-core-archive-keyring.asc
 [keystone-core]
 name=Keystone Core
 baseurl=https://repos.keystone-core.io/rpm/stable/$basearch
 enabled=1
 gpgcheck=0
-repo_gpgcheck=1
-gpgkey=https://repos.keystone-core.io/keystone-core-archive-keyring.asc
+repo_gpgcheck=0

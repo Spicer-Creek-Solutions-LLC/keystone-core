@@ -37,8 +37,17 @@ The web root maps directly to the URLs in the templates:
 
 ## Signing
 
-Both repositories are signed with the **same GPG key as the release
-ceremony** (shared key-onboarding — see
+> **v0.1–v0.7 ship the repositories UNSIGNED**, matching the unsigned
+> release posture ([`RELEASE-PLAYBOOK.md`](../../RELEASE-PLAYBOOK.md) §6).
+> Publish with `REPO_SIGN=unsigned`; clients use `[trusted=yes]` (apt) /
+> `repo_gpgcheck=0` (dnf) per the `kscore.list` / `kscore.repo` templates.
+> The trust level is identical to the direct-download `.deb`/`.rpm` +
+> `sha256sum -c` path (TLS-to-host, no signature) — the repo just adds
+> `apt install` / `dnf install` convenience. **Signatures land at v0.8.**
+> The rest of this section describes the v0.8+ signed flow.
+
+From v0.8 both repositories are signed with the **same GPG key as the
+release ceremony** (shared key-onboarding — see
 [`RELEASE-PLAYBOOK.md`](../../RELEASE-PLAYBOOK.md) §2). The signature
 covers the repository metadata, which in turn carries the checksum of
 every package:
@@ -101,6 +110,12 @@ the authoritative set of every published version, and the build host is
 just a cache — losing it only triggers a re-pull.
 
 ```sh
+# v0.1–v0.7 (unsigned):
+make repo-publish \
+  REPO_PUBLISH_DEST=deploy@repos.keystone-core.io:/srv/www/repos \
+  REPO_SIGN=unsigned
+
+# v0.8+ (signed):
 make repo-publish \
   REPO_PUBLISH_DEST=deploy@repos.keystone-core.io:/srv/www/repos \
   REPO_SIGN=key:ABCD1234
@@ -114,8 +129,8 @@ Each publish:
    metadata over the **full** set, so every published version stays
    installable — users can pin/downgrade
    (`apt-get install kscore-cli=<ver>` / `dnf install kscore-cli-<ver>`),
-3. **verifies** the signatures locally (and refuses a test-key or
-   unsigned tree),
+3. **verifies** the signatures locally when signing (`REPO_SIGN=key:…`);
+   `REPO_SIGN=unsigned` skips signing. A test-key tree is always refused,
 4. **uploads** with `rsync --delay-updates` (near-atomic: a client's
    `apt-get update` never sees metadata pointing at a not-yet-uploaded
    package),
@@ -128,7 +143,7 @@ nothing here uploads key material.
 | Variable | Purpose |
 |----------|---------|
 | `REPO_PUBLISH_DEST` | rsync web-root destination (`user@host:/path`) — **required** |
-| `REPO_SIGN` | `key:<gpg-id>` — required; `test`/`skip` are refused |
+| `REPO_SIGN` | `key:<gpg-id>` (signed) or `unsigned` (v0.1–v0.7) — required; `test`/`skip` are refused |
 | `REPO_DIR` | local cache dir (default `dist/repos/`) |
 | `REPO_PUBLIC_URL` | `https://repos.keystone-core.io` for the live check (optional) |
 | `REPO_PUBLISH_FLAGS` | `--first-publish` (empty server) or `--dry-run` |
