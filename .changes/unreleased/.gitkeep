@@ -1,0 +1,6 @@
+# Keeps .changes/unreleased/ tracked even when it holds no pending
+# changelog fragments (e.g. right after `make changelog-batch` archives
+# them). Without this the directory vanishes on a fresh checkout and the
+# `.changes/unreleased/` links in CHANGELOG.md / CONTRIBUTING.md break the
+# docs-links (lychee) check. changie globs *.yaml, so this file is ignored
+# by `changie new` / `changie batch`. Do not delete.
