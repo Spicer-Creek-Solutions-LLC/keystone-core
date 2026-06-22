@@ -23,7 +23,8 @@ ladder + signing model:
 
 | Release line | Signing model | Status |
 |--------------|---------------|--------|
-| `v0.x.y` (`v0.1` → `v0.9`) | **Single-signer** — same posture as v1.0/v1.1; this is what the first public release (v0.1.0) ships under. Breaking changes between minor versions allowed per [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md). | Active |
+| `v0.1` → `v0.7.x` | **Unsigned** — `sha256sum -c` + TLS-to-forge is the integrity check; no signed tags/checksums/SBOMs. Extends the v0.1.0 soft-launch carve-out across the early v0.x line (incl. the v0.5 external-tester milestone) — see §6. Breaking changes between minor versions allowed per [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md). | Active |
+| `v0.8.x` → `v0.9.x` | **Single-signer** — release signing begins at v0.8 (the supply-chain milestone); same posture as v1.0/v1.1. | Planned |
 | `v1.0.x` | **Single-signer** — one maintainer plays Release Manager + Signer + Witness. SemVer stability begins. | Planned (cuts when all 19 epics complete) |
 | `v1.1.x` | **Single-signer** — same posture as v0.x and v1.0; pre-graduation. | Planned |
 | `v1.2.x` and later | **Multi-party** — ≥3 independent signers, threshold-2 quorum on all signing operations. | Target |
@@ -674,24 +675,28 @@ release identity.
 Signing is performed on an air-gapped machine. The artifacts are
 transferred via read-only media (USB drive, SD card) from the build machine.
 
-> **v0.1.0-only carve-out (one-time):** v0.1.0 ships **unsigned** —
-> no signed tag, no signed `checksums.txt`, no signed SBOM, no signed
-> release record. The signing-key generation ceremony (§2) and the
-> signing steps in this phase are **skipped for v0.1.0 only**.
-> Operators verify v0.1.0 against `sha256sum -c checksums.txt`; trust
-> model collapses to TLS-to-codeberg.org + Codeberg's own
-> authentication infrastructure.
+> **Unsigned through v0.7.x (carve-out):** every release on the
+> `v0.1` – `v0.7.x` line ships **unsigned** — no signed tag, no signed
+> `checksums.txt`, no signed SBOM, no signed release record. The
+> signing-key generation ceremony (§2) and the signing steps in this
+> phase are **skipped through v0.7.x**. Operators verify against
+> `sha256sum -c checksums.txt`; trust model is TLS-to-codeberg.org +
+> Codeberg's own authentication infrastructure. This includes the v0.5
+> external-tester milestone: testers verify via checksums.
 >
-> **v0.2.0 onward**: §2 single-signer key ceremony runs; this phase
-> runs as written; the carve-out is removed.
+> **v0.8.0 onward**: §2 single-signer key ceremony runs; this phase
+> runs as written; the carve-out is removed. Release signing is the
+> v0.8 supply-chain milestone — signing-key onboarding lands as one
+> dedicated batch rather than gating each earlier v0.x cut.
 >
 > Rationale, graduation criteria, and tracking entry:
 > [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md) → "Release
 > signing ceremony — signed tags + checksums + SBOMs" (v0.x bucket,
-> target v0.2.0). Soft-launch posture for v0.1.0 (per
+> target v0.8). The soft-launch posture (per
 > `docs/project/GOVERNANCE.md` § Launch Posture +
-> `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` F1) accepted the unsigned
-> trust gap for the first cut.
+> `docs/project/PUBLIC-LAUNCH-CHECKLIST.md` F1) that accepted the
+> unsigned trust gap for v0.1.0 is extended across the early v0.x line
+> through v0.7.x.
 
 ### 9a. Sign the Checksums File
 
