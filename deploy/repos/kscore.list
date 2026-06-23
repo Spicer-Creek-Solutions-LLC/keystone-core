@@ -1,11 +1,16 @@
 # Keystone Core APT repository — https://repos.keystone-core.io
 #
-# Install to /etc/apt/sources.list.d/keystone-core.list. Import the
-# signing key first (see deploy/repos/README.md):
-#
+# v0.1–v0.7: the repository is UNSIGNED — matching the unsigned release
+# posture (RELEASE-PLAYBOOK §6). Integrity is TLS-to-repos.keystone-core.io;
+# the same trust level as the direct-download `.deb` + `sha256sum -c` path,
+# with `apt install` convenience on top. Install to
+# /etc/apt/sources.list.d/keystone-core.list, then:
+#   sudo apt-get update && sudo apt-get install kscore-cli
+deb [trusted=yes] https://repos.keystone-core.io/apt stable main
+
+# v0.8+ (signed): the repository gains a GPG signature. Switch to the
+# signed form — import the key, then replace the line above with:
 #   sudo install -d /etc/apt/keyrings
 #   curl -fsSL https://repos.keystone-core.io/keystone-core-archive-keyring.asc \
 #     | sudo gpg --dearmor -o /etc/apt/keyrings/keystone-core.gpg
-#
-# Then:  sudo apt-get update && sudo apt-get install kscore-cli
-deb [signed-by=/etc/apt/keyrings/keystone-core.gpg] https://repos.keystone-core.io/apt stable main
+#   deb [signed-by=/etc/apt/keyrings/keystone-core.gpg] https://repos.keystone-core.io/apt stable main

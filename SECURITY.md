@@ -72,38 +72,41 @@ the attack surface of the release process. v0.x / v1.0 / v1.1 ship
 under the single-signer ceremony; v1.2+ adds multi-party quorum (see
 [RELEASE-PLAYBOOK.md "Release lines at a glance"](RELEASE-PLAYBOOK.md#release-lines-at-a-glance)).
 
-### v0.1.0-only carve-out: unsigned release
+### Unsigned releases through v0.7.x
 
-**v0.1.0 ships unsigned** as an explicit one-time carve-out — no signed
-tag, no signed `checksums.txt`, no signed SBOM, no signed release
-record. The single-signer ceremony resumes from v0.2.0. Rationale and
-graduation criteria are tracked under "Release signing ceremony" in
+**The `v0.1` – `v0.7.x` line ships unsigned** — no signed tag, no signed
+`checksums.txt`, no signed SBOM, no signed release record. This extends
+the v0.1.0 soft-launch carve-out across the early v0.x line, **including
+the v0.5 external-tester milestone**. The single-signer ceremony begins
+at **v0.8** (the supply-chain milestone). Rationale and graduation
+criteria are tracked under "Release signing ceremony" in
 [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md) (v0.x bucket,
-target v0.2.0).
+target v0.8).
 
-Trust model for v0.1.0 artifacts collapses to TLS-to-codeberg.org
-plus Codeberg's own infrastructure authentication. `checksums.txt`
-catches transport corruption and single-artifact-swap attacks, but
-cannot authenticate against a forge-side compromise. Verify with:
+Trust model for these artifacts is TLS-to-codeberg.org plus Codeberg's
+own infrastructure authentication. `checksums.txt` catches transport
+corruption and single-artifact-swap attacks, but cannot authenticate
+against a forge-side compromise. Verify with:
 
 ```bash
-# 1. Download the archive (or .deb / .rpm) for your platform from
-#    https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases/tag/v0.1.0
+# 1. Download the archive (or .deb / .rpm) for your platform from the
+#    release page on
+#    https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases
 # 2. Download the matching checksums.txt from the same release page
 # 3. Verify integrity against checksums
 sha256sum -c checksums.txt
 ```
 
-### v0.2.0 onward — signed releases
+### v0.8.0 onward — signed releases
 
-Every release from v0.2.0 ships with:
+Every release from v0.8.0 ships with:
 
 - **Signed checksums** — `checksums.txt` signed by the release signer (GPG detached signature). v0.x / v1.0 / v1.1 single-signer; v1.2+ adds multi-party quorum.
 - **SBOMs** — CycloneDX and SPDX format, signed.
 - **Release record** — A full audit log of the ceremony, signed.
 - **Container image signatures** — once container distribution is wired (post-v1.0); Cosign key-based signatures (not keyless) per playbook.
 
-#### Verifying signed release artifacts (v0.2.0+)
+#### Verifying signed release artifacts (v0.8.0+)
 
 Full step-by-step verification — including the per-release-line
 signature filename layout — lives in

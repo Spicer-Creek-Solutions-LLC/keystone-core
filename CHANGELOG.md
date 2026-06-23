@@ -25,6 +25,512 @@ entry will land with the v1.0 cut; the in-progress feature inventory tracks
 under [`FEATURES.md`](FEATURES.md). Until then, v0.x is the active release
 line per the v0.1 → v0.5 → v1.0 ladder.
 
+## [v0.5.0] — 2026-06-22
+
+### Added
+
+- **`service` module gains OpenRC and sysvinit backends.** v0.1 shipped
+  systemd-only and returned `ErrNoBackend` from mutating ops on
+  non-systemd hosts. The module now auto-detects the host init system
+  and dispatches accordingly: systemd (Debian/Ubuntu/RHEL/Rocky), OpenRC
+  (Alpine/Gentoo, via `rc-service` + `rc-update` managing the default
+  runlevel), and sysvinit (older RHEL/CentOS/Devuan, via `chkconfig` /
+  `update-rc.d`). OpenRC is the gate-v0.5 backend; sysvinit was pulled
+  forward from post-v1.0. launchd (macOS) remains post-v1.0. systemd
+  stays preferred when more than one init system is present.
+- **`disk` filesystem resize and `lvm` LV/VG reconciliation.** Both
+  modules were create-only — an LV below its declared size, a VG whose
+  PV set had drifted, or a filesystem not filling a grown device was
+  left unreconciled. Now `disk` with `resize_fs: true` grows ext2/3/4
+  (`resize2fs`), xfs (`xfs_growfs`), btrfs (`btrfs filesystem resize`),
+  and f2fs (`resize.f2fs`) to fill the block device, each only when it
+  does not already fill it (idempotent, never shrinks). `lvm` grows a
+  size-based LV (`lvextend`, optionally `--resizefs`) using "at least"
+  semantics that never shrink, and reconciles an existing VG's PV set
+  (`vgextend`/`vgreduce`, matched against LVM's canonical `pv_name`).
+  `vgreduce` runs without `-f`, so LVM refuses to drop a PV still
+  holding extents. `extents`-based LVs stay create-only.
+- **`kscorectl agent verify` re-checks agent certificates against the
+  trust bundle.** `verify <agent-id>` (or `verify --all` for the fleet)
+  validates each agent's stored certificate against the control plane's
+  current trust bundle: it chains to a trusted authority, is within its
+  validity window, and carries a matching `agent/*` SPIFFE identity.
+  Useful after a CA rotation to confirm agents are still trusted. Exits
+  non-zero when any agent with a stored cert fails, so it scripts cleanly;
+  agents with no stored cert report `has_cert=false` and are skipped, not
+  failed. Backed by a new `VerifyAgent` RPC and a reusable
+  `identity.VerifyAgentCert` helper (chain + expiry + SPIFFE checks
+  reported separately, so an expired-but-trusted cert is distinguishable
+  from an untrusted one).
+- **CA private keys can be encrypted at rest (`EncryptedFileCAStorage`).**
+  Setting `identity.encryption_key` (an `env:`/`file:`/`inline:`
+  master-key source) seals the persisted CA private-key files
+  (`root-key.pem`, `signing-key.pem`) as AES-256-GCM envelopes while
+  leaving the certificate files as ordinary public PEM; leaving it empty
+  keeps the backward-compatible plaintext `FileCAStorage`. The envelope
+  carries a master-key fingerprint and per-write nonce, so a wrong key
+  fails fast on the fingerprint guard, a tampered file fails GCM
+  authentication, and a still-plaintext key is reported with a migration
+  hint rather than failing opaquely. The key bytes never log — only the
+  fingerprint. `kscore-identity ca encrypt` migrates an existing
+  plaintext CA directory in place.
+- **Clustering boots in `kscore-server` (Epic 13, PR-A).** Setting
+  `cluster.enabled: true` now constructs the etcd-backed clustering
+  stack at boot — membership, leader election, the canonical
+  `SingletonTaskManager` leader gate, and the shard store + manager —
+  and registers the `ClusterService` gRPC + `/api/v1/cluster/*` REST
+  surface (status excepted) against the live managers, replacing the
+  503/Unimplemented stubs. The events retention enforcer and shard
+  rebalance are now leader-gated, so a cluster runs those side-effects
+  on exactly one node instead of every node. A new `cluster.node`
+  config block (`name`, `advertise_addr`) identifies this member.
+  
+  The single-node default path is unchanged: `cluster.enabled` stays
+  `false`, no etcd is started, and the cluster surfaces remain dark.
+  
+  Deferred to follow-up PRs: the dedicated mTLS server↔server
+  CoordinationService listener + CoordinationClient switchover and the
+  `GracefulShutdown` SIGTERM hookup (PR-B); `FailoverManager` wiring
+  (waits on a production agent/job reassigner); and HealthMonitor-backed
+  quorum status.
+- **Server↔server coordination channel + graceful shutdown (Epic 13,
+  PR-B).** Setting `cluster.coordination.listen_addr` now starts a
+  dedicated mTLS-only `CoordinationService` gRPC listener (separate
+  from the agent/operator surface) and the peer-dialing
+  `CoordinationClient`, whose dial pool is reconciled from cluster
+  membership. Peers exchange health/leader/recovery over this channel
+  when NATS is unavailable. The channel is mTLS-only by contract, so it
+  requires `identity.enabled: true` — a listener configured without
+  identity fails the boot loudly.
+  
+  `kscore-server` now also drives the §4.15 graceful-shutdown sequence
+  on SIGTERM when clustering is enabled: the node is marked `LEAVING`
+  (peers rebalance its shards off before it exits), leadership is
+  transferred if held, then the member deregisters — before the API
+  server stops.
+  
+  A new client-side mTLS builder (`identity.BuildClientTLSConfig`)
+  issues this node's control-plane SVID for dialing and verifies peers
+  against the trust bundle by SPIFFE ID (not DNS), with the same
+  signing-CA rotation watcher as the server path.
+  
+  Deferred to follow-ups: the HealthMonitor-backed quorum status
+  (`/cluster/status` stays 503; the coordination `ClusterHealth`/NATS
+  status report best-effort until then), the `FencingManager` in-flight
+  drain, and `FailoverManager` wiring.
+- **Split-brain fencing enforced at the server write paths (Epic 13,
+  PR-D).** When clustering is enabled, `kscore-server` now constructs
+  the `FencingManager` at boot and guards both request surfaces through
+  it: a gRPC interceptor rejects write RPCs with `Unavailable`, and an
+  HTTP middleware rejects mutating REST requests
+  (`POST`/`PUT`/`PATCH`/`DELETE`) with `503`, whenever this node is
+  fenced — i.e. it has lost etcd quorum (a minority partition) or been
+  superseded as leader (a stale epoch).
+  
+  The fence mode follows `cluster.fencing.mode` (default `read_only`:
+  reads continue, writes are blocked; `strict` blocks reads too). Reads
+  and unlisted methods keep flowing on a minority node, with
+  storage-layer etcd quorum backstopping correctness. The
+  `CoordinationService` is never fenced — it is the server↔server
+  recovery channel that must work during a partition.
+  
+  Graceful shutdown now also drains in-flight guarded operations (via
+  `FencingManager.Drain`) before the member deregisters.
+  
+  No new configuration — `cluster.fencing.mode` already existed.
+  
+  Deferred: the `ValidEpoch`-at-commit refinement for the narrow window
+  where an operation begins before a fence and commits after.
+- **Cluster health monitoring + `/cluster/status` (Epic 13, PR-C).**
+  When clustering is enabled, `kscore-server` now runs the cluster
+  `HealthMonitor` at boot: built-in etcd + heartbeat checkers (the
+  canonical quorum signal) plus non-critical `storage` and `nats` ping
+  checkers, so a database or NATS outage surfaces this node as
+  `degraded` while only loss of etcd quorum drives it `unhealthy`.
+  
+  The monitor's status + quorum verdict now back three previously-dark
+  surfaces: `GET /api/v1/cluster/status` returns the cluster identity,
+  leader, member/healthy counts and quorum (was 503); the
+  `ClusterService.GetClusterStatus` gRPC reports quorum; and the
+  server↔server `CoordinationService.ClusterHealth` RPC answers instead
+  of `Unavailable`. The monitor also drives each member's lifecycle
+  status (`healthy`/`degraded`/`unhealthy`) in the membership record.
+  
+  No new configuration — the monitor reads the existing
+  `cluster.health` block (`check_interval`, `failure_threshold`,
+  `latency_window`).
+  
+  Deferred to follow-ups: the coordination `NATSStatus` field (needs a
+  connectivity seam on the NATS manager), the `FencingManager`
+  write-path guard, and `FailoverManager` wiring.
+- **Coordination channel reports real NATS reachability (Epic 13
+  follow-up).** `nats.Manager` gains `Connected()` and `Detail()`
+  methods (thin, non-blocking wrappers over its existing health check),
+  and `kscore-server` wires them into the server↔server
+  `CoordinationService`. `CoordinationService.NATSStatus` now answers
+  with this node's real NATS connection state (connected + a
+  mode/URL detail) instead of `"unknown"`, and
+  `ClusterHealth.nats_healthy` reflects it. No configuration change.
+- **`firewall` abstraction now opens IPv6 and supports multi-port
+  services.** A `firewall: {service: ssh}` declaration on an iptables
+  host previously opened IPv4 only (the nftables and firewalld backends
+  already covered both families); it now emits both an IPv4 and an IPv6
+  sub-rule by default, matching the other backends. On an IPv4-only host
+  the IPv6 sub is skipped gracefully with a loud `IPv6 NOT APPLIED`
+  notice rather than leaving perpetual drift. The service catalog is now
+  multi-port — `samba` opens its four ports, firewalld-native names
+  (`dhcpv6-client`, `cockpit`, `nfs`, …) are recognised, and an opt-in
+  `strict_catalog: false` falls back to the host's `/etc/services` for
+  names not in the curated catalog.
+- **`kscore-module run` executes modules end-to-end (Epic 14).** The
+  module CLI gains a `run` subcommand that loads a module (a directory
+  is packaged on the fly, or pass a built `.zip`), verifies its
+  signature against trusted keys (`--key` + `--sig`, or
+  `--skip-verification` for local development), and executes
+  `main(input)` — printing the returned object as JSON.
+  
+  Module capability calls are now live: the Epic 14 task-12
+  capability→Starlark builtin shims landed, so a module can call
+  `fs_read`, `fs_write`, `http_get`, `http_post`, `exec_run`,
+  `secret_read`, `secret_write`, `kv_get`/`kv_set`/`kv_delete`, and
+  `log` — each routed through the manifest-declared, scope-enforced
+  capability backend (path globs, domain allowlists, command
+  allowlists, size/rate/timeout limits). A capability a module did not
+  declare is simply absent from its namespace.
+  
+  For the standalone CLI the security boundary is signature
+  verification plus the capability layer; server-side module execution
+  (and the policy-engine / secrets-broker host adapters) is a separate
+  follow-up.
+- **`kscorectl agent list` subcommand.** Lists registered agents over
+  the gRPC `ControlPlaneService`, rendered as a table
+  (id/status/hostname/os/last-heartbeat/labels) or JSON. Supports
+  `--status` (pending/connected/stale/disabled), `--label key=value`,
+  and `--limit` filters, and inherits the standard
+  `--server`/`--api-key`/`--output` flags (with the `KSCORE_API_KEY`
+  fallback) from the parent `agent` command.
+- **Boot-survive persistence for the network-base modules (`network`,
+  `route`, `bond`, `bridge`, `vlan`).** These modules previously
+  reconciled only the live runtime config (`ip` ops), which does not
+  survive a reboot. A new opt-in `persist: networkd|netplan|auto`
+  declaration additionally renders a boot-survive file — a
+  systemd-networkd unit/drop-in under `/etc/systemd/network/` or a
+  netplan YAML document under `/etc/netplan/` — mirroring the declared
+  addresses, routes, MTU, and device attributes. It is additive to the
+  runtime reconcile (the file is for the next boot; the runtime is
+  already live), and `auto` picks netplan when `/etc/netplan` exists
+  else networkd. networkd drop-ins are the multi-route / multi-member
+  backend (netplan replaces lists across files). NetworkManager, RHEL
+  `ifcfg-*`, and `ifupdown` renderers remain v0.x.
+- **Tooling to build signed APT and DNF/YUM package repositories.** New
+  `make repo-build` / `repo-smoke` / `repo-clean` targets (backed by
+  `scripts/repo/`) turn the `.deb` / `.rpm` artifacts from
+  `make release-snapshot` into a host-agnostic static repository tree —
+  an `apt-ftparchive` `dists/stable` pool with a signed `InRelease`, and
+  per-arch `createrepo_c` metadata with a signed `repomd.xml.asc` — ready
+  to serve from `repos.keystone-core.io`. Signing supports a real GPG key
+  (`REPO_SIGN=key:<id>`, the same key as the release ceremony), an
+  ephemeral throwaway key for local validation (`REPO_SIGN=test`), or
+  unsigned dev builds (`REPO_SIGN=skip`). `make repo-smoke` install-tests
+  the tree in fresh `debian:12-slim` (apt) and `rockylinux:9` (dnf)
+  containers (over `file://`), exercising signature verification
+  end-to-end. The Linux-only index tools (`apt-ftparchive`,
+  `dpkg-scanpackages`, `createrepo_c`) run in those containers via
+  **docker or podman** when absent on the host, so the whole flow runs
+  from macOS with only `gpg` + a container engine — signing always runs
+  on the host, keeping the key out of any container. `release-smoke` is
+  likewise docker/podman-agnostic and macOS-safe. Operator install
+  templates land under `deploy/repos/`. `make repo-publish` ships the tree
+  to the self-hosted server over rsync-over-ssh: it is **server-canonical
+  with an incremental local cache** and **multi-version**, so it pulls the
+  current repo, merges the new release, regenerates the metadata over
+  every published version (users can pin/downgrade —
+  `apt-get install kscore-cli=<ver>`), verifies signatures when signing,
+  and uploads with `--delay-updates` for a near-atomic switchover.
+  `REPO_SIGN=unsigned` publishes an unsigned repo (the v0.1–v0.7 posture:
+  `apt [trusted=yes]` / `dnf repo_gpgcheck=0`, same trust level as the
+  direct downloads); a test-key tree is always refused. Leading the
+  getting-started guide with the `apt install` / `dnf install` path, and
+  GPG-signing the repos, are the v0.8 follow-ups.
+- **`package` module gains dnf, apk, zypper, and pacman backends.** v0.1
+  shipped apt-only (Debian/Ubuntu) and returned `ErrNoBackend` on every
+  other host. The module now auto-detects and dispatches to the native
+  package manager on each supported Linux family — apt (Debian/Ubuntu),
+  dnf+rpm (RHEL/Rocky/Fedora), apk (Alpine), zypper (openSUSE/SLES), and
+  pacman (Arch). dnf and apk are the gate-v0.5 set; zypper and pacman
+  were pulled forward from post-v1.0. Each backend handles its own
+  version-pin syntax (`name=version` for apt/apk/zypper, dnf's
+  `name-version`); pacman, a rolling release with no version-pin install
+  spec, returns `ErrVersionPinUnsupported` rather than silently
+  installing latest. Detection order is apt → dnf → apk → zypper →
+  pacman, so a mixed EPEL-on-RHEL host still resolves to its primary
+  manager.
+- **`security` module gains AppArmor per-profile mode management.** The
+  module shipped SELinux-only (mode + booleans); it now also manages
+  AppArmor profiles on Debian/Ubuntu via `apparmor.profile: <name>` +
+  `apparmor.profile_mode: enforce|complain|disable`. The op is selected
+  by which params are set — the same dispatch the module already uses
+  for SELinux — so existing SELinux declarations are unchanged.
+  Idempotency reads `aa-status --json`; mode changes shell out to
+  `aa-enforce`/`aa-complain`/`aa-disable`. Returns
+  `ErrAppArmorUnavailable` when the tooling is absent or AppArmor is not
+  the active LSM. Framework on/off and `apparmor_parser` load/reload
+  stay v0.x.
+- **`kscorectl agent quarantine` / `unquarantine` — isolate a compromised
+  agent.** `quarantine <agent-id>` transitions an agent to DISABLED so the
+  control plane rejects its heartbeats and dispatches no commands to it —
+  the incident-response isolation step (an optional `--reason` is recorded
+  in the server log). `unquarantine <agent-id>` reverses it, restoring the
+  agent to CONNECTED (the connection monitor re-stales it if it is
+  actually gone). Backed by new `QuarantineAgent`/`UnquarantineAgent`
+  RPCs on `ControlPlaneService`, wired to the existing
+  `ConnectionManager` disable/enable path (whose isolation semantics —
+  heartbeat rejection + command-dispatch refusal — were already in place).
+- **Agents now record their issued certificate's metadata.** When the
+  control plane mints an agent's X509 SVID during bootstrap, it captures
+  the issued chain plus the leaf's SHA-256 fingerprint, expiry, and
+  SPIFFE ID onto the agent record. `kscorectl agent list -o json` surfaces
+  `cert_fingerprint`, `cert_not_after`, and `spiffe_id` (empty for agents
+  registered before this landed). The stored chain is server-internal,
+  laying the groundwork for an `agent verify` command that re-checks each
+  agent's cert against the current trust bundle. The four nullable columns
+  are added to the agents table automatically at store-open on both SQLite
+  and Postgres (no operator migration step).
+- **Cross-distro reboot detection and a `system.rebooted` event across
+  the reboot disconnect.** The `system` module's reboot-needed check
+  previously gated solely on the Debian/Ubuntu
+  `/var/run/reboot-required` marker, so RHEL/Rocky/Fedora always
+  reported no reboot needed; when the marker is absent it now also
+  consults `needs-restarting -r` (dnf-utils), by binary detection.
+  Separately, the agent now stamps its Linux boot-ID on every heartbeat,
+  and when a managed host reboots — heartbeat stops, server marks it
+  stale, a new boot-ID proves the gap was a planned reboot — the control
+  plane emits a new canonical `system.rebooted` event (carrying the
+  old/new boot-ID and whether the reboot coincided with a real
+  disconnect) instead of leaving an unexplained gap. Correlating the
+  event with the originating reboot command, and persisting boot-IDs
+  across server restarts, stay v0.x.
+- **`user` and `group` modules gain a BusyBox backend (Alpine).** Both
+  modules previously shelled out unconditionally to shadow-utils
+  (`useradd`/`groupadd`/`usermod`/…), which Alpine does not ship unless
+  the `shadow` package is installed. They now auto-detect: shadow-utils
+  where present (Debian/Ubuntu/Rocky keep the full-featured backend),
+  else BusyBox (`adduser`/`deluser`/`addgroup`/`delgroup`) on Alpine,
+  else an undetected provider whose Lookup still works via NSS. BusyBox
+  ships no `usermod`/`groupmod`, so in-place attribute modification
+  returns `ErrModUnsupported`; create/delete/lookup and
+  supplementary-group reconciliation — everything an idempotent apply
+  exercises — are fully supported.
+
+### Changed
+
+- **Release signing deferred to v0.8; v0.1–v0.7 ship unsigned.** The
+  `RELEASE-PLAYBOOK.md` §6 carve-out — originally a one-time v0.1.0
+  exception — now covers the whole `v0.1`–`v0.7.x` line: every release
+  through v0.7 ships unsigned (no signed tags / checksums / SBOMs),
+  verified via `sha256sum -c` over TLS-to-forge. Release signing (signed
+  artifacts, signed-commit enforcement, and **GPG signatures on the
+  apt/dnf repos**) becomes the **v0.8 supply-chain milestone**, landing as
+  one key-onboarding batch rather than gating each earlier v0.x cut —
+  notably the v0.5 external-tester milestone, which therefore has no
+  remaining release blockers. The hosted repos themselves ship at v0.5
+  **unsigned** (`apt [trusted=yes]` / `dnf repo_gpgcheck=0`), at the same
+  trust level as the unsigned direct downloads. Documented across
+  `RELEASE-PLAYBOOK.md` §6 + the release-lines table, `SECURITY.md`,
+  `VERSIONING.md`, and the three `ROADMAP.md` signing entries.
+- **Standardized the `kscore` vs `keystone-core` naming split and
+  documented it.** Runtime / on-disk identity is `kscore` (binaries,
+  `/etc/kscore`, `/var/lib/kscore`(`-agent`), systemd units, the
+  dedicated system user); project / brand identity is `keystone-core`
+  (repo, Go vanity module, release-artifact names, domain, maintainer,
+  the `# Managed by keystone-core` markers, the gitops-rollback author).
+  The rubric is now codified in `docs/project/GLOSSARY.md`. The agent
+  systemd path/unit fix already moved the on-disk paths to `kscore`; this
+  cleans up the last stragglers that contradicted the deployed
+  convention: the unit generator's stale "recommended user is
+  keystone-core" comment (the server package actually creates the
+  `kscore` user) and its `keystone-core` test fixtures, the
+  `Dedicated keystone-core system user` ROADMAP entry, and a vestigial
+  `keystone-core.yaml` dev-config entry in `.gitignore` / `make clean`
+  that nothing generates. No behavior change — the shipped packages and
+  units already used `kscore`.
+- **Five unimplemented REST stub endpoints now return `410 Gone`
+  instead of `501 Not Implemented`.** The `agents`, `state`,
+  `execution`, `schedule`, and `maintenance` REST handler packages were
+  never implemented behind their stubs; they now return `410 Gone` with
+  a body pointing callers at the gRPC equivalent (`ControlPlaneService`
+  / `StateService`) where one exists, or a post-v1.0 marker where the
+  domain itself ships later. The operator path for agents is served by
+  `kscorectl agent list`. If a concrete REST consumer surfaces, the
+  decision is to implement passthrough rather than silently un-410-ing
+  the routes.
+
+### Fixed
+
+- **Agent bootstrap and systemd unit now agree on the config path.** The
+  bootstrap installer rendered the agent config to
+  `/etc/keystone-core/keystone-core-agent.yaml` while the generated
+  systemd unit (and the shipped package unit) started the agent with
+  `--config /etc/kscore/agent.yaml` — so a default `kscore-agent
+  bootstrap` followed by `kscore-agent service install` produced a unit
+  pointing at a config file that bootstrap never wrote, and the agent
+  failed to find its config. The bootstrap subsystem now uses the same
+  `/etc/kscore/agent.yaml` everything else does, with the FSM state file
+  at `/var/lib/kscore-agent/bootstrap.json` (the agent's own state dir,
+  writable under the hardened unit's `ReadWritePaths`). The config-path
+  default is collapsed to a single source of truth
+  (`bootstrap.DefaultAgentConfigPath`), and a regression test enforces
+  `bootstrap.DefaultAgentConfigPath == systemd.DefaultConfigPath` so the
+  two decoupled packages cannot drift apart again. The generated unit
+  name is also aligned to `kscore-agent.service` to match the
+  package-shipped/enabled unit.
+- **Outbound webhooks now circuit-break failing endpoints (Epic 16
+  §4.14).** `kscore-server` boot constructed the outbound webhook
+  delivery `Manager` with a bare HTTP dispatcher, so the per-endpoint
+  circuit breaker (5 failures / 30s open / 2 half-open successes) was
+  never active — a persistently-failing receiver was retried on every
+  delivery instead of being short-circuited. Boot now wraps the
+  dispatcher in the breaker as the §4.14 spec requires. No
+  configuration change.
+- **nftables backend is now idempotent on nft versions that emit chain
+  handles.** The backend lists a chain with `nft --handle list chain`,
+  which annotates the chain-opening line with a `# handle N` comment.
+  The parser only entered a chain when the line ended in an open brace,
+  so the annotated `chain input { # handle 1` form was never entered,
+  zero rules were parsed, and the module re-added a rule it had just
+  added on every run (e.g. nft 1.0.6 on Debian 12). The parser now
+  strips a trailing handle comment before the brace check, so both the
+  plain and `--handle` forms parse.
+- **firewalld rich rules are now idempotent.** The `firewalld` module
+  checked rich-rule presence with `--query-rich-rule` against the
+  operator's verbatim string, but firewalld stores rich rules in a
+  normalised form — so a rule written with different whitespace,
+  attribute quoting, or attribute order read as absent and was re-added
+  on every apply. Check now lists the zone's stored rich rules and
+  compares both the declared rule and each stored rule by canonical form
+  (a quote-aware syntactic normaliser), so a re-formatted rule
+  converges. Values firewalld itself rewrites (e.g. MAC case, CIDR form)
+  must still be written as firewalld stores them. This resolves the
+  gate-v0.5 firewalld caveat.
+- **Command-completion audit records now carry the requesting
+  principal.** When an agent reported a command result, the
+  control-plane's terminal audit callback fired with an empty principal
+  because the dispatch-time identity was stamped into the NATS message
+  but never persisted on the command record — so the audit log lost the
+  actor that requested the dispatch. The `commands` table gains a
+  `principal` column (added via an idempotent inline migration on both
+  Postgres and SQLite), populated on dispatch and surfaced on both the
+  result and timeout-sweep terminal paths. `Principal` (the operator /
+  SPIFFE identity that requested the dispatch) is documented as distinct
+  from `User` (the OS user the command runs as on the host).
+
+### Docs
+
+- **v0.1.0 release prep landed.** Aggregated 42 changie fragments into
+  `CHANGELOG.md`'s `[v0.1.0]` section via `make changelog-batch
+  VERSION=v0.1.0` and hand-merged the by-epic Highlights narrative +
+  audit-mode callout + Known limitations + Migration + Verification +
+  Acknowledgments sections (the changie `merge` step doesn't preserve
+  these; a follow-up `headerPath` ROADMAP entry tracks the fix).
+  Epic 19 acceptance criteria walked and reconciled against the v0.1.0
+  release line — most lines ticked, soak-test + cluster-round-trip
+  annotated as v1.0-scope, rc cycle (tasks 14/15/16) retargeted to
+  v1.0.0. Three new v0.x ROADMAP entries added with release-order
+  mirrors: "Release signing ceremony" (target v0.2.0; v0.1.0 ships
+  unsigned), "Native package repositories — APT, DNF/YUM", and
+  "Changie configuration: add headerPath" (so future `changie merge`
+  doesn't wipe the persistent top-of-file content). `RELEASE-PLAYBOOK.md`
+  §6 carries a v0.1.0-only carve-out callout for the unsigned posture
+  and §3 carries a pre-filled v0.1.0 release record template. `SECURITY.md`
+  "Supply Chain Security & Release Verification" updated for the
+  unsigned-v0.1.0 / signed-v0.2.0+ split.
+- **Marked the v0.5 external-tester gate as met across the docs.** The
+  README project-status now states the v0.5 gate checklist is complete
+  (with the v0.5.0 release itself pending the signing ceremony); Epic 08's
+  last open acceptance box — the cross-distro Docker matrix — is checked
+  now that the live 8-distro matrix runs every applicable module; and
+  `FEATURES.md` corrects the stale `gate-v0.5` tag on hosted package-repo
+  generation to `v0.x` (it and the signing batch were re-bucketed off the
+  v0.5 gate on 2026-06-19). Epics 09 and 11 were already fully checked.
+- **State module support matrix added — the v0.5 "what works / what
+  doesn't" doc.** `docs/project/STATE-SUPPORT-MATRIX.md` lists every
+  state-file parameter across all 36 stdlib modules with a per-parameter
+  maturity status (`stable` / `experimental`), a module-maturity-at-a-glance
+  table, and per-module "not yet supported (planned, #NN)" pointers into the
+  open `gate-v0.5` / `v0.x` backlog. Status reflects code reality and live
+  cross-distro-matrix coverage: `package` apt/dnf/apk and `service`
+  systemd/openrc are stable, while zypper/pacman and sysvinit backends,
+  `security` (SELinux/AppArmor) and `langpkg` are experimental. Satisfies the
+  v0.5 gate's Documentation checklist item in `VERSIONING.md`, which now links
+  the doc; also indexed in `AGENTS.md` §7.
+- **v0.1.0 release follow-ups landed.** Three items bundled in one PR
+  per the deferred-from-release-cut list:
+  
+  1. **RELEASE-PLAYBOOK.md §3 v0.1.0 release record filled in** with
+     the actual timestamps and verification evidence from the v0.1.0
+     ceremony (build commit 8a48da100; tag pushed 00:00 UTC 2026-05-28;
+     release id 9667643; published 00:03:08 UTC; third-machine
+     verification with sha256sum -c + container install smoke in
+     debian:12-slim + rockylinux:9 — all PASS).
+  2. **`syft` v1.44.0 wired into `make install-tools`** alongside the
+     other supply-chain tools. Pinned to v1.44.0 (the version used for
+     the v0.1.0 SBOMs); future releases get syft via the standard
+     install-tools path instead of ad-hoc `go install`. Pin rationale
+     documented inline in the Makefile.
+  3. **Changie `headerPath` fix.** `.changie.yaml` now references
+     `.changes/header.tpl.md` containing the persistent top-of-file
+     content (Changelog header + Keep-a-Changelog preamble +
+     `[Unreleased]` + `[v1.0.0] — Planned`). Without this, every
+     `make changelog-batch VERSION=v0.x.y` rewrote CHANGELOG.md with
+     only the per-version files, losing the header. `.changes/v0.1.0.md`
+     now contains the complete v0.1.0 section including the
+     Markdown reference links at the bottom; the merge round-trips
+     to a byte-identical CHANGELOG.md (verified by diff vs pre-merge
+     backup). Reference-link automation via `replacements:` is the
+     remaining ROADMAP entry under "Changie configuration:
+     `replacements` for reference-link maintenance".
+- **Operations runbooks: corrected CLI interface drift (accuracy sweep,
+  phase 1).** The `docs/runbooks/` procedures referenced binaries,
+  subcommands, and flags that shifted during reconstruction; the
+  mechanical renames are now fixed so the documented commands actually
+  run. Audited every command against the real `--help` output:
+  `kscore-cli` -> `kscorectl` (package/binary name); `kscorectl audit|events|identity`
+  -> the standalone `kscore-audit|kscore-events|kscore-identity` binaries
+  (kscorectl only carries agent/exec/state); `kscorectl cluster health`
+  -> `kscore-cluster status` (plus members/rebalance/remove via the
+  `kscore-cluster` binary); `kscorectl agents` -> `kscorectl agent`;
+  `events stream` -> `events subscribe`; `identity ca rotate --force` ->
+  `ca rotate-signing`; `kscore-cluster-backup verify <path>` ->
+  `verify --input <path>`; `--status online` -> `--status connected`;
+  `kscorectl version` -> `kscorectl --version`. A follow-up phase covers
+  the runbook procedures that depend on capabilities not present in v0.1
+  (cluster drain/undrain, maintenance mode, federation, encrypted/
+  incremental backups, config-key namespaces).
+- **Operations runbooks accuracy sweep, phase 2.** The runbooks now
+  document only what v0.1 actually ships, and reference the real commands:
+  the new `kscorectl agent quarantine`/`unquarantine` (incident isolation)
+  and `agent verify --all` (post-CA-rotation cert check) replace the
+  fictional `agents quarantine`/`agents verify`; encrypted/portable backup
+  and restore are re-pointed to the real `kscore-backup` binary (the runbook
+  had conflated it with `kscore-cluster-backup`, which only does
+  unencrypted cluster snapshots) and `kscore-bootstrap restore/import` (which
+  never existed) is corrected to the real restore commands; the `database:`
+  config blocks become the real `storage: {driver, dsn}` schema. Capabilities
+  that genuinely don't exist in v0.1 — maintenance mode, scheduled jobs,
+  multi-cluster federation, cluster drain/undrain, per-agent cert
+  regeneration, and incremental backups — are now honest scope-note callouts
+  pointing at the roadmap (with the real v0.1 workaround where one exists,
+  e.g. `kscore-cluster remove` for node eviction). All remaining on-disk
+  paths are normalized to the ratified `kscore` convention across the
+  runbooks plus DESIGN / E2E-VM-TESTING / DEVELOPMENT and the epic-06 notes.
+- **Keystone logo added to the README and docs site.** The canonical
+  brand logo (`assets/logo.svg` + `assets/logo.png`) now appears
+  centered atop the README and as the Hextra navbar logo sitewide,
+  replacing the theme's stock placeholder. The logo is mounted, not
+  copied: `docs/hugo.toml` mounts repo-root `assets/` into the Hugo
+  static tree (`static/keystone`) so it is served verbatim from the
+  single source of truth — `SITE.md` documents the mount.
+
 ## [v0.1.0] — 2026-05-27
 
 First public release of the post-reset codebase. **Linux-only,
@@ -549,6 +1055,7 @@ GitHub mirror for discoverability: [`github.com/Spicer-Creek-Solutions-LLC/keyst
 
 Issues, RFCs, and discussion live on Codeberg.
 
-[Unreleased]: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/compare/v0.1.0...HEAD
+[Unreleased]: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/compare/v0.5.0...HEAD
+[v0.5.0]: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/compare/v0.1.0...v0.5.0
 [v0.1.0]: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases/tag/v0.1.0
 [v1.0.0]: https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/releases/tag/v1.0.0

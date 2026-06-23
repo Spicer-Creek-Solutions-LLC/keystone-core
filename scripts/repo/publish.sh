@@ -22,7 +22,10 @@
 #                       — e.g. deploy@repos.example.io:/srv/www/repos
 #                       (a local path works too, for testing). Host, user,
 #                       and path are entirely yours to set.
-#   REPO_SIGN           key:<gpg-id> — a real key; test/skip are refused.
+#   REPO_SIGN           key:<gpg-id> to publish a signed repo, or
+#                       `unsigned` to publish without a key (the v0.1–v0.7
+#                       posture — clients use [trusted=yes] /
+#                       repo_gpgcheck=0). test/skip are refused.
 #
 # Optional env:
 #   REPO_DIR            local cache dir (default: dist/repos; it is a
@@ -63,9 +66,15 @@ dest=${REPO_PUBLISH_DEST:-}
 [ -n "$dest" ] || die "set REPO_PUBLISH_DEST to the rsync web-root destination" 1
 sign=${REPO_SIGN:-}
 case "$sign" in
-  key:*) ;;
-  "")  die "set REPO_SIGN=key:<gpg-id> (a real key is required to publish)" 1 ;;
-  *)   die "refusing to publish with REPO_SIGN=$sign — only key:<id> may be published" 1 ;;
+  key:*)    signed=1 ;;
+  unsigned) signed=0
+            echo "repo-publish: WARNING — publishing UNSIGNED (REPO_SIGN=unsigned)." >&2
+            echo "  Clients must trust the repo without a signature ([trusted=yes] /" >&2
+            echo "  repo_gpgcheck=0). This matches the v0.1–v0.7 unsigned posture;" >&2
+            echo "  signatures land at v0.8 (RELEASE-PLAYBOOK §6)." >&2 ;;
+  test|skip) die "refusing to publish with REPO_SIGN=$sign — use key:<id> or unsigned" 1 ;;
+  "")  die "set REPO_SIGN=key:<gpg-id> (signed) or REPO_SIGN=unsigned" 1 ;;
+  *)   die "unknown REPO_SIGN=$sign — use key:<id> or unsigned" 1 ;;
 esac
 cache=${REPO_DIR:-dist/repos}
 packages=${REPO_PACKAGES:-dist/}
@@ -84,26 +93,35 @@ else
     || die "pull failed — for an empty server use --first-publish" 3
 fi
 
-# ---- 2. Merge this release + regenerate + sign ---------------------------
-echo "repo-publish: merging $packages and rebuilding signed metadata"
-"$here/build.sh" --packages "$packages" --out "$cache" --channel "$channel" --sign "$sign" \
+# ---- 2. Merge this release + regenerate metadata -------------------------
+# Signed mode passes the key through to build.sh; unsigned mode builds with
+# --sign skip (no key required), producing an unsigned Release / repomd.
+echo "repo-publish: merging $packages and rebuilding metadata"
+build_sign=$sign
+[ "$signed" = 0 ] && build_sign=skip
+"$here/build.sh" --packages "$packages" --out "$cache" --channel "$channel" --sign "$build_sign" \
   || die "repo-build failed" 2
 
 # ---- 3. Local safety + signature verification ----------------------------
+# A test-key tree must never reach the server, regardless of mode.
 [ -f "$cache/TESTKEY-DO-NOT-PUBLISH" ] && die "refusing to publish a test-key tree (REPO_SIGN=test)" 2
-[ -f "$cache/keystone-core-archive-keyring.asc" ] || die "no signing pubkey in tree — refusing to publish unsigned" 2
 
-inrelease="$cache/apt/dists/$channel/InRelease"
-[ -f "$inrelease" ] || die "missing $inrelease — refusing to publish" 2
-# The signing key (REPO_SIGN=key:<id>) is in the operator's keyring, so a
-# plain --verify confirms the metadata is intact and signed by it.
-gpg --verify "$inrelease" >/dev/null 2>&1 || die "InRelease failed local signature verify" 2
-for asc in "$cache"/rpm/"$channel"/*/repodata/repomd.xml.asc; do
-  [ -f "$asc" ] || continue
-  gpg --verify "$asc" "${asc%.asc}" >/dev/null 2>&1 \
-    || die "repomd.xml failed local signature verify ($asc)" 2
-done
-echo "repo-publish: local signature verification ok"
+if [ "$signed" = 1 ]; then
+  [ -f "$cache/keystone-core-archive-keyring.asc" ] || die "no signing pubkey in tree — refusing to publish unsigned (use REPO_SIGN=unsigned to publish without a key)" 2
+  inrelease="$cache/apt/dists/$channel/InRelease"
+  [ -f "$inrelease" ] || die "missing $inrelease — refusing to publish" 2
+  # The signing key (REPO_SIGN=key:<id>) is in the operator's keyring, so a
+  # plain --verify confirms the metadata is intact and signed by it.
+  gpg --verify "$inrelease" >/dev/null 2>&1 || die "InRelease failed local signature verify" 2
+  for asc in "$cache"/rpm/"$channel"/*/repodata/repomd.xml.asc; do
+    [ -f "$asc" ] || continue
+    gpg --verify "$asc" "${asc%.asc}" >/dev/null 2>&1 \
+      || die "repomd.xml failed local signature verify ($asc)" 2
+  done
+  echo "repo-publish: local signature verification ok"
+else
+  echo "repo-publish: unsigned mode — skipping signature verification"
+fi
 
 # ---- 4. Upload (near-atomic) ---------------------------------------------
 # --delay-updates stages every transferred file and renames them into
@@ -123,12 +141,17 @@ fi
 if [ -n "${REPO_PUBLIC_URL:-}" ]; then
   if command -v curl >/dev/null 2>&1; then
     echo "repo-publish: verifying live $REPO_PUBLIC_URL"
-    live_in="$cache/.live-InRelease"
-    curl -fsSL "$REPO_PUBLIC_URL/apt/dists/$channel/InRelease" -o "$live_in" \
-      || die "could not fetch live InRelease from $REPO_PUBLIC_URL" 2
-    gpg --verify "$live_in" >/dev/null 2>&1 || die "LIVE InRelease failed signature verify" 2
-    rm -f "$live_in"
-    echo "repo-publish: live verification ok"
+    live_rel="$cache/.live-Release"
+    name=Release; [ "$signed" = 1 ] && name=InRelease
+    curl -fsSL "$REPO_PUBLIC_URL/apt/dists/$channel/$name" -o "$live_rel" \
+      || die "could not fetch live $name from $REPO_PUBLIC_URL" 2
+    if [ "$signed" = 1 ]; then
+      gpg --verify "$live_rel" >/dev/null 2>&1 || die "LIVE InRelease failed signature verify" 2
+      echo "repo-publish: live signature verification ok"
+    else
+      echo "repo-publish: live reachability ok (unsigned — no signature to verify)"
+    fi
+    rm -f "$live_rel"
   else
     echo "repo-publish: curl not found — skipping live verification" >&2
   fi
