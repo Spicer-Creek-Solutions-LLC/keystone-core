@@ -1,0 +1,22 @@
+{{- /* SPDX-License-Identifier: Apache-2.0 */ -}}
+{{- if eq .Level 1 -}}
+  {{- /* Suppress content-level H1s. The docs are mounted in place
+        (mount-not-migrate, see hugo.toml) so each canonical Markdown file
+        keeps its own `# Title` for GitHub viewing — but the page title is
+        set by the reference / operations / adr `_index.md` cascade and
+        already rendered by the theme (docs/single.html + list.html emit
+        `<h1>{{ .Title }}</h1>`). Rendering the content H1 too doubled the
+        title on every mounted page, e.g. /docs/reference/versioning/
+        showing "Versioning" twice. The cascade title is authoritative (it
+        also drives the sidebar nav and fixes casing the source H1 gets
+        wrong, e.g. "# API reference" -> "API Reference"), so the content
+        H1 always yields to it. H2-H6 render exactly as the Hextra theme
+        does (_markup/render-heading.html in github.com/imfing/hextra). */ -}}
+{{- else -}}
+<h{{ .Level }}>
+  {{- .Text | safeHTML -}}
+  <span class="hx-absolute -hx-mt-20" id="{{ .Anchor | safeURL }}"></span>
+  <a href="#{{ .Anchor | safeURL }}" class="subheading-anchor" aria-label="Permalink for this section"></a>
+</h{{ .Level }}>
+{{- end -}}
+{{- /* Drop trailing newlines */ -}}
