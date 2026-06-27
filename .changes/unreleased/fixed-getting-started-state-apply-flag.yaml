@@ -1,7 +1,0 @@
-kind: Fixed
-body: |-
-  **Quickstart `state apply` command corrected.** `GETTING-STARTED.md`
-  showed `kscorectl state apply --agent <id> --file <file>`, but the state
-  file is a positional argument and there is no `--file` flag — so the
-  command as written failed. Corrected to
-  `kscorectl state apply <file> --agent <id>`.
