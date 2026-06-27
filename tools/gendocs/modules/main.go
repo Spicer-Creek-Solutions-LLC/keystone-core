@@ -69,7 +69,7 @@ func run(out string, strict bool) error {
 	for _, name := range reg.List() {
 		mod, err := reg.Get(name)
 		if err != nil {
-			return fmt.Errorf("Get %q: %w", name, err)
+			return fmt.Errorf("get %q: %w", name, err)
 		}
 		documented, ok := mod.(statemgmt.Documented)
 		if !ok {
@@ -106,11 +106,11 @@ func run(out string, strict bool) error {
 	}
 	for i, p := range pages {
 		weight := (catIndex(p.doc.Category)+1)*100 + i
-		if err := os.WriteFile(filepath.Join(out, p.name+".md"), []byte(renderPage(p, weight)), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(out, p.name+".md"), []byte(renderPage(p, weight)), 0o600); err != nil {
 			return err
 		}
 	}
-	return os.WriteFile(filepath.Join(out, "_index.md"), []byte(renderIndex(pages)), 0o644)
+	return os.WriteFile(filepath.Join(out, "_index.md"), []byte(renderIndex(pages)), 0o600)
 }
 
 // checkConsistency enforces that Doc.States and ValidStates() describe
@@ -263,5 +263,5 @@ func resetDir(dir string) error {
 	} else if !os.IsNotExist(err) {
 		return err
 	}
-	return os.MkdirAll(dir, 0o755)
+	return os.MkdirAll(dir, 0o750)
 }
