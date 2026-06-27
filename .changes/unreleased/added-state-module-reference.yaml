@@ -1,0 +1,14 @@
+kind: Added
+body: |-
+  **Auto-generated State Modules reference on the docs site.** Every one
+  of the 35 built-in state stdlib modules (`file`, `package`, `service`,
+  `cron`, `mount`, `lvm`, `firewall`, …) now has a reference page —
+  purpose, valid states, parameters, runnable Salt-style examples, and
+  distro/support notes — grouped by category under **Docs → State
+  Modules**. The pages are generated from each module's structured `Doc`
+  method (`internal/statemgmt/stdlib/*/doc.go`) by a new
+  `tools/gendocs/modules` generator wired into `make docs-sync`, so they
+  stay in sync with the code: the generator requires every registered
+  module to be documented and cross-checks each page's states against the
+  module's live `ValidStates()`, and `make docs-sync-check` (a CI gate)
+  fails on any drift.

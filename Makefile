@@ -275,15 +275,21 @@ docs-sync: ## Regenerate auto-generated reference docs (CLI / config / API)
 	go run ./tools/gendocs/cli    > docs/project/CLI-REFERENCE.md
 	go run ./tools/gendocs/config > docs/project/CONFIGURATION-REFERENCE.md
 	go run ./tools/gendocs/api    > docs/project/API-REFERENCE.md
+	# State module reference: one page per stdlib module from its Doc
+	# method (internal/statemgmt/stdlib/*/doc.go). -strict requires every
+	# registered module to be documented.
+	go run ./tools/gendocs/modules -strict -out docs/content/docs/modules
 
 docs-sync-check: ## Assert auto-generated reference docs are in sync with the generators
 	@tmpdir=$$(mktemp -d) && \
 		go run ./tools/gendocs/cli    > $$tmpdir/CLI.md && \
 		go run ./tools/gendocs/config > $$tmpdir/CONFIGURATION.md && \
 		go run ./tools/gendocs/api    > $$tmpdir/API.md && \
+		go run ./tools/gendocs/modules -strict -out $$tmpdir/modules && \
 		diff -q docs/project/CLI-REFERENCE.md           $$tmpdir/CLI.md && \
 		diff -q docs/project/CONFIGURATION-REFERENCE.md $$tmpdir/CONFIGURATION.md && \
 		diff -q docs/project/API-REFERENCE.md           $$tmpdir/API.md && \
+		diff -rq docs/content/docs/modules $$tmpdir/modules && \
 		echo "docs-sync-check: ok"
 
 docs-site: ## Build the Hugo documentation site (Hextra) to docs/public/
