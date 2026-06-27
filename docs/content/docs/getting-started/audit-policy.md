@@ -1,6 +1,6 @@
 ---
 title: Querying the Audit Log & Policies
-weight: 4
+weight: 5
 ---
 
 Every operation Keystone Core performs — commands, state applies, secret

@@ -1,6 +1,6 @@
 ---
 title: Authoring & Publishing a Module
-weight: 2
+weight: 3
 ---
 
 A **module** is a unit of custom logic written in

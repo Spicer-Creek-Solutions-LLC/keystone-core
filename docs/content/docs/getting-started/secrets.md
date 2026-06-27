@@ -1,6 +1,6 @@
 ---
 title: Managing Secrets
-weight: 3
+weight: 4
 ---
 
 Keystone Core's secrets subsystem stores secrets encrypted at rest and

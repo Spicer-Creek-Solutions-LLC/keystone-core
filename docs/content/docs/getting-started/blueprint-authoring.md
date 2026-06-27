@@ -1,6 +1,6 @@
 ---
 title: Authoring a Blueprint
-weight: 1
+weight: 2
 ---
 
 A **blueprint** packages a deployment as a reusable, parameterized unit:
