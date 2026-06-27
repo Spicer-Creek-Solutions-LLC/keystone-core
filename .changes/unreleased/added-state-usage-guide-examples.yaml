@@ -1,0 +1,13 @@
+kind: Added
+body: |-
+  **"Using State Management" guide + an Examples section on the docs
+  site.** A new getting-started guide (now the first one) teaches the
+  state-file language, requisites (`require` / `watch` / `onchanges` —
+  ordering and reactivity), a complete worked example (user + package +
+  file + service), and the `apply` / `check` / `drift --fix` / `history` /
+  `rollback` workflow. A new **Examples** section maps the in-repo
+  blueprints (postgres-ha, monitoring-stack, security-baseline, …) and
+  the Starlark module examples (hello → cmdrun → opsbundle) with one-line
+  descriptions and links. Together with the auto-generated
+  [State Modules](../../modules/) reference this closes the "how do I
+  actually use it / what modules are there / where are the examples" gap.

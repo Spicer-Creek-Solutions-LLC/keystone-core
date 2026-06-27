@@ -1,6 +1,6 @@
 ---
 title: GitOps Integration
-weight: 5
+weight: 6
 ---
 
 Keystone Core integrates with a GitOps workflow at the **operational**

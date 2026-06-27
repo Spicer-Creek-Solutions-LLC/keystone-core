@@ -1,6 +1,6 @@
 ---
 title: HA Cluster Topology
-weight: 6
+weight: 7
 ---
 
 A single `kscore-server` is fine for a lab or a small fleet. For
