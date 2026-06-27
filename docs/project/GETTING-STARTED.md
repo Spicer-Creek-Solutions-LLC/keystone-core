@@ -164,7 +164,7 @@ YAML
 Apply it via `kscorectl`:
 
 ```bash
-kscorectl state apply --agent "$(hostname -s)" --file /tmp/hello.yaml
+kscorectl state apply /tmp/hello.yaml --agent "$(hostname -s)"
 ```
 
 Verify the file landed on the host:
