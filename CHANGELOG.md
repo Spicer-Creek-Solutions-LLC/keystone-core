@@ -342,7 +342,7 @@ line per the v0.1 → v0.5 → v1.0 ladder.
   blueprints (postgres-ha, monitoring-stack, security-baseline, …) and
   the Starlark module examples (hello → cmdrun → opsbundle) with one-line
   descriptions and links. Together with the auto-generated
-  [State Modules](../../modules/) reference this closes the "how do I
+  [State Modules](modules/) reference this closes the "how do I
   actually use it / what modules are there / where are the examples" gap.
 
 ### Changed
