@@ -270,7 +270,7 @@ HTTP callback. Keystone Core has two flavors: **inbound** webhooks (`:8081/webho
 
 ### WebSocket
 
-A protocol for full-duplex communication over a single TCP connection. Used for real-time agent communication through firewalls.
+A protocol for full-duplex communication over a single TCP connection. Reserved for potential future agent firewall-traversal transport (deferred to v2.x+); v0.x agents connect over [NATS](#nats).
 
 ### WinRM (Windows Remote Management)
 
