@@ -68,9 +68,21 @@ Outbound: none required for a single-host trial. Production deployments
 that ship metrics to Prometheus, traces to OTLP, or backups to S3 will
 need outbound to those destinations.
 
-For remote agents, the server's gRPC + NATS ports must be reachable
-from each managed host. Re-bind `server.host` to `0.0.0.0` (or a
-specific interface) and adjust `nats.embedded.host` accordingly.
+Reachability differs by role:
+
+- **Managed hosts (agents)** connect over **NATS only** (4222). The
+  agent daemon is a NATS client of the control plane — it never opens
+  a gRPC connection to the server. A host running only the agent does
+  not need the gRPC port (5397) reachable.
+- **Operators** (`kscorectl`, dashboards, scripts) use the **gRPC**
+  control-plane API (5397), plus HTTP (8080) if they consume REST or
+  metrics.
+
+To expose the server to remote agents, re-bind `server.host` to
+`0.0.0.0` (or a specific interface) and re-bind the embedded NATS
+listener via `nats.embedded.host` accordingly. The latter sets where
+the server's embedded NATS listens; agents run in external mode and
+connect to it.
 
 ## Trigger conditions
 
