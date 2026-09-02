@@ -105,6 +105,14 @@ jobs:
       # `make docs-sync`. CI fails if a PR landed a source change
       # without re-running the generator.
       - run: make docs-sync-check
+      # Promo-video shot list. Same contract as docs-sync-check: the
+      # generated title cards under assets/promo/tapes/ must match what
+      # `make update-promo` would produce from the current branch, and
+      # the shot list must stay inside its 30s runtime budget. Also
+      # reports any changelog fragment tagged `Demo:` that no shot
+      # covers. Pure Go — the render half (vhs/ttyd/ffmpeg) is not a
+      # CI dependency. See assets/promo/README.md.
+      - run: make promo-check
       # Build-artifact discipline lint. Catches PRs that committed
       # binaries from ad-hoc `go build ./cmd/foo` runs at repo root.
       # `make build` writes to build/bin/$GOOS/$GOARCH/ — anything

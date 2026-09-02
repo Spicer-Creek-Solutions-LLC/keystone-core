@@ -1,0 +1,32 @@
+# Promo scenario state file — the declaration shots 3-5 apply, drift,
+# and re-converge.
+#
+# Deliberately file-module-only. Blueprints and state apply run
+# server-side against kscore-server's own stdlib StateRunner until the
+# gate-v1.0 "Remote / distributed blueprint apply wiring" entry lands,
+# and that container is distroless — package/service convergence has
+# nothing to converge against. A managed-file declaration is real,
+# runs green, and shows the same Check -> Apply -> Test loop.
+#
+# Paths sit under /srv/promo, which docker-compose.promo.yml bind-mounts
+# from build/promo/workdir/ so drift.sh can mutate them from the host without needing a shell inside the container.
+
+metadata:
+  name: promo-web-tier
+  version: "1.0"
+
+file:
+  /srv/promo/nginx.conf:
+    state: present
+    mode: "0644"
+    content: |
+      worker_processes 4;
+      keepalive_timeout 65;
+      client_max_body_size 16m;
+
+  /srv/promo/app.env:
+    state: present
+    mode: "0640"
+    content: |
+      LOG_LEVEL=info
+      MAX_CONNS=512

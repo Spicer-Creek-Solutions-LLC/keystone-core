@@ -1,0 +1,20 @@
+#
+# Shot 2 (card, 3.0s) — the name plus the shape of the system. A
+# condensed cut of the README topology; the full six-box diagram does
+# not read in three seconds.
+#
+# Counts come from tools/promogen (Facts), never typed by hand.
+
+Output build/promo/clips/02-topology.mp4
+
+Source assets/promo/tapes/_common.tape
+
+Hide
+Type `PS1=""; clear` Enter
+Type `printf '\n\n  \033[1;38;5;223mKeystone Core\033[0m  \033[38;5;245mthe runtime operations control plane\033[0m\n\n'` Enter
+Type `printf '      \033[38;5;250mkscorectl\033[0m  ->  \033[1;38;5;117mkscore-server\033[0m  ->  \033[38;5;250mPostgres\033[0m\n'` Enter
+Type `printf '                          \033[38;5;245m| NATS\033[0m\n'` Enter
+Type `printf '           \033[38;5;250magent\033[0m     \033[38;5;250magent\033[0m     \033[38;5;250magent\033[0m\n\n'` Enter
+Type `printf '  \033[38;5;245m{{ .ModuleCount }} state modules  ·  {{ .DistroCount }}-distro matrix  ·  {{ .BinaryCount }} binaries\033[0m\n'` Enter
+Show
+Sleep 3s

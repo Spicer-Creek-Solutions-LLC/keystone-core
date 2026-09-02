@@ -1051,6 +1051,18 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance**: apt repo serving `.deb` + dnf/yum repo serving `.rpm` from `repos.keystone-core.io` (unsigned at v0.5, GPG-signed at v0.8); install recipe in `docs/project/GETTING-STARTED.md` uses the repo path as the primary, with the direct-download path documented as a fallback; `RELEASE-PLAYBOOK.md` §9 "Publication" updated to include the publish-to-repo step; CHANGELOG entry on the release that lands it; this ROADMAP entry removed (signed-repo follow-up tracked with the signing batch).
 - **References**: `scripts/repo/` + `deploy/repos/` (tooling, #220); `.goreleaser.yaml` nfpms block (produces `.deb` + `.rpm`); `RELEASE-PLAYBOOK.md` §9 Publication; companion: "Release signing ceremony" (shared key-onboarding work).
 
+#### Promo video pipeline — remaining shots and polish
+
+- **Priority**: v0.x
+- **What**: The generated promo-video pipeline landed (`assets/promo/`, `tools/promogen`, `make promo` / `update-promo` / `promo-check`; script and rationale in [`assets/promo/README.md`](../../assets/promo/README.md)). Deliberately deferred from the initial build:
+  - **Move the scenario onto an agent host.** Terminal shots 3-5 currently apply server-side, because state and blueprint runs execute against `kscore-server`'s own stdlib `StateRunner` until the gate-v1.0 entry *Remote / distributed blueprint apply wiring* lands. Once it does, the scenario should target an agent, and `scenario/state/web.yaml` should grow `package` + `service` declarations instead of being file-module-only (the server container is distroless, so there is nothing to converge today). Strictly better demo; the existing shot durations already accommodate it.
+  - **Per-shot crossfades.** `pipeline/build.sh` assembles with hard cuts plus a head fade-in and tail fade-out. A six-stage ffmpeg `xfade` chain is markedly harder to keep correct than it is worth at 30 seconds, and was not worth shipping untested.
+  - **A stronger stale-tape guard.** `assert_clean` only catches a blank or near-empty clip. A tape whose command has started erroring renders perfectly happily with the traceback in frame. Options: assert the recorded exit status per shot, or OCR a frame for known error markers.
+  - **Audio.** Text-only by design (the captions are the narration). A music bed needs an explicitly commercial-use licence recorded alongside the asset, given the repo's Apache-2.0 provenance posture.
+- **Why deferred**: The pipeline's value is that it regenerates from the branch, and that half works today with no media toolchain at all (`make promo-check` runs in `ci-fast`). The render half needs `vhs` + `ttyd` + `ffmpeg`, none of which are CI dependencies, so its polish is not on any gate's critical path. The scenario move is blocked on remote apply regardless.
+- **Acceptance**: Scenario runs against an agent host with a `package` + `service` declaration once remote apply lands; `make promo` produces `dist/promo/keystone-30s.mp4` with crossfades; a stale tape whose command errors fails the render rather than shipping the error in frame.
+- **References**: [`assets/promo/README.md`](../../assets/promo/README.md); `assets/promo/pipeline/build.sh`; `tools/promogen/`; gate-v1.0 entry "Remote / distributed blueprint apply wiring".
+
 ## v1.x — post-v1.0 feature additions
 
 #### Logging: context-aware threading of deep helpers

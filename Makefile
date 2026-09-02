@@ -38,6 +38,7 @@ export CGO_ENABLED := 0
 
 .PHONY: help \
         build build-all-platforms clean clean-all clean-check deps install-tools install-lychee install-hugo docs-site docs-links-site \
+        promo update-promo promo-check install-promo-tools \
         test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check test-integration slo profile test-cross-distro check deps deps-outdated deps-outdated-issue \
         fmt lint lint-fix smoke test-packaging \
         proto proto-lint proto-breaking \
@@ -131,7 +132,7 @@ clean-check: ## Assert repo is free of stray build artifacts (CI lint gate)
 	for f in kscore-agent kscore-backup kscore-migrate kscore-server kscorectl trackerctl coverage.out; do \
 	  [ -e "$$f" ] && strays="$$strays $$f"; \
 	done; \
-	for t in tools/moddoc/moddoc scripts/docvalidation/docvalidation docvalidation; do \
+	for t in tools/moddoc/moddoc scripts/docvalidation/docvalidation docvalidation promogen; do \
 	  [ -e "$$t" ] && strays="$$strays $$t"; \
 	done; \
 	for f in *.test; do \
@@ -668,6 +669,46 @@ security-licenses: ## Verify dep licenses are Apache-2.0 / MIT / BSD-compatible
 		--disallowed_types=forbidden,restricted,unknown \
 		--ignore=modernc.org/mathutil \
 		./...
+
+# ---- Promo video ----------------------------------------------------------
+#
+# Two halves, deliberately split by what they need:
+#
+#   update-promo / promo-check   pure Go + the repo. Run anywhere, gated
+#                                in CI. Keep the generated cards, the
+#                                runtime budget, and the shot list
+#                                honest against the current branch.
+#   promo                        actually renders the video. Needs vhs,
+#                                ttyd, ffmpeg and docker.
+#
+# The script and shot list live in assets/promo/README.md.
+
+promo: ## Render the 30s promo video to dist/promo/ (needs vhs+ttyd+ffmpeg+docker)
+	# Builds against the live single-topology E2E stack, so the terminal
+	# shots are real kscorectl output rather than mockups. Run
+	# `make build` first — the tapes require kscorectl on PATH.
+	assets/promo/pipeline/build.sh
+
+update-promo: ## Regenerate promo cards from the current branch + report shot-list drift
+	go run ./tools/promogen sync
+	go run ./tools/promogen validate
+	go run ./tools/promogen reconcile
+
+promo-check: ## Assert the promo shot list is valid, in budget, and in sync (CI gate)
+	# Non-mutating counterpart to update-promo. `sync -check` is the
+	# same contract docs-sync-check enforces for the reference docs:
+	# committed output must match what a regen would produce now.
+	go run ./tools/promogen validate
+	go run ./tools/promogen sync -check
+	go run ./tools/promogen reconcile
+
+install-promo-tools: ## Install the go-installable promo dep (vhs); reports the rest
+	@command -v vhs >/dev/null || go install github.com/charmbracelet/vhs@latest
+	@# ttyd and ffmpeg are C binaries with no go install path. vhs drives
+	@# ttyd to get a real terminal and shells out to ffmpeg to encode.
+	@for t in ttyd ffmpeg; do \
+		command -v $$t >/dev/null || echo "NOTE: $$t not installed — install it via your package manager (apt install $$t / brew install $$t)"; \
+	done
 
 # ---------------------------------------------------------------------------
 # Targets added by later tasks/epics — intentionally NOT stubbed here so

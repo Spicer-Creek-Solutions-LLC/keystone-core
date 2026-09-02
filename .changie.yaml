@@ -43,6 +43,22 @@ versionFormat: '## [{{.Version}}] — {{.Time.Format "2006-01-02"}}'
 kindFormat: '### {{.Kind}}'
 changeFormat: '- {{.Body | replace "\n" "\n  "}}'
 
+# Optional per-fragment metadata. `Demo` opts an entry into the promo
+# video's shot list (assets/promo/manifest.yaml): set it to the shot
+# `feature` tag that would show the change on screen. `make promo-check`
+# reports a tagged entry with no shot.
+#
+# Why opt-in rather than mined from the body: changelog bodies describe
+# behaviour, not demoability. A PR author who just built the feature
+# knows whether it reads in four seconds of terminal output; a heuristic
+# over the prose does not. Leave it unset for anything that is not
+# visible in a terminal — most entries.
+custom:
+  - key: Demo
+    label: "Demo shot (optional — promo video feature tag, blank for none)"
+    type: string
+    optional: true
+
 kinds:
   - label: Security
   - label: Added

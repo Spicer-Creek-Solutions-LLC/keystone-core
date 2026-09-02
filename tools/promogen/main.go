@@ -1,0 +1,200 @@
+// SPDX-License-Identifier: Apache-2.0
+
+// promogen maintains the generated half of the promo-video pipeline in
+// assets/promo/ (see assets/promo/README.md for the script and shot
+// list, and docs/project/ROADMAP.md for why the pipeline exists).
+//
+// The split it enforces: the *narrative* — which shots, in what order,
+// saying what — is hand-authored in manifest.yaml and reviewed like any
+// other source. Everything *mechanical* — the version on the end card,
+// the module count, the runtime budget, whether a demo-tagged changelog
+// entry has a shot — is derived from the repository, so the video
+// cannot quietly drift from what the project ships.
+//
+// Subcommands:
+//
+//	validate   assert the manifest is well-formed and inside its
+//	           runtime budget. Reads only.
+//	sync       render assets/promo/tapes/*.tape.tmpl from repo facts.
+//	           -check reports drift without writing (CI gate).
+//	reconcile  match `Demo:`-tagged changelog fragments against the
+//	           shot list. -strict makes an unshot entry an error.
+//	plan       emit the shot list as TSV for pipeline/build.sh, so the
+//	           ffmpeg assembler never re-parses the manifest itself.
+//	facts      print the derived facts (debugging).
+//
+// Usage:
+//
+//	go run ./tools/promogen validate
+//	go run ./tools/promogen sync [-check]
+//	go run ./tools/promogen reconcile [-strict]
+//	go run ./tools/promogen plan
+//
+// Exit codes: 0 on pass, 1 on any validation failure, sync drift under
+// -check, or unshot demo entry under -strict.
+package main
+
+import (
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+const (
+	defaultPromoDir = "assets/promo"
+	manifestName    = "manifest.yaml"
+)
+
+func main() {
+	if err := run(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}
+
+func run(args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("promogen: expected a subcommand " +
+			"(validate | sync | reconcile | plan | facts)")
+	}
+
+	cmd, rest := args[0], args[1:]
+	fs := flag.NewFlagSet("promogen "+cmd, flag.ContinueOnError)
+	repoRoot := fs.String("repo-root", ".", "repository root")
+	promoDir := fs.String("promo-dir", defaultPromoDir, "promo asset directory, relative to -repo-root")
+	check := fs.Bool("check", false, "sync: report drift without writing")
+	strict := fs.Bool("strict", false, "reconcile: exit non-zero when a demo-tagged entry has no shot")
+	if err := fs.Parse(rest); err != nil {
+		return err
+	}
+
+	dir := filepath.Join(*repoRoot, *promoDir)
+
+	switch cmd {
+	case "validate":
+		return cmdValidate(dir)
+	case "sync":
+		return cmdSync(*repoRoot, dir, *check)
+	case "reconcile":
+		return cmdReconcile(*repoRoot, dir, *strict)
+	case "plan":
+		return cmdPlan(dir)
+	case "facts":
+		return cmdFacts(*repoRoot)
+	default:
+		return fmt.Errorf("promogen: unknown subcommand %q "+
+			"(want validate | sync | reconcile | plan | facts)", cmd)
+	}
+}
+
+func cmdValidate(promoDir string) error {
+	m, err := LoadManifest(filepath.Join(promoDir, manifestName))
+	if err != nil {
+		return err
+	}
+	problems := m.Validate()
+	if len(problems) > 0 {
+		fmt.Fprintf(os.Stderr, "FAIL %s: %d problem(s)\n", manifestName, len(problems))
+		for _, p := range problems {
+			fmt.Fprintf(os.Stderr, "  - %s\n", p)
+		}
+		return fmt.Errorf("promogen: manifest validation failed")
+	}
+	fmt.Printf("OK   %d shots, %.2fs total (target %.2fs ±%.2fs)\n",
+		len(m.Shots), m.TotalDuration(), m.TargetDuration, m.Tolerance)
+	return nil
+}
+
+func cmdSync(repoRoot, promoDir string, check bool) error {
+	facts, err := DeriveFacts(repoRoot)
+	if err != nil {
+		return err
+	}
+	res, err := SyncTapes(promoDir, facts, check)
+	if err != nil {
+		return err
+	}
+	for _, f := range res.Unchanged {
+		fmt.Printf("OK   %s\n", f)
+	}
+	for _, f := range res.Written {
+		verb := "WROTE"
+		if check {
+			verb = "DRIFT"
+		}
+		fmt.Printf("%s %s\n", verb, f)
+	}
+	if check && len(res.Written) > 0 {
+		return fmt.Errorf("promogen: %d generated tape(s) out of date; run `make update-promo`",
+			len(res.Written))
+	}
+	return nil
+}
+
+func cmdReconcile(repoRoot, promoDir string, strict bool) error {
+	m, err := LoadManifest(filepath.Join(promoDir, manifestName))
+	if err != nil {
+		return err
+	}
+	tags, err := LoadDemoTags(repoRoot)
+	if err != nil {
+		return err
+	}
+	rep := Reconcile(m, tags)
+
+	for _, t := range rep.Covered {
+		fmt.Printf("OK      %s -> shot %q\n", t.File, t.Feature)
+	}
+	for _, f := range rep.Orphaned {
+		fmt.Printf("NOTE    shot feature %q matches no unreleased entry "+
+			"(fine for a shot older than the current cycle)\n", f)
+	}
+	for _, t := range rep.Unshot {
+		fmt.Printf("UNSHOT  %s tagged Demo: %s — %s\n", t.File, t.Feature, t.Title)
+	}
+
+	if len(rep.Unshot) == 0 {
+		fmt.Printf("OK   %d demo-tagged entr(ies), all covered by a shot\n", len(rep.Covered))
+		return nil
+	}
+	fmt.Printf("\n%d demo-tagged changelog entr(ies) have no shot. Either add a shot to "+
+		"%s (and take the time back from another shot), or drop the Demo: tag.\n",
+		len(rep.Unshot), manifestName)
+	if strict {
+		return fmt.Errorf("promogen: %d unshot demo-tagged entr(ies)", len(rep.Unshot))
+	}
+	return nil
+}
+
+// cmdPlan emits one TSV row per shot: id, kind, duration, tape,
+// caption. pipeline/build.sh reads this instead of parsing YAML in
+// bash, which keeps exactly one parser for the manifest.
+func cmdPlan(promoDir string) error {
+	m, err := LoadManifest(filepath.Join(promoDir, manifestName))
+	if err != nil {
+		return err
+	}
+	if problems := m.Validate(); len(problems) > 0 {
+		return fmt.Errorf("promogen: refusing to emit a plan for an invalid manifest; "+
+			"run `go run ./tools/promogen validate` (%d problem(s))", len(problems))
+	}
+	for _, s := range m.Shots {
+		fmt.Printf("%s\t%s\t%.3f\t%s\t%s\n", s.ID, s.Kind, s.Duration, s.Tape, s.Caption)
+	}
+	return nil
+}
+
+func cmdFacts(repoRoot string) error {
+	f, err := DeriveFacts(repoRoot)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Version      %s\n", f.Version)
+	fmt.Printf("PreRelease   %t\n", f.PreRelease)
+	fmt.Printf("ReleaseLabel %s\n", f.ReleaseLabel)
+	fmt.Printf("ModuleCount  %d\n", f.ModuleCount)
+	fmt.Printf("BinaryCount  %d\n", f.BinaryCount)
+	fmt.Printf("DistroCount  %d\n", f.DistroCount)
+	return nil
+}

@@ -1,0 +1,22 @@
+#
+# Shot 7 (card, 3.5s) — end card.
+#
+# ReleaseLabel is derived: while the line is v0.x it renders
+# "vX.Y.Z — pre-release" and says so on screen. Implying GA is the one
+# genuinely damaging thing a promo for a pre-1.0 project can do, so the
+# status is generated, not typed.
+#
+# The logo is composited over this shot by pipeline/build.sh.
+
+Output build/promo/clips/07-endcard.mp4
+
+Source assets/promo/tapes/_common.tape
+
+Hide
+Type `PS1=""; clear` Enter
+Type `printf '\n\n\n\n\n'` Enter
+Type `printf '        \033[1;38;5;223mGitOps deploys it. We keep it running.\033[0m\n\n'` Enter
+Type `printf '        \033[38;5;117mcodeberg.org/keystone-core/keystone-core\033[0m\n'` Enter
+Type `printf '        \033[38;5;245m{{ .ReleaseLabel }}\033[0m\n'` Enter
+Show
+Sleep 3500ms
