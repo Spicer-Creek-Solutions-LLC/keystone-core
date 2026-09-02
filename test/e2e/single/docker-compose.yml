@@ -90,7 +90,13 @@ services:
       # kscore-server container.
       - ./blueprints:/blueprints:ro
     ports:
-      - "127.0.0.1:9090:9090"
+      # gRPC control-plane API. Must match server.yaml's `grpcport: 5397`
+      # and the `serverGRPCAddr` constant in scaffold_test.go — docker
+      # mode (KSCORE_E2E_USE_DOCKER=1) dials it from the host. Was
+      # published as 9090:9090, which matched neither, so docker-mode
+      # gRPC was unreachable; native mode masked it by running the
+      # binaries directly on the host.
+      - "127.0.0.1:5397:5397"
       - "127.0.0.1:8080:8080"
       # Epic 19 task 2c — GitOps inbound webhook receiver on its own
       # listener (see config server.yaml: gitops.webhook.addr).
