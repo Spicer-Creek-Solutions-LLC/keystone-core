@@ -1,0 +1,15 @@
+kind: Fixed
+body: |-
+  **`pkg/api/server` no longer leaks idle HTTP connections into its
+  goleak check.** Tests in the package reach the server under test with
+  http.Get, which pools keep-alive connections on the package-global
+  http.DefaultTransport; those outlive the test that opened them, along
+  with the server-side conn goroutine serving each. Go 1.26 reaped them
+  before goleak looked, Go 1.27 does not, and the package began failing
+  intermittently -- 2 in 5 runs on main under 1.27.1, with no code
+  change. TestMain now closes the idle-connection pool between running
+  the tests and checking for leaks; 10 of 10 runs pass. Ignoring
+  net/http.(*persistConn).writeLoop would have silenced a real
+  connection leak just as effectively, so it closes the pool instead.
+custom:
+  Demo: ""
