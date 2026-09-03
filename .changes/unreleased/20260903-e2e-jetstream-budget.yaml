@@ -10,8 +10,10 @@ body: |-
   10-20 GiB derived, the COMMANDS stream was created and the EVENTS
   stream then failed with `insufficient storage resources available`,
   aborting startup before any scenario ran. The E2E config now sets
-  64 MiB / 100,000 messages per stream, and the native scaffold bounds
-  the embedded server to 512 MiB on disk and 64 MiB in memory, so the
-  harness is hermetic. The scenarios move a few dozen small messages.
+  64 MiB / 100,000 messages per stream, so any plausible derived budget
+  covers both streams. The scenarios move a few dozen small messages.
+  Bounding the SERVER's budget instead is not viable -- it breaks agent
+  connectivity outright, at 512 MiB and at 8 GiB alike, so it is not a
+  size threshold; the scaffold carries the measurements.
 custom:
   Demo: ""

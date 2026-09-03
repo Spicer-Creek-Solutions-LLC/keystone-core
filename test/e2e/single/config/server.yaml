@@ -40,7 +40,12 @@ nats:
     # on how much space the machine happened to have — the COMMANDS
     # stream would be created and the EVENTS stream would then fail with
     # "insufficient storage resources available". The scenarios move a
-    # few dozen small messages; 64 MiB is ample.
+    # few dozen small messages; 64 MiB is ample, and any plausible
+    # derived budget covers two streams of that size.
+    #
+    # Bounding the SERVER's budget instead is not an option: it breaks
+    # agent connectivity outright. See the comment in
+    # scaffold_native_test.go for the measurements.
     streammaxbytes: 67108864
     streammaxmsgs: 100000
   bootstrap:
