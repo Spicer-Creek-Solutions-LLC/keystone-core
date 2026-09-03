@@ -178,17 +178,51 @@ deps-outdated: ## Report direct deps with newer releases (informational; runs ni
 deps-outdated-issue: ## deps-outdated + sync a tracking issue via the Forgejo API (ci-full nightly; needs GITHUB_* env)
 	@go run ./tools/depsoutdated --issue
 
+# install-if-stale <binary> <module@version> — install when the binary is
+# absent OR was built by a different Go toolchain than the current one.
+# `go version -m <bin>` reports the building toolchain on its first line.
+define install-if-stale
+	if ! command -v $(1) >/dev/null; then \
+	  go install $(2); \
+	else \
+	  built=$$(go version -m "$$(command -v $(1))" 2>/dev/null | head -1 | awk '{print $$2}'); \
+	  want=$$(go env GOVERSION); \
+	  if [ "$$built" != "$$want" ]; then \
+	    echo ">>> $(1) was built with $$built, need $$want — reinstalling"; \
+	    go install $(2); \
+	  fi; \
+	fi
+endef
+
 install-tools: ## Install dev tools (Go-installable + lychee binary)
-	@command -v golangci-lint >/dev/null || go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
-	@command -v gosec >/dev/null || go install github.com/securego/gosec/v2/cmd/gosec@latest
-	@command -v govulncheck >/dev/null || go install golang.org/x/vuln/cmd/govulncheck@latest
+	@# Toolchain-sensitive tools (golangci-lint, gosec, govulncheck,
+	@# go-licenses): rebuild when the installed binary was
+	@# built by a DIFFERENT Go than the one in use. Both embed stdlib
+	@# knowledge from their build toolchain, so a binary left over from a
+	@# previous toolchain fails in ways that look like the project broke.
+	@# Caught on the Go 1.27.1 bump: a go-licenses built with 1.26.4
+	@# reported 124 stdlib packages as "does not have module info"
+	@# (google/go-licenses#128) against an otherwise-clean tree, while
+	@# the identical v2.0.1 rebuilt with 1.27.1 passed. `command -v`
+	@# alone would have skipped the reinstall and hidden it.
+	@$(call install-if-stale,golangci-lint,github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest)
+	@$(call install-if-stale,gosec,github.com/securego/gosec/v2/cmd/gosec@latest)
+	@$(call install-if-stale,govulncheck,golang.org/x/vuln/cmd/govulncheck@latest)
 	@command -v buf >/dev/null || go install github.com/bufbuild/buf/cmd/buf@latest
 	@# Pin the proto generators to specific versions: their output is
 	@# committed under pkg/api/v1/, so a moving @latest would drift the
 	@# version-stamp comment in *_grpc.pb.go / *.pb.go and trip the
 	@# proto-job's `git diff --exit-code` gate on fresh CI runs.
-	@command -v protoc-gen-go >/dev/null || go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
-	@command -v protoc-gen-go-grpc >/dev/null || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
+	@#
+	@# The pinned VERSION is not sufficient on its own — the generators
+	@# format their output through the go/format of the toolchain that
+	@# BUILT them, and Go 1.27 renders doc-comment lists differently from
+	@# 1.26. A generator left over from an older toolchain therefore emits
+	@# different bytes than a fresh CI runner's, which is precisely the
+	@# drift this gate exists to catch. So they go through install-if-stale
+	@# too: pinned version AND current toolchain.
+	@$(call install-if-stale,protoc-gen-go,google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11)
+	@$(call install-if-stale,protoc-gen-go-grpc,google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1)
 	@command -v goreleaser >/dev/null || go install github.com/goreleaser/goreleaser/v2@latest
 	@command -v gitleaks >/dev/null || go install github.com/zricethezav/gitleaks/v8@latest
 	@# Pinned to go-licenses v2 (the /v2 module path): the v1 @latest
@@ -198,7 +232,7 @@ install-tools: ## Install dev tools (Go-installable + lychee binary)
 	@# binary; a fresh runner would pull the broken @latest. v2.0.1 is the
 	@# current release and loads cleanly under Go 1.26 with the same check
 	@# flags (the binary is still named go-licenses).
-	@command -v go-licenses >/dev/null || go install github.com/google/go-licenses/v2@v2.0.1
+	@$(call install-if-stale,go-licenses,github.com/google/go-licenses/v2@v2.0.1)
 	@# Syft is pinned because SBOM output drift across syft versions
 	@# would change the byte-content of `sbom-vX.Y.Z.{spdx,cyclonedx}.json`
 	@# release artifacts even when the dep tree is unchanged. Pin matches

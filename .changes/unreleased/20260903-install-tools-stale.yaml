@@ -1,0 +1,16 @@
+kind: Fixed
+body: |-
+  **`make install-tools` rebuilds analysers whose build toolchain is
+  stale.** golangci-lint, gosec, govulncheck and go-licenses all embed
+  standard-library knowledge from the Go that built them, so a binary
+  left over from a previous toolchain fails in ways that look like the
+  project is broken. `command -v X || go install X` never noticed. The
+  Go 1.27.1 bump exposed both variants: a go-licenses built with 1.26.4
+  reported 124 stdlib packages as "does not have module info"
+  (google/go-licenses#128) against a clean tree, and a gosec built with
+  1.25.5 aborted with `internal error: package "bufio" without types` --
+  in both cases the identical pinned version rebuilt with 1.27.1 passed.
+  install-tools now compares each analyser's build toolchain against
+  `go env GOVERSION` and reinstalls on a mismatch.
+custom:
+  Demo: ""

@@ -208,11 +208,17 @@ var allowList = map[string]float64{
 	// the providers land.
 	"pkg/api/cluster": 68.7,
 
-	// pkg/api/secrets — 63.0%. Handler covers Get/Write happy paths
+	// pkg/api/secrets — 65.8%. Handler covers Get/Write happy paths
 	// but not the lease/transit fallback branches that need the
 	// Vault backend. Graduate when the Vault E2E lands (v1.x
 	// ROADMAP: "Secrets transit + lease E2E against Vault").
-	"pkg/api/secrets": 63.0,
+	//
+	// The number moved 63.0 -> 65.8 with the Go 1.27.1 bump and NOT
+	// with any test change: the same commit on main reports 63.0%
+	// under go1.26.4 and 65.8% under go1.27.1. Go 1.27 counts
+	// statements differently, so this is a re-baselined snapshot, not
+	// a coverage improvement — the untested branches are unchanged.
+	"pkg/api/secrets": 65.8,
 
 	// cmd/kscore-server — 38.9% statement-weighted. Boot-path
 	// branches (TLS source, identity provider, bootstrap PSK vs

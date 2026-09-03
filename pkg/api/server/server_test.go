@@ -5,10 +5,12 @@ package server_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -27,14 +29,35 @@ import (
 
 // TestMain isolates server lifecycle tests under goleak so runaway
 // goroutines from broken Stop() paths are caught here, not at integration time.
+//
+// Not goleak.VerifyTestMain, because idle HTTP connections have to be
+// closed between running the tests and checking for leaks. Tests in this
+// package reach the server under test with http.Get, which pools
+// keep-alive connections on the package-global http.DefaultTransport;
+// those outlive the test that opened them, along with the server-side
+// conn goroutine serving each one.
+//
+// Go 1.26 reaped them fast enough that goleak never saw them. Go 1.27
+// does not, and the package started failing intermittently (2 in 5 runs)
+// on net/http.(*persistConn).writeLoop and (*Server).Serve. Closing the
+// pool is the fix; adding IgnoreTopFunction for those would silence a
+// genuine HTTP connection leak just as effectively.
 func TestMain(m *testing.M) {
-	goleak.VerifyTestMain(m,
+	code := m.Run()
+
+	http.DefaultTransport.(*http.Transport).CloseIdleConnections()
+
+	if err := goleak.Find(
 		// modernc.org/sqlite spins a long-lived background goroutine
 		// inside its connection pool that we cannot Close() without
 		// modifying the driver. Tolerate it.
 		goleak.IgnoreTopFunction("modernc.org/sqlite.(*conn).run"),
 		goleak.IgnoreAnyFunction("modernc.org/sqlite.(*conn).run"),
-	)
+	); err != nil {
+		fmt.Fprintf(os.Stderr, "goleak: %v\n", err)
+		os.Exit(1)
+	}
+	os.Exit(code)
 }
 
 // trackingNATS records lifecycle calls so tests can assert ordering

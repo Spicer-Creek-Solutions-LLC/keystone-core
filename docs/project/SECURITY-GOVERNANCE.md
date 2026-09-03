@@ -208,7 +208,7 @@ runnable locally as `make security-secrets`, `make security-vulns`,
 | Scan | Tool | Threshold | Notes |
 |------|------|-----------|-------|
 | Secrets in git history | gitleaks | zero findings | scans full history (`fetch-depth: 0` in CI) |
-| Known CVEs in deps | govulncheck | zero **called** vulnerabilities | Go toolchain pinned to `go 1.26.3` in `go.mod`; `golang.org/x/crypto` ≥ v0.52.0 |
+| Known CVEs in deps | govulncheck | zero **called** vulnerabilities | Go toolchain pinned to `go 1.27.1` in `go.mod`; `golang.org/x/crypto` ≥ v0.52.0 |
 | Static analysis (SAST) | gosec | zero **HIGH+** findings | G115 globally excluded (see below); `-severity=high` |
 | Dependency licenses | go-licenses | no `forbidden`, `restricted`, or `unknown` | Apache-2.0 / MIT / BSD-compatible per epic 19 §Scope |
 

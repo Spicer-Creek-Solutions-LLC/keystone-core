@@ -115,6 +115,28 @@ func startNativeStack() (cleanup func(), err error) {
 	if err := os.MkdirAll(natsStore, 0o700); err != nil {
 		return cleanup, fmt.Errorf("nats store dir: %w", err)
 	}
+	// Deliberately NO JetStreamMaxStore / JetStreamMaxMemory here.
+	//
+	// Bounding the embedded server's JetStream budget looks like the
+	// obvious way to stop nats-server deriving one from free disk, and it
+	// does stop that — but it also stops the agents connecting at all.
+	// Every scenario then fails with "agent-1 not yet connected" after a
+	// 60s wait, with no error logged on either side. Measured, not
+	// assumed:
+	//
+	//   budget none  + 64 MiB streams -> pass
+	//   budget 512M  + 64 MiB streams -> agents never connect
+	//   budget 8 GiB + 64 MiB streams -> agents never connect
+	//
+	// Not a size threshold: 8 GiB fails the same way 512 MiB does, so it
+	// is setting the limit at all that does it. The mechanism is not
+	// understood — plausibly nats-server configures the global account
+	// differently once explicit JetStream limits are present.
+	//
+	// Bounding the STREAMS instead (test/e2e/single/config/server.yaml)
+	// achieves the same goal without this: the streams ask for 64 MiB
+	// rather than the production 10 GiB, so any plausible derived budget
+	// is enough.
 	natsSrv, err := natsserver.NewServer(&natsserver.Options{
 		Host:      "127.0.0.1",
 		Port:      natsPort,
