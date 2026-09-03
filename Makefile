@@ -24,6 +24,23 @@ LDFLAGS    := -X $(MODULE)/pkg/version.Version=$(VERSION) \
               -X $(MODULE)/pkg/version.GitCommit=$(GIT_COMMIT) \
               -X $(MODULE)/pkg/version.BuildDate=$(BUILD_DATE)
 
+# ---- Stray-artifact inventory ---------------------------------------------
+
+# Binaries that a naive `go build ./cmd/X` or `go build ./tools/X` drops
+# at the repo root. Derived from the tree, not hand-listed: cmd/ holds
+# every kscore-* binary and the previous hand-written list named five of
+# them, so a stray kscore-policy was neither removed by `make clean` nor
+# caught by `make clean-check`. `clean` and `clean-check` now consume the
+# same variable, which is what makes clean-check's "run 'make clean'"
+# hint true -- the two lists had already drifted apart.
+STRAY_ROOT_BINS := $(BINARIES) $(notdir $(wildcard tools/*))
+
+# Tool binaries built in place rather than at the repo root.
+STRAY_PKG_BINS := tools/moddoc/moddoc scripts/docvalidation/docvalidation docvalidation
+
+# Non-binary artifacts both targets care about.
+STRAY_FILES := coverage.out
+
 # ---- Cross-compile matrix --------------------------------------------------
 
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
@@ -88,16 +105,17 @@ build-all-platforms: ## Cross-compile all binaries for the v1.0 platform matrix
 clean: ## Remove build artifacts and runtime state
 	# Build outputs (make build, make release, goreleaser).
 	rm -rf build/ dist/
-	# Root strays from ad-hoc `go build ./cmd/...` (gitignored as
-	# /kscore-* + /kscorectl + /trackerctl). `make build` writes to
-	# build/bin/$$GOOS/$$GOARCH/ — these only appear when someone
-	# bypasses the Makefile. See docs/project/DEVELOPMENT.md.
-	rm -f kscore-agent kscore-backup kscore-migrate kscore-server kscorectl trackerctl
+	# Root strays from ad-hoc `go build ./cmd/...` or `./tools/...`.
+	# `make build` writes to build/bin/$$GOOS/$$GOARCH/ — these only
+	# appear when someone bypasses the Makefile. The list is derived
+	# (STRAY_ROOT_BINS) so a new cmd/ or tools/ entry is covered the day
+	# it lands. See docs/project/DEVELOPMENT.md.
+	rm -f $(STRAY_ROOT_BINS)
 	# Test artifacts.
-	rm -f coverage.out *.test
+	rm -f $(STRAY_FILES) *.test
 	rm -rf reports/ test/e2e/performance/reports/ internal/loadtest/reports/
 	# Per-tool binaries (gitignored).
-	rm -f tools/moddoc/moddoc scripts/docvalidation/docvalidation docvalidation
+	rm -f $(STRAY_PKG_BINS)
 	# Runtime state (integration tests, dev mode).
 	rm -rf data/ tmp/ temp/
 	rm -f *.db *.db-shm *.db-wal
@@ -129,14 +147,14 @@ clean-check: ## Assert repo is free of stray build artifacts (CI lint gate)
 	# at repo root means someone bypassed the Makefile. See
 	# docs/project/DEVELOPMENT.md "Build artifact discipline".
 	@strays=""; \
-	for f in kscore-agent kscore-backup kscore-migrate kscore-server kscorectl trackerctl coverage.out; do \
-	  [ -e "$$f" ] && strays="$$strays $$f"; \
+	for f in $(STRAY_ROOT_BINS) $(STRAY_FILES); do \
+	  [ -f "$$f" ] && strays="$$strays $$f"; \
 	done; \
-	for t in tools/moddoc/moddoc scripts/docvalidation/docvalidation docvalidation promogen; do \
-	  [ -e "$$t" ] && strays="$$strays $$t"; \
+	for t in $(STRAY_PKG_BINS); do \
+	  [ -f "$$t" ] && strays="$$strays $$t"; \
 	done; \
 	for f in *.test; do \
-	  [ -e "$$f" ] && strays="$$strays $$f"; \
+	  [ -f "$$f" ] && strays="$$strays $$f"; \
 	done; \
 	if [ -n "$$strays" ]; then \
 	  echo "clean-check: FAIL — stray build artifacts present (run 'make clean'):"; \
@@ -692,6 +710,7 @@ promo: ## Render the 30s promo video to dist/promo/ (needs vhs+ttyd+ffmpeg+docke
 update-promo: ## Regenerate promo cards from the current branch + report shot-list drift
 	go run ./tools/promogen sync
 	go run ./tools/promogen validate
+	go run ./tools/promogen tapes
 	go run ./tools/promogen reconcile
 
 promo-check: ## Assert the promo shot list is valid, in budget, and in sync (CI gate)
@@ -700,6 +719,10 @@ promo-check: ## Assert the promo shot list is valid, in budget, and in sync (CI 
 	# committed output must match what a regen would produce now.
 	go run ./tools/promogen validate
 	go run ./tools/promogen sync -check
+	# Assert every tape command still resolves. Builds the referenced
+	# cmd/ binaries into a temp dir and probes `--help`; no server or
+	# topology needed, so it runs anywhere `go build` does.
+	go run ./tools/promogen tapes
 	go run ./tools/promogen reconcile
 
 install-promo-tools: ## Install the go-installable promo dep (vhs); reports the rest

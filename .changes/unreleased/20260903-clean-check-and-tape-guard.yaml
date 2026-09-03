@@ -1,0 +1,13 @@
+kind: Fixed
+body: |-
+  **`make clean` and `make clean-check` derive their stray lists from
+  the tree.** Both hand-listed five of the cmd/ binaries, so a stray
+  kscore-policy, kscore-audit or covgate at the repo root was neither
+  removed by clean nor caught by clean-check, and the two lists had
+  drifted apart -- clean-check flagged `promogen` while clean did not
+  remove it, making its own "run 'make clean'" hint false. Both now
+  consume one derived variable covering every cmd/ and tools/ entry (27
+  names, up from 6), so the round trip holds and a new binary is
+  covered the day it lands.
+custom:
+  Demo: ""
