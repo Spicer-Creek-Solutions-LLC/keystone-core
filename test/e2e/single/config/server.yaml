@@ -32,6 +32,17 @@ nats:
   jetstream:
     enabled: true
     storedir: /data/jetstream
+    # Per-stream limits, small on purpose. The production defaults are
+    # 10 GiB / 1,000,000 msgs per stream (internal/config/config.go), and
+    # DefaultStreamDefs creates TWO streams, so an E2E run inheriting
+    # them asks JetStream for 20 GiB of budget. The embedded/containered
+    # NATS derives its budget from free disk, so the run passed or failed
+    # on how much space the machine happened to have — the COMMANDS
+    # stream would be created and the EVENTS stream would then fail with
+    # "insufficient storage resources available". The scenarios move a
+    # few dozen small messages; 64 MiB is ample.
+    streammaxbytes: 67108864
+    streammaxmsgs: 100000
   bootstrap:
     enabled: true
     psks:

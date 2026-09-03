@@ -115,14 +115,25 @@ func startNativeStack() (cleanup func(), err error) {
 	if err := os.MkdirAll(natsStore, 0o700); err != nil {
 		return cleanup, fmt.Errorf("nats store dir: %w", err)
 	}
+	// JetStream budget is set explicitly rather than left to
+	// nats-server, which otherwise derives it from FREE DISK on the
+	// host. That made the run's outcome depend on how much space the
+	// machine happened to have: with the streams' limits inherited from
+	// the production defaults the server asks for 20 GiB, and on a
+	// tight runner the second stream fails with "insufficient storage
+	// resources available" after the first succeeds. The config's
+	// stream limits are now small (test/e2e/single/config/server.yaml)
+	// and this bounds the server side to match, so the test is hermetic.
 	natsSrv, err := natsserver.NewServer(&natsserver.Options{
-		Host:      "127.0.0.1",
-		Port:      natsPort,
-		HTTPPort:  natsMonPort,
-		JetStream: true,
-		StoreDir:  natsStore,
-		NoSigs:    true,
-		NoLog:     true,
+		Host:               "127.0.0.1",
+		Port:               natsPort,
+		HTTPPort:           natsMonPort,
+		JetStream:          true,
+		StoreDir:           natsStore,
+		JetStreamMaxStore:  512 * 1024 * 1024,
+		JetStreamMaxMemory: 64 * 1024 * 1024,
+		NoSigs:             true,
+		NoLog:              true,
 	})
 	if err != nil {
 		return cleanup, fmt.Errorf("nats new server: %w", err)

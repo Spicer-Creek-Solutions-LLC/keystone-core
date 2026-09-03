@@ -1,0 +1,17 @@
+kind: Fixed
+body: |-
+  **E2E JetStream budget no longer depends on the host's free disk.**
+  The E2E server config inherited the production per-stream defaults --
+  10 GiB and 1,000,000 messages -- and DefaultStreamDefs creates two
+  streams, so a run asked JetStream for 20 GiB of budget. Neither the
+  embedded (native mode) nor the containered NATS set an explicit
+  budget, so nats-server derived one from free disk and the run's
+  outcome depended on how much space the machine happened to have: with
+  10-20 GiB derived, the COMMANDS stream was created and the EVENTS
+  stream then failed with `insufficient storage resources available`,
+  aborting startup before any scenario ran. The E2E config now sets
+  64 MiB / 100,000 messages per stream, and the native scaffold bounds
+  the embedded server to 512 MiB on disk and 64 MiB in memory, so the
+  harness is hermetic. The scenarios move a few dozen small messages.
+custom:
+  Demo: ""
