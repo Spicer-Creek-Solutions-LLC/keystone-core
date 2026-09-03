@@ -80,3 +80,60 @@ reels:
         caption: ""
         tape: tapes/07-endcard.tape
         feature: ""
+
+  # === Docs clips ======================================================
+  # Short, single-idea clips embedded at the top of a docs page. No
+  # square cut (that is a social-media concern) and no end card — the
+  # page around them carries the context a promo has to build itself.
+
+  - id: fleet
+    title: "The fleet view"
+    output: docs-fleet
+    target_duration: 4.0
+    docs_page: docs/content/docs/index.md
+    shots:
+      - id: list
+        kind: terminal
+        duration: 4.0
+        caption: "Every agent, one command."
+        tape: tapes/10-fleet.tape
+        feature: agent-list
+
+  - id: remote-exec
+    title: "Remote execution"
+    output: docs-remote-exec
+    target_duration: 9.0
+    docs_page: docs/content/docs/index.md
+    shots:
+      - id: target
+        kind: terminal
+        duration: 3.5
+        caption: "Resolve the target first."
+        tape: tapes/11-exec-target.tape
+        feature: exec-target
+      - id: run
+        kind: terminal
+        duration: 5.5
+        caption: "Then run it across the fleet."
+        tape: tapes/12-exec-run.tape
+        feature: exec-run
+
+  - id: secrets
+    title: "Secrets round-trip"
+    output: docs-secrets
+    target_duration: 9.5
+    docs_page: docs/content/docs/index.md
+    shots:
+      - id: put
+        kind: terminal
+        duration: 4.0
+        caption: "Write a secret."
+        tape: tapes/20-secrets-put.tape
+        feature: secrets-put
+      - id: get
+        kind: terminal
+        duration: 5.5
+        caption: "Read it back — masked by default."
+        tape: tapes/21-secrets-get.tape
+        feature: secrets-get
+

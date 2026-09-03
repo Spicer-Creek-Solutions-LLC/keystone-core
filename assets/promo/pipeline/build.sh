@@ -79,6 +79,12 @@ up() {
   mkdir -p "${WORK_DIR}"
   chmod 0777 "${WORK_DIR}"
 
+  # `down -v` first, not just at exit. The dev API key is only logged on
+  # FIRST boot against an empty database — bring the stack up on a
+  # surviving postgres volume (an interrupted previous run, or a manual
+  # `up`) and the server reuses the stored key, logs nothing, and the
+  # extraction below times out with an empty key.
+  "${COMPOSE[@]}" down -v >/dev/null 2>&1 || true
   "${COMPOSE[@]}" up -d --wait
 
   log "extracting the dev API key from the server log"

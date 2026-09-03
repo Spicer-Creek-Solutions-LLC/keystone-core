@@ -18,6 +18,12 @@ see.
 | Reel | Output | Budget | Purpose |
 | --- | --- | --- | --- |
 | `promo` | `keystone-30s.mp4` (+ square cut) | 30.0s | The hook. Makes a stranger curious enough to click. |
+| `fleet` | `docs-fleet.mp4` | 4.0s | `agent list` — the first command an operator runs. |
+| `remote-exec` | `docs-remote-exec.mp4` | 9.0s | Resolve a target, then dispatch across the fleet. |
+| `secrets` | `docs-secrets.mp4` | 9.5s | Write a secret, read it back masked. |
+
+Docs clips carry no square cut and no end card: the page around them
+supplies the context a promo has to build for itself.
 
 Each reel carries its own duration budget, output name, and shot list,
 and inherits `tolerance` / `resolution` from `defaults` unless it

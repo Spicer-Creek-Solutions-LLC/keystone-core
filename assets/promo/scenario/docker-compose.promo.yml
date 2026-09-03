@@ -27,3 +27,15 @@ services:
     # recording machine — a real conflict the first time this ran.
     ports: !override
       - "127.0.0.1:5397:5397"
+
+  # Remote exec needs a shell on the agent; the E2E image is distroless.
+  # Same binary and config, debian-slim runtime. See Dockerfile.agent.
+  kscore-agent-1:
+    build:
+      dockerfile: assets/promo/scenario/Dockerfile.agent
+    image: kscore-agent:promo
+
+  kscore-agent-2:
+    build:
+      dockerfile: assets/promo/scenario/Dockerfile.agent
+    image: kscore-agent:promo
