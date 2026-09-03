@@ -5,7 +5,6 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -174,13 +173,17 @@ func sortedAscending(s []string) bool {
 	return true
 }
 
-// The repo's own tapes must always reference commands that exist. This
-// is the test that fails when a subcommand is renamed out from under a
-// shot, which is the whole reason the check exists.
-func TestRepoTapeCommandsResolve(t *testing.T) {
-	if testing.Short() {
-		t.Skip("builds cmd/ binaries; skipped under -short")
-	}
+// The repo's own tapes must always yield extractable commands. This is
+// the parsing half only, deliberately.
+//
+// Resolving them means building cmd/ binaries, and invoking the Go
+// toolchain from inside `go test -race ./...` makes the unit suite
+// depend on having a toolchain and spare memory while ~100 packages
+// compile in parallel. That guarantee is already enforced where it
+// belongs: `make promo-check` runs `promogen tapes` in CI, and
+// `make promo` runs it again before spending three minutes rendering.
+// Duplicating it here buys nothing and costs the whole suite.
+func TestRepoTapesYieldCommands(t *testing.T) {
 	repoRoot := filepath.Join("..", "..")
 	promoDir := filepath.Join(repoRoot, defaultPromoDir)
 
@@ -203,14 +206,12 @@ func TestRepoTapeCommandsResolve(t *testing.T) {
 	}
 	if len(all) == 0 {
 		t.Fatal("no project-binary commands extracted from the repo's tapes — " +
-			"the Type-directive parser has probably broken")
+			"the Type-directive parser has probably broken, which would make " +
+			"`promogen tapes` silently vacuous")
 	}
-
-	problems, err := VerifyCommands(repoRoot, all, bins)
-	if err != nil {
-		t.Fatalf("VerifyCommands: %v", err)
-	}
-	if len(problems) > 0 {
-		t.Errorf("tape commands do not resolve:\n  %s", strings.Join(problems, "\n  "))
+	for _, c := range all {
+		if c.Binary == "" || len(c.Path) == 0 {
+			t.Errorf("%s:%d extracted with an empty binary or path: %+v", c.Tape, c.Line, c)
+		}
 	}
 }
