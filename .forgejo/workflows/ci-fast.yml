@@ -30,6 +30,14 @@
 # shared runner) from every job except `lint`. `openapi` + `docs`
 # have no Go code and skip the cache entirely.
 #
+# Cache/compression steps are NON-BLOCKING (`continue-on-error: true`) on
+# every job in both workflows: the `actions/cache` save+restore steps and
+# the `zstd` installer that speeds them up. None of them is a correctness
+# input — a cold cache costs minutes, a missing zstd falls back to gzip —
+# so none of them should be able to turn a gate red on green code. This
+# followed a run of non-deterministic `lint` failures that reproduced
+# nowhere locally; see issue #234.
+#
 # Security: every ${{ ... }} expansion below references either matrix
 # values defined in this file or github.ref (a refname, not user
 # content). No issue/PR/commit body text is interpolated into shell.
@@ -69,11 +77,13 @@ jobs:
       # MB/s) instead of single-threaded `tar -z` (gzip, ~30-50 MB/s).
       # For a 2GB cache that's seconds-not-minutes. Idempotent.
       - name: install zstd for parallel cache compression
+        continue-on-error: true  # non-blocking: gzip fallback is fine (#234)
         run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       # Cache warmer: write the go module + build cache for the workflow.
       # Other jobs restore from this via actions/cache/restore@v4. See
       # header comment for the warmer/reader rationale.
       - uses: actions/cache@v4
+        continue-on-error: true  # non-blocking: speed only, not correctness (#234)
         with:
           path: |
             ~/go/pkg/mod
@@ -192,8 +202,10 @@ jobs:
       # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
       # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
       - name: install zstd for parallel cache compression
+        continue-on-error: true  # non-blocking: gzip fallback is fine (#234)
         run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
+        continue-on-error: true  # non-blocking: speed only, not correctness (#234)
         with:
           path: |
             ~/go/pkg/mod
@@ -225,8 +237,10 @@ jobs:
       # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
       # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
       - name: install zstd for parallel cache compression
+        continue-on-error: true  # non-blocking: gzip fallback is fine (#234)
         run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
+        continue-on-error: true  # non-blocking: speed only, not correctness (#234)
         with:
           path: |
             ~/go/pkg/mod
@@ -270,8 +284,10 @@ jobs:
       # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
       # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
       - name: install zstd for parallel cache compression
+        continue-on-error: true  # non-blocking: gzip fallback is fine (#234)
         run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
+        continue-on-error: true  # non-blocking: speed only, not correctness (#234)
         with:
           path: |
             ~/go/pkg/mod
@@ -294,8 +310,10 @@ jobs:
       # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
       # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
       - name: install zstd for parallel cache compression
+        continue-on-error: true  # non-blocking: gzip fallback is fine (#234)
         run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
+        continue-on-error: true  # non-blocking: speed only, not correctness (#234)
         with:
           path: |
             ~/go/pkg/mod
@@ -327,8 +345,10 @@ jobs:
       # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
       # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
       - name: install zstd for parallel cache compression
+        continue-on-error: true  # non-blocking: gzip fallback is fine (#234)
         run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
+        continue-on-error: true  # non-blocking: speed only, not correctness (#234)
         with:
           path: |
             ~/go/pkg/mod
@@ -383,8 +403,10 @@ jobs:
       # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
       # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
       - name: install zstd for parallel cache compression
+        continue-on-error: true  # non-blocking: gzip fallback is fine (#234)
         run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
+        continue-on-error: true  # non-blocking: speed only, not correctness (#234)
         with:
           path: |
             ~/go/pkg/mod
@@ -426,8 +448,10 @@ jobs:
       # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
       # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
       - name: install zstd for parallel cache compression
+        continue-on-error: true  # non-blocking: gzip fallback is fine (#234)
         run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
+        continue-on-error: true  # non-blocking: speed only, not correctness (#234)
         with:
           path: |
             ~/go/pkg/mod
@@ -472,8 +496,10 @@ jobs:
       # `tar -z` (gzip). Required in readers too so they can DECOMPRESS
       # the zstd-saved cache from `lint`. Idempotent: no-op if installed.
       - name: install zstd for parallel cache compression
+        continue-on-error: true  # non-blocking: gzip fallback is fine (#234)
         run: command -v zstd >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq zstd)
       - uses: actions/cache/restore@v4
+        continue-on-error: true  # non-blocking: speed only, not correctness (#234)
         with:
           path: |
             ~/go/pkg/mod

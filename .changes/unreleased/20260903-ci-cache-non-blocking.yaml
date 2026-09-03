@@ -1,0 +1,15 @@
+kind: Fixed
+body: |-
+  **CI cache and compression steps can no longer fail a gate.** The
+  actions/cache save/restore steps and the zstd installer that speeds
+  them up now carry continue-on-error across both workflows (22 steps).
+  None of them is a correctness input -- a cold cache costs minutes on
+  the next job, and a missing zstd makes actions/cache fall back to
+  gzip on its own -- but a failure in either could turn a job red on
+  code that passes everywhere else. The zstd step in particular is an
+  unguarded apt-get against Ubuntu mirrors at job start. Prompted by
+  non-deterministic lint failures that reproduced nowhere locally
+  (issue #234); this removes two of the four ranked hypotheses as
+  possible causes whether or not they were the cause.
+custom:
+  Demo: ""
