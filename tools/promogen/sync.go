@@ -84,12 +84,16 @@ func renderTape(tmplPath, promoDir string, facts *Facts) ([]byte, error) {
 	}
 	// Missing keys are an error rather than a silent "<no value>"
 	// baked into a frame of the finished video.
-	// The template is committed repo source authored by maintainers and
-	// reviewed like any other file, and it renders a VHS tape rather
-	// than anything served to a user — not attacker-controlled input.
+	//
+	// #nosec G708 -- the template is committed repo source authored by
+	// maintainers and reviewed like any other file, and it renders a VHS
+	// tape rather than anything served to a user. Not attacker-controlled
+	// input. `#nosec` rather than `//nolint:gosec` because `make
+	// security-sast` runs the standalone gosec binary, which honours only
+	// the former; golangci-lint honours both.
 	t, err := template.New(filepath.Base(tmplPath)).
 		Option("missingkey=error").
-		Parse(string(raw)) //nolint:gosec // tape templates in our repo
+		Parse(string(raw))
 	if err != nil {
 		return nil, fmt.Errorf("promogen: parse %s: %w", tmplPath, err)
 	}

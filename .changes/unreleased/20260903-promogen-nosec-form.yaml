@@ -1,0 +1,13 @@
+kind: Fixed
+body: |-
+  **`promogen`'s template-injection suppression uses the `#nosec` form.**
+  The `text/template` Parse in tools/promogen/sync.go carried a
+  `//nolint:gosec` directive, which golangci-lint honours but the
+  standalone gosec binary that `make security-sast` runs does not. It
+  went unnoticed because the gosec build in use at the time did not
+  report G708 there; rebuilding gosec against Go 1.27.1 pulled a newer
+  release that does. Converted to `#nosec G708` with the rationale
+  inline -- the template is committed repo source rendering a VHS tape,
+  not attacker-controlled input.
+custom:
+  Demo: ""
