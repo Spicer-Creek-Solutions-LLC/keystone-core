@@ -3,6 +3,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -28,6 +29,9 @@ type Facts struct {
 	BinaryCount int
 	// DistroCount is the size of the live cross-distro matrix.
 	DistroCount int
+	// RepoURL is the canonical repository URL with the scheme stripped,
+	// for the end card's call to action.
+	RepoURL string
 }
 
 var semverTag = regexp.MustCompile(`^v(\d+)\.`)
@@ -63,7 +67,42 @@ func DeriveFacts(repoRoot string) (*Facts, error) {
 	if f.DistroCount, err = countMatrixDistros(repoRoot); err != nil {
 		return nil, err
 	}
+	if f.RepoURL, err = canonicalRepoURL(repoRoot); err != nil {
+		return nil, err
+	}
 	return f, nil
+}
+
+// canonicalRepoURL reads the repository URL out of the Go vanity-import
+// config and strips the scheme for display.
+//
+// Typed by hand, this went out as "codeberg.org/keystone-core/keystone-core",
+// which is not the repository -- exactly the class of error the rest of
+// this tool exists to prevent, so it is derived too. vangen.json is the
+// in-tree source of truth for the canonical URL (deploy/vanity/), and
+// unlike `git remote` it does not vary with how the tree was cloned.
+func canonicalRepoURL(repoRoot string) (string, error) {
+	path := filepath.Join(repoRoot, "deploy", "vanity", "vangen.json")
+	// #nosec G304 G703 -- fixed path under the developer's own checkout.
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("promogen: read vanity config: %w", err)
+	}
+	var cfg struct {
+		Repositories []struct {
+			URL string `json:"url"`
+		} `json:"repositories"`
+	}
+	if err := json.Unmarshal(raw, &cfg); err != nil {
+		return "", fmt.Errorf("promogen: parse vanity config: %w", err)
+	}
+	if len(cfg.Repositories) == 0 || cfg.Repositories[0].URL == "" {
+		return "", fmt.Errorf("promogen: no repository url in %s", path)
+	}
+	u := cfg.Repositories[0].URL
+	u = strings.TrimPrefix(u, "https://")
+	u = strings.TrimPrefix(u, "http://")
+	return strings.TrimSuffix(u, "/"), nil
 }
 
 // releasedHeading matches a shipped CHANGELOG version heading:

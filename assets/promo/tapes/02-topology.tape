@@ -12,8 +12,12 @@ Output build/promo/clips/02-topology.mp4
 
 Source assets/promo/tapes/_common.tape
 
+# `Hide` stops RECORDING; it does not stop the shell echoing what is
+# typed, so a card built from printf lines renders with the printf
+# source visible next to its output. `stty -echo` is what actually
+# blanks the commands.
 Hide
-Type `PS1=""; clear` Enter
+Type `PS1=""; stty -echo; clear; printf '\033[?25l'` Enter
 Type `printf '\n\n  \033[1;38;5;223mKeystone Core\033[0m  \033[38;5;245mthe runtime operations control plane\033[0m\n\n'` Enter
 Type `printf '      \033[38;5;250mkscorectl\033[0m  ->  \033[1;38;5;117mkscore-server\033[0m  ->  \033[38;5;250mPostgres\033[0m\n'` Enter
 Type `printf '                          \033[38;5;245m| NATS\033[0m\n'` Enter

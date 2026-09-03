@@ -15,6 +15,17 @@ func fakeRepo(t *testing.T, modules, binaries int, runSH string) string {
 	return root
 }
 
+func writeVanity(t *testing.T, root, body string) {
+	t.Helper()
+	dir := filepath.Join(root, "deploy", "vanity")
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatalf("mkdir vanity: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "vangen.json"), []byte(body), 0o600); err != nil {
+		t.Fatalf("write vangen.json: %v", err)
+	}
+}
+
 const defaultTestChangelog = `# Changelog
 
 ## [Unreleased]
@@ -34,6 +45,7 @@ func fakeRepoWithChangelog(t *testing.T, modules, binaries int, runSH, changelog
 	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(changelog), 0o600); err != nil {
 		t.Fatalf("write changelog: %v", err)
 	}
+	writeVanity(t, root, `{"repositories":[{"url":"https://codeberg.org/Example-Org/keystone-core"}]}`)
 
 	for i := range modules {
 		dir := filepath.Join(root, "internal/statemgmt/stdlib", string(rune('a'+i)))
@@ -84,6 +96,9 @@ func TestDeriveFacts(t *testing.T) {
 	}
 	if f.DistroCount != 3 {
 		t.Errorf("DistroCount = %d, want 3", f.DistroCount)
+	}
+	if f.RepoURL != "codeberg.org/Example-Org/keystone-core" {
+		t.Errorf("RepoURL = %q, want the scheme-stripped vanity url", f.RepoURL)
 	}
 	if f.Version != "v0.5.0" {
 		t.Errorf("Version = %q, want v0.5.0 from the changelog", f.Version)
@@ -222,5 +237,67 @@ func TestDeriveFacts_IndependentOfGit(t *testing.T) {
 	if f.Version != "v0.5.0" {
 		t.Errorf("Version = %q outside a git checkout, want v0.5.0 — "+
 			"facts must derive from tree content, not git", f.Version)
+	}
+}
+
+// The end card's URL was hand-typed once and named a repository that
+// does not exist. It is derived now, so pin the derivation.
+func TestCanonicalRepoURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "strips https",
+			body: `{"repositories":[{"url":"https://codeberg.org/Org/repo"}]}`,
+			want: "codeberg.org/Org/repo",
+		},
+		{
+			name: "strips http and a trailing slash",
+			body: `{"repositories":[{"url":"http://example.com/org/repo/"}]}`,
+			want: "example.com/org/repo",
+		},
+		{
+			name:    "no repositories",
+			body:    `{"repositories":[]}`,
+			wantErr: true,
+		},
+		{
+			name:    "empty url",
+			body:    `{"repositories":[{"url":""}]}`,
+			wantErr: true,
+		},
+		{
+			name:    "malformed json",
+			body:    `{"repositories":`,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			writeVanity(t, root, tt.body)
+			got, err := canonicalRepoURL(root)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("canonicalRepoURL() = %q, want an error", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("canonicalRepoURL: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("canonicalRepoURL() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCanonicalRepoURL_Missing(t *testing.T) {
+	if _, err := canonicalRepoURL(t.TempDir()); err == nil {
+		t.Error("canonicalRepoURL(missing) = nil error, want error")
 	}
 }

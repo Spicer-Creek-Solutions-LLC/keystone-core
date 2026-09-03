@@ -17,7 +17,7 @@ Require kscorectl
 Source assets/promo/tapes/_common.tape
 
 Hide
-Type `PS1="\033[38;5;117m$\033[0m "; clear` Enter
+Type `cd assets/promo/scenario; PS1="\033[38;5;117m$\033[0m "; clear` Enter
 Show
 
 Type "kscorectl audit stats --since 30m" Enter

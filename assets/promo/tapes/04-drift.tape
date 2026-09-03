@@ -16,10 +16,10 @@ Require kscorectl
 Source assets/promo/tapes/_common.tape
 
 Hide
-Type `PS1="\033[38;5;117m$\033[0m "; clear` Enter
-Type `bash assets/promo/scenario/drift.sh >/dev/null` Enter
+Type `cd assets/promo/scenario; PS1="\033[38;5;117m$\033[0m "; clear` Enter
+Type `bash drift.sh >/dev/null` Enter
 Type "clear" Enter
 Show
 
-Type "kscorectl state drift assets/promo/scenario/state/web.yaml" Enter
+Type "kscorectl state drift state/web.yaml" Enter
 Sleep 4500ms

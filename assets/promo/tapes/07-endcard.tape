@@ -9,17 +9,24 @@
 # genuinely damaging thing a promo for a pre-1.0 project can do, so the
 # status is generated, not typed.
 #
-# The logo is composited over this shot by pipeline/build.sh.
+# The URL is derived from deploy/vanity/vangen.json, not typed: the
+# hand-written one named a repository that does not exist.
+#
+# The logo is composited above the text by pipeline/build.sh.
 
 Output build/promo/clips/07-endcard.mp4
 
 Source assets/promo/tapes/_common.tape
 
+# `Hide` stops RECORDING; it does not stop the shell echoing what is
+# typed, so a card built from printf lines renders with the printf
+# source visible next to its output. `stty -echo` is what actually
+# blanks the commands.
 Hide
-Type `PS1=""; clear` Enter
+Type `PS1=""; stty -echo; clear; printf '\033[?25l'` Enter
 Type `printf '\n\n\n\n\n'` Enter
 Type `printf '        \033[1;38;5;223mGitOps deploys it. We keep it running.\033[0m\n\n'` Enter
-Type `printf '        \033[38;5;117mcodeberg.org/keystone-core/keystone-core\033[0m\n'` Enter
+Type `printf '        \033[38;5;117mcodeberg.org/Spicer-Creek-Solutions-LLC/keystone-core\033[0m\n'` Enter
 Type `printf '        \033[38;5;245mv0.5.0 — pre-release\033[0m\n'` Enter
 Show
 Sleep 3500ms

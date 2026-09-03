@@ -196,5 +196,6 @@ func cmdFacts(repoRoot string) error {
 	fmt.Printf("ModuleCount  %d\n", f.ModuleCount)
 	fmt.Printf("BinaryCount  %d\n", f.BinaryCount)
 	fmt.Printf("DistroCount  %d\n", f.DistroCount)
+	fmt.Printf("RepoURL      %s\n", f.RepoURL)
 	return nil
 }

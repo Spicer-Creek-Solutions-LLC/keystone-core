@@ -114,7 +114,30 @@ down() {
 }
 
 # ---- render ---------------------------------------------------------
+
+# vhs drives headless Chrome (via go-rod) to screenshot the ttyd
+# terminal. Ubuntu 23.10+ ships AppArmor's
+# kernel.apparmor_restrict_unprivileged_userns=1, which blocks Chrome's
+# namespace sandbox: it aborts in ZygoteHostImpl::Init with SIGABRT and
+# vhs reports only "recording failed".
+#
+# vhs exposes VHS_NO_SANDBOX for exactly this. Set it only when the
+# restriction is actually in force, so machines without it keep the
+# sandbox on. Chrome here renders our own local terminal, not untrusted
+# web content. The alternative fixes both need root (flipping the
+# sysctl, or installing an AppArmor profile), and a build tool should
+# not require that.
+configure_sandbox() {
+  local restricted
+  restricted="$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || echo 0)"
+  if [[ "$restricted" == "1" ]]; then
+    log "unprivileged userns restricted by AppArmor; setting VHS_NO_SANDBOX"
+    export VHS_NO_SANDBOX=1
+  fi
+}
+
 render() {
+  configure_sandbox
   log "rendering tapes"
   rm -rf "${CLIP_DIR}"
   mkdir -p "${CLIP_DIR}"
@@ -122,7 +145,7 @@ render() {
   while IFS=$'\t' read -r id kind duration tape caption; do
     : "${caption}"  # unused during render; burned in at assemble time
     log "  ${id} (${kind}, ${duration}s)"
-    vhs "${PROMO_DIR}/${tape}"
+    vhs "${PROMO_DIR}/${tape}" </dev/null
 
     local clip="${CLIP_DIR}/$(basename "${tape}" .tape).mp4"
     [[ -f "$clip" ]] || { echo "ERROR: ${id}: vhs produced no ${clip}" >&2; exit 1; }
@@ -158,6 +181,12 @@ assemble() {
   local concat="${STAGE_DIR}/concat.txt"
   : > "$concat"
 
+  # Every ffmpeg below runs with -nostdin. Without it ffmpeg reads the
+  # same stdin this `while read` loop is consuming from `promogen plan`
+  # and eats the remaining shot rows -- the symptom is ffmpeg parsing a
+  # half-swallowed TSV line as an interactive command and then trying to
+  # open a clip named after a caption.
+
   while IFS=$'\t' read -r id kind duration tape caption; do
     : "${kind}"  # unused during assemble; drives nothing but the log line
     local src staged
@@ -173,18 +202,22 @@ assemble() {
       local escaped="${caption//\\/\\\\}"
       escaped="${escaped//:/\\:}"
       escaped="${escaped//\'/\\\'}"
-      filters+=",drawbox=y=ih-190:w=iw:h=120:color=black@0.55:t=fill"
+      filters+=",drawbox=y=ih-150:w=iw:h=150:color=black@0.62:t=fill"
       filters+=",drawtext=font='DejaVu Sans':text='${escaped}'"
-      filters+=":fontcolor=white:fontsize=52:x=90:y=h-155"
+      filters+=":fontcolor=white:fontsize=52:x=90:y=h-108"
     fi
 
     if [[ "$id" == "endcard" ]]; then
-      # Logo above the positioning line.
-      ffmpeg -y -loglevel error -i "$src" -i assets/logo.png \
-        -filter_complex "[0:v]${filters}[base];[1:v]scale=180:-1[logo];[base][logo]overlay=x=(W-w)/2:y=H/2-260" \
+      # Logo sits ABOVE the tagline and is left-aligned with it. Centring
+      # it (x=(W-w)/2) put it straight through the middle of the
+      # left-aligned text, covering the last word of the positioning
+      # line. x=215 matches the 8-space indent the card prints at
+      # FontSize 30.
+      ffmpeg -nostdin -y -loglevel error -i "$src" -i assets/logo.png \
+        -filter_complex "[0:v]${filters}[base];[1:v]scale=150:-1[logo];[base][logo]overlay=x=215:y=150" \
         -t "$duration" -an -c:v libx264 -pix_fmt yuv420p -r 30 "$staged"
     else
-      ffmpeg -y -loglevel error -i "$src" -vf "$filters" \
+      ffmpeg -nostdin -y -loglevel error -i "$src" -vf "$filters" \
         -t "$duration" -an -c:v libx264 -pix_fmt yuv420p -r 30 "$staged"
     fi
 
@@ -198,13 +231,13 @@ assemble() {
   # tail. Per-shot crossfades are a follow-up: a 6-stage xfade chain is
   # markedly harder to keep correct than it is worth at this length.
   log "  landscape 1920x1080"
-  ffmpeg -y -loglevel error -f concat -safe 0 -i "$concat" \
+  ffmpeg -nostdin -y -loglevel error -f concat -safe 0 -i "$concat" \
     -vf "fade=t=in:st=0:d=0.4,fade=t=out:st=$(awk -v t="$total" 'BEGIN{printf "%.3f", t-0.5}'):d=0.5" \
     -an -c:v libx264 -pix_fmt yuv420p -r 30 -movflags +faststart \
     "${OUT_DIR}/keystone-30s.mp4"
 
   log "  square 1080x1080"
-  ffmpeg -y -loglevel error -i "${OUT_DIR}/keystone-30s.mp4" \
+  ffmpeg -nostdin -y -loglevel error -i "${OUT_DIR}/keystone-30s.mp4" \
     -vf "scale=1080:-2,pad=1080:1080:0:(oh-ih)/2:color=#11111b" \
     -an -c:v libx264 -pix_fmt yuv420p -r 30 -movflags +faststart \
     "${OUT_DIR}/keystone-30s-square.mp4"

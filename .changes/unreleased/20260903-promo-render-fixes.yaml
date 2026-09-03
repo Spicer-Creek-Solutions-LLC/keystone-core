@@ -1,0 +1,19 @@
+kind: Fixed
+body: |-
+  **Promo render pipeline works end to end.** First real run of
+  "make promo" surfaced five defects, all fixed. vhs drives headless
+  Chrome, which aborts under Ubuntu 23.10+'s
+  kernel.apparmor_restrict_unprivileged_userns=1; the pipeline now sets
+  VHS_NO_SANDBOX when that restriction is actually in force. ffmpeg ran
+  without -nostdin and ate the shot rows the enclosing read loop was
+  still consuming, so assembly failed on a half-swallowed TSV line. The
+  tapes named a font that is not installed, and vhs silently fell back
+  to a proportional face that wrapped every command line over itself.
+  Title cards rendered their own printf source next to its output,
+  because "Hide" stops recording but does not stop the shell echoing.
+  And the end card's URL, typed by hand, named a repository that does
+  not exist -- it is now derived from deploy/vanity/vangen.json like
+  every other card fact. Output verified: dist/promo/keystone-30s.mp4,
+  exactly 30.000s at 1920x1080, plus a 1080x1080 square cut.
+custom:
+  Demo: ""

@@ -13,8 +13,8 @@ Require kscorectl
 Source assets/promo/tapes/_common.tape
 
 Hide
-Type `PS1="\033[38;5;117m$\033[0m "; clear` Enter
+Type `cd assets/promo/scenario; PS1="\033[38;5;117m$\033[0m "; clear` Enter
 Show
 
-Type "kscorectl state apply assets/promo/scenario/state/web.yaml" Enter
+Type "kscorectl state apply state/web.yaml" Enter
 Sleep 4s
