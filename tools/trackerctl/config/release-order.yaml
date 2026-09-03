@@ -132,6 +132,7 @@ v0.x:
   - "Release signing ceremony — signed tags + checksums + SBOMs"
   - "Native package repositories — APT, DNF/YUM"
   - "Promo video pipeline — remaining shots and polish"
+  - "Per-feature docs clips — multi-reel promo pipeline"
 
 v1.x:
   - "Logging: context-aware threading of deep helpers"
