@@ -104,7 +104,7 @@ here.
 
 | Target | Needs | What it does |
 |---|---|---|
-| `make update-promo` | Go | Regenerates the cards from the branch, validates the shot list, reconciles demo tags |
+| `make update-promo` | Go | Regenerates the cards, validates the shot list, checks tape commands, reconciles demo tags |
 | `make promo-check` | Go | Non-mutating version of the above; the CI gate |
 | `make promo` | vhs, ttyd, ffmpeg, docker | Renders the video to `dist/promo/` |
 | `make install-promo-tools` | Go | Installs `vhs`; reports what must come from a package manager |
@@ -157,6 +157,36 @@ is a strictly better demo and the shot durations already accommodate it.
    the matching `feature`, and **take the duration back from another
    shot** — the total is asserted at 30.0s ±0.25s.
 4. Re-run `make promo-check`, then `make promo` and watch the 30
-   seconds before publishing. The pipeline's automated guard only
-   catches a blank clip; a stale tape whose command now errors renders
-   perfectly happily with the error in frame.
+   seconds before publishing.
+
+## The stale-tape guard
+
+A tape whose command has been renamed does not fail loudly — it records
+perfectly happily with the error text sitting in frame. That happened
+during the first dry run: shot 6 called `kscorectl audit list`, which
+does not exist.
+
+`promogen tapes` is the guard. It extracts every project-binary
+invocation from every tape, builds the referenced `cmd/` binaries into a
+temp directory, and probes `<bin> <path...> --help` — which cobra
+resolves without executing anything, so it needs no server, no topology,
+and no media toolchain. It runs in `make promo-check` (so CI catches it)
+and again at the top of `make promo`, before the three minutes of
+rendering.
+
+Two things it has to model, both learned the hard way:
+
+- **Plugin dispatch.** `kscorectl audit` is not a registered subcommand;
+  `kscorectl` exec's a `kscore-audit` binary from `$PATH`, git/kubectl
+  style (`cmd/kscorectl/main.go`). The check builds the sibling
+  alongside and puts the temp directory on `PATH`, or every delegated
+  subcommand would look broken.
+- **Cobra's fallback.** Exit status alone is not enough: given an
+  unrecognised trailing token, cobra prints the *parent's* help and
+  exits 0, so `kscorectl state aply --help` succeeds. The check also
+  confirms the rendered `Usage:` line actually names the command that
+  was asked for.
+
+What it still does not catch: a command that resolves but whose *output*
+has changed shape — a new column that pushes a table past the frame, or
+a row that no longer appears. Watch the 30 seconds before publishing.

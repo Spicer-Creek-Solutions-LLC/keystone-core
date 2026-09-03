@@ -28,6 +28,7 @@
 //	go run ./tools/promogen validate
 //	go run ./tools/promogen sync [-check]
 //	go run ./tools/promogen reconcile [-strict]
+//	go run ./tools/promogen tapes
 //	go run ./tools/promogen plan
 //
 // Exit codes: 0 on pass, 1 on any validation failure, sync drift under
@@ -56,7 +57,7 @@ func main() {
 func run(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("promogen: expected a subcommand " +
-			"(validate | sync | reconcile | plan | facts)")
+			"(validate | sync | reconcile | tapes | plan | facts)")
 	}
 
 	cmd, rest := args[0], args[1:]
@@ -78,13 +79,15 @@ func run(args []string) error {
 		return cmdSync(*repoRoot, dir, *check)
 	case "reconcile":
 		return cmdReconcile(*repoRoot, dir, *strict)
+	case "tapes":
+		return cmdTapes(*repoRoot, dir)
 	case "plan":
 		return cmdPlan(dir)
 	case "facts":
 		return cmdFacts(*repoRoot)
 	default:
 		return fmt.Errorf("promogen: unknown subcommand %q "+
-			"(want validate | sync | reconcile | plan | facts)", cmd)
+			"(want validate | sync | reconcile | tapes | plan | facts)", cmd)
 	}
 }
 
@@ -164,6 +167,50 @@ func cmdReconcile(repoRoot, promoDir string, strict bool) error {
 	if strict {
 		return fmt.Errorf("promogen: %d unshot demo-tagged entr(ies)", len(rep.Unshot))
 	}
+	return nil
+}
+
+// cmdTapes verifies every project-binary invocation across every tape
+// in the manifest.
+func cmdTapes(repoRoot, promoDir string) error {
+	m, err := LoadManifest(filepath.Join(promoDir, manifestName))
+	if err != nil {
+		return err
+	}
+	bins, err := ProjectBinaries(repoRoot)
+	if err != nil {
+		return err
+	}
+
+	var all []TapeCommand
+	for _, s := range m.Shots {
+		cmds, err := ExtractCommands(promoDir, s.Tape, bins)
+		if err != nil {
+			return err
+		}
+		all = append(all, cmds...)
+	}
+	if len(all) == 0 {
+		return fmt.Errorf("promogen: no project-binary commands found in any tape; "+
+			"either the tapes stopped invoking the %d cmd/ binaries or the "+
+			"Type-directive parser broke", len(bins))
+	}
+
+	problems, err := VerifyCommands(repoRoot, all, bins)
+	if err != nil {
+		return err
+	}
+	for _, c := range all {
+		fmt.Printf("OK   %s:%d  %s\n", c.Tape, c.Line, c.String())
+	}
+	if len(problems) > 0 {
+		fmt.Fprintf(os.Stderr, "\nFAIL %d tape command(s) do not resolve:\n", len(problems))
+		for _, p := range problems {
+			fmt.Fprintf(os.Stderr, "  - %s\n", p)
+		}
+		return fmt.Errorf("promogen: %d unresolvable tape command(s)", len(problems))
+	}
+	fmt.Printf("OK   %d tape command(s) resolve\n", len(all))
 	return nil
 }
 

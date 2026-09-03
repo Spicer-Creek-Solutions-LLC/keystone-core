@@ -248,6 +248,12 @@ assemble() {
 # ---- main -----------------------------------------------------------
 check_deps
 go run ./tools/promogen validate
+# Cheapest possible failure. A tape whose command has been renamed still
+# records happily with the error in frame, and the only other guard here
+# (assert_clean) catches a blank clip, not a wrong one. Two seconds of
+# probing beats a three-minute render of a broken shot.
+log "verifying tape commands resolve"
+go run ./tools/promogen tapes
 
 if ((SKIP_RENDER)); then
   assemble
