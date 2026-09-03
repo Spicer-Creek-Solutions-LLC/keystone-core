@@ -2,9 +2,13 @@
 # Shot 4 (terminal, 5.5s) — "The host drifts anyway."
 #
 # drift.sh mutates the managed files out of band (host side of the
-# /srv/promo bind mount), then `kscorectl state drift` reports it. The
-# non-zero exit is shown on purpose: drift detection scripts cleanly,
-# which is the difference between a dashboard and a control plane.
+# /srv/promo bind mount), then `kscorectl state drift` reports it.
+#
+# The report itself is the shot: a per-declaration severity plus the
+# content-hash transition. Do NOT add an exit-code beat here --
+# `state drift` returns 0 whether or not it finds drift (there is no
+# --exit-code flag), so showing `echo exit=$?` would put a claim on
+# screen that the CLI does not support.
 
 Output build/promo/clips/04-drift.mp4
 
@@ -18,6 +22,4 @@ Type "clear" Enter
 Show
 
 Type "kscorectl state drift assets/promo/scenario/state/web.yaml" Enter
-Sleep 3s
-Type "echo exit=$?" Enter
-Sleep 1500ms
+Sleep 4500ms

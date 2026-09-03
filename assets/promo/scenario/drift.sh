@@ -15,10 +15,19 @@ if [[ ! -f "${WORKDIR}/nginx.conf" ]]; then
   exit 1
 fi
 
-# Content drift: someone bumped worker_processes by hand.
+# Only nginx.conf is driven, and only by content. Both managed files are
+# owned by the container's nonroot UID (65532), so from the host side of
+# the bind mount:
+#   - chmod fails      -- the host user does not own the file
+#   - app.env is 0640  -- the host user cannot even read it to edit it
+# nginx.conf is 0644, so sed -i can read it and rename a new file into
+# the world-writable directory over it.
+#
+# Leaving app.env in sync is the better shot anyway: the drift report
+# lands one `drifted` row next to one `in_sync` row, which shows the
+# check discriminating rather than flagging everything it looks at.
+
+# Someone halved worker_processes on the box.
 sed -i 's/^worker_processes .*/worker_processes 1;/' "${WORKDIR}/nginx.conf"
 
-# Mode drift: and loosened permissions on the env file.
-chmod 0666 "${WORKDIR}/app.env"
-
-echo "drift induced: nginx.conf content + app.env mode"
+echo "drift induced: nginx.conf content"

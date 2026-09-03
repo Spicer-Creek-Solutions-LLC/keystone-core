@@ -36,9 +36,9 @@ stack plus a bind-mount overlay (see [Scenario](#scenario)).
 | 1 | 0:00 | 3.0s | Card | **Argo deployed it.** / **Terraform provisioned it.** / *Then what?* | — |
 | 2 | 0:03 | 3.0s | Card | **Keystone Core** — the runtime operations control plane, over a condensed topology | — |
 | 3 | 0:06 | 5.0s | Terminal | *Declare the state.* | `kscorectl state apply` → per-resource Check → Apply → Test outcomes |
-| 4 | 0:11 | 5.5s | Terminal | *The host drifts anyway.* | `drift.sh` mutates the files out of band; `kscorectl state drift` reports it, non-zero exit shown |
+| 4 | 0:11 | 5.5s | Terminal | *The host drifts anyway.* | `drift.sh` edits `nginx.conf` out of band; `kscorectl state drift` reports per-declaration severity + the content-hash transition |
 | 5 | 0:16.5 | 6.0s | Terminal | *Keystone converges it.* | `kscorectl state drift --fix`, then a bare `drift` proving it is back in sync |
-| 6 | 0:22.5 | 4.0s | Terminal | *Every change, audited.* | `kscorectl audit list --limit 5` |
+| 6 | 0:22.5 | 4.0s | Terminal | *Every change, audited.* | `kscorectl audit stats --since 30m` — the evaluation count is produced by shots 3-5 |
 | 7 | 0:26.5 | 3.5s | Card | Logo · **GitOps deploys it. We keep it running.** · repo URL · release status | — |
 
 ### Why the script is shaped this way
@@ -50,11 +50,25 @@ stack plus a bind-mount overlay (see [Scenario](#scenario)).
   seconds a viewer cannot read a table. That is why the budget fits
   four terminal shots and not five — and why adding a shot means taking
   the time from an existing one, which `promogen validate` enforces.
-- **Shot 4 shows the non-zero exit on purpose.** Drift detection that
-  scripts cleanly is the difference between a dashboard and a control
-  plane.
+- **Shot 4 drifts one file of two on purpose.** The report lands a
+  `drifted` row beside an `in_sync` row, which shows the check
+  discriminating rather than flagging everything. (It is also the only
+  option: both files are owned by the container's nonroot UID, and
+  `app.env` at 0640 is not even readable from the host side of the
+  bind mount.)
+- **Shot 4 shows the drift report, not an exit code.** `state drift`
+  returns 0 whether or not it finds drift, so an `echo exit=$?` beat
+  would put a claim on screen that the CLI does not support. An
+  `--exit-code` flag would make drift detection script cleanly and is
+  worth having, but it is product scope rather than promo scope — see
+  the ROADMAP entry.
 - **Shot 5's second `drift` call is the point of the shot.** Anyone can
   print a diff; the claim being made is convergence.
+- **Shot 6 uses `audit stats`, not `audit log`.** The log table is 139
+  columns wide; fitting it needs FontSize 20 and it still is not
+  readable in four seconds. `stats` is 57 columns and reads at the same
+  font as every other shot, and its count comes from the operations the
+  viewer just watched.
 - **Shot 7 states the release status out loud.** While the line is
   v0.x the end card reads `vX.Y.Z — pre-release`, generated from the
   git tag. Implying GA is the one genuinely damaging thing a promo for
