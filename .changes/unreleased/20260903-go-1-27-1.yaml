@@ -1,0 +1,13 @@
+kind: Changed
+body: |-
+  **Go toolchain bumped to 1.27.1.** Updates go.mod, docs/go.mod, the
+  E2E image's GO_VERSION arg, and the toolchain references in README
+  and SECURITY-GOVERNANCE (both of which still said 1.26.3 while go.mod
+  said 1.26.4). Clears 8 of the 18 govulncheck findings -- the
+  standard-library half, including GO-2026-5026 in net/http via
+  golang.org/x/net/idna. 1.27.1 rather than a 1.26 patch because the
+  vulnerability outcome is identical (verified: 1.26.8 and 1.27.1 clear
+  exactly the same 8 findings) and Go supports only the two most recent
+  releases, so the 1.26 line would need doing again within months.
+custom:
+  Demo: ""

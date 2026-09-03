@@ -164,7 +164,7 @@ If you need any of these now, Keystone Core is not yet your tool.
 
 ## Building from source
 
-Toolchain: Go 1.26.3+ (pinned in `go.mod`). The Makefile is the orchestrator — CI never runs raw `go test` / `go build`.
+Toolchain: Go 1.27.1+ (pinned in `go.mod`). The Makefile is the orchestrator — CI never runs raw `go test` / `go build`.
 
 ```bash
 # Install dev tools (golangci-lint, gosec, govulncheck, gitleaks, go-licenses, …)
