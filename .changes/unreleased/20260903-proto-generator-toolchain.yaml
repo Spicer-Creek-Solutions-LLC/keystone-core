@@ -1,0 +1,14 @@
+kind: Fixed
+body: |-
+  **Proto generators are rebuilt when their build toolchain is stale,
+  and the stubs are regenerated under Go 1.27.1.** protoc-gen-go and
+  protoc-gen-go-grpc format their output through the go/format of the
+  toolchain that built them, and Go 1.27 renders doc-comment lists
+  differently from 1.26 -- so a generator left over from an older
+  toolchain emits different bytes than a fresh CI runner's, tripping the
+  proto job's `git diff --exit-code` gate. Pinning the generator version
+  never covered this. Both now go through the same install-if-stale
+  check as the analysers, and pkg/api/v1/agent_grpc.pb.go is regenerated
+  so the committed stubs match what Go 1.27.1 produces.
+custom:
+  Demo: ""

@@ -213,8 +213,16 @@ install-tools: ## Install dev tools (Go-installable + lychee binary)
 	@# committed under pkg/api/v1/, so a moving @latest would drift the
 	@# version-stamp comment in *_grpc.pb.go / *.pb.go and trip the
 	@# proto-job's `git diff --exit-code` gate on fresh CI runs.
-	@command -v protoc-gen-go >/dev/null || go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
-	@command -v protoc-gen-go-grpc >/dev/null || go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1
+	@#
+	@# The pinned VERSION is not sufficient on its own — the generators
+	@# format their output through the go/format of the toolchain that
+	@# BUILT them, and Go 1.27 renders doc-comment lists differently from
+	@# 1.26. A generator left over from an older toolchain therefore emits
+	@# different bytes than a fresh CI runner's, which is precisely the
+	@# drift this gate exists to catch. So they go through install-if-stale
+	@# too: pinned version AND current toolchain.
+	@$(call install-if-stale,protoc-gen-go,google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11)
+	@$(call install-if-stale,protoc-gen-go-grpc,google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.1)
 	@command -v goreleaser >/dev/null || go install github.com/goreleaser/goreleaser/v2@latest
 	@command -v gitleaks >/dev/null || go install github.com/zricethezav/gitleaks/v8@latest
 	@# Pinned to go-licenses v2 (the /v2 module path): the v1 @latest

@@ -46,9 +46,9 @@ type AgentServiceClient interface {
 	// Heartbeat updates the agent's last-seen timestamp and metrics.
 	Heartbeat(ctx context.Context, in *HeartbeatRequest, opts ...grpc.CallOption) (*HeartbeatResponse, error)
 	// SubmitCommandStream is a bidi stream the agent opens per command:
-	//   - agent -> server: zero or more SubmitCommandStreamRequest messages
-	//     carrying CommandOutputChunk(s) and a terminal CommandCompletion
-	//   - server -> agent: dispatch acks and any out-of-band notifications
+	// - agent -> server: zero or more SubmitCommandStreamRequest messages
+	//   carrying CommandOutputChunk(s) and a terminal CommandCompletion
+	// - server -> agent: dispatch acks and any out-of-band notifications
 	SubmitCommandStream(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SubmitCommandStreamRequest, SubmitCommandStreamResponse], error)
 	// GetAgentInfo returns the agent's own current view of itself
 	// as recorded by the control plane.
@@ -116,9 +116,9 @@ type AgentServiceServer interface {
 	// Heartbeat updates the agent's last-seen timestamp and metrics.
 	Heartbeat(context.Context, *HeartbeatRequest) (*HeartbeatResponse, error)
 	// SubmitCommandStream is a bidi stream the agent opens per command:
-	//   - agent -> server: zero or more SubmitCommandStreamRequest messages
-	//     carrying CommandOutputChunk(s) and a terminal CommandCompletion
-	//   - server -> agent: dispatch acks and any out-of-band notifications
+	// - agent -> server: zero or more SubmitCommandStreamRequest messages
+	//   carrying CommandOutputChunk(s) and a terminal CommandCompletion
+	// - server -> agent: dispatch acks and any out-of-band notifications
 	SubmitCommandStream(grpc.BidiStreamingServer[SubmitCommandStreamRequest, SubmitCommandStreamResponse]) error
 	// GetAgentInfo returns the agent's own current view of itself
 	// as recorded by the control plane.
