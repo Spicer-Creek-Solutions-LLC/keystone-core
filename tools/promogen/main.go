@@ -29,7 +29,8 @@
 //	go run ./tools/promogen sync [-check]
 //	go run ./tools/promogen reconcile [-strict]
 //	go run ./tools/promogen tapes
-//	go run ./tools/promogen plan
+//	go run ./tools/promogen reels
+//	go run ./tools/promogen plan [-reel <id>]
 //
 // Exit codes: 0 on pass, 1 on any validation failure, sync drift under
 // -check, or unshot demo entry under -strict.
@@ -57,7 +58,7 @@ func main() {
 func run(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("promogen: expected a subcommand " +
-			"(validate | sync | reconcile | tapes | plan | facts)")
+			"(validate | sync | reconcile | tapes | reels | plan | facts)")
 	}
 
 	cmd, rest := args[0], args[1:]
@@ -66,6 +67,7 @@ func run(args []string) error {
 	promoDir := fs.String("promo-dir", defaultPromoDir, "promo asset directory, relative to -repo-root")
 	check := fs.Bool("check", false, "sync: report drift without writing")
 	strict := fs.Bool("strict", false, "reconcile: exit non-zero when a demo-tagged entry has no shot")
+	reel := fs.String("reel", "", "plan: emit only this reel's shots (default: every reel)")
 	if err := fs.Parse(rest); err != nil {
 		return err
 	}
@@ -82,12 +84,14 @@ func run(args []string) error {
 	case "tapes":
 		return cmdTapes(*repoRoot, dir)
 	case "plan":
-		return cmdPlan(dir)
+		return cmdPlan(dir, *reel)
+	case "reels":
+		return cmdReels(dir)
 	case "facts":
 		return cmdFacts(*repoRoot)
 	default:
 		return fmt.Errorf("promogen: unknown subcommand %q "+
-			"(want validate | sync | reconcile | tapes | plan | facts)", cmd)
+			"(want validate | sync | reconcile | tapes | reels | plan | facts)", cmd)
 	}
 }
 
@@ -104,8 +108,12 @@ func cmdValidate(promoDir string) error {
 		}
 		return fmt.Errorf("promogen: manifest validation failed")
 	}
-	fmt.Printf("OK   %d shots, %.2fs total (target %.2fs ±%.2fs)\n",
-		len(m.Shots), m.TotalDuration(), m.TargetDuration, m.Tolerance)
+	for _, r := range m.Reels {
+		fmt.Printf("OK   reel %-18s %d shots, %.2fs (target %.2fs ±%.2fs)  -> %s\n",
+			r.ID, len(r.Shots), r.TotalDuration(), r.TargetDuration,
+			r.EffectiveTolerance(m.Defaults), r.Output+".mp4")
+	}
+	fmt.Printf("OK   %d reel(s), %.2fs of finished video\n", len(m.Reels), m.TotalDuration())
 	return nil
 }
 
@@ -183,7 +191,7 @@ func cmdTapes(repoRoot, promoDir string) error {
 	}
 
 	var all []TapeCommand
-	for _, s := range m.Shots {
+	for _, s := range m.AllShots() {
 		cmds, err := ExtractCommands(promoDir, s.Tape, bins)
 		if err != nil {
 			return err
@@ -217,7 +225,7 @@ func cmdTapes(repoRoot, promoDir string) error {
 // cmdPlan emits one TSV row per shot: id, kind, duration, tape,
 // caption. pipeline/build.sh reads this instead of parsing YAML in
 // bash, which keeps exactly one parser for the manifest.
-func cmdPlan(promoDir string) error {
+func cmdPlan(promoDir, reel string) error {
 	m, err := LoadManifest(filepath.Join(promoDir, manifestName))
 	if err != nil {
 		return err
@@ -226,8 +234,39 @@ func cmdPlan(promoDir string) error {
 		return fmt.Errorf("promogen: refusing to emit a plan for an invalid manifest; "+
 			"run `go run ./tools/promogen validate` (%d problem(s))", len(problems))
 	}
-	for _, s := range m.Shots {
-		fmt.Printf("%s\t%s\t%.3f\t%s\t%s\n", s.ID, s.Kind, s.Duration, s.Tape, s.Caption)
+	if reel != "" && m.Reel(reel) == nil {
+		return fmt.Errorf("promogen: no reel %q in %s", reel, manifestName)
+	}
+	for _, r := range m.Reels {
+		if reel != "" && r.ID != reel {
+			continue
+		}
+		for _, s := range r.Shots {
+			fmt.Printf("%s\t%s\t%s\t%.3f\t%s\t%s\n",
+				r.ID, s.ID, s.Kind, s.Duration, s.Tape, s.Caption)
+		}
+	}
+	return nil
+}
+
+// cmdReels emits one TSV row per reel: id, output, target duration,
+// square-cut flag, shot count, title. build.sh reads this to know what
+// to render and where to write it, so the manifest still has exactly
+// one parser.
+func cmdReels(promoDir string) error {
+	m, err := LoadManifest(filepath.Join(promoDir, manifestName))
+	if err != nil {
+		return err
+	}
+	if problems := m.Validate(); len(problems) > 0 {
+		return fmt.Errorf("promogen: refusing to list reels for an invalid manifest; "+
+			"run `go run ./tools/promogen validate` (%d problem(s))", len(problems))
+	}
+	for _, r := range m.Reels {
+		res := r.EffectiveResolution(m.Defaults)
+		fmt.Printf("%s\t%s\t%.3f\t%t\t%d\t%dx%d\t%s\n",
+			r.ID, r.Output, r.TargetDuration, r.SquareCut, len(r.Shots),
+			res.Width, res.Height, r.Title)
 	}
 	return nil
 }

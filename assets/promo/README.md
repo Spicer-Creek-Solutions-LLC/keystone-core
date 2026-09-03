@@ -1,14 +1,30 @@
-# Promo video — script, shot list, and pipeline
+# Promo + docs clips — scripts, shot lists, and pipeline
 
-The 30-second Keystone Core promo. Terminal-first and text-only: every
-terminal shot is real `kscorectl` output recorded against a live
-topology, and the on-screen captions carry the whole narration (there
-is no voiceover).
+Terminal-first and text-only: every terminal shot is real `kscorectl`
+output recorded against a live topology, and the on-screen captions
+carry the whole narration (there is no voiceover).
+
+The manifest describes **reels**. A reel renders to one video. Today
+that is the 30-second promo; per-feature clips for the docs pages are
+the planned additions (ROADMAP, `v0.x`: *Per-feature docs clips*).
 
 This file is the script. [`manifest.yaml`](manifest.yaml) is the same
-shot list as data — the edit decision list the renderer consumes. Keep
+shot lists as data — the edit decision list the renderer consumes. Keep
 the two in step; `make promo-check` enforces the parts a machine can
 see.
+
+## Reels
+
+| Reel | Output | Budget | Purpose |
+| --- | --- | --- | --- |
+| `promo` | `keystone-30s.mp4` (+ square cut) | 30.0s | The hook. Makes a stranger curious enough to click. |
+
+Each reel carries its own duration budget, output name, and shot list,
+and inherits `tolerance` / `resolution` from `defaults` unless it
+overrides them. **Budgets are asserted per reel**: one reel busting its
+budget is not masked by another being under.
+
+`go run ./tools/promogen reels` lists them.
 
 ## Why it is generated rather than hand-edited
 
@@ -80,7 +96,7 @@ stack plus a bind-mount overlay (see [Scenario](#scenario)).
 ```
 assets/promo/
   README.md                     this file — the script
-  manifest.yaml                 the shot list as data (validated)
+  manifest.yaml                 every reel's shot list as data (validated)
   tapes/
     _common.tape                shared look: size, font, theme, speed
     *.tape.tmpl                 card sources; rendered by promogen
@@ -106,7 +122,8 @@ here.
 |---|---|---|
 | `make update-promo` | Go | Regenerates the cards, validates the shot list, checks tape commands, reconciles demo tags |
 | `make promo-check` | Go | Non-mutating version of the above; the CI gate |
-| `make promo` | vhs, ttyd, ffmpeg, docker | Renders the video to `dist/promo/` |
+| `make promo` | vhs, ttyd, ffmpeg, docker | Renders every reel to `dist/promo/` |
+| `make promo REEL=<id>` | as above | Renders one reel — the loop to use while iterating on a clip |
 | `make install-promo-tools` | Go | Installs `vhs`; reports what must come from a package manager |
 
 Only the render half needs the media toolchain. `vhs` is go-installable;
@@ -146,6 +163,21 @@ When remote apply lands, the scenario should move to an agent host and
 the state file should grow a `package` + `service` declaration — that
 is a strictly better demo and the shot durations already accommodate it.
 
+## Adding a reel
+
+1. Add a `reels:` entry with an `id`, `output` (unique — two reels
+   writing one file would silently clobber each other), and
+   `target_duration`. Set `square_cut: true` only if it needs a 1:1
+   social crop; that is noise for a docs clip. Record `docs_page` when
+   the clip is embedded in one, so the two cannot drift apart silently.
+2. Write its tapes under `tapes/`, and pick the scenario from what
+   actually works against the E2E topology — the `TestE2E_*` set in
+   `test/e2e/single/scenarios_test.go` is the honest list.
+3. `make promo-check`, then `make promo REEL=<id>` and watch it.
+
+Shot ids are unique *within* a reel, not globally: two reels can both
+open on a shot called `hook`.
+
 ## Adding a shot
 
 1. Tag the changelog fragment: `make changelog-new` now prompts for an
@@ -153,9 +185,10 @@ is a strictly better demo and the shot durations already accommodate it.
    change is legible in a few seconds of terminal output; leave it
    blank otherwise (most entries).
 2. `make promo-check` will report the tag as `UNSHOT`.
-3. Write a tape under `tapes/`, add the shot to `manifest.yaml` with
-   the matching `feature`, and **take the duration back from another
-   shot** — the total is asserted at 30.0s ±0.25s.
+3. Write a tape under `tapes/`, add the shot to the right reel in
+   `manifest.yaml` with the matching `feature`, and **take the duration
+   back from another shot in that same reel** — each reel's total is
+   asserted against its own budget.
 4. Re-run `make promo-check`, then `make promo` and watch the 30
    seconds before publishing.
 

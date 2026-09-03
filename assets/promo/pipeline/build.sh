@@ -13,7 +13,9 @@
 # The shot list is never parsed here: `promogen plan` is the single
 # manifest parser and this script consumes its TSV.
 #
-# Usage: assets/promo/pipeline/build.sh [--keep-up] [--skip-render]
+# Usage: assets/promo/pipeline/build.sh [--keep-up] [--skip-render] [--reel=<id>]
+#
+# With no --reel, every reel in the manifest is rendered.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
@@ -31,10 +33,12 @@ COMPOSE=(docker compose
 
 KEEP_UP=0
 SKIP_RENDER=0
+REEL="${REEL:-}"
 for arg in "$@"; do
   case "$arg" in
     --keep-up)     KEEP_UP=1 ;;
     --skip-render) SKIP_RENDER=1 ;;
+    --reel=*)      REEL="${arg#--reel=}" ;;
     *) echo "unknown flag: $arg" >&2; exit 2 ;;
   esac
 done
@@ -142,9 +146,9 @@ render() {
   rm -rf "${CLIP_DIR}"
   mkdir -p "${CLIP_DIR}"
 
-  while IFS=$'\t' read -r id kind duration tape caption; do
+  while IFS=$'\t' read -r reel id kind duration tape caption; do
     : "${caption}"  # unused during render; burned in at assemble time
-    log "  ${id} (${kind}, ${duration}s)"
+    log "  ${reel}/${id} (${kind}, ${duration}s)"
     vhs "${PROMO_DIR}/${tape}" </dev/null
 
     local clip="${CLIP_DIR}/$(basename "${tape}" .tape).mp4"
@@ -152,8 +156,8 @@ render() {
 
     # A stale tape still renders happily with a traceback in frame.
     # Assert the shot did not capture an obvious failure.
-    assert_clean "$id" "$clip"
-  done < <(go run ./tools/promogen plan)
+    assert_clean "${reel}/${id}" "$clip"
+  done < <(go run ./tools/promogen plan ${REEL:+-reel "$REEL"})
 }
 
 # assert_clean is a cheap tripwire for the failure mode that matters:
@@ -178,7 +182,22 @@ assemble() {
   rm -rf "${STAGE_DIR}"
   mkdir -p "${STAGE_DIR}" "${OUT_DIR}"
 
-  local concat="${STAGE_DIR}/concat.txt"
+  while IFS=$'\t' read -r reel output target square shots res title; do
+    : "${target}" "${shots}" "${res}"
+    log "  reel ${reel} — ${title}"
+    assemble_reel "$reel" "$output" "$square"
+  done < <(go run ./tools/promogen reels | { [[ -n "${REEL}" ]] && grep -P "^${REEL}\t" || cat; })
+}
+
+# assemble_reel stages one reel's shots and concatenates them into a
+# single output. Kept separate from the reel loop so the two `while
+# read` loops never share a file descriptor.
+assemble_reel() {
+  local reel="$1" output="$2" square="$3"
+  local stage="${STAGE_DIR}/${reel}"
+  rm -rf "$stage"; mkdir -p "$stage"
+
+  local concat="${stage}/concat.txt"
   : > "$concat"
 
   # Every ffmpeg below runs with -nostdin. Without it ffmpeg reads the
@@ -187,11 +206,11 @@ assemble() {
   # half-swallowed TSV line as an interactive command and then trying to
   # open a clip named after a caption.
 
-  while IFS=$'\t' read -r id kind duration tape caption; do
+  while IFS=$'\t' read -r _reel id kind duration tape caption; do
     : "${kind}"  # unused during assemble; drives nothing but the log line
     local src staged
     src="${CLIP_DIR}/$(basename "${tape}" .tape).mp4"
-    staged="${STAGE_DIR}/${id}.mp4"
+    staged="${stage}/${id}.mp4"
 
     # Trim to the manifest duration; pad with the final frame when the
     # clip came up short, so the runtime budget is exact either way.
@@ -222,27 +241,29 @@ assemble() {
     fi
 
     printf "file '%s'\n" "${id}.mp4" >> "$concat"
-  done < <(go run ./tools/promogen plan)
+  done < <(go run ./tools/promogen plan -reel "$reel")
 
   local total
-  total="$(go run ./tools/promogen plan | awk -F'\t' '{s+=$3} END {printf "%.3f", s}')"
+  total="$(go run ./tools/promogen plan -reel "$reel" | awk -F'\t' '{s+=$4} END {printf "%.3f", s}')"
 
   # Hard cuts between shots, with a fade in at the head and out at the
-  # tail. Per-shot crossfades are a follow-up: a 6-stage xfade chain is
-  # markedly harder to keep correct than it is worth at this length.
-  log "  landscape 1920x1080"
+  # tail. Per-shot crossfades are a follow-up: a multi-stage xfade chain
+  # is markedly harder to keep correct than it is worth at this length.
+  log "    landscape (${total}s)"
   ffmpeg -nostdin -y -loglevel error -f concat -safe 0 -i "$concat" \
     -vf "fade=t=in:st=0:d=0.4,fade=t=out:st=$(awk -v t="$total" 'BEGIN{printf "%.3f", t-0.5}'):d=0.5" \
     -an -c:v libx264 -pix_fmt yuv420p -r 30 -movflags +faststart \
-    "${OUT_DIR}/keystone-30s.mp4"
+    "${OUT_DIR}/${output}.mp4"
 
-  log "  square 1080x1080"
-  ffmpeg -nostdin -y -loglevel error -i "${OUT_DIR}/keystone-30s.mp4" \
-    -vf "scale=1080:-2,pad=1080:1080:0:(oh-ih)/2:color=#11111b" \
-    -an -c:v libx264 -pix_fmt yuv420p -r 30 -movflags +faststart \
-    "${OUT_DIR}/keystone-30s-square.mp4"
+  if [[ "$square" == "true" ]]; then
+    log "    square 1080x1080"
+    ffmpeg -nostdin -y -loglevel error -i "${OUT_DIR}/${output}.mp4" \
+      -vf "scale=1080:-2,pad=1080:1080:0:(oh-ih)/2:color=#11111b" \
+      -an -c:v libx264 -pix_fmt yuv420p -r 30 -movflags +faststart \
+      "${OUT_DIR}/${output}-square.mp4"
+  fi
 
-  log "wrote ${OUT_DIR}/keystone-30s.mp4 (${total}s) + keystone-30s-square.mp4"
+  log "    wrote ${OUT_DIR}/${output}.mp4"
 }
 
 # ---- main -----------------------------------------------------------

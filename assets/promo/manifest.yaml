@@ -1,71 +1,82 @@
-# Keystone Core — 30-second promo video shot list.
+# Keystone Core — promo + docs-clip shot lists.
 #
-# This file is the edit decision list: shots render and concatenate in
-# the order below. The prose script that explains WHY each shot exists
-# lives in README.md next to this file; keep the two in step.
+# Each REEL renders to one video. Shots concatenate in the order below,
+# so this file is the edit decision list; nothing else encodes ordering.
+# The prose that explains WHY each shot exists lives in README.md next
+# to this file; keep the two in step.
 #
-# Validated by `make promo-check` (tools/promogen). The duration budget
-# is enforced, not advisory: a 30-second promo that drifts to 40 stops
-# being a promo, so adding a shot must take time back from another one.
+# Validated by `make promo-check` (tools/promogen). Each reel's duration
+# budget is enforced, not advisory: a 30-second promo that drifts to 40
+# stops being a promo, and a docs clip past ~20s stops getting watched.
+# Adding a shot must take the time back from another shot in the SAME
+# reel.
 
-target_duration: 30.0
-tolerance: 0.25
+defaults:
+  tolerance: 0.25
+  resolution:
+    width: 1920
+    height: 1080
 
-resolution:
-  width: 1920
-  height: 1080
+reels:
+  # === The 30-second promo =============================================
+  # A hook, not a tour. Its job is to make a stranger curious enough to
+  # click; showing twenty features in 30s shows none of them.
+  - id: promo
+    title: "30-second promo"
+    output: keystone-30s
+    target_duration: 30.0
+    square_cut: true
+    shots:
+      # --- Setup: the problem, then the claim ---------------------------
+      - id: hook
+        kind: card
+        duration: 3.0
+        caption: ""
+        tape: tapes/01-hook.tape
+        feature: ""
 
-shots:
-  # --- Setup: the problem, then the claim ---------------------------
-  - id: hook
-    kind: card
-    duration: 3.0
-    caption: ""
-    tape: tapes/01-hook.tape
-    feature: ""
+      - id: topology
+        kind: card
+        duration: 3.0
+        caption: ""
+        tape: tapes/02-topology.tape
+        feature: ""
 
-  - id: topology
-    kind: card
-    duration: 3.0
-    caption: ""
-    tape: tapes/02-topology.tape
-    feature: ""
+      # --- The argument: declare -> drift -> converge -------------------
+      # These three shots are the whole pitch. Everything else is framing,
+      # which is why they hold 16.5 of the 30 seconds.
+      - id: state-apply
+        kind: terminal
+        duration: 5.0
+        caption: "Declare the state."
+        tape: tapes/03-state-apply.tape
+        feature: state-apply
 
-  # --- The argument: declare -> drift -> converge -------------------
-  # These three shots are the whole pitch. Everything else is framing,
-  # which is why they hold 16.5 of the 30 seconds.
-  - id: state-apply
-    kind: terminal
-    duration: 5.0
-    caption: "Declare the state."
-    tape: tapes/03-state-apply.tape
-    feature: state-apply
+      - id: drift-detect
+        kind: terminal
+        duration: 5.5
+        caption: "The host drifts anyway."
+        tape: tapes/04-drift.tape
+        feature: state-drift
 
-  - id: drift-detect
-    kind: terminal
-    duration: 5.5
-    caption: "The host drifts anyway."
-    tape: tapes/04-drift.tape
-    feature: state-drift
+      - id: converge
+        kind: terminal
+        duration: 6.0
+        caption: "Keystone converges it."
+        tape: tapes/05-converge.tape
+        feature: state-drift-fix
 
-  - id: converge
-    kind: terminal
-    duration: 6.0
-    caption: "Keystone converges it."
-    tape: tapes/05-converge.tape
-    feature: state-drift-fix
+      # --- Proof, then the card ----------------------------------------
+      - id: audit
+        kind: terminal
+        duration: 4.0
+        caption: "Every change, audited."
+        tape: tapes/06-audit.tape
+        feature: audit-trail
 
-  # --- Proof, then the card ----------------------------------------
-  - id: audit
-    kind: terminal
-    duration: 4.0
-    caption: "Every change, audited."
-    tape: tapes/06-audit.tape
-    feature: audit-trail
-
-  - id: endcard
-    kind: card
-    duration: 3.5
-    caption: ""
-    tape: tapes/07-endcard.tape
-    feature: ""
+      - id: endcard
+        kind: card
+        duration: 3.5
+        caption: ""
+        tape: tapes/07-endcard.tape
+        feature: ""

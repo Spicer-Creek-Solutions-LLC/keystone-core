@@ -735,11 +735,15 @@ security-licenses: ## Verify dep licenses are Apache-2.0 / MIT / BSD-compatible
 #
 # The script and shot list live in assets/promo/README.md.
 
-promo: ## Render the 30s promo video to dist/promo/ (needs vhs+ttyd+ffmpeg+docker)
+promo: ## Render every reel to dist/promo/ (needs vhs+ttyd+ffmpeg+docker; REEL=<id> for one)
 	# Builds against the live single-topology E2E stack, so the terminal
 	# shots are real kscorectl output rather than mockups. Run
 	# `make build` first — the tapes require kscorectl on PATH.
-	assets/promo/pipeline/build.sh
+	#
+	# REEL=<id> renders a single reel, which is the loop you want while
+	# iterating on one docs clip; `go run ./tools/promogen reels` lists
+	# the ids.
+	assets/promo/pipeline/build.sh $(if $(REEL),--reel=$(REEL))
 
 update-promo: ## Regenerate promo cards from the current branch + report shot-list drift
 	go run ./tools/promogen sync
