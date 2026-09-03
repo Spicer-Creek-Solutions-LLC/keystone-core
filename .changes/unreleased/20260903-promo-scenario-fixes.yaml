@@ -1,0 +1,19 @@
+kind: Fixed
+body: |-
+  **Promo scenario shots corrected against real CLI output.** A dry run
+  of every terminal shot against the live topology found three
+  mismatches between the tapes and the product: shot 6 invoked
+  "kscorectl audit list", which does not exist (the subcommands are
+  export / log / report / stats); shot 4 printed an exit code to claim
+  drift detection scripts cleanly, but "state drift" returns 0 whether
+  or not it finds drift; and the drift scenario tried to chmod a file
+  owned by the container's nonroot UID and edit a 0640 file the host
+  cannot read. Shots now run "audit stats --since 30m" (57 columns,
+  readable at the same font as every other shot, where the audit log
+  table is 139), show the drift report without an exit-code beat, and
+  drift one file of two -- which lands a drifted row beside an in_sync
+  row and shows the check discriminating. The promo compose overlay
+  also publishes only the gRPC port it uses, so recording no longer
+  collides with whatever holds 8080 on the machine.
+custom:
+  Demo: ""

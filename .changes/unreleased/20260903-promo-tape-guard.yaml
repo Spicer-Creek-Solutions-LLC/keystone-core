@@ -1,0 +1,17 @@
+kind: Added
+body: |-
+  **`promogen tapes` verifies every promo tape command still resolves.**
+  A tape whose command has been renamed does not fail loudly -- it
+  records happily with the error text in frame, which is how
+  "kscorectl audit list" (a command that does not exist) nearly shipped
+  in a shot. The check extracts every project-binary invocation from
+  every tape, builds the referenced cmd/ binaries into a temp directory,
+  and probes "<bin> <path...> --help", which cobra resolves without
+  executing anything -- so it needs no server, no topology and no media
+  toolchain, and runs in ci-fast. It models kscorectl's git-style plugin
+  dispatch (an unregistered "kscorectl audit" exec's kscore-audit from
+  PATH) and does not trust exit status alone, since cobra prints the
+  parent's help and exits 0 for an unrecognised trailing token. Wired
+  into "make promo-check" and into "make promo" ahead of rendering.
+custom:
+  Demo: ""

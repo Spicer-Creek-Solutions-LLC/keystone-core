@@ -1,0 +1,13 @@
+kind: Fixed
+body: |-
+  **Single-topology E2E compose publishes the gRPC port it actually
+  serves.** `test/e2e/single/docker-compose.yml` published
+  `127.0.0.1:9090:9090`, but `kscore-server` listens for gRPC on 5397
+  (`config/server.yaml`) and the harness dials `127.0.0.1:5397`
+  (`scaffold_test.go`). Nothing listened on 9090 and nothing published
+  5397, so docker mode (`KSCORE_E2E_USE_DOCKER=1`) could not reach the
+  control plane at all; the default native mode masked it by running
+  the binaries directly on the host. Left over from the 9090 -> 5397
+  default-port move.
+custom:
+  Demo: ""
