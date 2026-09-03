@@ -11,7 +11,29 @@ import (
 // fakeRepo builds the minimum tree DeriveFacts reads.
 func fakeRepo(t *testing.T, modules, binaries int, runSH string) string {
 	t.Helper()
+	root := fakeRepoWithChangelog(t, modules, binaries, runSH, defaultTestChangelog)
+	return root
+}
+
+const defaultTestChangelog = `# Changelog
+
+## [Unreleased]
+
+## [v1.0.0] — Planned
+
+## [v0.5.0] — 2026-06-27
+
+### Added
+
+- something
+`
+
+func fakeRepoWithChangelog(t *testing.T, modules, binaries int, runSH, changelog string) string {
+	t.Helper()
 	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "CHANGELOG.md"), []byte(changelog), 0o600); err != nil {
+		t.Fatalf("write changelog: %v", err)
+	}
 
 	for i := range modules {
 		dir := filepath.Join(root, "internal/statemgmt/stdlib", string(rune('a'+i)))
@@ -63,12 +85,11 @@ func TestDeriveFacts(t *testing.T) {
 	if f.DistroCount != 3 {
 		t.Errorf("DistroCount = %d, want 3", f.DistroCount)
 	}
-	// A temp dir is not a git checkout, so the tag lookup falls back.
-	if f.Version != "dev" {
-		t.Errorf("Version = %q, want \"dev\" outside a git checkout", f.Version)
+	if f.Version != "v0.5.0" {
+		t.Errorf("Version = %q, want v0.5.0 from the changelog", f.Version)
 	}
 	if !f.PreRelease {
-		t.Error("PreRelease = false, want true for an untagged tree")
+		t.Error("PreRelease = false, want true on the v0.x line")
 	}
 }
 
@@ -131,5 +152,75 @@ func TestRepoFacts(t *testing.T) {
 	}
 	if f.ModuleCount <= 0 || f.BinaryCount <= 0 || f.DistroCount <= 0 {
 		t.Errorf("facts = %+v, want all counts > 0", f)
+	}
+}
+
+// The version is baked into a committed, diff-checked tape, so it must
+// be a function of tree content alone. Deriving it from git tags made
+// the generated output depend on clone depth: CI checks out with
+// fetch-depth 1 and no tags, regenerated the card as "dev", and failed
+// the drift gate on every PR while passing locally.
+func TestLatestReleasedVersion(t *testing.T) {
+	tests := []struct {
+		name      string
+		changelog string
+		want      string
+	}{
+		{
+			name:      "skips Unreleased and Planned",
+			changelog: defaultTestChangelog,
+			want:      "v0.5.0",
+		},
+		{
+			name:      "picks the newest of several releases",
+			changelog: "# Changelog\n\n## [Unreleased]\n\n## [v0.5.0] — 2026-06-27\n\n## [v0.1.0] — 2026-05-28\n",
+			want:      "v0.5.0",
+		},
+		{
+			name:      "nothing released yet",
+			changelog: "# Changelog\n\n## [Unreleased]\n\n## [v1.0.0] — Planned\n",
+			want:      "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := fakeRepoWithChangelog(t, 1, 1, threeDistros, tt.changelog)
+			got, err := latestReleasedVersion(root)
+			if err != nil {
+				t.Fatalf("latestReleasedVersion: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("latestReleasedVersion() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// A tree with no shipped release must still render, as "dev".
+func TestDeriveFacts_NoReleaseYet(t *testing.T) {
+	root := fakeRepoWithChangelog(t, 1, 1, threeDistros,
+		"# Changelog\n\n## [Unreleased]\n")
+	f, err := DeriveFacts(root)
+	if err != nil {
+		t.Fatalf("DeriveFacts: %v", err)
+	}
+	if f.Version != "dev" || f.ReleaseLabel != "dev — pre-release" {
+		t.Errorf("facts = %+v, want dev/pre-release", f)
+	}
+}
+
+// Facts must not vary with git state. This is the regression guard for
+// the shallow-checkout failure.
+func TestDeriveFacts_IndependentOfGit(t *testing.T) {
+	root := fakeRepo(t, 2, 2, threeDistros)
+	// A temp dir is not a git repository at all; if DeriveFacts still
+	// consulted git this would degrade to "dev".
+	f, err := DeriveFacts(root)
+	if err != nil {
+		t.Fatalf("DeriveFacts: %v", err)
+	}
+	if f.Version != "v0.5.0" {
+		t.Errorf("Version = %q outside a git checkout, want v0.5.0 — "+
+			"facts must derive from tree content, not git", f.Version)
 	}
 }

@@ -5,7 +5,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -15,8 +14,8 @@ import (
 // derived from the repository at render time rather than typed into a
 // card, so a card cannot drift from what the project actually ships.
 type Facts struct {
-	// Version is the most recent release tag (e.g. "v0.5.0"), or
-	// "dev" outside a tagged checkout.
+	// Version is the most recently released version, read from
+	// CHANGELOG.md, or "dev" before the first release.
 	Version string
 	// PreRelease is true while the line is v0.x — the end card says so
 	// out loud rather than implying GA.
@@ -37,7 +36,11 @@ var semverTag = regexp.MustCompile(`^v(\d+)\.`)
 func DeriveFacts(repoRoot string) (*Facts, error) {
 	f := &Facts{Version: "dev"}
 
-	if v := gitDescribe(repoRoot); v != "" {
+	v, err := latestReleasedVersion(repoRoot)
+	if err != nil {
+		return nil, err
+	}
+	if v != "" {
 		f.Version = v
 	}
 	// Anything on the v0.x line is pre-release by the VERSIONING.md
@@ -51,7 +54,6 @@ func DeriveFacts(repoRoot string) (*Facts, error) {
 		f.ReleaseLabel = f.Version
 	}
 
-	var err error
 	if f.ModuleCount, err = countDocumentedModules(repoRoot); err != nil {
 		return nil, err
 	}
@@ -64,17 +66,34 @@ func DeriveFacts(repoRoot string) (*Facts, error) {
 	return f, nil
 }
 
-// gitDescribe returns the nearest tag, or "" when git is unavailable
-// or the checkout carries no tags (a shallow CI clone, say). Callers
-// fall back to "dev" rather than failing the render.
-func gitDescribe(repoRoot string) string {
-	cmd := exec.Command("git", "describe", "--tags", "--abbrev=0")
-	cmd.Dir = repoRoot
-	out, err := cmd.Output()
+// releasedHeading matches a shipped CHANGELOG version heading:
+// `## [v0.5.0] — 2026-06-27`. The date is required, which is what
+// excludes `## [Unreleased]` and `## [v1.0.0] — Planned`.
+var releasedHeading = regexp.MustCompile(`^## \[(v\d+\.\d+\.\d+)\][^\d]+(\d{4}-\d{2}-\d{2})\s*$`)
+
+// latestReleasedVersion reads the newest shipped version out of
+// CHANGELOG.md, or "" when nothing has shipped yet.
+//
+// Deliberately NOT `git describe`: this value is baked into a
+// generated tape that is committed and diff-checked, so it has to be a
+// function of the tree's content and nothing else. Deriving it from
+// tags made the generated output depend on clone depth — CI checks out
+// with fetch-depth 1 and no tags, so the card regenerated as "dev" and
+// the drift gate failed on every PR while passing on every developer
+// machine. CHANGELOG.md is in the tree at any depth.
+func latestReleasedVersion(repoRoot string) (string, error) {
+	path := filepath.Join(repoRoot, "CHANGELOG.md")
+	// #nosec G304 G703 -- fixed path under the developer's own checkout.
+	raw, err := os.ReadFile(path)
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("promogen: read changelog: %w", err)
 	}
-	return strings.TrimSpace(string(out))
+	for _, line := range strings.Split(string(raw), "\n") {
+		if m := releasedHeading.FindStringSubmatch(line); m != nil {
+			return m[1], nil
+		}
+	}
+	return "", nil
 }
 
 // countDocumentedModules counts state stdlib modules carrying a
