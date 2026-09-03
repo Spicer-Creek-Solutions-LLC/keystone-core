@@ -32,6 +32,7 @@ go.work.sum
 /kscore-*
 /kscorectl
 /trackerctl
+/promogen
 
 # Keystone Core specific
 build/

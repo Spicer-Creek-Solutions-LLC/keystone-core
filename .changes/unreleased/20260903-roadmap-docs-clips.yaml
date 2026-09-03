@@ -1,0 +1,14 @@
+kind: Docs
+body: |-
+  **ROADMAP: per-feature docs clips (multi-reel promo pipeline).** Adds
+  a v0.x entry for extending assets/promo/ from one 30-second promo to
+  short per-feature terminal clips embedded in the Hugo docs pages. The
+  entry records the two pieces of work (reels support in manifest.yaml,
+  then the clips), the honest demoable set -- the 11 TestE2E_* scenarios
+  proven against the single-topology stack the recorder drives, not the
+  80+ CLI subcommands -- and why one long video is the wrong shape: a
+  single multi-minute recording is one brittle artifact whose whole
+  runtime re-cuts when any command changes, abandoning the
+  regenerate-from-the-branch property the pipeline exists to provide.
+custom:
+  Demo: ""

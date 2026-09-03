@@ -1,0 +1,17 @@
+kind: Added
+body: |-
+  **Generated promo-video pipeline (`make promo`).** A 30-second,
+  terminal-first promo builds from `assets/promo/`: the shot list lives
+  in `manifest.yaml`, terminal shots record real `kscorectl` output
+  against the single-topology E2E stack, and the title cards are
+  generated from the branch by `tools/promogen` so no card hard-codes a
+  version, a module count, or a release status. `make update-promo`
+  regenerates the cards and reports shot-list drift; `make promo-check`
+  is the non-mutating CI gate (validates the manifest, asserts the
+  committed cards match a fresh regen, and reports changelog entries
+  tagged for a shot that have none). The 30-second runtime budget is
+  asserted, not advisory — adding a shot must take the time back from
+  another. `make promo` itself needs `vhs`, `ttyd`, `ffmpeg` and
+  docker; the generated half needs only Go and runs in `ci-fast`.
+custom:
+  Demo: ""

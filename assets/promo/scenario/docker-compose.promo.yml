@@ -1,0 +1,29 @@
+# Promo overlay on top of test/e2e/single/docker-compose.yml.
+#
+# Adds exactly one thing: a bind mount at /srv/promo backed by
+# build/promo/workdir/ on the host (gitignored scratch, created by
+# pipeline/build.sh with permissions the distroless nonroot UID can
+# write through). That lets the promo scenario induce
+# real drift by writing to the host side of the mount — the server sees
+# a managed file whose content no longer matches its declaration.
+#
+# Doing it through a bind mount rather than `docker exec` is deliberate:
+# the kscore images are distroless and have no shell to exec into.
+#
+# Usage (from the repo root; the base file's paths resolve relative to
+# its own directory, so both -f flags are repo-root-relative):
+#
+#   docker compose -f test/e2e/single/docker-compose.yml \
+#                  -f assets/promo/scenario/docker-compose.promo.yml up -d --wait
+
+services:
+  kscore-server:
+    volumes:
+      - ../../../build/promo/workdir:/srv/promo
+    # The promo drives kscorectl over gRPC only, so publish just 5397.
+    # `!override` replaces the base file's port list instead of merging
+    # into it (compose merges `ports` by default), which keeps the promo
+    # from colliding with whatever already holds 8080/8081 on the
+    # recording machine — a real conflict the first time this ran.
+    ports: !override
+      - "127.0.0.1:5397:5397"
