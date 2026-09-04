@@ -1,0 +1,14 @@
+kind: Added
+body: |-
+  **`kscorectl exec run --show-output` prints each agent's stdout and
+  stderr beneath the status table.** Reading what a dispatched command
+  actually printed previously meant scraping the batch id out of the run
+  and making a second `exec output <batch-id>` call. The batch stream
+  declares a per-agent output event but the server never emits one --
+  results are stored and served from ListBatchAgentResults -- so the
+  flag fetches them once the stream terminates and renders them through
+  the same RenderAgentResults path `exec output` uses, so the two read
+  identically. Off by default: a fleet-wide command can produce a lot of
+  output and the status summary is what most dispatches are checked for.
+custom:
+  Demo: "exec-show-output"

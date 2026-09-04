@@ -147,9 +147,9 @@ func TestParseTarget_DuplicateHostname(t *testing.T) {
 func TestParseTarget_MalformedClause(t *testing.T) {
 	t.Parallel()
 	cases := []string{
-		"role",      // missing ':'
-		"role:",     // empty value
-		":web",      // empty field
+		"role",  // missing ':'
+		"role:", // empty value
+		":web",  // empty field
 		"role:web AND",
 	}
 	for _, in := range cases {

@@ -23,6 +23,7 @@ type dispatchFlags struct {
 	Env               []string // K=V strings; parsed by envMap()
 	JobID             string
 	DryRun            bool
+	ShowOutput        bool
 }
 
 func bindDispatchFlags(fs *pflag.FlagSet, f *dispatchFlags) {
@@ -40,6 +41,8 @@ func bindDispatchFlags(fs *pflag.FlagSet, f *dispatchFlags) {
 		"working directory on the agent")
 	fs.StringVar(&f.User, "user", "",
 		"user to run as on the agent (Linux uid switch)")
+	fs.BoolVar(&f.ShowOutput, "show-output", false,
+		"print each agent's captured stdout/stderr beneath the status table")
 	fs.StringSliceVar(&f.Env, "env", nil,
 		"K=V env var (repeatable)")
 	fs.StringVar(&f.JobID, "job-id", "",

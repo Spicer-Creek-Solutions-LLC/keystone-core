@@ -18,8 +18,8 @@ see.
 | Reel | Output | Budget | Purpose |
 | --- | --- | --- | --- |
 | `promo` | `keystone-30s.mp4` (+ square cut) | 30.0s | The hook. Makes a stranger curious enough to click. |
-| `operate-a-fleet` | `docs-operate-a-fleet.mp4` | 15.0s | List agents, resolve a target, dispatch, read output back. |
-| `manage-secrets` | `docs-manage-secrets.mp4` | 13.5s | Write, list, read masked, then cleartext. |
+| `operate-a-fleet` | `docs-operate-a-fleet.mp4` | 11.0s | List agents, resolve a target, dispatch with `--show-output`. |
+| `manage-secrets` | `docs-manage-secrets.mp4` | 17.5s | Store a credential, then render it into config without printing it. |
 | `gitops-rollback` | `docs-gitops-rollback.mp4` | 13.5s | Propose a rollback, see it waiting, decide. |
 | `outbound-webhooks` | `docs-outbound-webhooks.mp4` | 13.5s | Subscribe, deliver, read the delivery record. |
 
@@ -38,6 +38,17 @@ terminal does.
 Durations are **measured from the rendered tape**, not guessed. The
 assembler pads a short clip with its final frame but truncates a long
 one, so each budget sits just above its raw length.
+
+Show the feature being *used*, not merely invoked. The secrets clip
+originally ended on `secrets get --show-cleartext`, which no operator
+does for its own sake — printing a password to a terminal is the thing
+the store exists to avoid. It now fetches the credential into a shell
+variable at deploy time and passes it to `state apply` as a
+`--variable`, so it lands in the application's env file without ever
+appearing on screen or in the committed state file.
+
+One VHS quoting note: `Type "..."` does not support `\"` escaping. Use
+the backtick delimiter when the command contains double quotes.
 
 Two clips set a smaller `FontSize` than `_common.tape`, and the tapes
 say why: their output carries full UUIDs, which wrap at the default and

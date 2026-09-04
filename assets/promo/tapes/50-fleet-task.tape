@@ -7,8 +7,14 @@
 # change. A docs clip showing one task has to accumulate like a real
 # session: command, output, next command, output.
 #
-# FontSize 24 (~125 cols, ~33 rows) rather than the 30 in _common.tape:
-# the session ends up ~20 lines deep and the exec table is wide.
+# FontSize 24 rather than the 30 in _common.tape: the session ends up
+# ~20 lines deep and the exec table is wide.
+#
+# `--show-output` prints each agent's stdout beneath the status table in
+# one step. Before it existed this clip had to scrape the batch id out
+# of `exec list` with awk and make a second `exec output` call, which is
+# a poor advertisement for the feature — and the flag turned out to be a
+# small CLI gap rather than a limitation worth filming around.
 
 Output build/promo/clips/50-fleet-task.mp4
 
@@ -27,11 +33,5 @@ Sleep 3s
 Type "kscorectl exec run --target 'role:agent' --dry-run /bin/hostname" Enter
 Sleep 3s
 
-Type "kscorectl exec run --target 'role:agent' /bin/hostname" Enter
-Sleep 4s
-
-Type "B=$(kscorectl exec list | awk 'NR==2{print $1}')" Enter
-Sleep 1s
-
-Type "kscorectl exec output $B" Enter
-Sleep 4500ms
+Type "kscorectl exec run --target 'role:agent' --show-output /bin/hostname" Enter
+Sleep 5s

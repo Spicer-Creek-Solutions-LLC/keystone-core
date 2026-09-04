@@ -103,12 +103,12 @@ reels:
   - id: operate-a-fleet
     title: "Operating a fleet"
     output: docs-operate-a-fleet
-    target_duration: 15.0
+    target_duration: 11.0
     docs_page: docs/content/docs/getting-started/_index.md
     shots:
       - id: session
         kind: terminal
-        duration: 15.0
+        duration: 11.0
         caption: "List agents, resolve a target, dispatch, read the output back."
         tape: tapes/50-fleet-task.tape
         feature: fleet-exec
@@ -116,13 +116,13 @@ reels:
   - id: manage-secrets
     title: "Managing secrets"
     output: docs-manage-secrets
-    target_duration: 13.5
+    target_duration: 17.5
     docs_page: docs/content/docs/getting-started/secrets.md
     shots:
       - id: session
         kind: terminal
-        duration: 13.5
-        caption: "Write, list, read masked — then cleartext, deliberately."
+        duration: 17.5
+        caption: "Store a credential, then render it into config without printing it."
         tape: tapes/51-secrets-task.tape
         feature: secrets-roundtrip
 
