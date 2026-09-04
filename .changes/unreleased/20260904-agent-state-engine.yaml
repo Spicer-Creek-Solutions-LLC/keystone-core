@@ -1,0 +1,18 @@
+kind: Added
+body: |-
+  **The agent runs state files on its own host.** `kscore-agent` now
+  carries a complete state engine -- parse, render, validate, resolve,
+  run -- against the FULL stdlib registry, and subscribes to a new
+  per-agent `converge` subject for signed state-run dispatches. This is
+  the primitive under remote state apply: a state file that carries
+  everything it needs is runnable on the host it describes, without the
+  control plane resolving anything for it. Compilation happens on the
+  agent deliberately, because rendering resolves `.Facts` and the facts
+  that matter are the target host's -- a server-side compile renders
+  every declaration against the wrong machine. Dispatches are
+  HMAC-signed and principal-checked through the same SecurityEnforcer
+  the command path uses: dispatching a state run is not a lesser
+  privilege than dispatching a command, so it gets no weaker gate. The
+  server-side dispatch half lands next; nothing calls this yet.
+custom:
+  Demo: ""

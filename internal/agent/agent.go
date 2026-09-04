@@ -43,6 +43,8 @@ type Subjects interface {
 	AgentCommand(agentID string) string
 	AgentResponse(agentID string) string
 	AgentState(agentID string) string
+	AgentConverge(agentID string) string
+	AgentConvergeResult(agentID string) string
 	BootstrapRegister(agentID string) string
 	Cluster() string
 	Prefix() string
@@ -91,14 +93,19 @@ type Agent struct {
 	metrics  MetricsCollector
 	executor *Executor
 	enforcer *SecurityEnforcer
+	// stateEngine converges this host against a dispatched state file.
+	// Nil falls back to a zero-value engine over DefaultRegistry, which
+	// is what cmd/kscore-agent populates via stdlib.RegisterAll.
+	stateEngine *StateEngine
 
-	mu         sync.Mutex
-	started    bool
-	stopped    bool
-	cancel     context.CancelFunc
-	commandCtx context.Context // shared by handleCommand goroutines; cancel() ends them
-	wg         sync.WaitGroup  // tracks heartbeat + metadata loops + in-flight commands
-	sub        Subscription
+	mu          sync.Mutex
+	started     bool
+	stopped     bool
+	cancel      context.CancelFunc
+	commandCtx  context.Context // shared by handleCommand goroutines; cancel() ends them
+	wg          sync.WaitGroup  // tracks heartbeat + metadata loops + in-flight commands
+	sub         Subscription
+	convergeSub Subscription
 }
 
 // New validates cfg and returns an unstarted Agent. AgentID is
@@ -166,6 +173,23 @@ func (a *Agent) Start(_ context.Context) error {
 	}
 	a.sub = sub
 
+	// Remote state apply. Subscribed separately from commands so a
+	// state run and a command dispatch cannot be confused for one
+	// another by payload shape alone.
+	convergeSubject := a.subjects.AgentConverge(a.cfg.AgentID)
+	convergeSub, err := a.nats.Subscribe(convergeSubject, a.handleConverge)
+	if err != nil {
+		// Unwind the command subscription: a half-subscribed agent that
+		// answers commands but silently ignores state runs is worse
+		// than one that fails to start.
+		if unsubErr := sub.Unsubscribe(); unsubErr != nil {
+			a.log.Warn("agent: unsubscribe after converge-subscribe failure", "err", unsubErr)
+		}
+		a.sub = nil
+		return fmt.Errorf("agent: subscribe %q: %w", convergeSubject, err)
+	}
+	a.convergeSub = convergeSub
+
 	loopCtx, cancel := context.WithCancel(context.Background())
 	a.cancel = cancel
 	// commandCtx shares the same root cancel so handleCommand
@@ -223,8 +247,10 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 	}
 	cancel := a.cancel
 	sub := a.sub
+	convergeSub := a.convergeSub
 	a.cancel = nil
 	a.sub = nil
+	a.convergeSub = nil
 	a.stopped = true
 	a.mu.Unlock()
 
@@ -232,6 +258,11 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 	if sub != nil {
 		if err := sub.Unsubscribe(); err != nil {
 			firstErr = fmt.Errorf("agent: unsubscribe: %w", err)
+		}
+	}
+	if convergeSub != nil {
+		if err := convergeSub.Unsubscribe(); err != nil && firstErr == nil {
+			firstErr = fmt.Errorf("agent: unsubscribe converge: %w", err)
 		}
 	}
 	if cancel != nil {
@@ -480,4 +511,3 @@ func (a *Agent) publishResponse(ctx context.Context, correlationID string, resp 
 			"agent_id", a.cfg.AgentID, "message_id", correlationID, "err", err)
 	}
 }
-

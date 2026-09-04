@@ -211,6 +211,135 @@ func (s *SecurityEnforcer) AppliedEnv(req CommandRequest) map[string]string {
 	return out
 }
 
+// ValidateConverge is Validate's counterpart for state runs. It runs
+// the two checks that are meaningful for a ConvergeRequest — HMAC and
+// principal — and skips the two that are not: there is no command line
+// to match against CommandRules, and no argv to length-check.
+//
+// Deliberately the SAME secret and the same principal allowlist as the
+// command path. Dispatching a state run is not a lesser privilege than
+// dispatching a command (a state file can install packages and restart
+// services), so it earns no separate, weaker gate.
+func (s *SecurityEnforcer) ValidateConverge(ctx context.Context, req ConvergeRequest) error {
+	if err := s.checkConvergeHMAC(req); err != nil {
+		s.auditConverge(ctx, false, req, err)
+		return err
+	}
+	if err := s.checkConvergePrincipal(req); err != nil {
+		s.auditConverge(ctx, false, req, err)
+		return err
+	}
+	s.auditConverge(ctx, true, req, nil)
+	return nil
+}
+
+// ComputeConvergeHMAC returns the canonical HMAC for req under the
+// configured secret. The control plane signs with this and the agent
+// verifies with it, so canonicalization cannot drift between them.
+func (s *SecurityEnforcer) ComputeConvergeHMAC(req ConvergeRequest) string {
+	mac := hmac.New(sha256.New, s.policy.HMACSecret)
+	mac.Write(canonicalConverge(req))
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func (s *SecurityEnforcer) checkConvergeHMAC(req ConvergeRequest) error {
+	if len(s.policy.HMACSecret) == 0 {
+		// Same rationale as checkHMAC: an unconfigured secret disables
+		// the check so a fresh agent can boot before bootstrap wires
+		// one in. ProductionWarnings() shouts about it in production.
+		return nil
+	}
+	want, err := hex.DecodeString(req.Signature)
+	if err != nil {
+		return ErrHMACInvalid
+	}
+	mac := hmac.New(sha256.New, s.policy.HMACSecret)
+	mac.Write(canonicalConverge(req))
+	if !hmac.Equal(want, mac.Sum(nil)) {
+		return ErrHMACInvalid
+	}
+	return nil
+}
+
+func (s *SecurityEnforcer) checkConvergePrincipal(req ConvergeRequest) error {
+	if len(s.policy.PrincipalAllowlist) == 0 {
+		return nil
+	}
+	for _, p := range s.policy.PrincipalAllowlist {
+		if p == req.Principal {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %q", ErrPrincipalDenied, req.Principal)
+}
+
+// canonicalConverge is the byte encoding signed for a ConvergeRequest.
+// Length-prefixed like canonical() so no field boundary can be forged
+// by choosing a value that contains the delimiter. YAML is hashed by
+// content, not length alone, since it is the payload that decides what
+// runs on the host.
+func canonicalConverge(req ConvergeRequest) []byte {
+	var buf bytes.Buffer
+	buf.WriteString("MessageID:")
+	buf.WriteString(req.MessageID)
+	buf.WriteString("\nPrincipal:")
+	buf.WriteString(req.Principal)
+	buf.WriteString("\nRunID:")
+	buf.WriteString(req.RunID)
+	buf.WriteString("\nSource:")
+	buf.WriteString(req.Source)
+	buf.WriteString("\nMode:")
+	buf.WriteString(req.Mode)
+	buf.WriteString("\nTimeoutSeconds:")
+	writeUint32(&buf, uint32(req.TimeoutSeconds))
+
+	buf.WriteString("\nYAML:")
+	writeUint32(&buf, uint32(len(req.YAML)))
+	buf.Write(req.YAML)
+
+	// Variables are map-ordered in Go, so sort before hashing or the
+	// signature is not reproducible.
+	buf.WriteString("\nVariables:")
+	writeUint32(&buf, uint32(len(req.Variables)))
+	keys := make([]string, 0, len(req.Variables))
+	for k := range req.Variables {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		writeUint32(&buf, uint32(len(k)))
+		buf.WriteString(k)
+		v := req.Variables[k]
+		writeUint32(&buf, uint32(len(v)))
+		buf.WriteString(v)
+	}
+	return buf.Bytes()
+}
+
+func (s *SecurityEnforcer) auditConverge(ctx context.Context, accepted bool, req ConvergeRequest, reason error) {
+	if s.log == nil {
+		return
+	}
+	attrs := []any{
+		"event", "agent.converge.authz",
+		"accepted", accepted,
+		"message_id", req.MessageID,
+		"run_id", req.RunID,
+		"principal", req.Principal,
+		"mode", req.Mode,
+		"source", req.Source,
+		"yaml_bytes", len(req.YAML),
+	}
+	if reason != nil {
+		attrs = append(attrs, "reason", reason.Error())
+	}
+	if accepted {
+		s.log.InfoContext(ctx, "agent: converge authorized", attrs...)
+		return
+	}
+	s.log.WarnContext(ctx, "agent: converge rejected", attrs...)
+}
+
 func (s *SecurityEnforcer) checkHMAC(req CommandRequest) error {
 	if len(s.policy.HMACSecret) == 0 {
 		// No secret configured = HMAC check disabled. Empty default
