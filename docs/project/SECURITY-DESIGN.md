@@ -234,6 +234,37 @@ verify it. The primitive above landed ahead of its first consumer so
 the signature checking could be reviewed on its own; the first path to
 adopt it is the agent's secret lookup.
 
+#### A NATS subject is not a boundary
+
+Every agent authenticates to NATS with the same deployment-wide
+`nats.token` or `nats.credential`, and no per-subject permissions are
+configured anywhere. An agent can therefore subscribe to any other
+agent's subjects. Per-agent subject naming
+(`kscore.<cluster>.agent.<id>.…`) is addressing, not access control.
+
+The consequence is worth stating plainly, because it is easy to assume
+the opposite: **anything confidential that crosses NATS has to be
+confidential on its own, not by virtue of where it was published.**
+Replying with a secret on the requesting agent's subject would publish
+it to the whole fleet.
+
+`internal/sealed` is the answer. It encrypts a payload to the public
+key in the recipient's SVID — the same certificate the control plane
+has just verified — so verifying who is asking and addressing the
+reply to them is one decision rather than two, with no window in which
+the server knows the requester but encrypts to something else.
+
+Construction is hybrid: AES-256-GCM under a key that is ECDH-derived
+against a per-message ephemeral (ECDSA recipients) or RSA-OAEP-wrapped
+(RSA recipients — the CA's key type is configurable). The AEAD's
+associated data carries the requesting agent's id and the request
+nonce, binding a sealed reply to the exact request it answers so a
+captured box cannot be replayed as the answer to a different question.
+
+Per-agent NATS credentials with subject permissions would make the
+subject a boundary too, and remain worth doing; sealing does not
+depend on that landing, and does not become unnecessary if it does.
+
 ### Production-knob warnings (dev-mode boundaries)
 
 Three configuration knobs are accepted but emit a startup `WARN` line
