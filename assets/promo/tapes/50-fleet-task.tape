@@ -1,6 +1,11 @@
 #
 # docs clip "operate-a-fleet" — one continuous session.
 #
+# The command is a package-version query, not `hostname`. "What glibc is
+# on every host?" is a question an operator actually has — hostname just
+# proves the plumbing works. `--` separates it from kscorectl's own
+# flags, without which cobra parses `-W` as a shorthand flag and fails.
+#
 # ONE tape, not several. Each tape is its own terminal with its own
 # `clear`, so splitting a single task across shots wipes the screen
 # mid-task and reads as a rendering glitch rather than as a scene
@@ -30,8 +35,8 @@ Show
 Type "kscorectl agent list" Enter
 Sleep 3s
 
-Type "kscorectl exec run --target 'role:agent' --dry-run /bin/hostname" Enter
+Type "kscorectl exec run --target 'role:agent' --dry-run -- /usr/bin/dpkg-query -W libc6" Enter
 Sleep 3s
 
-Type "kscorectl exec run --target 'role:agent' --show-output /bin/hostname" Enter
+Type "kscorectl exec run --target 'role:agent' --show-output -- /usr/bin/dpkg-query -W libc6" Enter
 Sleep 5s

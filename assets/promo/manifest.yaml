@@ -103,13 +103,13 @@ reels:
   - id: operate-a-fleet
     title: "Operating a fleet"
     output: docs-operate-a-fleet
-    target_duration: 11.0
+    target_duration: 11.5
     docs_page: docs/content/docs/getting-started/_index.md
     shots:
       - id: session
         kind: terminal
-        duration: 11.0
-        caption: "List agents, resolve a target, dispatch, read the output back."
+        duration: 11.5
+        caption: "Ask every host the same question, and get every answer back."
         tape: tapes/50-fleet-task.tape
         feature: fleet-exec
 

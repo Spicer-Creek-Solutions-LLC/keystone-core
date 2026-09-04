@@ -3,7 +3,7 @@ title: Getting Started
 weight: 1
 ---
 
-{{< clip name="docs-operate-a-fleet" caption="List agents, resolve a target selector, dispatch across the fleet, and read each agent's output back." >}}
+{{< clip name="docs-operate-a-fleet" caption="List the fleet, resolve a target selector, then ask every matching host the same question — here, which glibc it is running." >}}
 
 Hands-on, runnable tutorials for the day-2 tasks an operator or author
 takes on after the [30-minute quick start](/docs/reference/getting-started/)

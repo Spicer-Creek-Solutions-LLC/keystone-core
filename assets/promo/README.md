@@ -18,7 +18,7 @@ see.
 | Reel | Output | Budget | Purpose |
 | --- | --- | --- | --- |
 | `promo` | `keystone-30s.mp4` (+ square cut) | 30.0s | The hook. Makes a stranger curious enough to click. |
-| `operate-a-fleet` | `docs-operate-a-fleet.mp4` | 11.0s | List agents, resolve a target, dispatch with `--show-output`. |
+| `operate-a-fleet` | `docs-operate-a-fleet.mp4` | 11.5s | List agents, resolve a target, query a package version fleet-wide. |
 | `manage-secrets` | `docs-manage-secrets.mp4` | 17.5s | Store a credential, then render it into config without printing it. |
 | `gitops-rollback` | `docs-gitops-rollback.mp4` | 13.5s | Propose a rollback, see it waiting, decide. |
 | `outbound-webhooks` | `docs-outbound-webhooks.mp4` | 13.5s | Subscribe, deliver, read the delivery record. |
