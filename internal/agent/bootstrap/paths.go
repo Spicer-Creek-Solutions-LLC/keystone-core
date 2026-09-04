@@ -22,4 +22,12 @@ package bootstrap
 const (
 	DefaultAgentConfigPath = "/etc/kscore/agent.yaml"
 	DefaultStatePath       = "/var/lib/kscore-agent/bootstrap.json"
+
+	// DefaultCredentialsPath is where kscore-agent persists the
+	// credential the control plane issues on bootstrap: an API key
+	// and, with identity enabled, the agent's own X509 SVID and
+	// private key. Same state directory as DefaultStatePath, written
+	// 0600 — it is the most sensitive file the agent owns.
+	// #nosec G101 -- a filesystem path, not a credential.
+	DefaultCredentialsPath = "/var/lib/kscore-agent/credentials.json"
 )

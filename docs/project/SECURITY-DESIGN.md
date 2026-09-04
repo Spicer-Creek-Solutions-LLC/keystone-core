@@ -179,6 +179,37 @@ What this means for a security review:
   errors** (evaluator crash, missing policy, OPA compile failure) —
   those still fail closed in v0.x.
 
+### Agent identity — issued, stored, not yet enforced
+
+On bootstrap, an agent presents a single-use PSK and the control plane
+replies with an API key and — when `identity.enabled` is set — a
+per-agent X509 SVID: leaf certificate, private key, and the trust
+bundle that verifies the issuer. The agent writes the whole credential
+to one file, `0600`, in its state directory
+(`/var/lib/kscore-agent/credentials.json` by default; override with
+`agent.credentialspath`). It is the most sensitive file the agent owns.
+
+It is stored as one JSON object rather than a directory of PEMs
+because the credential is only meaningful whole — a chain without its
+key, or either without the trust bundle, is not a usable identity.
+Writes go through a temp file and `rename(2)` in the same directory,
+so a crash mid-write leaves the old credential or the new one, never a
+truncated file.
+
+A credential that is present and unexpired makes the agent skip its
+bootstrap publish entirely. That is not an optimisation: bootstrap
+PSKs are single-use, so a re-publish is guaranteed to be rejected.
+
+**What this does not yet do.** Messages on the agent↔server NATS path
+are still authenticated with the fleet-wide `security.hmacsecret`,
+which proves that a sender is *some* member of the fleet, not *which*
+member. Until the agent signs with the SVID key it now holds and the
+server verifies against the CA, any per-agent authorisation decision
+would be advisory — an agent could assert another agent's id and the
+shared key would still verify. Anything that needs to distinguish
+agents from each other (per-agent secret grants, for one) depends on
+closing that gap, not on this storage.
+
 ### Production-knob warnings (dev-mode boundaries)
 
 Three configuration knobs are accepted but emit a startup `WARN` line

@@ -121,6 +121,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		CommandTimeout:    cfg.Agent.CommandTimeout,
 		Labels:            cfg.Agent.Labels,
 		BootstrapPSK:      cfg.Agent.BootstrapPSK,
+		CredentialsPath:   credentialsPath(cfg.Agent.CredentialsPath),
 	}, natsAdapter{m: natsManager}, natsManager.Subjects(), agent.NewGopsutilCollector(log), executor, enforcer, log)
 	if err != nil {
 		return fmt.Errorf("agent: %w", err)
@@ -167,6 +168,18 @@ func (a natsAdapter) Subscribe(subject string, h agent.MessageHandler) (agent.Su
 
 func (a natsAdapter) Health(ctx context.Context) error {
 	return a.m.Health(ctx)
+}
+
+// credentialsPath resolves where the agent persists the credential the
+// control plane issues at bootstrap. Empty config means the canonical
+// state-directory location rather than "do not persist": an agent that
+// silently forgot its identity every restart would be a worse default
+// than one that fails loudly on an unwritable path.
+func credentialsPath(configured string) string {
+	if configured != "" {
+		return configured
+	}
+	return bootstrap.DefaultCredentialsPath
 }
 
 // securityPolicyFromConfig translates internal/config.SecurityConfig
