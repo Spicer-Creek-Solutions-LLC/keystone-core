@@ -1,0 +1,15 @@
+kind: Added
+body: |-
+  **Control-plane dispatcher for agent state runs.** `ConvergeDispatcher`
+  sends a signed state-run request to an agent and collects its result,
+  mirroring CommandDispatcher/ResponseRouter for state. One subscription
+  on the converge-result wildcard fans every agent's reply into a waiter
+  keyed by run id plus agent id, so N agents converging concurrently
+  need N waiters and one subscription rather than a subscription each.
+  Timeouts are per agent, not per run: one unreachable host must not
+  decide how long every other host's result may take. Signing goes
+  through the agent's own SecurityEnforcer type on both ends so the
+  canonical encoding cannot drift between signer and verifier. Wiring
+  it into ApplyState lands next.
+custom:
+  Demo: ""
