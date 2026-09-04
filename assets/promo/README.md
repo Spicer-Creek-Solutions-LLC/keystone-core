@@ -124,10 +124,39 @@ assets/promo/
 ```
 
 Render output goes to the gitignored `build/promo/` (intermediate
-clips) and `dist/promo/` (finished `keystone-30s.mp4` and a 1080×1080
-square cut). The `.mp4` files are deliberately not committed — publish
-them as a release asset or on the docs site and keep only the sources
-here.
+clips) and `dist/promo/` (the finished videos). Those stay uncommitted:
+`dist/` is working output and a re-render is never byte-identical, since
+the clips carry real UUIDs and timestamps.
+
+`make promo-publish` is the separate, deliberate step that stages the
+bytes the docs site serves, copying the promo and the docs clips into
+**`assets/promo/video/`** (~1 MB, committed). `docs/hugo.toml` already
+mounts the repo-root `assets/` tree at `static/keystone` — the same
+mount the navbar logo uses — so the clips are served at
+`/keystone/promo/video/<output>.mp4` with nothing copied into `docs/`.
+
+Keeping render and publish apart matters: an experimental render should
+not dirty tracked files, and publishing a visually identical re-render
+costs ~1 MB of history for nothing. Publish when a clip's *content*
+actually changed.
+
+## Embedding a clip in a docs page
+
+`docs/layouts/shortcodes/clip.html`:
+
+```
+{{< clip name="docs-secrets" caption="Write a secret, read it back masked." >}}
+```
+
+Clips are muted, looping and `playsinline`, so they read as an animated
+figure rather than something the reader must decide to play;
+`preload="none"` keeps a page with several of them from pulling
+megabytes before anyone scrolls.
+
+Set the reel's `docs_page` to the page you embedded it in.
+`make promo-check` then asserts that page exists **and still contains
+the shortcode** — otherwise the field is a comment, and a clip silently
+stops being shown the first time someone restructures a page.
 
 ## Targets
 
@@ -136,6 +165,7 @@ here.
 | `make update-promo` | Go | Regenerates the cards, validates the shot list, checks tape commands, reconciles demo tags |
 | `make promo-check` | Go | Non-mutating version of the above; the CI gate |
 | `make promo` | vhs, ttyd, ffmpeg, docker | Renders every reel to `dist/promo/` |
+| `make promo-publish` | — | Copies rendered clips into `assets/promo/video/` for the docs site |
 | `make promo REEL=<id>` | as above | Renders one reel — the loop to use while iterating on a clip |
 | `make install-promo-tools` | Go | Installs `vhs`; reports what must come from a package manager |
 

@@ -331,3 +331,34 @@ func (m *Manifest) resolveTape(tape string) (string, bool) {
 	}
 	return full, true
 }
+
+// ValidateDocsPages checks that each reel declaring a docs_page points
+// at a file that exists and actually embeds the clip.
+//
+// Without this the field is a comment: someone removes the shortcode
+// while restructuring a page, the clip silently stops being shown
+// anywhere, and nothing notices until a human happens to look. The
+// embed is matched on the reel's OUTPUT name, which is what the
+// shortcode references.
+func (m *Manifest) ValidateDocsPages(repoRoot string) []string {
+	var problems []string
+	for _, r := range m.Reels {
+		if r.DocsPage == "" {
+			continue
+		}
+		path := filepath.Join(repoRoot, r.DocsPage)
+		// #nosec G304 G703 -- path comes from the in-repo manifest.
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf(
+				"reel %q: docs_page %s not found", r.ID, r.DocsPage))
+			continue
+		}
+		if !strings.Contains(string(raw), `name="`+r.Output+`"`) {
+			problems = append(problems, fmt.Sprintf(
+				"reel %q: docs_page %s does not embed the clip — expected a "+
+					"clip shortcode with name=%q", r.ID, r.DocsPage, r.Output))
+		}
+	}
+	return problems
+}

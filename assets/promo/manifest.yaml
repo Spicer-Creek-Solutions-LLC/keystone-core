@@ -90,7 +90,7 @@ reels:
     title: "The fleet view"
     output: docs-fleet
     target_duration: 4.0
-    docs_page: docs/content/docs/index.md
+    docs_page: docs/content/docs/getting-started/_index.md
     shots:
       - id: list
         kind: terminal
@@ -103,7 +103,7 @@ reels:
     title: "Remote execution"
     output: docs-remote-exec
     target_duration: 9.0
-    docs_page: docs/content/docs/index.md
+    docs_page: docs/content/docs/getting-started/_index.md
     shots:
       - id: target
         kind: terminal
@@ -122,7 +122,7 @@ reels:
     title: "Secrets round-trip"
     output: docs-secrets
     target_duration: 9.5
-    docs_page: docs/content/docs/index.md
+    docs_page: docs/content/docs/getting-started/secrets.md
     shots:
       - id: put
         kind: terminal
@@ -141,7 +141,7 @@ reels:
     title: "GitOps rollback with an approval gate"
     output: docs-gitops-rollback
     target_duration: 9.5
-    docs_page: docs/content/docs/index.md
+    docs_page: docs/content/docs/getting-started/gitops.md
     shots:
       - id: propose
         kind: terminal
@@ -160,7 +160,7 @@ reels:
     title: "Outbound webhooks"
     output: docs-outbound-webhooks
     target_duration: 11.0
-    docs_page: docs/content/docs/index.md
+    docs_page: docs/content/docs/getting-started/gitops.md
     shots:
       - id: subscribe
         kind: terminal

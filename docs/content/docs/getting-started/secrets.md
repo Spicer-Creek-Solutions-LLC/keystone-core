@@ -3,6 +3,8 @@ title: Managing Secrets
 weight: 4
 ---
 
+{{< clip name="docs-secrets" caption="Write a secret and read it back — values are masked unless you ask for cleartext." >}}
+
 Keystone Core's secrets subsystem stores secrets encrypted at rest and
 serves them through the control plane. The simplest backend —
 `encrypted_file` — keeps everything in a single AES-256-GCM file unlocked

@@ -510,3 +510,67 @@ func TestManifestReelLookup(t *testing.T) {
 		t.Errorf("AllShots() = %d shots, want 2", got)
 	}
 }
+
+// docs_page is only worth having if it is checked: without this the
+// field is a comment, and a clip silently stops being shown the first
+// time someone restructures a page.
+func TestValidateDocsPages(t *testing.T) {
+	root := t.TempDir()
+	page := filepath.Join(root, "page.md")
+	if err := os.WriteFile(page, []byte("intro\n{{< clip name=\"good-clip\" >}}\n"), 0o600); err != nil {
+		t.Fatalf("write page: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		reel     Reel
+		wantFrag string
+	}{
+		{
+			name: "embedded",
+			reel: Reel{ID: "a", Output: "good-clip", DocsPage: "page.md"},
+		},
+		{
+			name:     "page exists but does not embed the clip",
+			reel:     Reel{ID: "b", Output: "other-clip", DocsPage: "page.md"},
+			wantFrag: "does not embed the clip",
+		},
+		{
+			name:     "page missing",
+			reel:     Reel{ID: "c", Output: "good-clip", DocsPage: "absent.md"},
+			wantFrag: "not found",
+		},
+		{
+			name: "no docs_page is fine — not every reel is embedded",
+			reel: Reel{ID: "d", Output: "good-clip"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := &Manifest{Reels: []Reel{tt.reel}}
+			problems := m.ValidateDocsPages(root)
+			if tt.wantFrag == "" {
+				if len(problems) != 0 {
+					t.Errorf("ValidateDocsPages() = %v, want none", problems)
+				}
+				return
+			}
+			if len(problems) == 0 || !strings.Contains(problems[0], tt.wantFrag) {
+				t.Errorf("ValidateDocsPages() = %v, want one containing %q", problems, tt.wantFrag)
+			}
+		})
+	}
+}
+
+// The repo's own reels must stay embedded where they claim to be.
+func TestRepoDocsPagesEmbedTheirClips(t *testing.T) {
+	repoRoot := filepath.Join("..", "..")
+	m, err := LoadManifest(filepath.Join(repoRoot, defaultPromoDir, manifestName))
+	if err != nil {
+		t.Fatalf("LoadManifest: %v", err)
+	}
+	if problems := m.ValidateDocsPages(repoRoot); len(problems) != 0 {
+		t.Errorf("docs pages out of sync with the manifest:\n  %s",
+			strings.Join(problems, "\n  "))
+	}
+}

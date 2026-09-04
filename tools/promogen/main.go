@@ -76,7 +76,7 @@ func run(args []string) error {
 
 	switch cmd {
 	case "validate":
-		return cmdValidate(dir)
+		return cmdValidate(*repoRoot, dir)
 	case "sync":
 		return cmdSync(*repoRoot, dir, *check)
 	case "reconcile":
@@ -95,12 +95,13 @@ func run(args []string) error {
 	}
 }
 
-func cmdValidate(promoDir string) error {
+func cmdValidate(repoRoot, promoDir string) error {
 	m, err := LoadManifest(filepath.Join(promoDir, manifestName))
 	if err != nil {
 		return err
 	}
 	problems := m.Validate()
+	problems = append(problems, m.ValidateDocsPages(repoRoot)...)
 	if len(problems) > 0 {
 		fmt.Fprintf(os.Stderr, "FAIL %s: %d problem(s)\n", manifestName, len(problems))
 		for _, p := range problems {

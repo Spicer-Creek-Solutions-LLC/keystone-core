@@ -55,7 +55,7 @@ export CGO_ENABLED := 0
 
 .PHONY: help \
         build build-all-platforms clean clean-all clean-check deps install-tools install-lychee install-hugo docs-site docs-links-site \
-        promo update-promo promo-check install-promo-tools \
+        promo promo-publish update-promo promo-check install-promo-tools \
         test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check test-integration slo profile test-cross-distro check deps deps-outdated deps-outdated-issue \
         fmt lint lint-fix smoke test-packaging \
         proto proto-lint proto-breaking \
@@ -750,6 +750,23 @@ update-promo: ## Regenerate promo cards from the current branch + report shot-li
 	go run ./tools/promogen validate
 	go run ./tools/promogen tapes
 	go run ./tools/promogen reconcile
+
+promo-publish: ## Copy rendered clips into the docs-served asset tree (commit the result)
+	# `make promo` renders to dist/promo/, which is gitignored working
+	# output. This is the separate, deliberate step that stages the bytes
+	# the docs site serves — kept apart so an experimental render does not
+	# dirty tracked files.
+	#
+	# The clips embed real UUIDs and timestamps, so a re-render is never
+	# byte-identical even when nothing visible changed. Publish only when
+	# a clip's CONTENT actually changed, or the repo accrues a megabyte of
+	# churn per render.
+	@mkdir -p assets/promo/video
+	@for f in dist/promo/keystone-30s.mp4 dist/promo/docs-*.mp4; do \
+		[ -f "$$f" ] || { echo "ERROR: $$f missing — run 'make promo' first"; exit 1; }; \
+		cp "$$f" assets/promo/video/; \
+		echo "  published $$(basename $$f)"; \
+	done
 
 promo-check: ## Assert the promo shot list is valid, in budget, and in sync (CI gate)
 	# Non-mutating counterpart to update-promo. `sync -check` is the
