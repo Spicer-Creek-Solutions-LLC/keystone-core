@@ -46,6 +46,7 @@ type Subjects interface {
 	AgentConverge(agentID string) string
 	AgentConvergeResult(agentID string) string
 	BootstrapRegister(agentID string) string
+	BootstrapResponse(agentID string) string
 	Cluster() string
 	Prefix() string
 }
@@ -66,6 +67,13 @@ type Config struct {
 	// heartbeats-only, which only register the agent if a prior
 	// boot already inserted the row (operator-pre-provisioned).
 	BootstrapPSK string //nolint:gosec // PSK hex string — flagged false-positive on field-name pattern
+
+	// CredentialsPath is where the credential the control plane issues
+	// at bootstrap is persisted (0600). Empty disables persistence:
+	// the agent still bootstraps and runs, but forgets its identity on
+	// restart. cmd/kscore-agent defaults it to
+	// bootstrap.DefaultCredentialsPath.
+	CredentialsPath string
 }
 
 const (
@@ -106,6 +114,15 @@ type Agent struct {
 	wg          sync.WaitGroup  // tracks heartbeat + metadata loops + in-flight commands
 	sub         Subscription
 	convergeSub Subscription
+
+	// bootstrapSub carries the control plane's reply to our register
+	// publish. Subscribed only while a bootstrap is in flight.
+	bootstrapSub Subscription
+
+	// creds persists the credential the control plane issues. Nil
+	// means no configured path: the agent runs, but its identity does
+	// not survive a restart.
+	creds *CredentialStore
 }
 
 // New validates cfg and returns an unstarted Agent. AgentID is
@@ -150,7 +167,18 @@ func New(cfg Config, nats NATSClient, subjects Subjects, metrics MetricsCollecto
 		metrics:  metrics,
 		executor: executor,
 		enforcer: enforcer,
+		creds:    credentialStore(cfg.CredentialsPath),
 	}, nil
+}
+
+// credentialStore returns nil for an empty path so the nil check in
+// handleBootstrapResponse stays the single place that decides what
+// "no persistence configured" means.
+func credentialStore(path string) *CredentialStore {
+	if path == "" {
+		return nil
+	}
+	return &CredentialStore{Path: path}
 }
 
 // Start subscribes to the command topic and spawns the heartbeat +
@@ -203,7 +231,16 @@ func (a *Agent) Start(_ context.Context) error {
 	// agent row before the first heartbeat lands. Failure to
 	// publish is non-fatal: heartbeats arrive on the same NATS
 	// connection and the operator can see the agent log line.
-	if a.cfg.BootstrapPSK != "" {
+	if a.cfg.BootstrapPSK != "" && !a.haveValidCredentials() {
+		// Subscribe to the response BEFORE publishing the request.
+		// The server replies as soon as it has consumed the PSK, and
+		// the PSK is single-use -- losing the reply to a late
+		// subscription would strand the agent with no credential and
+		// no way to ask for another.
+		if err := a.subscribeBootstrapResponse(); err != nil {
+			a.log.Warn("agent: bootstrap response subscribe",
+				"agent_id", a.cfg.AgentID, "err", err)
+		}
 		if err := a.publishBootstrapRegister(loopCtx); err != nil {
 			a.log.Warn("agent: bootstrap register publish",
 				"agent_id", a.cfg.AgentID, "err", err)
@@ -248,9 +285,11 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 	cancel := a.cancel
 	sub := a.sub
 	convergeSub := a.convergeSub
+	bootstrapSub := a.bootstrapSub
 	a.cancel = nil
 	a.sub = nil
 	a.convergeSub = nil
+	a.bootstrapSub = nil
 	a.stopped = true
 	a.mu.Unlock()
 
@@ -263,6 +302,11 @@ func (a *Agent) Shutdown(ctx context.Context) error {
 	if convergeSub != nil {
 		if err := convergeSub.Unsubscribe(); err != nil && firstErr == nil {
 			firstErr = fmt.Errorf("agent: unsubscribe converge: %w", err)
+		}
+	}
+	if bootstrapSub != nil {
+		if err := bootstrapSub.Unsubscribe(); err != nil && firstErr == nil {
+			firstErr = fmt.Errorf("agent: unsubscribe bootstrap: %w", err)
 		}
 	}
 	if cancel != nil {

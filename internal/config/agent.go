@@ -32,6 +32,14 @@ type AgentConfig struct {
 	// style deployments where the operator pre-provisions agent
 	// rows out-of-band.
 	BootstrapPSK string `koanf:"bootstrappsk"` //nolint:gosec // PSK hex string — flagged false-positive on field-name pattern
+
+	// CredentialsPath is where the agent persists the credential the
+	// control plane issues at bootstrap — the API key and, when the
+	// server runs with identity enabled, this agent's own X509 SVID
+	// and private key. Empty means the built-in default
+	// (/var/lib/kscore-agent/credentials.json); set it explicitly for
+	// non-root or containerised agents whose state directory differs.
+	CredentialsPath string `koanf:"credentialspath"`
 }
 
 // Validate enforces non-zero intervals and a non-empty AgentID. Zero

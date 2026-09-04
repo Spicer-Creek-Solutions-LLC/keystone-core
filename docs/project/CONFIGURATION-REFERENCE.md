@@ -213,6 +213,7 @@ AgentConfig governs the kscore-agent daemon (Epic 06). Loaded from the same conf
 |-----|------|-------------|
 | `agent.bootstrappsk` | `string` | BootstrapPSK is the hex-encoded pre-shared key this agent presents at boot to register with the control plane. When non-empty, the agent publishes a bootstrap.register envelope at Start before the heartbeat loop begins. The server-side PSK list lives at nats.bootstrap.psks. Leave empty for v0.1- style deployments where the operator pre-provisions agent rows out-of-band. |
 | `agent.commandtimeout` | `time.Duration` |  |
+| `agent.credentialspath` | `string` | CredentialsPath is where the agent persists the credential the control plane issues at bootstrap — the API key and, when the server runs with identity enabled, this agent's own X509 SVID and private key. Empty means the built-in default (/var/lib/kscore-agent/credentials.json); set it explicitly for non-root or containerised agents whose state directory differs. |
 | `agent.heartbeatinterval` | `time.Duration` |  |
 | `agent.id` | `string` |  |
 | `agent.labels` | `map[string]string` |  |

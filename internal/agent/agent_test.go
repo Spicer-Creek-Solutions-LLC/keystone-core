@@ -44,6 +44,9 @@ func (f fakeSubjects) AgentConvergeResult(id string) string {
 func (f fakeSubjects) BootstrapRegister(id string) string {
 	return "kscore." + f.cluster + ".bootstrap." + id + ".register"
 }
+func (f fakeSubjects) BootstrapResponse(id string) string {
+	return "kscore." + f.cluster + ".bootstrap." + id + ".response"
+}
 func (f fakeSubjects) Cluster() string { return f.cluster }
 func (f fakeSubjects) Prefix() string  { return "kscore." + f.cluster }
 
@@ -147,6 +150,15 @@ func (f *fakeNATSClient) publishCount(subject string) int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return len(f.publishes[subject])
+}
+
+// hasHandler reports whether a subscription exists for subject. Used
+// to assert subscribe-before-publish ordering.
+func (f *fakeNATSClient) hasHandler(subject string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	_, ok := f.handlers[subject]
+	return ok
 }
 
 func (f *fakeNATSClient) deliver(t *testing.T, subject string, env envelope.Envelope) error {
