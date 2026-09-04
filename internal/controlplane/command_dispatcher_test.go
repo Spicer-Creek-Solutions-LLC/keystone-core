@@ -127,17 +127,17 @@ func newDispatcherFixture(t *testing.T, opts ...func(*controlplane.DispatcherCon
 
 	pub := &fakePublisher{}
 	cfg := controlplane.DispatcherConfig{
-		Store:                store,
-		Agents:               mgr,
-		Publisher:            pub,
-		Subjects:             fakeSubjects{cluster: "default"},
-		Signer:               fakeSigner{},
+		Store:                 store,
+		Agents:                mgr,
+		Publisher:             pub,
+		Subjects:              fakeSubjects{cluster: "default"},
+		Signer:                fakeSigner{},
 		DefaultTimeoutSeconds: 60,
-		RetentionWindow:      time.Hour,
-		RetentionInterval:    time.Hour,
-		TimeoutCheckInterval: 5 * time.Millisecond,
-		Clock:                clk.Now,
-		NewID:                seqIDGenerator(),
+		RetentionWindow:       time.Hour,
+		RetentionInterval:     time.Hour,
+		TimeoutCheckInterval:  5 * time.Millisecond,
+		Clock:                 clk.Now,
+		NewID:                 seqIDGenerator(),
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -221,9 +221,9 @@ func TestDispatch_HappyPath(t *testing.T) {
 	f := newDispatcherFixture(t)
 
 	id, err := f.disp.Dispatch(ctx, controlplane.DispatchRequest{
-		AgentID: "agent-1",
-		Command: "uptime",
-		Args:    []string{"-p"},
+		AgentID:        "agent-1",
+		Command:        "uptime",
+		Args:           []string{"-p"},
 		TimeoutSeconds: 30,
 	})
 	if err != nil {

@@ -53,12 +53,12 @@ type Counts struct {
 // invoked after Stop return ErrClosed; methods that depend on the
 // monitor loop return ErrNotStarted before Start.
 type ConnectionManager struct {
-	store    state.AgentStore
-	logger   *slog.Logger
-	interval time.Duration
-	threshold int
+	store      state.AgentStore
+	logger     *slog.Logger
+	interval   time.Duration
+	threshold  int
 	staleAfter time.Duration
-	now      func() time.Time
+	now        func() time.Time
 
 	publisher events.EventPublisher
 

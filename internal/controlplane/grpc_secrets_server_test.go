@@ -121,10 +121,10 @@ func TestSecretsGRPC_WriteSecret_LabelsAndTTLPropagate(t *testing.T) {
 	r := newSecretsRig(t)
 
 	_, err := r.server.WriteSecret(context.Background(), &v1.WriteSecretRequest{
-		Path:        "kv/x",
-		Data:        map[string]string{"k": "v"},
-		Labels:      map[string]string{"env": "prod"},
-		TtlSeconds:  60,
+		Path:       "kv/x",
+		Data:       map[string]string{"k": "v"},
+		Labels:     map[string]string{"env": "prod"},
+		TtlSeconds: 60,
 	})
 	if err != nil {
 		t.Fatalf("WriteSecret: %v", err)

@@ -418,4 +418,3 @@ func TestUnmarshalDeclarations_Malformed(t *testing.T) {
 		t.Error("expected error on malformed input")
 	}
 }
-

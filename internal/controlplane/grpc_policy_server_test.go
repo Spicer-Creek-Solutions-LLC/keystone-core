@@ -260,7 +260,7 @@ func TestPolicyGRPC_GetAuditLogAndViolations(t *testing.T) {
 	ctx := context.Background()
 	e := audit.MustNewAuditEntry(audit.AuditEntryInput{
 		PolicyID: "only-read", Action: "policy.evaluate", Allowed: false,
-		Severity: audit.SeverityHigh,
+		Severity:   audit.SeverityHigh,
 		Violations: []audit.Violation{{Rule: "allowed-actions", Message: "no", Severity: audit.SeverityHigh}},
 	})
 	if err := r.auditLog.Store(ctx, e); err != nil {

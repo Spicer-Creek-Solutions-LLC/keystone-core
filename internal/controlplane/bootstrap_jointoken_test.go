@@ -448,7 +448,7 @@ func TestSVIDBootstrapIssuer_BadAgentID(t *testing.T) {
 //   - validator consumes the token (UsedCount → 1)
 //   - issuer returns a complete AgentCredentials payload
 //     (APIKey from base + CertChainPEM / PrivateKeyPEM /
-//      TrustBundlePEM from the SVID side)
+//     TrustBundlePEM from the SVID side)
 //   - replay of the same token fails (token now exhausted)
 //
 // The BootstrapHandler is exercised in

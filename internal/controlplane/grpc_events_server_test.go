@@ -401,8 +401,8 @@ func TestEventsGRPC_SubscribeEvents_Subscribes(t *testing.T) {
 	done := make(chan error, 1)
 	go func() {
 		done <- r.server.SubscribeEvents(&v1.SubscribeEventsRequest{
-			Filter:      &v1.EventFilter{Categories: []string{"agent"}},
-			QueueGroup:  "workers",
+			Filter:        &v1.EventFilter{Categories: []string{"agent"}},
+			QueueGroup:    "workers",
 			ReplaySeconds: 30,
 		}, stream)
 	}()

@@ -409,17 +409,22 @@ func (x *StateRunAggregates) GetDrifted() int32 {
 // Apply or Check. apply_* fields are zero when Apply wasn't reached
 // (Check matched, or Check / Apply errored, or run was skipped).
 type StateDeclarationResult struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	DeclId        string                 `protobuf:"bytes,1,opt,name=decl_id,json=declId,proto3" json:"decl_id,omitempty"`
-	Module        string                 `protobuf:"bytes,2,opt,name=module,proto3" json:"module,omitempty"`
-	Outcome       StateRunOutcome        `protobuf:"varint,3,opt,name=outcome,proto3,enum=keystone.core.v1.StateRunOutcome" json:"outcome,omitempty"`
-	CheckDiff     string                 `protobuf:"bytes,4,opt,name=check_diff,json=checkDiff,proto3" json:"check_diff,omitempty"`
-	ApplyChanged  bool                   `protobuf:"varint,5,opt,name=apply_changed,json=applyChanged,proto3" json:"apply_changed,omitempty"`
-	ApplyDiff     string                 `protobuf:"bytes,6,opt,name=apply_diff,json=applyDiff,proto3" json:"apply_diff,omitempty"`
-	ApplyComment  string                 `protobuf:"bytes,7,opt,name=apply_comment,json=applyComment,proto3" json:"apply_comment,omitempty"`
-	ErrorMessage  string                 `protobuf:"bytes,8,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
-	StartedAt     *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
-	DurationMs    int64                  `protobuf:"varint,10,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	DeclId       string                 `protobuf:"bytes,1,opt,name=decl_id,json=declId,proto3" json:"decl_id,omitempty"`
+	Module       string                 `protobuf:"bytes,2,opt,name=module,proto3" json:"module,omitempty"`
+	Outcome      StateRunOutcome        `protobuf:"varint,3,opt,name=outcome,proto3,enum=keystone.core.v1.StateRunOutcome" json:"outcome,omitempty"`
+	CheckDiff    string                 `protobuf:"bytes,4,opt,name=check_diff,json=checkDiff,proto3" json:"check_diff,omitempty"`
+	ApplyChanged bool                   `protobuf:"varint,5,opt,name=apply_changed,json=applyChanged,proto3" json:"apply_changed,omitempty"`
+	ApplyDiff    string                 `protobuf:"bytes,6,opt,name=apply_diff,json=applyDiff,proto3" json:"apply_diff,omitempty"`
+	ApplyComment string                 `protobuf:"bytes,7,opt,name=apply_comment,json=applyComment,proto3" json:"apply_comment,omitempty"`
+	ErrorMessage string                 `protobuf:"bytes,8,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	StartedAt    *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	DurationMs   int64                  `protobuf:"varint,10,opt,name=duration_ms,json=durationMs,proto3" json:"duration_ms,omitempty"`
+	// agent_id names the host this declaration ran on. Empty means the
+	// control plane itself, which is what an untargeted run still does.
+	// Without it a fleet-wide run reports N results per declaration with
+	// no way to tell which host each came from.
+	AgentId       string `protobuf:"bytes,11,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -522,6 +527,13 @@ func (x *StateDeclarationResult) GetDurationMs() int64 {
 		return x.DurationMs
 	}
 	return 0
+}
+
+func (x *StateDeclarationResult) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
 }
 
 // StateRun is the header summary of one stored run.
@@ -728,13 +740,18 @@ func (x *DriftDeclaration) GetErrorMessage() string {
 
 // StateRunTerminal closes an ApplyState stream.
 type StateRunTerminal struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	RunId         string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
-	Status        StateRunStatus         `protobuf:"varint,2,opt,name=status,proto3,enum=keystone.core.v1.StateRunStatus" json:"status,omitempty"`
-	Aggregates    *StateRunAggregates    `protobuf:"bytes,3,opt,name=aggregates,proto3" json:"aggregates,omitempty"`
-	ErrorMessage  string                 `protobuf:"bytes,4,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	RunId        string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	Status       StateRunStatus         `protobuf:"varint,2,opt,name=status,proto3,enum=keystone.core.v1.StateRunStatus" json:"status,omitempty"`
+	Aggregates   *StateRunAggregates    `protobuf:"bytes,3,opt,name=aggregates,proto3" json:"aggregates,omitempty"`
+	ErrorMessage string                 `protobuf:"bytes,4,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	// agent_summaries carries one entry per targeted host. A run that
+	// succeeds on three hosts and fails on one is not adequately
+	// described by a single aggregate, and the operator needs to know
+	// WHICH host to go look at.
+	AgentSummaries []*StateAgentSummary `protobuf:"bytes,5,rep,name=agent_summaries,json=agentSummaries,proto3" json:"agent_summaries,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *StateRunTerminal) Reset() {
@@ -795,6 +812,85 @@ func (x *StateRunTerminal) GetErrorMessage() string {
 	return ""
 }
 
+func (x *StateRunTerminal) GetAgentSummaries() []*StateAgentSummary {
+	if x != nil {
+		return x.AgentSummaries
+	}
+	return nil
+}
+
+// StateAgentSummary is one host's outcome within a multi-agent run.
+type StateAgentSummary struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	AgentId    string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	Status     StateRunStatus         `protobuf:"varint,2,opt,name=status,proto3,enum=keystone.core.v1.StateRunStatus" json:"status,omitempty"`
+	Aggregates *StateRunAggregates    `protobuf:"bytes,3,opt,name=aggregates,proto3" json:"aggregates,omitempty"`
+	// error_message is set when the agent could not be reached, refused
+	// the run, or failed to compile the state file — as distinct from a
+	// declaration failing, which lands in aggregates.
+	ErrorMessage  string `protobuf:"bytes,4,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StateAgentSummary) Reset() {
+	*x = StateAgentSummary{}
+	mi := &file_keystone_core_v1_state_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StateAgentSummary) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StateAgentSummary) ProtoMessage() {}
+
+func (x *StateAgentSummary) ProtoReflect() protoreflect.Message {
+	mi := &file_keystone_core_v1_state_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StateAgentSummary.ProtoReflect.Descriptor instead.
+func (*StateAgentSummary) Descriptor() ([]byte, []int) {
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *StateAgentSummary) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *StateAgentSummary) GetStatus() StateRunStatus {
+	if x != nil {
+		return x.Status
+	}
+	return StateRunStatus_STATE_RUN_STATUS_UNSPECIFIED
+}
+
+func (x *StateAgentSummary) GetAggregates() *StateRunAggregates {
+	if x != nil {
+		return x.Aggregates
+	}
+	return nil
+}
+
+func (x *StateAgentSummary) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
 type ApplyStateRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	YamlContent       []byte                 `protobuf:"bytes,1,opt,name=yaml_content,json=yamlContent,proto3" json:"yaml_content,omitempty"`
@@ -811,7 +907,7 @@ type ApplyStateRequest struct {
 
 func (x *ApplyStateRequest) Reset() {
 	*x = ApplyStateRequest{}
-	mi := &file_keystone_core_v1_state_proto_msgTypes[5]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -823,7 +919,7 @@ func (x *ApplyStateRequest) String() string {
 func (*ApplyStateRequest) ProtoMessage() {}
 
 func (x *ApplyStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_state_proto_msgTypes[5]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -836,7 +932,7 @@ func (x *ApplyStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyStateRequest.ProtoReflect.Descriptor instead.
 func (*ApplyStateRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{5}
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ApplyStateRequest) GetYamlContent() []byte {
@@ -909,7 +1005,7 @@ type ApplyStateResponse struct {
 
 func (x *ApplyStateResponse) Reset() {
 	*x = ApplyStateResponse{}
-	mi := &file_keystone_core_v1_state_proto_msgTypes[6]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -921,7 +1017,7 @@ func (x *ApplyStateResponse) String() string {
 func (*ApplyStateResponse) ProtoMessage() {}
 
 func (x *ApplyStateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_state_proto_msgTypes[6]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -934,7 +1030,7 @@ func (x *ApplyStateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyStateResponse.ProtoReflect.Descriptor instead.
 func (*ApplyStateResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{6}
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ApplyStateResponse) GetEvent() isApplyStateResponse_Event {
@@ -1008,7 +1104,7 @@ type CheckStateRequest struct {
 
 func (x *CheckStateRequest) Reset() {
 	*x = CheckStateRequest{}
-	mi := &file_keystone_core_v1_state_proto_msgTypes[7]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1020,7 +1116,7 @@ func (x *CheckStateRequest) String() string {
 func (*CheckStateRequest) ProtoMessage() {}
 
 func (x *CheckStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_state_proto_msgTypes[7]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1033,7 +1129,7 @@ func (x *CheckStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckStateRequest.ProtoReflect.Descriptor instead.
 func (*CheckStateRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{7}
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *CheckStateRequest) GetYamlContent() []byte {
@@ -1098,7 +1194,7 @@ type CheckStateResponse struct {
 
 func (x *CheckStateResponse) Reset() {
 	*x = CheckStateResponse{}
-	mi := &file_keystone_core_v1_state_proto_msgTypes[8]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1110,7 +1206,7 @@ func (x *CheckStateResponse) String() string {
 func (*CheckStateResponse) ProtoMessage() {}
 
 func (x *CheckStateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_state_proto_msgTypes[8]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1123,7 +1219,7 @@ func (x *CheckStateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckStateResponse.ProtoReflect.Descriptor instead.
 func (*CheckStateResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{8}
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *CheckStateResponse) GetRunId() string {
@@ -1176,7 +1272,7 @@ type DetectDriftRequest struct {
 
 func (x *DetectDriftRequest) Reset() {
 	*x = DetectDriftRequest{}
-	mi := &file_keystone_core_v1_state_proto_msgTypes[9]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1188,7 +1284,7 @@ func (x *DetectDriftRequest) String() string {
 func (*DetectDriftRequest) ProtoMessage() {}
 
 func (x *DetectDriftRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_state_proto_msgTypes[9]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1201,7 +1297,7 @@ func (x *DetectDriftRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DetectDriftRequest.ProtoReflect.Descriptor instead.
 func (*DetectDriftRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{9}
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DetectDriftRequest) GetYamlContent() []byte {
@@ -1267,7 +1363,7 @@ type DetectDriftResponse struct {
 
 func (x *DetectDriftResponse) Reset() {
 	*x = DetectDriftResponse{}
-	mi := &file_keystone_core_v1_state_proto_msgTypes[10]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1279,7 +1375,7 @@ func (x *DetectDriftResponse) String() string {
 func (*DetectDriftResponse) ProtoMessage() {}
 
 func (x *DetectDriftResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_state_proto_msgTypes[10]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1292,7 +1388,7 @@ func (x *DetectDriftResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DetectDriftResponse.ProtoReflect.Descriptor instead.
 func (*DetectDriftResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{10}
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DetectDriftResponse) GetRunId() string {
@@ -1352,7 +1448,7 @@ type GetStateHistoryRequest struct {
 
 func (x *GetStateHistoryRequest) Reset() {
 	*x = GetStateHistoryRequest{}
-	mi := &file_keystone_core_v1_state_proto_msgTypes[11]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1364,7 +1460,7 @@ func (x *GetStateHistoryRequest) String() string {
 func (*GetStateHistoryRequest) ProtoMessage() {}
 
 func (x *GetStateHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_state_proto_msgTypes[11]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1377,7 +1473,7 @@ func (x *GetStateHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStateHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetStateHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{11}
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetStateHistoryRequest) GetAgentId() string {
@@ -1438,7 +1534,7 @@ type GetStateHistoryResponse struct {
 
 func (x *GetStateHistoryResponse) Reset() {
 	*x = GetStateHistoryResponse{}
-	mi := &file_keystone_core_v1_state_proto_msgTypes[12]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1450,7 +1546,7 @@ func (x *GetStateHistoryResponse) String() string {
 func (*GetStateHistoryResponse) ProtoMessage() {}
 
 func (x *GetStateHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_state_proto_msgTypes[12]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1463,7 +1559,7 @@ func (x *GetStateHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStateHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetStateHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{12}
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetStateHistoryResponse) GetRuns() []*StateRun {
@@ -1482,7 +1578,7 @@ type GetStateStatusRequest struct {
 
 func (x *GetStateStatusRequest) Reset() {
 	*x = GetStateStatusRequest{}
-	mi := &file_keystone_core_v1_state_proto_msgTypes[13]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1494,7 +1590,7 @@ func (x *GetStateStatusRequest) String() string {
 func (*GetStateStatusRequest) ProtoMessage() {}
 
 func (x *GetStateStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_state_proto_msgTypes[13]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1507,7 +1603,7 @@ func (x *GetStateStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStateStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetStateStatusRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{13}
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetStateStatusRequest) GetRunId() string {
@@ -1527,7 +1623,7 @@ type GetStateStatusResponse struct {
 
 func (x *GetStateStatusResponse) Reset() {
 	*x = GetStateStatusResponse{}
-	mi := &file_keystone_core_v1_state_proto_msgTypes[14]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1539,7 +1635,7 @@ func (x *GetStateStatusResponse) String() string {
 func (*GetStateStatusResponse) ProtoMessage() {}
 
 func (x *GetStateStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_state_proto_msgTypes[14]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1552,7 +1648,7 @@ func (x *GetStateStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStateStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetStateStatusResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{14}
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetStateStatusResponse) GetRun() *StateRun {
@@ -1582,7 +1678,7 @@ type RollbackStateRequest struct {
 
 func (x *RollbackStateRequest) Reset() {
 	*x = RollbackStateRequest{}
-	mi := &file_keystone_core_v1_state_proto_msgTypes[15]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1594,7 +1690,7 @@ func (x *RollbackStateRequest) String() string {
 func (*RollbackStateRequest) ProtoMessage() {}
 
 func (x *RollbackStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_state_proto_msgTypes[15]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1607,7 +1703,7 @@ func (x *RollbackStateRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RollbackStateRequest.ProtoReflect.Descriptor instead.
 func (*RollbackStateRequest) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{15}
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *RollbackStateRequest) GetRunId() string {
@@ -1664,7 +1760,7 @@ type RollbackStateResponse struct {
 
 func (x *RollbackStateResponse) Reset() {
 	*x = RollbackStateResponse{}
-	mi := &file_keystone_core_v1_state_proto_msgTypes[16]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1676,7 +1772,7 @@ func (x *RollbackStateResponse) String() string {
 func (*RollbackStateResponse) ProtoMessage() {}
 
 func (x *RollbackStateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_state_proto_msgTypes[16]
+	mi := &file_keystone_core_v1_state_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1689,7 +1785,7 @@ func (x *RollbackStateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RollbackStateResponse.ProtoReflect.Descriptor instead.
 func (*RollbackStateResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{16}
+	return file_keystone_core_v1_state_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *RollbackStateResponse) GetEvent() isRollbackStateResponse_Event {
@@ -1759,7 +1855,7 @@ const file_keystone_core_v1_state_proto_rawDesc = "" +
 	"\tunchanged\x18\x03 \x01(\x05R\tunchanged\x12\x16\n" +
 	"\x06failed\x18\x04 \x01(\x05R\x06failed\x12\x18\n" +
 	"\askipped\x18\x05 \x01(\x05R\askipped\x12\x18\n" +
-	"\adrifted\x18\x06 \x01(\x05R\adrifted\"\x8f\x03\n" +
+	"\adrifted\x18\x06 \x01(\x05R\adrifted\"\xaa\x03\n" +
 	"\x16StateDeclarationResult\x12\x17\n" +
 	"\adecl_id\x18\x01 \x01(\tR\x06declId\x12\x16\n" +
 	"\x06module\x18\x02 \x01(\tR\x06module\x12;\n" +
@@ -1775,7 +1871,8 @@ const file_keystone_core_v1_state_proto_rawDesc = "" +
 	"started_at\x18\t \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12\x1f\n" +
 	"\vduration_ms\x18\n" +
 	" \x01(\x03R\n" +
-	"durationMs\"\xb7\x03\n" +
+	"durationMs\x12\x19\n" +
+	"\bagent_id\x18\v \x01(\tR\aagentId\"\xb7\x03\n" +
 	"\bStateRun\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x122\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\x1e.keystone.core.v1.StateRunModeR\x04mode\x12\x16\n" +
@@ -1798,9 +1895,17 @@ const file_keystone_core_v1_state_proto_rawDesc = "" +
 	"\x05state\x18\x03 \x01(\x0e2\x1c.keystone.core.v1.DriftStateR\x05state\x12;\n" +
 	"\bseverity\x18\x04 \x01(\x0e2\x1f.keystone.core.v1.DriftSeverityR\bseverity\x12\x12\n" +
 	"\x04diff\x18\x05 \x01(\tR\x04diff\x12#\n" +
-	"\rerror_message\x18\x06 \x01(\tR\ferrorMessage\"\xce\x01\n" +
+	"\rerror_message\x18\x06 \x01(\tR\ferrorMessage\"\x9c\x02\n" +
 	"\x10StateRunTerminal\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x128\n" +
+	"\x06status\x18\x02 \x01(\x0e2 .keystone.core.v1.StateRunStatusR\x06status\x12D\n" +
+	"\n" +
+	"aggregates\x18\x03 \x01(\v2$.keystone.core.v1.StateRunAggregatesR\n" +
+	"aggregates\x12#\n" +
+	"\rerror_message\x18\x04 \x01(\tR\ferrorMessage\x12L\n" +
+	"\x0fagent_summaries\x18\x05 \x03(\v2#.keystone.core.v1.StateAgentSummaryR\x0eagentSummaries\"\xd3\x01\n" +
+	"\x11StateAgentSummary\x12\x19\n" +
+	"\bagent_id\x18\x01 \x01(\tR\aagentId\x128\n" +
 	"\x06status\x18\x02 \x01(\x0e2 .keystone.core.v1.StateRunStatusR\x06status\x12D\n" +
 	"\n" +
 	"aggregates\x18\x03 \x01(\v2$.keystone.core.v1.StateRunAggregatesR\n" +
@@ -1963,7 +2068,7 @@ func file_keystone_core_v1_state_proto_rawDescGZIP() []byte {
 }
 
 var file_keystone_core_v1_state_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_keystone_core_v1_state_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_keystone_core_v1_state_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_keystone_core_v1_state_proto_goTypes = []any{
 	(StateRunStatus)(0),             // 0: keystone.core.v1.StateRunStatus
 	(StateRunMode)(0),               // 1: keystone.core.v1.StateRunMode
@@ -1975,83 +2080,87 @@ var file_keystone_core_v1_state_proto_goTypes = []any{
 	(*StateRun)(nil),                // 7: keystone.core.v1.StateRun
 	(*DriftDeclaration)(nil),        // 8: keystone.core.v1.DriftDeclaration
 	(*StateRunTerminal)(nil),        // 9: keystone.core.v1.StateRunTerminal
-	(*ApplyStateRequest)(nil),       // 10: keystone.core.v1.ApplyStateRequest
-	(*ApplyStateResponse)(nil),      // 11: keystone.core.v1.ApplyStateResponse
-	(*CheckStateRequest)(nil),       // 12: keystone.core.v1.CheckStateRequest
-	(*CheckStateResponse)(nil),      // 13: keystone.core.v1.CheckStateResponse
-	(*DetectDriftRequest)(nil),      // 14: keystone.core.v1.DetectDriftRequest
-	(*DetectDriftResponse)(nil),     // 15: keystone.core.v1.DetectDriftResponse
-	(*GetStateHistoryRequest)(nil),  // 16: keystone.core.v1.GetStateHistoryRequest
-	(*GetStateHistoryResponse)(nil), // 17: keystone.core.v1.GetStateHistoryResponse
-	(*GetStateStatusRequest)(nil),   // 18: keystone.core.v1.GetStateStatusRequest
-	(*GetStateStatusResponse)(nil),  // 19: keystone.core.v1.GetStateStatusResponse
-	(*RollbackStateRequest)(nil),    // 20: keystone.core.v1.RollbackStateRequest
-	(*RollbackStateResponse)(nil),   // 21: keystone.core.v1.RollbackStateResponse
-	nil,                             // 22: keystone.core.v1.ApplyStateRequest.FactsEntry
-	nil,                             // 23: keystone.core.v1.ApplyStateRequest.VariableOverridesEntry
-	nil,                             // 24: keystone.core.v1.CheckStateRequest.FactsEntry
-	nil,                             // 25: keystone.core.v1.CheckStateRequest.VariableOverridesEntry
-	nil,                             // 26: keystone.core.v1.DetectDriftRequest.FactsEntry
-	nil,                             // 27: keystone.core.v1.DetectDriftRequest.VariableOverridesEntry
-	(*timestamppb.Timestamp)(nil),   // 28: google.protobuf.Timestamp
-	(*Target)(nil),                  // 29: keystone.core.v1.Target
+	(*StateAgentSummary)(nil),       // 10: keystone.core.v1.StateAgentSummary
+	(*ApplyStateRequest)(nil),       // 11: keystone.core.v1.ApplyStateRequest
+	(*ApplyStateResponse)(nil),      // 12: keystone.core.v1.ApplyStateResponse
+	(*CheckStateRequest)(nil),       // 13: keystone.core.v1.CheckStateRequest
+	(*CheckStateResponse)(nil),      // 14: keystone.core.v1.CheckStateResponse
+	(*DetectDriftRequest)(nil),      // 15: keystone.core.v1.DetectDriftRequest
+	(*DetectDriftResponse)(nil),     // 16: keystone.core.v1.DetectDriftResponse
+	(*GetStateHistoryRequest)(nil),  // 17: keystone.core.v1.GetStateHistoryRequest
+	(*GetStateHistoryResponse)(nil), // 18: keystone.core.v1.GetStateHistoryResponse
+	(*GetStateStatusRequest)(nil),   // 19: keystone.core.v1.GetStateStatusRequest
+	(*GetStateStatusResponse)(nil),  // 20: keystone.core.v1.GetStateStatusResponse
+	(*RollbackStateRequest)(nil),    // 21: keystone.core.v1.RollbackStateRequest
+	(*RollbackStateResponse)(nil),   // 22: keystone.core.v1.RollbackStateResponse
+	nil,                             // 23: keystone.core.v1.ApplyStateRequest.FactsEntry
+	nil,                             // 24: keystone.core.v1.ApplyStateRequest.VariableOverridesEntry
+	nil,                             // 25: keystone.core.v1.CheckStateRequest.FactsEntry
+	nil,                             // 26: keystone.core.v1.CheckStateRequest.VariableOverridesEntry
+	nil,                             // 27: keystone.core.v1.DetectDriftRequest.FactsEntry
+	nil,                             // 28: keystone.core.v1.DetectDriftRequest.VariableOverridesEntry
+	(*timestamppb.Timestamp)(nil),   // 29: google.protobuf.Timestamp
+	(*Target)(nil),                  // 30: keystone.core.v1.Target
 }
 var file_keystone_core_v1_state_proto_depIdxs = []int32{
 	2,  // 0: keystone.core.v1.StateDeclarationResult.outcome:type_name -> keystone.core.v1.StateRunOutcome
-	28, // 1: keystone.core.v1.StateDeclarationResult.started_at:type_name -> google.protobuf.Timestamp
+	29, // 1: keystone.core.v1.StateDeclarationResult.started_at:type_name -> google.protobuf.Timestamp
 	1,  // 2: keystone.core.v1.StateRun.mode:type_name -> keystone.core.v1.StateRunMode
-	28, // 3: keystone.core.v1.StateRun.started_at:type_name -> google.protobuf.Timestamp
-	28, // 4: keystone.core.v1.StateRun.ended_at:type_name -> google.protobuf.Timestamp
+	29, // 3: keystone.core.v1.StateRun.started_at:type_name -> google.protobuf.Timestamp
+	29, // 4: keystone.core.v1.StateRun.ended_at:type_name -> google.protobuf.Timestamp
 	0,  // 5: keystone.core.v1.StateRun.status:type_name -> keystone.core.v1.StateRunStatus
 	5,  // 6: keystone.core.v1.StateRun.aggregates:type_name -> keystone.core.v1.StateRunAggregates
 	4,  // 7: keystone.core.v1.DriftDeclaration.state:type_name -> keystone.core.v1.DriftState
 	3,  // 8: keystone.core.v1.DriftDeclaration.severity:type_name -> keystone.core.v1.DriftSeverity
 	0,  // 9: keystone.core.v1.StateRunTerminal.status:type_name -> keystone.core.v1.StateRunStatus
 	5,  // 10: keystone.core.v1.StateRunTerminal.aggregates:type_name -> keystone.core.v1.StateRunAggregates
-	29, // 11: keystone.core.v1.ApplyStateRequest.target:type_name -> keystone.core.v1.Target
-	22, // 12: keystone.core.v1.ApplyStateRequest.facts:type_name -> keystone.core.v1.ApplyStateRequest.FactsEntry
-	23, // 13: keystone.core.v1.ApplyStateRequest.variable_overrides:type_name -> keystone.core.v1.ApplyStateRequest.VariableOverridesEntry
-	6,  // 14: keystone.core.v1.ApplyStateResponse.decl_result:type_name -> keystone.core.v1.StateDeclarationResult
-	9,  // 15: keystone.core.v1.ApplyStateResponse.terminal:type_name -> keystone.core.v1.StateRunTerminal
-	29, // 16: keystone.core.v1.CheckStateRequest.target:type_name -> keystone.core.v1.Target
-	24, // 17: keystone.core.v1.CheckStateRequest.facts:type_name -> keystone.core.v1.CheckStateRequest.FactsEntry
-	25, // 18: keystone.core.v1.CheckStateRequest.variable_overrides:type_name -> keystone.core.v1.CheckStateRequest.VariableOverridesEntry
-	0,  // 19: keystone.core.v1.CheckStateResponse.status:type_name -> keystone.core.v1.StateRunStatus
-	5,  // 20: keystone.core.v1.CheckStateResponse.aggregates:type_name -> keystone.core.v1.StateRunAggregates
-	6,  // 21: keystone.core.v1.CheckStateResponse.declarations:type_name -> keystone.core.v1.StateDeclarationResult
-	29, // 22: keystone.core.v1.DetectDriftRequest.target:type_name -> keystone.core.v1.Target
-	26, // 23: keystone.core.v1.DetectDriftRequest.facts:type_name -> keystone.core.v1.DetectDriftRequest.FactsEntry
-	27, // 24: keystone.core.v1.DetectDriftRequest.variable_overrides:type_name -> keystone.core.v1.DetectDriftRequest.VariableOverridesEntry
-	0,  // 25: keystone.core.v1.DetectDriftResponse.status:type_name -> keystone.core.v1.StateRunStatus
-	3,  // 26: keystone.core.v1.DetectDriftResponse.aggregate_severity:type_name -> keystone.core.v1.DriftSeverity
-	5,  // 27: keystone.core.v1.DetectDriftResponse.aggregates:type_name -> keystone.core.v1.StateRunAggregates
-	8,  // 28: keystone.core.v1.DetectDriftResponse.statuses:type_name -> keystone.core.v1.DriftDeclaration
-	1,  // 29: keystone.core.v1.GetStateHistoryRequest.mode:type_name -> keystone.core.v1.StateRunMode
-	0,  // 30: keystone.core.v1.GetStateHistoryRequest.status:type_name -> keystone.core.v1.StateRunStatus
-	28, // 31: keystone.core.v1.GetStateHistoryRequest.since:type_name -> google.protobuf.Timestamp
-	28, // 32: keystone.core.v1.GetStateHistoryRequest.until:type_name -> google.protobuf.Timestamp
-	7,  // 33: keystone.core.v1.GetStateHistoryResponse.runs:type_name -> keystone.core.v1.StateRun
-	7,  // 34: keystone.core.v1.GetStateStatusResponse.run:type_name -> keystone.core.v1.StateRun
-	6,  // 35: keystone.core.v1.GetStateStatusResponse.declarations:type_name -> keystone.core.v1.StateDeclarationResult
-	6,  // 36: keystone.core.v1.RollbackStateResponse.decl_result:type_name -> keystone.core.v1.StateDeclarationResult
-	9,  // 37: keystone.core.v1.RollbackStateResponse.terminal:type_name -> keystone.core.v1.StateRunTerminal
-	10, // 38: keystone.core.v1.StateService.ApplyState:input_type -> keystone.core.v1.ApplyStateRequest
-	12, // 39: keystone.core.v1.StateService.CheckState:input_type -> keystone.core.v1.CheckStateRequest
-	14, // 40: keystone.core.v1.StateService.DetectDrift:input_type -> keystone.core.v1.DetectDriftRequest
-	16, // 41: keystone.core.v1.StateService.GetStateHistory:input_type -> keystone.core.v1.GetStateHistoryRequest
-	18, // 42: keystone.core.v1.StateService.GetStateStatus:input_type -> keystone.core.v1.GetStateStatusRequest
-	20, // 43: keystone.core.v1.StateService.RollbackState:input_type -> keystone.core.v1.RollbackStateRequest
-	11, // 44: keystone.core.v1.StateService.ApplyState:output_type -> keystone.core.v1.ApplyStateResponse
-	13, // 45: keystone.core.v1.StateService.CheckState:output_type -> keystone.core.v1.CheckStateResponse
-	15, // 46: keystone.core.v1.StateService.DetectDrift:output_type -> keystone.core.v1.DetectDriftResponse
-	17, // 47: keystone.core.v1.StateService.GetStateHistory:output_type -> keystone.core.v1.GetStateHistoryResponse
-	19, // 48: keystone.core.v1.StateService.GetStateStatus:output_type -> keystone.core.v1.GetStateStatusResponse
-	21, // 49: keystone.core.v1.StateService.RollbackState:output_type -> keystone.core.v1.RollbackStateResponse
-	44, // [44:50] is the sub-list for method output_type
-	38, // [38:44] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	10, // 11: keystone.core.v1.StateRunTerminal.agent_summaries:type_name -> keystone.core.v1.StateAgentSummary
+	0,  // 12: keystone.core.v1.StateAgentSummary.status:type_name -> keystone.core.v1.StateRunStatus
+	5,  // 13: keystone.core.v1.StateAgentSummary.aggregates:type_name -> keystone.core.v1.StateRunAggregates
+	30, // 14: keystone.core.v1.ApplyStateRequest.target:type_name -> keystone.core.v1.Target
+	23, // 15: keystone.core.v1.ApplyStateRequest.facts:type_name -> keystone.core.v1.ApplyStateRequest.FactsEntry
+	24, // 16: keystone.core.v1.ApplyStateRequest.variable_overrides:type_name -> keystone.core.v1.ApplyStateRequest.VariableOverridesEntry
+	6,  // 17: keystone.core.v1.ApplyStateResponse.decl_result:type_name -> keystone.core.v1.StateDeclarationResult
+	9,  // 18: keystone.core.v1.ApplyStateResponse.terminal:type_name -> keystone.core.v1.StateRunTerminal
+	30, // 19: keystone.core.v1.CheckStateRequest.target:type_name -> keystone.core.v1.Target
+	25, // 20: keystone.core.v1.CheckStateRequest.facts:type_name -> keystone.core.v1.CheckStateRequest.FactsEntry
+	26, // 21: keystone.core.v1.CheckStateRequest.variable_overrides:type_name -> keystone.core.v1.CheckStateRequest.VariableOverridesEntry
+	0,  // 22: keystone.core.v1.CheckStateResponse.status:type_name -> keystone.core.v1.StateRunStatus
+	5,  // 23: keystone.core.v1.CheckStateResponse.aggregates:type_name -> keystone.core.v1.StateRunAggregates
+	6,  // 24: keystone.core.v1.CheckStateResponse.declarations:type_name -> keystone.core.v1.StateDeclarationResult
+	30, // 25: keystone.core.v1.DetectDriftRequest.target:type_name -> keystone.core.v1.Target
+	27, // 26: keystone.core.v1.DetectDriftRequest.facts:type_name -> keystone.core.v1.DetectDriftRequest.FactsEntry
+	28, // 27: keystone.core.v1.DetectDriftRequest.variable_overrides:type_name -> keystone.core.v1.DetectDriftRequest.VariableOverridesEntry
+	0,  // 28: keystone.core.v1.DetectDriftResponse.status:type_name -> keystone.core.v1.StateRunStatus
+	3,  // 29: keystone.core.v1.DetectDriftResponse.aggregate_severity:type_name -> keystone.core.v1.DriftSeverity
+	5,  // 30: keystone.core.v1.DetectDriftResponse.aggregates:type_name -> keystone.core.v1.StateRunAggregates
+	8,  // 31: keystone.core.v1.DetectDriftResponse.statuses:type_name -> keystone.core.v1.DriftDeclaration
+	1,  // 32: keystone.core.v1.GetStateHistoryRequest.mode:type_name -> keystone.core.v1.StateRunMode
+	0,  // 33: keystone.core.v1.GetStateHistoryRequest.status:type_name -> keystone.core.v1.StateRunStatus
+	29, // 34: keystone.core.v1.GetStateHistoryRequest.since:type_name -> google.protobuf.Timestamp
+	29, // 35: keystone.core.v1.GetStateHistoryRequest.until:type_name -> google.protobuf.Timestamp
+	7,  // 36: keystone.core.v1.GetStateHistoryResponse.runs:type_name -> keystone.core.v1.StateRun
+	7,  // 37: keystone.core.v1.GetStateStatusResponse.run:type_name -> keystone.core.v1.StateRun
+	6,  // 38: keystone.core.v1.GetStateStatusResponse.declarations:type_name -> keystone.core.v1.StateDeclarationResult
+	6,  // 39: keystone.core.v1.RollbackStateResponse.decl_result:type_name -> keystone.core.v1.StateDeclarationResult
+	9,  // 40: keystone.core.v1.RollbackStateResponse.terminal:type_name -> keystone.core.v1.StateRunTerminal
+	11, // 41: keystone.core.v1.StateService.ApplyState:input_type -> keystone.core.v1.ApplyStateRequest
+	13, // 42: keystone.core.v1.StateService.CheckState:input_type -> keystone.core.v1.CheckStateRequest
+	15, // 43: keystone.core.v1.StateService.DetectDrift:input_type -> keystone.core.v1.DetectDriftRequest
+	17, // 44: keystone.core.v1.StateService.GetStateHistory:input_type -> keystone.core.v1.GetStateHistoryRequest
+	19, // 45: keystone.core.v1.StateService.GetStateStatus:input_type -> keystone.core.v1.GetStateStatusRequest
+	21, // 46: keystone.core.v1.StateService.RollbackState:input_type -> keystone.core.v1.RollbackStateRequest
+	12, // 47: keystone.core.v1.StateService.ApplyState:output_type -> keystone.core.v1.ApplyStateResponse
+	14, // 48: keystone.core.v1.StateService.CheckState:output_type -> keystone.core.v1.CheckStateResponse
+	16, // 49: keystone.core.v1.StateService.DetectDrift:output_type -> keystone.core.v1.DetectDriftResponse
+	18, // 50: keystone.core.v1.StateService.GetStateHistory:output_type -> keystone.core.v1.GetStateHistoryResponse
+	20, // 51: keystone.core.v1.StateService.GetStateStatus:output_type -> keystone.core.v1.GetStateStatusResponse
+	22, // 52: keystone.core.v1.StateService.RollbackState:output_type -> keystone.core.v1.RollbackStateResponse
+	47, // [47:53] is the sub-list for method output_type
+	41, // [41:47] is the sub-list for method input_type
+	41, // [41:41] is the sub-list for extension type_name
+	41, // [41:41] is the sub-list for extension extendee
+	0,  // [0:41] is the sub-list for field type_name
 }
 
 func init() { file_keystone_core_v1_state_proto_init() }
@@ -2060,12 +2169,12 @@ func file_keystone_core_v1_state_proto_init() {
 		return
 	}
 	file_keystone_core_v1_common_proto_init()
-	file_keystone_core_v1_state_proto_msgTypes[6].OneofWrappers = []any{
+	file_keystone_core_v1_state_proto_msgTypes[7].OneofWrappers = []any{
 		(*ApplyStateResponse_RunId)(nil),
 		(*ApplyStateResponse_DeclResult)(nil),
 		(*ApplyStateResponse_Terminal)(nil),
 	}
-	file_keystone_core_v1_state_proto_msgTypes[16].OneofWrappers = []any{
+	file_keystone_core_v1_state_proto_msgTypes[17].OneofWrappers = []any{
 		(*RollbackStateResponse_RunId)(nil),
 		(*RollbackStateResponse_DeclResult)(nil),
 		(*RollbackStateResponse_Terminal)(nil),
@@ -2076,7 +2185,7 @@ func file_keystone_core_v1_state_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_keystone_core_v1_state_proto_rawDesc), len(file_keystone_core_v1_state_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   23,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

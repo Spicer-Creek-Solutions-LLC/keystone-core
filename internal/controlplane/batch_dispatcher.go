@@ -76,11 +76,11 @@ type BatchDispatcher struct {
 // RUNNING — orphan recovery is deferred to Epic 07 / 13. Documented
 // gap, not a bug.
 type batchCounter struct {
-	mu          sync.Mutex
-	total       int
-	completed   int
-	successful  int
-	failed      int
+	mu         sync.Mutex
+	total      int
+	completed  int
+	successful int
+	failed     int
 }
 
 // NewBatchDispatcher validates cfg, fills defaults, and returns a
@@ -240,9 +240,11 @@ func (d *BatchDispatcher) RecordAgentResult(ctx context.Context, batchID string,
 
 // Finalize transitions a running batch to the appropriate terminal
 // status based on the live counters:
-//   successful == total → completed
-//   failed == total     → failed
-//   otherwise           → partial
+//
+//	successful == total → completed
+//	failed == total     → failed
+//	otherwise           → partial
+//
 // Returns ErrBatchInvalidState if not all agents have reported.
 func (d *BatchDispatcher) Finalize(ctx context.Context, id string) (state.BatchJobStatus, error) {
 	rec, err := d.getBatch(ctx, id)

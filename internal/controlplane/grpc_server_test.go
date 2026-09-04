@@ -46,12 +46,12 @@ func (s *fakeStream[T]) Sent() []*T {
 	return out
 }
 
-func (s *fakeStream[T]) Context() context.Context           { return s.ctx }
-func (s *fakeStream[T]) SetHeader(metadata.MD) error        { return nil }
-func (s *fakeStream[T]) SendHeader(metadata.MD) error       { return nil }
-func (s *fakeStream[T]) SetTrailer(metadata.MD)             {}
-func (s *fakeStream[T]) SendMsg(_ any) error                { return nil }
-func (s *fakeStream[T]) RecvMsg(_ any) error                { return nil }
+func (s *fakeStream[T]) Context() context.Context     { return s.ctx }
+func (s *fakeStream[T]) SetHeader(metadata.MD) error  { return nil }
+func (s *fakeStream[T]) SendHeader(metadata.MD) error { return nil }
+func (s *fakeStream[T]) SetTrailer(metadata.MD)       {}
+func (s *fakeStream[T]) SendMsg(_ any) error          { return nil }
+func (s *fakeStream[T]) RecvMsg(_ any) error          { return nil }
 
 func newGRPCFixture(t *testing.T, exec controlplane.BatchExecutor) (*controlplane.GRPCServer, state.Store) {
 	t.Helper()

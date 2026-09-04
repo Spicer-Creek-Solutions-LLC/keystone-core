@@ -721,8 +721,8 @@ func TestStateGRPCServer_VariableOverridesApplied(t *testing.T) {
 		"    state: '{{ .Vars.desired_state }}'",
 	}, "\n") + "\n")
 	resp, err := f.client.CheckState(t.Context(), &v1.CheckStateRequest{
-		YamlContent:        yaml,
-		VariableOverrides:  map[string]string{}, // no override
+		YamlContent:       yaml,
+		VariableOverrides: map[string]string{}, // no override
 	})
 	if err != nil {
 		t.Fatalf("CheckState (no override): %v", err)

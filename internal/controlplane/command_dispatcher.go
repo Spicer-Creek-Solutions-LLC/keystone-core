@@ -22,10 +22,10 @@ import (
 // Subjects builder (Task 4); the v1.0 single-cluster default lives in
 // internal/config.NATSConfig.
 const (
-	DefaultCommandTimeoutSeconds  = 300
-	DefaultRetentionWindow        = 7 * 24 * time.Hour
-	DefaultRetentionInterval      = time.Hour
-	DefaultTimeoutCheckInterval   = time.Second
+	DefaultCommandTimeoutSeconds = 300
+	DefaultRetentionWindow       = 7 * 24 * time.Hour
+	DefaultRetentionInterval     = time.Hour
+	DefaultTimeoutCheckInterval  = time.Second
 )
 
 // terminalCommandStatuses is the retention-allowlist for the retention
