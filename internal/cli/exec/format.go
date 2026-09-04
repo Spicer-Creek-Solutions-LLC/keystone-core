@@ -22,20 +22,27 @@ import (
 // Streams are consumed via the next() callback so tests can drive the
 // renderer without a real gRPC client.
 type BatchStreamRenderer struct {
-	out     io.Writer
-	format  string
-	agents  map[string]*agentState // by agent_id
-	order   []string               // insertion order for table output
-	batchID string
+	out      io.Writer
+	format   string
+	agents   map[string]*agentState // by agent_id
+	order    []string               // insertion order for table output
+	batchID  string
 	terminal *v1.BatchTerminal
+	// showOutput renders each agent's captured stdout/stderr after the
+	// status table. Off by default: a fleet-wide command can produce a
+	// lot of output, and the status summary is what most dispatches are
+	// checked for.
+	showOutput bool
 }
 
 type agentState struct {
-	AgentID    string
-	Status     string
-	StartedAt  time.Time
-	EndedAt    time.Time
-	Error      string
+	AgentID   string
+	Status    string
+	StartedAt time.Time
+	EndedAt   time.Time
+	Error     string
+	Stdout    []byte
+	Stderr    []byte
 }
 
 // NewBatchStreamRenderer returns a renderer that writes to out in the
@@ -46,6 +53,30 @@ func NewBatchStreamRenderer(out io.Writer, format string) *BatchStreamRenderer {
 		format: format,
 		agents: map[string]*agentState{},
 	}
+}
+
+// WithOutput makes the renderer include each agent's captured
+// stdout/stderr. The stream already carries BatchAgentOutput chunks —
+// they were simply being dropped, which forced operators through
+// `exec list` + `exec output <id>` to read what a command actually
+// printed.
+func (r *BatchStreamRenderer) WithOutput(show bool) *BatchStreamRenderer {
+	r.showOutput = show
+	return r
+}
+
+// BatchID returns the batch job id observed on the stream, or "".
+func (r *BatchStreamRenderer) BatchID() string { return r.batchID }
+
+// agent returns the tracked state for id, creating it in stream order.
+func (r *BatchStreamRenderer) agent(id string) *agentState {
+	s, ok := r.agents[id]
+	if !ok {
+		s = &agentState{AgentID: id}
+		r.agents[id] = s
+		r.order = append(r.order, id)
+	}
+	return s
 }
 
 // Render pumps next() until io.EOF, accumulating events. On EOF it
@@ -69,14 +100,20 @@ func (r *BatchStreamRenderer) observe(ev *v1.BatchExecuteCommandResponse) {
 	switch e := ev.Event.(type) {
 	case *v1.BatchExecuteCommandResponse_BatchJobId:
 		r.batchID = e.BatchJobId
+	case *v1.BatchExecuteCommandResponse_Output:
+		// Declared by the proto but not emitted by the server today —
+		// per-agent output is stored and read back via
+		// ListBatchAgentResults (see runDispatch's --show-output path).
+		// Folded in anyway so the renderer is correct if the server
+		// ever does stream it.
+		if o := e.Output; o != nil && o.Output != nil {
+			s := r.agent(o.AgentId)
+			s.Stdout = append(s.Stdout, o.Output.Stdout...)
+			s.Stderr = append(s.Stderr, o.Output.Stderr...)
+		}
 	case *v1.BatchExecuteCommandResponse_Lifecycle:
 		l := e.Lifecycle
-		s, ok := r.agents[l.AgentId]
-		if !ok {
-			s = &agentState{AgentID: l.AgentId}
-			r.agents[l.AgentId] = s
-			r.order = append(r.order, l.AgentId)
-		}
+		s := r.agent(l.AgentId)
 		switch l.Kind {
 		case v1.BatchAgentLifecycleKind_BATCH_AGENT_LIFECYCLE_KIND_AGENT_START:
 			s.Status = "running"
@@ -134,10 +171,41 @@ func (r *BatchStreamRenderer) flushTable() error {
 			return err
 		}
 	}
+	if r.showOutput {
+		r.flushAgentOutput()
+	}
 	if r.terminal != nil {
 		fmt.Fprintf(r.out, "\nbatch status: %s\n", batchStatusString(r.terminal.Status))
 	}
 	return nil
+}
+
+// flushAgentOutput prints each agent's captured streams beneath the
+// status table, in the same order. Matches the layout `exec output`
+// already uses so the two read the same.
+func (r *BatchStreamRenderer) flushAgentOutput() {
+	for _, id := range r.order {
+		s := r.agents[id]
+		if len(s.Stdout) == 0 && len(s.Stderr) == 0 {
+			continue
+		}
+		if len(s.Stdout) > 0 {
+			fmt.Fprintf(r.out, "\n=== agent %s stdout ===\n%s", s.AgentID, ensureNewline(s.Stdout))
+		}
+		if len(s.Stderr) > 0 {
+			fmt.Fprintf(r.out, "\n=== agent %s stderr ===\n%s", s.AgentID, ensureNewline(s.Stderr))
+		}
+	}
+}
+
+// ensureNewline appends a trailing newline when the captured stream
+// lacks one, so the next header does not run onto the output's last
+// line.
+func ensureNewline(b []byte) string {
+	if len(b) > 0 && b[len(b)-1] != '\n' {
+		return string(b) + "\n"
+	}
+	return string(b)
 }
 
 // flushJSON dumps the structured report.
@@ -176,6 +244,10 @@ func (r *BatchStreamRenderer) report() map[string]any {
 		}
 		if s.Error != "" {
 			entry["error"] = s.Error
+		}
+		if r.showOutput {
+			entry["stdout"] = string(s.Stdout)
+			entry["stderr"] = string(s.Stderr)
 		}
 		agents = append(agents, entry)
 	}

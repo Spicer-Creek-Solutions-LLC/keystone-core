@@ -1,0 +1,15 @@
+kind: Added
+body: |-
+  **Three per-feature docs clips.** `fleet` (4.0s, `agent list`),
+  `remote-exec` (9.0s, target resolution then fleet dispatch) and
+  `secrets` (9.5s, write then read back masked) render alongside the
+  30-second promo from the same manifest. Each is real output against
+  the live topology. Docs clips carry no square cut and no end card --
+  the page around them supplies the context a promo has to build for
+  itself. The promo overlay also gains a debian-slim agent image
+  (scenario/Dockerfile.agent): the E2E agent is distroless and has no
+  /bin/echo, so `kscorectl exec run` failed with "fork/exec
+  /bin/hostname: no such file or directory" and remote execution could
+  not be filmed at all. Same binary and config, runtime layer only.
+custom:
+  Demo: ""

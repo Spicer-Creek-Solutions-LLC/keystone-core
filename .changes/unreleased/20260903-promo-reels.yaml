@@ -1,0 +1,20 @@
+kind: Added
+body: |-
+  **Promo pipeline renders multiple reels.** `assets/promo/manifest.yaml`
+  described exactly one video: a single `target_duration` over a flat
+  `shots:` list. It now describes `reels:`, each with its own
+  `target_duration`, `output`, `square_cut` and shot list, inheriting
+  `tolerance` and `resolution` from `defaults`. Duration budgets are
+  asserted per reel, so one reel busting its budget is not masked by
+  another being under; reel ids and outputs must be unique, since two
+  reels writing one file would silently clobber each other; and shot ids
+  are scoped to their reel, so two reels can both open on a shot called
+  "hook". promogen gains a `reels` subcommand and `plan -reel <id>`,
+  pipeline/build.sh renders each reel to its own output, and
+  `make promo REEL=<id>` renders just one -- the loop to use while
+  iterating on a single clip. The 30-second promo is now one reel among
+  several; its render is unchanged (1920x1080, 900 frames, 30.000s, plus
+  the square cut). Unblocks the per-feature docs clips tracked in
+  ROADMAP under v0.x.
+custom:
+  Demo: ""

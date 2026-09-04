@@ -197,7 +197,7 @@ func TestRepoTapesYieldCommands(t *testing.T) {
 	}
 
 	var all []TapeCommand
-	for _, shot := range m.Shots {
+	for _, shot := range m.AllShots() {
 		cmds, err := ExtractCommands(promoDir, shot.Tape, bins)
 		if err != nil {
 			t.Fatalf("ExtractCommands(%s): %v", shot.Tape, err)

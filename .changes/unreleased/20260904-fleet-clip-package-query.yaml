@@ -1,0 +1,9 @@
+kind: Changed
+body: |-
+  **The fleet docs clip runs a package-version query instead of
+  `hostname`.** "Which glibc is on every host?" is a question an
+  operator actually has; `hostname` only proves the plumbing works. Uses
+  `--` to separate the remote command from kscorectl's own flags, since
+  cobra otherwise parses `-W` as a shorthand flag and fails.
+custom:
+  Demo: ""

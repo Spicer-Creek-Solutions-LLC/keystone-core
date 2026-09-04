@@ -3,7 +3,9 @@
 package exec
 
 import (
+	"context"
 	"fmt"
+	"io"
 
 	"github.com/spf13/cobra"
 
@@ -101,8 +103,19 @@ func runDispatch(cmd *cobra.Command, g *globals, flags *dispatchFlags, command s
 		}
 	}
 
-	r := NewBatchStreamRenderer(cmd.OutOrStdout(), g.Output)
-	return r.Render(stream.Recv)
+	r := NewBatchStreamRenderer(cmd.OutOrStdout(), g.Output).WithOutput(flags.ShowOutput)
+	if err := r.Render(stream.Recv); err != nil {
+		return err
+	}
+	if !flags.ShowOutput {
+		return nil
+	}
+	// The batch stream does not carry per-agent output — the server
+	// stores it and serves it from ListBatchAgentResults, which is what
+	// `exec output <batch-id>` calls. Without this an operator has to
+	// scrape the batch id out of the run and make a second call just to
+	// see what the command printed, which is the common case.
+	return renderBatchOutput(ctx, client, cmd.OutOrStdout(), r.BatchID(), g.Output)
 }
 
 // wrapWithShell returns (shellBinary, [args...]) for the given shell
@@ -128,4 +141,22 @@ func wrapWithShell(shell, command string, originalArgs []string) (string, []stri
 		// CommandPolicy validation will reject if needed.
 		return command, originalArgs
 	}
+}
+
+// renderBatchOutput fetches and prints every agent's captured streams
+// for a finished batch. Shares RenderAgentResults with `exec output`
+// so the two render identically.
+func renderBatchOutput(ctx context.Context, client v1.ControlPlaneServiceClient,
+	out io.Writer, batchID, format string) error {
+	if batchID == "" {
+		return nil
+	}
+	resp, err := client.ListBatchAgentResults(ctx, &v1.ListBatchAgentResultsRequest{BatchJobId: batchID})
+	if err != nil {
+		return fmt.Errorf("exec run: fetch output: %w", err)
+	}
+	return RenderAgentResults(out, resp.GetResults(), OutputRenderOpts{
+		IncludeStdout: true,
+		Format:        format,
+	})
 }

@@ -3,6 +3,10 @@ title: GitOps Integration
 weight: 6
 ---
 
+{{< clip name="docs-gitops-rollback" caption="A rollback created with `--require-approval` waits at `pending` until a human decides; the transition is recorded." >}}
+
+{{< clip name="docs-outbound-webhooks" caption="Subscribe to an event glob, fire a delivery, and read the stored delivery record." >}}
+
 Keystone Core integrates with a GitOps workflow at the **operational**
 seam: it receives deployment webhooks from your VCS / CD system, runs
 **verification workflows** to confirm a deployment is healthy, and can

@@ -1,0 +1,18 @@
+kind: Changed
+body: |-
+  **Docs clips are now one continuous session per task, not one per
+  command.** The first cut was five clips of 4-11s, each split across
+  two or three shots. Two problems: a 4-second clip of a single command
+  shows nothing an operator can act on, and every shot is its own tape
+  -- hence its own terminal with its own `clear` -- so a multi-shot clip
+  wiped the screen mid-task and read as a rendering fault. Replaced by
+  four task clips of 13.5-15.0s, each a single tape running several
+  commands with nothing cleared between them: operate-a-fleet (list,
+  target, dispatch, and now the per-agent stdout the old clip never
+  showed), manage-secrets (write, list, masked read, then cleartext),
+  gitops-rollback and outbound-webhooks. Also fixes a genuine wrap bug:
+  a line wider than the terminal wraps AROUND and overwrites the start
+  of the same line, so an over-long command rendered mangled; the
+  measured column limits are now recorded in `_common.tape`.
+custom:
+  Demo: ""
