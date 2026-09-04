@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -19,6 +20,11 @@ import (
 
 	_ "github.com/lib/pq"
 	natsserver "github.com/nats-io/nats-server/v2/server"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+
+	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 )
 
 // startNativeStack brings the single-topology test stack up using host
@@ -216,21 +222,8 @@ func startNativeStack() (cleanup func(), err error) {
 		"postgres://kscore:kscore@postgres:5432/kscore?sslmode=disable": dsn,
 		"/data/jetstream": filepath.Join(serverData, "jetstream"),
 		"/data/secrets":   filepath.Join(serverData, "secrets"),
+		"/data/identity":  filepath.Join(serverData, "identity"),
 		"/blueprints":     blueprintsSrc,
-	}); err != nil {
-		return cleanup, err
-	}
-	agent1Cfg := filepath.Join(configDir, "agent-1.yaml")
-	if err := renderConfig(filepath.Join(configsSrc, "agent-1.yaml"), agent1Cfg, map[string]string{
-		"nats://nats:4222": natsURL,
-		"/data/agent.db":   filepath.Join(agent1Data, "agent.db"),
-	}); err != nil {
-		return cleanup, err
-	}
-	agent2Cfg := filepath.Join(configDir, "agent-2.yaml")
-	if err := renderConfig(filepath.Join(configsSrc, "agent-2.yaml"), agent2Cfg, map[string]string{
-		"nats://nats:4222": natsURL,
-		"/data/agent.db":   filepath.Join(agent2Data, "agent.db"),
 	}); err != nil {
 		return cleanup, err
 	}
@@ -255,6 +248,42 @@ func startNativeStack() (cleanup func(), err error) {
 			err, logs)
 	}
 
+	// --- mint join tokens, then render the agent configs -------------------
+	//
+	// With identity enabled the server validates bootstrap by join-token
+	// attestation, not by the raw PSK -- the attestor rejects anything
+	// without the "kscore-join-" scheme prefix. The tokens therefore have
+	// to be minted from the running server before an agent config can be
+	// written, which is also the enrollment path a real operator walks.
+	apiKey, err := waitForDevAPIKey(serverBuf.String, composeReadyBudget)
+	if err != nil {
+		logs, _ := serverBuf.String()
+		return cleanup, fmt.Errorf("%w\n--- server logs ---\n%s", err, logs)
+	}
+	tokens, err := mintJoinTokens(apiKey, "agent-1", "agent-2")
+	if err != nil {
+		return cleanup, err
+	}
+
+	agent1Cfg := filepath.Join(configDir, "agent-1.yaml")
+	if err := renderConfig(filepath.Join(configsSrc, "agent-1.yaml"), agent1Cfg, map[string]string{
+		"nats://nats:4222":                 natsURL,
+		"/data/agent.db":                   filepath.Join(agent1Data, "agent.db"),
+		"/data/agent-1-credentials.json":   filepath.Join(agent1Data, "credentials.json"),
+		"11111111111111111111111111111111": tokens["agent-1"],
+	}); err != nil {
+		return cleanup, err
+	}
+	agent2Cfg := filepath.Join(configDir, "agent-2.yaml")
+	if err := renderConfig(filepath.Join(configsSrc, "agent-2.yaml"), agent2Cfg, map[string]string{
+		"nats://nats:4222":                 natsURL,
+		"/data/agent.db":                   filepath.Join(agent2Data, "agent.db"),
+		"/data/agent-2-credentials.json":   filepath.Join(agent2Data, "credentials.json"),
+		"22222222222222222222222222222222": tokens["agent-2"],
+	}); err != nil {
+		return cleanup, err
+	}
+
 	// --- launch the two kscore-agents --------------------------------------
 	agent1Buf := newSafeBuffer()
 	agent1Cmd, err := spawn(agentBin, agent1Cfg, agent1Buf)
@@ -269,6 +298,17 @@ func startNativeStack() (cleanup func(), err error) {
 		return cleanup, fmt.Errorf("spawn agent-2: %w", err)
 	}
 	procs = append(procs, agent2Cmd)
+
+	agentLogReader = func(agentID string) (string, error) {
+		switch agentID {
+		case "agent-1":
+			return agent1Buf.String()
+		case "agent-2":
+			return agent2Buf.String()
+		default:
+			return "", fmt.Errorf("no captured log for %q", agentID)
+		}
+	}
 
 	return cleanup, nil
 }
@@ -403,4 +443,54 @@ func (b *safeBuffer) String() (string, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.buf.String(), nil
+}
+
+// waitForDevAPIKey polls the server's log for the dev API key it
+// prints once at boot. The scaffold needs it before any test runs, so
+// it cannot use the testing.TB-based extractAdminAPIKey.
+func waitForDevAPIKey(read func() (string, error), budget time.Duration) (string, error) {
+	deadline := time.Now().Add(budget)
+	for time.Now().Before(deadline) {
+		logs, err := read()
+		if err == nil {
+			if key := parseDevKey(logs, "DEV API KEY GENERATED"); key != "" {
+				return key, nil
+			}
+		}
+		time.Sleep(pollInterval)
+	}
+	return "", errors.New("timed out waiting for the dev API key in the server log")
+}
+
+// mintJoinTokens issues one single-use join token per agent through
+// IdentityService, which is how an operator enrolls an agent when the
+// control plane runs with identity enabled.
+func mintJoinTokens(apiKey string, agentIDs ...string) (map[string]string, error) {
+	conn, err := grpc.NewClient(serverGRPCAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		return nil, fmt.Errorf("grpc dial %s: %w", serverGRPCAddr, err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	client := v1.NewIdentityServiceClient(conn)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	ctx = metadata.AppendToOutgoingContext(ctx, "authorization", "Bearer "+apiKey)
+
+	out := make(map[string]string, len(agentIDs))
+	for _, id := range agentIDs {
+		resp, err := client.CreateJoinToken(ctx, &v1.CreateJoinTokenRequest{
+			AgentId:    id,
+			TtlSeconds: int64((30 * time.Minute).Seconds()),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("CreateJoinToken(%s): %w", id, err)
+		}
+		if resp.GetToken().GetToken() == "" {
+			return nil, fmt.Errorf("CreateJoinToken(%s): response carried no token cleartext", id)
+		}
+		out[id] = resp.GetToken().GetToken()
+	}
+	return out, nil
 }

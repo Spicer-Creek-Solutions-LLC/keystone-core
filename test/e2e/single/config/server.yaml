@@ -1,9 +1,8 @@
 # Epic 19 task 1 — kscore-server config for the single-topology E2E.
 #
 # Scope: dev-mode boot against external Postgres + external NATS, no
-# TLS / no identity. Just enough to bring the server up cleanly so
-# task 1 can assert /health/ready. Task 2 layers in the agent
-# bootstrap chain (join-token + SVID) and lights up the 9 scenarios.
+# TLS. Identity IS enabled (see below) so bootstrap issues per-agent
+# SVIDs; that is what the agent secret-lookup scenario needs.
 
 mode: development
 
@@ -58,8 +57,15 @@ nats:
         secret: "22222222222222222222222222222222"
         expiresat: 2099-01-01T00:00:00Z
 
+# Identity is ON so bootstrap issues each agent an X509 SVID. That is
+# what lets the control plane tell WHICH agent is asking for a secret,
+# which the fleet-wide HMAC key cannot. TLS stays off: enabling
+# identity does not turn on the TLS listener (server.tls.enabled does),
+# so every plaintext scenario is unaffected.
 identity:
-  enabled: false
+  enabled: true
+  trust_domain: kscore.local
+  storage_path: /data/identity
 
 security:
   hmacsecret: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
@@ -78,6 +84,12 @@ secrets:
       file:
         path: /data/secrets
         master_key: "inline:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+  # Which agent may read which secret path. Server-side by design: an
+  # agent that declared its own grants would be granting itself.
+  # agent-1 only, so the scenario can also assert agent-2 is refused.
+  agent_grants:
+    - agent_ids: ["agent-1"]
+      paths: ["kv/e2e/agent/"]
 
 # Epic 19 task 2b — point BlueprintService at the e2e blueprint
 # catalog (mounted from test/e2e/single/blueprints/). Server-side

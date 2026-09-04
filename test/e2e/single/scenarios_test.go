@@ -394,6 +394,204 @@ file:
 	})
 }
 
+// TestE2E_AgentSecretRendering proves the whole agent-secret chain
+// composes: the agent keeps the SVID bootstrap issued it, proves which
+// agent it is with that certificate, is authorized by the server's
+// grants, receives a reply sealed to its own key, and renders the
+// value into a file on its own host.
+//
+// Each link has unit tests; none of them can catch the links being
+// wired to each other wrongly. This is the assertion that the feature
+// exists rather than that its parts do.
+func TestE2E_AgentSecretRendering(t *testing.T) {
+	requireDocker(t)
+	ctx, cancel := context.WithTimeout(context.Background(), scenarioBudget)
+	defer cancel()
+
+	apiKey := extractAdminAPIKey(ctx, t)
+	cp, cpCloser := dialControlPlane(t, apiKey)
+	defer cpCloser.Close()
+	sc, scCloser := dialSecretsService(t, apiKey)
+	defer scCloser.Close()
+	st, stCloser := dialStateService(t, apiKey)
+	defer stCloser.Close()
+
+	if err := waitForAgentConnected(ctx, cp, apiKey, "agent-1"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Inside kv/e2e/agent/, which server.yaml grants to agent-1 only.
+	const secretPath = "kv/e2e/agent/db"
+	const want = "e2e-rendered-password"
+	if _, err := sc.WriteSecret(authContext(ctx, apiKey), &v1.WriteSecretRequest{
+		Path: secretPath,
+		Data: map[string]string{"password": want},
+	}); err != nil {
+		t.Fatalf("WriteSecret: %v", err)
+	}
+
+	// The path carries .Facts.agent_id, as in TestE2E_RemoteStateApply,
+	// so the file's existence proves where the render happened; the
+	// content proves the secret was resolved there too.
+	const yaml = `metadata:
+  name: agent-secret-render
+  version: "0.1"
+file:
+  /tmp/kscore-e2e-secret-{{ .Facts.agent_id }}:
+    state: present
+    content: "DB_PASS={{ secret \"kv/e2e/agent/db\" \"password\" }}"
+    mode: "0600"
+`
+
+	stream, err := st.ApplyState(authContext(ctx, apiKey), &v1.ApplyStateRequest{
+		YamlContent: []byte(yaml),
+		Source:      "agent-secret-render.yaml",
+		Target:      &v1.Target{AgentIds: []string{"agent-1"}},
+	})
+	if err != nil {
+		t.Fatalf("ApplyState: %v", err)
+	}
+
+	var (
+		terminal *v1.StateRunTerminal
+		declErrs []string
+	)
+	for {
+		ev, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("ApplyState recv: %v", err)
+		}
+		switch e := ev.Event.(type) {
+		case *v1.ApplyStateResponse_DeclResult:
+			if e.DeclResult != nil && e.DeclResult.ErrorMessage != "" {
+				declErrs = append(declErrs, e.DeclResult.ErrorMessage)
+			}
+		case *v1.ApplyStateResponse_Terminal:
+			terminal = e.Terminal
+		}
+	}
+	if len(declErrs) > 0 {
+		t.Fatalf("declaration errors: %v", declErrs)
+	}
+	if terminal == nil {
+		t.Fatal("ApplyState: terminal event never emitted")
+	}
+	for _, s := range terminal.AgentSummaries {
+		if s.ErrorMessage != "" {
+			t.Fatalf("agent %s: %s", s.AgentId, s.ErrorMessage)
+		}
+	}
+
+	if !agentFSIsHost {
+		// Docker mode: the distroless agent image has no shell to read
+		// the file back with. The run completing without a declaration
+		// error already proves the secret resolved -- an unresolvable
+		// reference fails the render rather than writing a blank.
+		return
+	}
+	const path = "/tmp/kscore-e2e-secret-agent-1"
+	t.Cleanup(func() { _ = os.Remove(path) })
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read the file agent-1 rendered: %v", err)
+	}
+	if string(got) != "DB_PASS="+want {
+		t.Errorf("rendered content = %q, want %q", got, "DB_PASS="+want)
+	}
+}
+
+// A path outside the agent's grants must fail the render rather than
+// writing a file with an empty value.
+func TestE2E_AgentSecretDenied(t *testing.T) {
+	requireDocker(t)
+	ctx, cancel := context.WithTimeout(context.Background(), scenarioBudget)
+	defer cancel()
+
+	apiKey := extractAdminAPIKey(ctx, t)
+	cp, cpCloser := dialControlPlane(t, apiKey)
+	defer cpCloser.Close()
+	sc, scCloser := dialSecretsService(t, apiKey)
+	defer scCloser.Close()
+	st, stCloser := dialStateService(t, apiKey)
+	defer stCloser.Close()
+
+	if err := waitForAgentConnected(ctx, cp, apiKey, "agent-1"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Outside kv/e2e/agent/, so no grant covers it for any agent.
+	const secretPath = "kv/e2e/ungranted/db"
+	if _, err := sc.WriteSecret(authContext(ctx, apiKey), &v1.WriteSecretRequest{
+		Path: secretPath,
+		Data: map[string]string{"password": "must-not-be-rendered"},
+	}); err != nil {
+		t.Fatalf("WriteSecret: %v", err)
+	}
+
+	const yaml = `metadata:
+  name: agent-secret-denied
+  version: "0.1"
+file:
+  /tmp/kscore-e2e-denied-{{ .Facts.agent_id }}:
+    state: present
+    content: "DB_PASS={{ secret \"kv/e2e/ungranted/db\" \"password\" }}"
+    mode: "0600"
+`
+
+	stream, err := st.ApplyState(authContext(ctx, apiKey), &v1.ApplyStateRequest{
+		YamlContent: []byte(yaml),
+		Source:      "agent-secret-denied.yaml",
+		Target:      &v1.Target{AgentIds: []string{"agent-1"}},
+	})
+	if err != nil {
+		t.Fatalf("ApplyState: %v", err)
+	}
+
+	var (
+		terminal *v1.StateRunTerminal
+		failed   bool
+	)
+	for {
+		ev, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("ApplyState recv: %v", err)
+		}
+		if e, ok := ev.Event.(*v1.ApplyStateResponse_Terminal); ok {
+			terminal = e.Terminal
+		}
+	}
+	if terminal == nil {
+		t.Fatal("ApplyState: terminal event never emitted")
+	}
+	for _, s := range terminal.AgentSummaries {
+		if s.ErrorMessage != "" {
+			failed = true
+		}
+	}
+	if !failed {
+		t.Error("an ungranted secret reference did not fail the run")
+	}
+
+	if !agentFSIsHost {
+		return
+	}
+	// The file must not exist at all. Writing it with a blank password
+	// and reporting success is the outcome this whole design exists to
+	// prevent.
+	const path = "/tmp/kscore-e2e-denied-agent-1"
+	t.Cleanup(func() { _ = os.Remove(path) })
+	if _, err := os.Stat(path); err == nil {
+		body, _ := os.ReadFile(path)
+		t.Errorf("a denied secret still produced a file: %q", body)
+	}
+}
+
 // TestE2E_BlueprintApply — scenario 4 from epic 19 §Scope. Verifies
 // the BlueprintService gRPC surface against the catalog bundled into
 // the kscore-server image at /modules/examples/blueprints. Apply runs
