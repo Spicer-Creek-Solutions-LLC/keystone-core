@@ -1,0 +1,20 @@
+kind: Fixed
+body: |-
+  **Stacked pull requests get CI.** `ci-fast`'s `pull_request` trigger
+  filtered on `branches: [main]`, which matches the **base** branch --
+  so a PR opened against another PR's branch never ran a single job.
+
+  It failed silently, which is what made it costly: a PR with no
+  statuses looks exactly like a PR whose run is still queued behind a
+  serial runner. Four stacked PRs sat unvalidated, and the wait was
+  attributed to queue depth rather than to a workflow that was never
+  going to fire.
+
+  The filter is dropped, so every PR is gated regardless of what it
+  targets. `push` stays pinned to `main`: a feature-branch push would
+  otherwise queue a second, redundant run alongside the PR event, and
+  the runner is serial.
+
+  Note for anyone doing this on an existing PR -- retargeting one to
+  `main` (which happens automatically when its base merges) does not
+  start a run on its own. It needs a push event.
