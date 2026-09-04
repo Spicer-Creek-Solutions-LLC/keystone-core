@@ -76,6 +76,10 @@ type Config struct {
 	// restart. cmd/kscore-agent defaults it to
 	// bootstrap.DefaultCredentialsPath.
 	CredentialsPath string
+
+	// Secrets resolves `{{ secret ... }}` while rendering a state file
+	// on this host. Nil means such a reference fails with a reason.
+	Secrets SecretResolver
 }
 
 const (

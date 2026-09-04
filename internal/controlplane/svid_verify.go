@@ -183,6 +183,22 @@ func parseChainPEM(chainPEM string) (*x509.Certificate, *x509.CertPool, error) {
 	return leaf, intermediates, nil
 }
 
+// SVIDRootsFromCerts builds a trust pool from parsed CA certificates —
+// what identity.TrustBundle.X509Authorities returns.
+func SVIDRootsFromCerts(authorities []*x509.Certificate) (*x509.CertPool, error) {
+	if len(authorities) == 0 {
+		return nil, errors.New("controlplane: svid: trust bundle carries no authorities")
+	}
+	pool := x509.NewCertPool()
+	for _, c := range authorities {
+		if c == nil {
+			continue
+		}
+		pool.AddCert(c)
+	}
+	return pool, nil
+}
+
 // SVIDRootsFromPEM builds a trust pool from PEM authorities — what an
 // agent stores as TrustBundlePEM and what the server holds as its own
 // CA bundle.

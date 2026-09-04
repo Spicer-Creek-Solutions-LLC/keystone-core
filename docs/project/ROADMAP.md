@@ -293,13 +293,23 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance for unblock**: a blueprint applied on one server process is rollback-able from a *restarted* process via `kscorectl blueprint rollback <run-id>`; sensitive (`source: secret` / `sensitive: true`) params are masked in the persisted record.
 - **References**: `internal/blueprint/applied_store.go` (`AppliedStore` + `NewMemoryAppliedStore`); `internal/blueprint/executor.go`; `pkg/saga/log_sqlite.go` (durable-store precedent); Epic 15 task 5.
 
-#### Agent-side secret resolution during state rendering
+<!-- "Agent-side secret resolution during state rendering" landed.
+     A state file can reference `{{ secret "path" "key" }}`; it
+     resolves on the agent, once per use, never cached and never
+     shipped inside the converge request. The arc took five pieces:
+     the agent keeps its bootstrap-issued SVID (it was being
+     discarded); SVIDSigner/SVIDVerifier prove WHICH agent is asking,
+     which the fleet-wide HMAC key cannot; internal/sealed encrypts
+     the reply to that agent's key, because every agent shares one
+     NATS credential and can read any subject; secrets.agent_grants
+     authorizes per agent from server config; and the `secret`
+     template func ties it together, wired at boot on both sides.
 
-- **Priority**: gate-v1.0
-- **What**: a state file applied to an agent cannot reference a secret. Rendering happens on the agent (that is what makes `.Facts` correct), and the agent's renderer FuncMap has no `secret` function — it ships `upper`/`lower`/`title`/`trim`/`join`/`split`/`default` only. The workaround is `--variable name=$(kscore-secrets get ...)`, which puts the cleartext through the operator's shell and the control plane's request log. The target shape is `{{ secret "kv/app/db" "password" }}` resolving **at render time, on the agent, by asking the control plane (or the secret source) on each use** — never by shipping a materialised secret bundle inside the converge request, and never cached on the agent.
-- **Why deferred**: the transport and the engine are the prerequisite and landed first. This needs three things that are genuinely separate work: a `secret` template function wired into the agent's renderer, an agent→control-plane secret lookup path over the existing NATS request/response channel, and — the real design question — an authorization model for *which agent may read which secret*, since an agent asking for an arbitrary path would make every agent a universal secret reader. Signing the request with the agent's existing HMAC identity establishes who is asking; it does not by itself establish what they are entitled to.
-- **Acceptance for unblock**: a state file containing `{{ secret "kv/app/db" "password" }}` applied with `--target id:agent-1` renders the live secret value into the file on agent-1; the value never appears in the converge request, the run history, or the audit log; an agent requesting a secret outside its grant is refused and the refusal is audited; the secret is re-fetched on each render rather than cached.
-- **References**: `internal/statemgmt/render.go` (the FuncMap); `internal/agent/converge.go` (`StateEngine.Converge`, where facts and vars are supplied); `internal/agent/converge_wire.go` (`ConvergeRequest.Variables` — the current, unsatisfactory channel); `internal/secrets/`; the deferred `kscore-secrets template` entry below (same `secret` placeholder syntax — pick one and share it).
+     Open follow-ups, tracked separately: per-agent NATS credentials
+     with subject permissions (would make the subject a boundary too,
+     but sealing does not depend on it); nonce tracking for replay,
+     covered by "Replay protection on agent commands"; and grants are
+     config-only, so changing them needs a server restart. -->
 
 #### Remote / distributed blueprint apply wiring
 

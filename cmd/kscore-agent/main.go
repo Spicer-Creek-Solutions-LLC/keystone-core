@@ -114,6 +114,20 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		return fmt.Errorf("stdlib register: %w", err)
 	}
 
+	// Secret resolution for state files rendered on this host. Lazy
+	// because a first-boot agent has no credential until bootstrap
+	// delivers one, and bootstrap completes after Start.
+	secretClient, err := agent.NewLazySecretClient(agent.LazySecretClientConfig{
+		Store:    &agent.CredentialStore{Path: credentialsPath(cfg.Agent.CredentialsPath)},
+		NATS:     natsAdapter{m: natsManager},
+		Subjects: natsManager.Subjects(),
+		Logger:   log,
+	})
+	if err != nil {
+		return fmt.Errorf("agent secret client: %w", err)
+	}
+	defer func() { _ = secretClient.Stop() }()
+
 	a, err := agent.New(agent.Config{
 		AgentID:           cfg.Agent.AgentID,
 		HeartbeatInterval: cfg.Agent.HeartbeatInterval,
@@ -122,6 +136,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		Labels:            cfg.Agent.Labels,
 		BootstrapPSK:      cfg.Agent.BootstrapPSK,
 		CredentialsPath:   credentialsPath(cfg.Agent.CredentialsPath),
+		Secrets:           secretClient,
 	}, natsAdapter{m: natsManager}, natsManager.Subjects(), agent.NewGopsutilCollector(log), executor, enforcer, log)
 	if err != nil {
 		return fmt.Errorf("agent: %w", err)

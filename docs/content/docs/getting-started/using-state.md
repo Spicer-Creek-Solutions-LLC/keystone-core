@@ -127,6 +127,68 @@ service:
 The engine orders the work (`package` → `file` → `service`) from the
 requisites — you don't list steps, you declare relationships.
 
+## Secrets in a state file
+
+A state file should not contain a password. Reference one instead:
+
+```yaml
+file:
+  /etc/payments/app.env:
+    state: present
+    mode: "0640"
+    content: |
+      DB_USER={{ secret "app/db" "username" }}
+      DB_PASS={{ secret "app/db" "password" }}
+```
+
+The state file is now safe to commit. The values are fetched while the
+file is rendered **on the agent**, once per use, and never written
+anywhere but the target file.
+
+Give the agent access with `secrets.agent_grants` in the **server**
+config — grants are a server-side decision, because an agent that
+declared its own would be granting itself:
+
+```yaml
+secrets:
+  agent_grants:
+    - agent_ids: ["web-1", "web-2"]
+      paths: ["app/"]
+    - labels: { role: db }
+      paths: ["db/", "shared/ca-bundle"]
+```
+
+An agent matches a rule if its id is listed **or** it carries every
+label in `labels`. A path ending in `/` covers a subtree; anything
+else must match exactly, so `app` does not grant `application/db`.
+
+Nothing is readable until a rule says so. There is no permissive
+default, and a rule naming neither `agent_ids` nor `labels` is
+rejected at startup rather than treated as "every agent".
+
+### What has to be true
+
+- The control plane runs with `identity.enabled`. Grants are enforced
+  per agent, which requires the agent to prove *which* agent it is —
+  it does that with the certificate issued at bootstrap.
+- The agent has completed bootstrap. A host that has never enrolled
+  has no certificate and cannot read a secret.
+
+If either is missing the render fails and says which, rather than
+writing a file with a blank password.
+
+### Single-value secrets
+
+Omit the key when a secret holds one field:
+
+```yaml
+      API_TOKEN={{ secret "app/token" }}
+```
+
+A secret with several fields and no key named is an error, not a
+guess — returning the wrong credential silently is worse than
+refusing.
+
 ## The workflow
 
 All commands run through `kscorectl state` and target an agent with
