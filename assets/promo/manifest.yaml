@@ -137,3 +137,41 @@ reels:
         tape: tapes/21-secrets-get.tape
         feature: secrets-get
 
+  - id: gitops-rollback
+    title: "GitOps rollback with an approval gate"
+    output: docs-gitops-rollback
+    target_duration: 9.5
+    docs_page: docs/content/docs/index.md
+    shots:
+      - id: propose
+        kind: terminal
+        duration: 4.5
+        caption: "A rollback that waits for a human."
+        tape: tapes/30-rollback-propose.tape
+        feature: gitops-rollback-propose
+      - id: decide
+        kind: terminal
+        duration: 5.0
+        caption: "Approve or reject — the transition is recorded."
+        tape: tapes/31-rollback-reject.tape
+        feature: gitops-rollback-decide
+
+  - id: outbound-webhooks
+    title: "Outbound webhooks"
+    output: docs-outbound-webhooks
+    target_duration: 11.0
+    docs_page: docs/content/docs/index.md
+    shots:
+      - id: subscribe
+        kind: terminal
+        duration: 5.0
+        caption: "Subscribe to the events you care about."
+        tape: tapes/40-webhook-create.tape
+        feature: webhook-subscribe
+      - id: deliver
+        kind: terminal
+        duration: 6.0
+        caption: "Every delivery is attempted, and recorded."
+        tape: tapes/41-webhook-deliver.tape
+        feature: webhook-deliver
+

@@ -21,9 +21,16 @@ see.
 | `fleet` | `docs-fleet.mp4` | 4.0s | `agent list` — the first command an operator runs. |
 | `remote-exec` | `docs-remote-exec.mp4` | 9.0s | Resolve a target, then dispatch across the fleet. |
 | `secrets` | `docs-secrets.mp4` | 9.5s | Write a secret, read it back masked. |
+| `gitops-rollback` | `docs-gitops-rollback.mp4` | 9.5s | Propose a rollback, then approve or reject it. |
+| `outbound-webhooks` | `docs-outbound-webhooks.mp4` | 11.0s | Subscribe to events; deliver and record. |
 
 Docs clips carry no square cut and no end card: the page around them
 supplies the context a promo has to build for itself.
+
+Two clips set a smaller `FontSize` than `_common.tape`, and the tapes
+say why: their output carries full UUIDs, which wrap at the default and
+read as a rendering fault rather than as output. Shrinking the type
+beats trimming real output or swapping to a command that says less.
 
 Each reel carries its own duration budget, output name, and shot list,
 and inherits `tolerance` / `resolution` from `defaults` unless it
