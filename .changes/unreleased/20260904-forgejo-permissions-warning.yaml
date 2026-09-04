@@ -1,0 +1,13 @@
+kind: Fixed
+body: |-
+  **Dropped the `permissions:` blocks from the Forgejo workflows.**
+  Forgejo does not implement the field and emits a warning once per
+  job when it is present -- twelve warnings on every `ci-fast` run,
+  which is enough noise to hide a real one. Capabilities come from the
+  runner's automatic token scope and the repo's Authorized
+  Integrations instead. These workflows live under `.forgejo/` and
+  never execute on GitHub, so nothing was relying on the field. The
+  `deps-outdated` comment claiming its job-scoped block was what
+  granted issue-write is corrected in the same change -- it never was.
+custom:
+  Demo: ""

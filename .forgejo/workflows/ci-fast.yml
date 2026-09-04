@@ -60,8 +60,12 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
+# No `permissions:` block. Forgejo does not implement it and warns
+# once per job when it is present -- twelve warnings on every run of
+# this workflow. Capabilities come from the runner's automatic token
+# scope and the repo's Authorized Integrations instead. These
+# workflows live under `.forgejo/` and never execute on GitHub, so
+# there is no second consumer to keep the field for.
 
 jobs:
   lint:
