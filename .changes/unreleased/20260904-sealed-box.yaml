@@ -1,0 +1,29 @@
+kind: Added
+body: |-
+  **`internal/sealed` — encrypt a payload to the holder of one specific
+  private key.** Needed because of a property of the agent transport
+  that is easy to assume away: every agent authenticates to NATS with
+  the same deployment-wide token or credential file, and no per-subject
+  permissions are configured. An agent can subscribe to any other
+  agent's subjects. Per-agent subject naming is addressing, not access
+  control -- so replying to an agent's secret lookup on its own subject
+  would publish that secret to the entire fleet.
+
+  Sealing to the public key in the recipient's SVID -- the certificate
+  the control plane has just verified -- makes "who is asking" and "who
+  can read the answer" one decision instead of two, with no window in
+  which the server knows the requester but encrypts to something else.
+
+  Hybrid construction: AES-256-GCM under a key that is ECDH-derived
+  against a per-message ephemeral for ECDSA recipients, or RSA-OAEP
+  wrapped for RSA ones, since the CA's key type is configurable. The
+  AEAD's associated data carries the requesting agent's id and the
+  request nonce, so a captured box cannot be replayed as the answer to
+  a different question. Open returns one error for every failure mode:
+  distinguishing them would tell an attacker which guess was closer.
+
+  Per-agent NATS credentials with subject permissions would make the
+  subject a boundary too, and remain worth doing. Sealing neither
+  depends on that landing nor becomes unnecessary if it does.
+custom:
+  Demo: ""
