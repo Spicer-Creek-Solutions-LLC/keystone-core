@@ -47,6 +47,8 @@ type Subjects interface {
 	AgentConvergeResult(agentID string) string
 	BootstrapRegister(agentID string) string
 	BootstrapResponse(agentID string) string
+	SecretRequest() string
+	SecretResponse(agentID string) string
 	Cluster() string
 	Prefix() string
 }

@@ -265,6 +265,43 @@ Per-agent NATS credentials with subject permissions would make the
 subject a boundary too, and remain worth doing; sealing does not
 depend on that landing, and does not become unnecessary if it does.
 
+#### Agent secret lookups
+
+An agent rendering a state file resolves each secret reference by
+asking the control plane, and asks again on every use. There is no
+cache: a cached secret outlives the authorization that produced it, so
+revoking a grant would not take effect until an entry expired, and the
+value would sit in agent memory long after the render that needed it.
+
+A lookup is decided in four steps, in this order:
+
+1. **Authenticate** — the SVID verifier establishes *which* agent is
+   asking, from the certificate rather than from any field in the
+   request. A request that does not verify gets no reply at all; there
+   is no agent the server is willing to address one to.
+2. **Authorize** — `secrets.agent_grants` is evaluated against that
+   verified id and the labels on the control plane's *own* agent
+   record. Labels never come from the request: an agent that could
+   state its own labels could label its way into any rule. A verified
+   certificate with no agent record fails closed.
+3. **Read** — only now does the broker see the path.
+4. **Seal** — the value is encrypted to the same certificate that
+   authenticated the request.
+
+Grants deny by default and there is no permissive setting.
+`security.defaultpolicy: allow` exists for command execution, where a
+lab operator may reasonably want it; extending that idea to secrets
+would let one config line expose every credential in the store. A rule
+naming neither `agent_ids` nor `labels` is rejected rather than
+treated as "match everything", and a path of `*` or `/` is rejected
+outright — a rule that looks narrow while granting the whole store is
+the shape worth refusing.
+
+Denials say only that the path is not granted. Not whether it exists,
+not what would have been granted. A broker failure is reported as an
+error rather than a denial, with the backend's own message withheld,
+since it can name internal infrastructure.
+
 ### Production-knob warnings (dev-mode boundaries)
 
 Three configuration knobs are accepted but emit a startup `WARN` line

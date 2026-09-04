@@ -254,6 +254,7 @@ SecretsConfig drives the Epic 10 secrets boot in kscore-server. The shape mirror
 
 | Key | Type | Description |
 |-----|------|-------------|
+| `secrets.agent_grants` | `[]SecretsAgentGrantConfig` | AgentGrants control which agents may read which secret paths when rendering a state file on the agent host. Empty denies every agent lookup, which is the correct default: an operator opts specific paths in, rather than opting the store out. Grants live here rather than on the agent or in a field the agent supplies, because an agent that declares its own entitlements is granting itself. |
 | `secrets.audit` | `SecretsAuditConfig` |  |
 | `secrets.backends` | `[]SecretsBackendConfig` |  |
 | `secrets.cache` | `SecretsCacheConfig` |  |
@@ -261,6 +262,16 @@ SecretsConfig drives the Epic 10 secrets boot in kscore-server. The shape mirror
 | `secrets.enabled` | `bool` |  |
 | `secrets.lease` | `SecretsLeaseConfig` |  |
 | `secrets.routing` | `[]SecretsRouteConfig` |  |
+
+## `secrets.agent_grants`
+
+SecretsAgentGrantConfig allows a set of agents to read a set of secret paths. AgentIDs and Labels are OR'd: an agent matches if its id is listed OR it carries every label in Labels. Paths ending in "/" allow a subtree; anything else must match exactly, so `app` does not silently grant `application/...`.
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `secrets.agent_grants.agent_ids` | `[]string` |  |
+| `secrets.agent_grants.labels` | `map[string]string` |  |
+| `secrets.agent_grants.paths` | `[]string` |  |
 
 ## `secrets.audit`
 

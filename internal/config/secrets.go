@@ -41,6 +41,29 @@ type SecretsConfig struct {
 	Cache          SecretsCacheConfig     `koanf:"cache"`
 	Lease          SecretsLeaseConfig     `koanf:"lease"`
 	Audit          SecretsAuditConfig     `koanf:"audit"`
+
+	// AgentGrants control which agents may read which secret paths
+	// when rendering a state file on the agent host. Empty denies
+	// every agent lookup, which is the correct default: an operator
+	// opts specific paths in, rather than opting the store out.
+	//
+	// Grants live here rather than on the agent or in a field the
+	// agent supplies, because an agent that declares its own
+	// entitlements is granting itself.
+	AgentGrants []SecretsAgentGrantConfig `koanf:"agent_grants"`
+}
+
+// SecretsAgentGrantConfig allows a set of agents to read a set of
+// secret paths.
+//
+// AgentIDs and Labels are OR'd: an agent matches if its id is listed
+// OR it carries every label in Labels. Paths ending in "/" allow a
+// subtree; anything else must match exactly, so `app` does not
+// silently grant `application/...`.
+type SecretsAgentGrantConfig struct {
+	AgentIDs []string          `koanf:"agent_ids"`
+	Labels   map[string]string `koanf:"labels"`
+	Paths    []string          `koanf:"paths"`
 }
 
 // SecretsAuditConfig drives the audit-emission infrastructure

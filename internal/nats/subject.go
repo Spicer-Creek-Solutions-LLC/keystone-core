@@ -159,6 +159,24 @@ func (b *SubjectBuilder) BootstrapRegisterPattern() string {
 	return b.prefix + ".bootstrap.*.register"
 }
 
+// SecretRequest is the single subject every agent publishes secret
+// lookups to. One subject rather than one per agent: the requester's
+// identity comes from the SVID inside the request, so a per-agent
+// subject would only invite treating the subject name as evidence of
+// who sent it, which it is not -- every agent shares one NATS
+// credential and can publish anywhere.
+func (b *SubjectBuilder) SecretRequest() string {
+	return b.prefix + ".secret.request"
+}
+
+// SecretResponse is the per-agent subject the control plane answers a
+// secret lookup on. Addressing, not access control: any agent can
+// subscribe here, which is exactly why the value inside is sealed to
+// the requester's public key.
+func (b *SubjectBuilder) SecretResponse(agentID string) string {
+	return b.prefix + ".secret." + agentID + ".response"
+}
+
 // Discovery is the cluster-wide discovery subject (peer enumeration,
 // endpoint advertisement). Reserved for post-v1.0 K8s discovery; the
 // subject exists today so subscribers can register without churn.
