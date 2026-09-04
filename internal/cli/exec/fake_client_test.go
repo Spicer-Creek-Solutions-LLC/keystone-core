@@ -19,12 +19,12 @@ type fakeClient struct {
 	v1.ControlPlaneServiceClient // embedded so we satisfy the interface;
 	//                                unset methods panic if called.
 
-	GetBatchJobFn            func(ctx context.Context, in *v1.GetBatchJobRequest) (*v1.GetBatchJobResponse, error)
-	ListBatchJobsFn          func(ctx context.Context, in *v1.ListBatchJobsRequest) (*v1.ListBatchJobsResponse, error)
-	CancelBatchJobFn         func(ctx context.Context, in *v1.CancelBatchJobRequest) (*v1.CancelBatchJobResponse, error)
-	ListBatchAgentResultsFn  func(ctx context.Context, in *v1.ListBatchAgentResultsRequest) (*v1.ListBatchAgentResultsResponse, error)
-	GetBatchAgentResultFn    func(ctx context.Context, in *v1.GetBatchAgentResultRequest) (*v1.GetBatchAgentResultResponse, error)
-	BatchExecuteCommandFn    func(ctx context.Context, in *v1.BatchExecuteCommandRequest) (v1.ControlPlaneService_BatchExecuteCommandClient, error)
+	GetBatchJobFn           func(ctx context.Context, in *v1.GetBatchJobRequest) (*v1.GetBatchJobResponse, error)
+	ListBatchJobsFn         func(ctx context.Context, in *v1.ListBatchJobsRequest) (*v1.ListBatchJobsResponse, error)
+	CancelBatchJobFn        func(ctx context.Context, in *v1.CancelBatchJobRequest) (*v1.CancelBatchJobResponse, error)
+	ListBatchAgentResultsFn func(ctx context.Context, in *v1.ListBatchAgentResultsRequest) (*v1.ListBatchAgentResultsResponse, error)
+	GetBatchAgentResultFn   func(ctx context.Context, in *v1.GetBatchAgentResultRequest) (*v1.GetBatchAgentResultResponse, error)
+	BatchExecuteCommandFn   func(ctx context.Context, in *v1.BatchExecuteCommandRequest) (v1.ControlPlaneService_BatchExecuteCommandClient, error)
 }
 
 func (f *fakeClient) GetBatchJob(ctx context.Context, in *v1.GetBatchJobRequest, _ ...grpc.CallOption) (*v1.GetBatchJobResponse, error) {
@@ -63,12 +63,12 @@ func (s *fakeBatchStream) Recv() (*v1.BatchExecuteCommandResponse, error) {
 	s.idx++
 	return ev, nil
 }
-func (s *fakeBatchStream) Context() context.Context  { return s.ctx }
+func (s *fakeBatchStream) Context() context.Context     { return s.ctx }
 func (s *fakeBatchStream) Header() (metadata.MD, error) { return nil, nil }
-func (s *fakeBatchStream) Trailer() metadata.MD       { return nil }
-func (s *fakeBatchStream) CloseSend() error           { return nil }
-func (s *fakeBatchStream) SendMsg(_ any) error        { return nil }
-func (s *fakeBatchStream) RecvMsg(_ any) error        { return nil }
+func (s *fakeBatchStream) Trailer() metadata.MD         { return nil }
+func (s *fakeBatchStream) CloseSend() error             { return nil }
+func (s *fakeBatchStream) SendMsg(_ any) error          { return nil }
+func (s *fakeBatchStream) RecvMsg(_ any) error          { return nil }
 
 // fakeDial wraps a fakeClient in the Deps.Dial shape.
 func fakeDial(client v1.ControlPlaneServiceClient) func(ctx context.Context, target, apiKey string) (v1.ControlPlaneServiceClient, io.Closer, error) {

@@ -200,10 +200,28 @@ func VerifyCommands(repoRoot string, cmds []TapeCommand, bins map[string]bool) (
 		if len(c.Path) > 0 {
 			want := c.Path[len(c.Path)-1]
 			if !usageMentions(string(out), want) {
-				problems = append(problems, fmt.Sprintf(
-					"%s:%d: `%s` resolved to a different command — %q is absent from "+
-						"its usage line, so cobra fell back to the parent's help",
-					c.Tape, c.Line, c.String(), want))
+				// The last token might be a positional ARGUMENT rather
+				// than a subcommand — `secrets list app` lists the
+				// secrets under prefix "app". The extractor cannot tell
+				// the two apart from the tape text alone, so ask the
+				// parent: if it takes positionals its usage shows a
+				// `<placeholder>`, and the token is an argument. If it is
+				// a pure command group its usage shows `[command]`, and
+				// an unrecognised token really is a typo.
+				parentOK, parentTakesArgs := probeParent(tmp, c, probeEnv)
+				switch {
+				case parentOK && parentTakesArgs:
+					// argument, not a subcommand — nothing to check.
+				case parentOK:
+					problems = append(problems, fmt.Sprintf(
+						"%s:%d: `%s` resolved to a different command — %q is not a "+
+							"subcommand of its parent, which takes none, so cobra fell "+
+							"back to the parent's help",
+						c.Tape, c.Line, c.String(), want))
+				default:
+					problems = append(problems, fmt.Sprintf(
+						"%s:%d: `%s` does not resolve", c.Tape, c.Line, c.String()))
+				}
 			}
 		}
 	}
@@ -273,4 +291,44 @@ func usageMentions(help, want string) bool {
 		}
 	}
 	return false
+}
+
+// probeParent runs the command path minus its final token and reports
+// whether that parent resolves, and whether its usage line advertises a
+// positional argument (a `<placeholder>`) as opposed to being a pure
+// command group (`[command]`).
+func probeParent(binDir string, c TapeCommand, env []string) (ok, takesArgs bool) {
+	parent := c.Path[:len(c.Path)-1]
+	args := append(append([]string{}, parent...), "--help")
+	// #nosec G204 -- the binary was just built from cmd/, and args are
+	// subcommand tokens extracted from a tape.
+	probe := exec.Command(filepath.Join(binDir, c.Binary), args...)
+	probe.Env = env
+	out, err := probe.CombinedOutput()
+	if err != nil {
+		return false, false
+	}
+	usage := usageBlock(string(out))
+	return true, strings.Contains(usage, "<")
+}
+
+// usageBlock returns the indented lines following a cobra `Usage:`
+// header, or "" when there is no such block.
+func usageBlock(help string) string {
+	lines := strings.Split(help, "\n")
+	for i, line := range lines {
+		if strings.TrimSpace(line) != "Usage:" {
+			continue
+		}
+		var b strings.Builder
+		for _, u := range lines[i+1:] {
+			if strings.TrimSpace(u) == "" {
+				break
+			}
+			b.WriteString(u)
+			b.WriteString("\n")
+		}
+		return b.String()
+	}
+	return ""
 }

@@ -1,0 +1,38 @@
+# Promo-only kscore-agent image.
+#
+# The E2E agent image is distroless (test/e2e/single/Dockerfile.kscore),
+# which is right for a production-shaped test but leaves the agent with
+# no /bin/echo — so `kscorectl exec run` fails with
+# "fork/exec /bin/echo: no such file or directory" and remote execution,
+# the most Salt-shaped thing the product does, cannot be filmed at all.
+#
+# This swaps only the runtime layer for debian-slim. The builder stage,
+# the binary and the config are identical to the E2E image; the promo
+# overlay points the agent services here and nothing else changes.
+
+ARG GO_VERSION=1.27
+
+FROM golang:${GO_VERSION}-bookworm AS builder
+ARG VERSION=promo-dev
+ARG GIT_COMMIT=unknown
+ARG BUILD_DATE=unknown
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+ENV CGO_ENABLED=0
+RUN go build \
+    -ldflags "-X go.keystone-core.io/keystone-core/pkg/version.Version=${VERSION} \
+              -X go.keystone-core.io/keystone-core/pkg/version.GitCommit=${GIT_COMMIT} \
+              -X go.keystone-core.io/keystone-core/pkg/version.BuildDate=${BUILD_DATE}" \
+    -o /out/kscore-agent ./cmd/kscore-agent
+
+FROM debian:bookworm-slim
+# The agent executes operator-dispatched commands, so the runtime needs
+# a shell and coreutils for anything to run. Kept minimal beyond that.
+RUN useradd --uid 65532 --create-home --shell /bin/bash nonroot \
+    && mkdir -p /data && chown nonroot:nonroot /data
+COPY --from=builder /out/kscore-agent /usr/local/bin/kscore
+USER nonroot:nonroot
+ENTRYPOINT ["/usr/local/bin/kscore"]

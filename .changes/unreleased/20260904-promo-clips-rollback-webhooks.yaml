@@ -1,0 +1,15 @@
+kind: Added
+body: |-
+  **GitOps-rollback and outbound-webhook docs clips.**
+  `gitops-rollback` (9.5s) proposes a rollback with `--require-approval`
+  so it lands at `pending`, then rejects it and shows the recorded
+  `pending -> rejected` transition. `outbound-webhooks` (11.0s) creates
+  a subscription, fires a delivery, and shows the stored record
+  (`status=success code=200 attempt=1`). Both were the two most
+  differentiating features absent from the README quickstart. The promo
+  overlay gains an nginx receiver on 127.0.0.1:8099 for the webhook
+  clip -- nginx's default answers a POST with 405, which would have made
+  the shot a picture of a failed delivery. Six reels now render from one
+  manifest: the 30-second promo plus five docs clips.
+custom:
+  Demo: ""

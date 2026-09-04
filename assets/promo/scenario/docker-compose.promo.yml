@@ -27,3 +27,28 @@ services:
     # recording machine — a real conflict the first time this ran.
     ports: !override
       - "127.0.0.1:5397:5397"
+
+  # Remote exec needs a shell on the agent; the E2E image is distroless.
+  # Same binary and config, debian-slim runtime. See Dockerfile.agent.
+  kscore-agent-1:
+    build:
+      dockerfile: assets/promo/scenario/Dockerfile.agent
+    image: kscore-agent:promo
+
+  kscore-agent-2:
+    build:
+      dockerfile: assets/promo/scenario/Dockerfile.agent
+    image: kscore-agent:promo
+
+  # Receiver for the outbound-webhook clip. Declared here rather than
+  # started ad hoc by a tape so it is torn down with the stack.
+  webhook-receiver:
+    image: nginx:alpine
+    container_name: kscore-promo-webhook-receiver
+    volumes:
+      - ../../../assets/promo/scenario/webhook-receiver.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:8099:80"
+    networks:
+      - kscore
+

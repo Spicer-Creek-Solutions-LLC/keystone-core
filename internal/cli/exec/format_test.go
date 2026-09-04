@@ -143,3 +143,84 @@ func TestBatchStatusString(t *testing.T) {
 		}
 	}
 }
+
+// --- --show-output ---------------------------------------------------
+
+// The batch stream declares a per-agent output event. The server does
+// not emit one today (results are read back via ListBatchAgentResults),
+// but the renderer folds it in so it is correct if that changes — and
+// so a declared event is never silently dropped.
+func TestBatchStreamRenderer_ShowOutput_StreamedChunks(t *testing.T) {
+	t.Parallel()
+	events := append([]*v1.BatchExecuteCommandResponse{},
+		&v1.BatchExecuteCommandResponse{Event: &v1.BatchExecuteCommandResponse_BatchJobId{BatchJobId: "batch-1"}},
+		&v1.BatchExecuteCommandResponse{Event: &v1.BatchExecuteCommandResponse_Output{Output: &v1.BatchAgentOutput{
+			AgentId: "web-1",
+			Output:  &v1.CommandOutputChunk{Stdout: []byte("hello from web-1")},
+		}}},
+		&v1.BatchExecuteCommandResponse{Event: &v1.BatchExecuteCommandResponse_Output{Output: &v1.BatchAgentOutput{
+			AgentId: "web-1",
+			Output:  &v1.CommandOutputChunk{Stderr: []byte("a warning\n")},
+		}}},
+	)
+
+	var buf bytes.Buffer
+	r := NewBatchStreamRenderer(&buf, FormatTable).WithOutput(true)
+	if err := r.Render(scriptedEvents(events)); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{"=== agent web-1 stdout ===", "hello from web-1", "=== agent web-1 stderr ===", "a warning"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in output:\n%s", want, out)
+		}
+	}
+}
+
+// Without the flag the streams are not printed — a fleet-wide command
+// can produce a lot of output and the status summary is the default.
+func TestBatchStreamRenderer_OutputHiddenByDefault(t *testing.T) {
+	t.Parallel()
+	events := []*v1.BatchExecuteCommandResponse{
+		{Event: &v1.BatchExecuteCommandResponse_Output{Output: &v1.BatchAgentOutput{
+			AgentId: "web-1",
+			Output:  &v1.CommandOutputChunk{Stdout: []byte("secret-ish output")},
+		}}},
+	}
+	var buf bytes.Buffer
+	r := NewBatchStreamRenderer(&buf, FormatTable)
+	if err := r.Render(scriptedEvents(events)); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(buf.String(), "secret-ish output") {
+		t.Errorf("output printed without --show-output:\n%s", buf.String())
+	}
+}
+
+// BatchID is what runDispatch uses to fetch stored results once the
+// stream ends, so it has to survive the stream.
+func TestBatchStreamRenderer_BatchID(t *testing.T) {
+	t.Parallel()
+	var buf bytes.Buffer
+	r := NewBatchStreamRenderer(&buf, FormatTable)
+	if err := r.Render(scriptedEvents(sampleBatchStream())); err != nil {
+		t.Fatal(err)
+	}
+	if got := r.BatchID(); got != "batch-1" {
+		t.Errorf("BatchID() = %q, want batch-1", got)
+	}
+}
+
+func TestEnsureNewline(t *testing.T) {
+	t.Parallel()
+	tests := []struct{ in, want string }{
+		{"no trailing", "no trailing\n"},
+		{"has trailing\n", "has trailing\n"},
+		{"", ""},
+	}
+	for _, tt := range tests {
+		if got := ensureNewline([]byte(tt.in)); got != tt.want {
+			t.Errorf("ensureNewline(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}

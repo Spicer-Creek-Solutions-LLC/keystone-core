@@ -26,6 +26,11 @@ func listCmd(g *globals) *cobra.Command {
 		Long: "List secrets under the given prefix. Per the v1.0 contract " +
 			"cleartext data is never on a list response — only path / " +
 			"version / labels / updated_at.",
+		// The prefix is the --prefix FLAG, not a positional. Without
+		// NoArgs cobra's default accepts arbitrary positionals and this
+		// RunE discards them, so `secrets list app` returned the whole
+		// listing while looking like it had filtered to "app".
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runList(cmd.Context(), cmd.OutOrStdout(), g, opts)
 		},

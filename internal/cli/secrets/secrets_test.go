@@ -565,3 +565,32 @@ func (cliFakeTransit) GenerateDataKey(context.Context, internalsecrets.GenerateD
 }
 
 var _ internalsecrets.TransitBackend = cliFakeTransit{}
+
+// `list` takes its prefix from --prefix, not from a positional. Cobra's
+// default accepts arbitrary positionals and the RunE discards them, so
+// `secrets list app` used to return the WHOLE listing while looking as
+// though it had filtered to "app" — a silently wrong answer, which is
+// the worst kind. Args: cobra.NoArgs makes it an error.
+func TestCLI_List_RejectsPositionalPrefix(t *testing.T) {
+	t.Parallel()
+	r := newCLIRig(t)
+	if _, err := r.runCmd(t, "list", "app"); err == nil {
+		t.Error("list with a positional arg returned nil err — the prefix is --prefix, " +
+			"and silently ignoring the argument reports the wrong secrets")
+	}
+}
+
+func TestCLI_List_AcceptsPrefixFlag(t *testing.T) {
+	t.Parallel()
+	r := newCLIRig(t)
+	if _, err := r.runCmd(t, "put", "app/db", "--data", "k=v"); err != nil {
+		t.Fatalf("seed put: %v", err)
+	}
+	out, err := r.runCmd(t, "list", "--prefix", "app")
+	if err != nil {
+		t.Fatalf("list --prefix: %v", err)
+	}
+	if !strings.Contains(out, "app/db") {
+		t.Errorf("list --prefix app = %q, want it to contain app/db", out)
+	}
+}

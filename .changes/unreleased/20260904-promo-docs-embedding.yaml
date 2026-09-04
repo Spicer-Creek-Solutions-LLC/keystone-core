@@ -1,0 +1,18 @@
+kind: Added
+body: |-
+  **Docs clips are embedded in the Hugo site.** A `clip` shortcode
+  renders each reel as a muted, looping, `preload="none"` figure; the
+  five docs clips now appear on the getting-started index (fleet,
+  remote-exec), the secrets guide, and the GitOps guide (rollback,
+  outbound webhooks). `make promo-publish` stages the rendered videos
+  into `assets/promo/video/`, which `docs/hugo.toml` already mounts at
+  `static/keystone` -- the same mount the navbar logo uses -- so nothing
+  is copied into `docs/`. Publishing is kept separate from rendering on
+  purpose: `dist/` is working output, a re-render is never
+  byte-identical (the clips carry real UUIDs and timestamps), and
+  committing every render would cost ~1 MB of history each time.
+  `make promo-check` now also asserts each reel's `docs_page` exists and
+  still contains its shortcode, so a clip cannot silently stop being
+  shown when someone restructures a page.
+custom:
+  Demo: ""

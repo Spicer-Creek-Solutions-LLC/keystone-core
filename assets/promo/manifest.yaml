@@ -1,71 +1,153 @@
-# Keystone Core — 30-second promo video shot list.
+# Keystone Core — promo + docs-clip shot lists.
 #
-# This file is the edit decision list: shots render and concatenate in
-# the order below. The prose script that explains WHY each shot exists
-# lives in README.md next to this file; keep the two in step.
+# Each REEL renders to one video. Shots concatenate in the order below,
+# so this file is the edit decision list; nothing else encodes ordering.
+# The prose that explains WHY each shot exists lives in README.md next
+# to this file; keep the two in step.
 #
-# Validated by `make promo-check` (tools/promogen). The duration budget
-# is enforced, not advisory: a 30-second promo that drifts to 40 stops
-# being a promo, so adding a shot must take time back from another one.
+# Validated by `make promo-check` (tools/promogen). Each reel's duration
+# budget is enforced, not advisory: a 30-second promo that drifts to 40
+# stops being a promo, and a docs clip past ~20s stops getting watched.
+# Adding a shot must take the time back from another shot in the SAME
+# reel.
 
-target_duration: 30.0
-tolerance: 0.25
+defaults:
+  tolerance: 0.25
+  resolution:
+    width: 1920
+    height: 1080
 
-resolution:
-  width: 1920
-  height: 1080
+reels:
+  # === The 30-second promo =============================================
+  # A hook, not a tour. Its job is to make a stranger curious enough to
+  # click; showing twenty features in 30s shows none of them.
+  - id: promo
+    title: "30-second promo"
+    output: keystone-30s
+    target_duration: 30.0
+    square_cut: true
+    shots:
+      # --- Setup: the problem, then the claim ---------------------------
+      - id: hook
+        kind: card
+        duration: 3.0
+        caption: ""
+        tape: tapes/01-hook.tape
+        feature: ""
 
-shots:
-  # --- Setup: the problem, then the claim ---------------------------
-  - id: hook
-    kind: card
-    duration: 3.0
-    caption: ""
-    tape: tapes/01-hook.tape
-    feature: ""
+      - id: topology
+        kind: card
+        duration: 3.0
+        caption: ""
+        tape: tapes/02-topology.tape
+        feature: ""
 
-  - id: topology
-    kind: card
-    duration: 3.0
-    caption: ""
-    tape: tapes/02-topology.tape
-    feature: ""
+      # --- The argument: declare -> drift -> converge -------------------
+      # These three shots are the whole pitch. Everything else is framing,
+      # which is why they hold 16.5 of the 30 seconds.
+      - id: state-apply
+        kind: terminal
+        duration: 5.0
+        caption: "Declare the state."
+        tape: tapes/03-state-apply.tape
+        feature: state-apply
 
-  # --- The argument: declare -> drift -> converge -------------------
-  # These three shots are the whole pitch. Everything else is framing,
-  # which is why they hold 16.5 of the 30 seconds.
-  - id: state-apply
-    kind: terminal
-    duration: 5.0
-    caption: "Declare the state."
-    tape: tapes/03-state-apply.tape
-    feature: state-apply
+      - id: drift-detect
+        kind: terminal
+        duration: 5.5
+        caption: "The host drifts anyway."
+        tape: tapes/04-drift.tape
+        feature: state-drift
 
-  - id: drift-detect
-    kind: terminal
-    duration: 5.5
-    caption: "The host drifts anyway."
-    tape: tapes/04-drift.tape
-    feature: state-drift
+      - id: converge
+        kind: terminal
+        duration: 6.0
+        caption: "Keystone converges it."
+        tape: tapes/05-converge.tape
+        feature: state-drift-fix
 
-  - id: converge
-    kind: terminal
-    duration: 6.0
-    caption: "Keystone converges it."
-    tape: tapes/05-converge.tape
-    feature: state-drift-fix
+      # --- Proof, then the card ----------------------------------------
+      - id: audit
+        kind: terminal
+        duration: 4.0
+        caption: "Every change, audited."
+        tape: tapes/06-audit.tape
+        feature: audit-trail
 
-  # --- Proof, then the card ----------------------------------------
-  - id: audit
-    kind: terminal
-    duration: 4.0
-    caption: "Every change, audited."
-    tape: tapes/06-audit.tape
-    feature: audit-trail
+      - id: endcard
+        kind: card
+        duration: 3.5
+        caption: ""
+        tape: tapes/07-endcard.tape
+        feature: ""
 
-  - id: endcard
-    kind: card
-    duration: 3.5
-    caption: ""
-    tape: tapes/07-endcard.tape
-    feature: ""
+  # === Docs clips ======================================================
+  # One reel per TASK, not per command, and each is a SINGLE tape.
+  #
+  # The first cut of these was one clip per feature, two or three shots
+  # each, 4-11s. Two things were wrong with that. A 4-second clip of one
+  # command does not show anything an operator can act on. And every
+  # shot is its own tape, hence its own terminal with its own `clear`,
+  # so a multi-shot clip wiped the screen mid-task and read as a
+  # rendering fault rather than a scene change.
+  #
+  # So: one continuous session per clip, several commands, nothing
+  # cleared between them — the screen accumulates the way a real
+  # terminal does. One shot per reel follows from that; the caption acts
+  # as a title and the docs page's prose carries the detail.
+  #
+  # Durations are measured from the rendered tape, not guessed. The
+  # assembler pads a short clip with its final frame but TRUNCATES a
+  # long one, so each budget sits just above its raw length.
+
+  - id: operate-a-fleet
+    title: "Operating a fleet"
+    output: docs-operate-a-fleet
+    target_duration: 11.5
+    docs_page: docs/content/docs/getting-started/_index.md
+    shots:
+      - id: session
+        kind: terminal
+        duration: 11.5
+        caption: "Ask every host the same question, and get every answer back."
+        tape: tapes/50-fleet-task.tape
+        feature: fleet-exec
+
+  - id: manage-secrets
+    title: "Managing secrets"
+    output: docs-manage-secrets
+    target_duration: 17.5
+    docs_page: docs/content/docs/getting-started/secrets.md
+    shots:
+      - id: session
+        kind: terminal
+        duration: 17.5
+        caption: "Store a credential, then render it into config without printing it."
+        tape: tapes/51-secrets-task.tape
+        feature: secrets-roundtrip
+
+  - id: gitops-rollback
+    title: "GitOps rollback with an approval gate"
+    output: docs-gitops-rollback
+    target_duration: 13.5
+    docs_page: docs/content/docs/getting-started/gitops.md
+    shots:
+      - id: session
+        kind: terminal
+        duration: 13.5
+        caption: "Propose a rollback, see it waiting, then decide."
+        tape: tapes/52-rollback-task.tape
+        feature: gitops-rollback
+
+  - id: outbound-webhooks
+    title: "Outbound webhooks"
+    output: docs-outbound-webhooks
+    target_duration: 13.5
+    docs_page: docs/content/docs/getting-started/gitops.md
+    shots:
+      - id: session
+        kind: terminal
+        duration: 13.5
+        caption: "Subscribe, deliver, and read the delivery record."
+        tape: tapes/53-webhook-task.tape
+        feature: webhook-roundtrip

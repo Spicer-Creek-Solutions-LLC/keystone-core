@@ -1,0 +1,24 @@
+# Promo scenario — render an application's environment file from a
+# credential held in the secrets store.
+#
+# The password is NOT in this file. It arrives as a --variable at apply
+# time, which is the point of the clip: the state file is committable,
+# the credential is not. `db_password` carries a placeholder default so
+# the file still compiles on its own (the renderer runs with
+# missingkey=error).
+
+metadata:
+  name: promo-app-env
+  version: "1.0"
+
+variables:
+  db_user: app
+  db_password: CHANGEME
+
+file:
+  /srv/promo/payments.env:
+    state: present
+    mode: "0600"
+    content: |
+      DATABASE_URL=postgres://{{ .Vars.db_user }}:{{ .Vars.db_password }}@db.internal:5432/payments
+      POOL_MAX=20
