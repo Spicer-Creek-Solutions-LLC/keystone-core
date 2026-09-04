@@ -3,9 +3,7 @@ title: Getting Started
 weight: 1
 ---
 
-{{< clip name="docs-fleet" caption="`kscorectl agent list` — every registered agent and its last heartbeat." >}}
-
-{{< clip name="docs-remote-exec" caption="Resolve a target selector first, then dispatch across the fleet." >}}
+{{< clip name="docs-operate-a-fleet" caption="List agents, resolve a target selector, dispatch across the fleet, and read each agent's output back." >}}
 
 Hands-on, runnable tutorials for the day-2 tasks an operator or author
 takes on after the [30-minute quick start](/docs/reference/getting-started/)

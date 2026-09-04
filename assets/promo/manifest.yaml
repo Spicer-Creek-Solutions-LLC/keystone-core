@@ -82,96 +82,72 @@ reels:
         feature: ""
 
   # === Docs clips ======================================================
-  # Short, single-idea clips embedded at the top of a docs page. No
-  # square cut (that is a social-media concern) and no end card — the
-  # page around them carries the context a promo has to build itself.
+  # One reel per TASK, not per command, and each is a SINGLE tape.
+  #
+  # The first cut of these was one clip per feature, two or three shots
+  # each, 4-11s. Two things were wrong with that. A 4-second clip of one
+  # command does not show anything an operator can act on. And every
+  # shot is its own tape, hence its own terminal with its own `clear`,
+  # so a multi-shot clip wiped the screen mid-task and read as a
+  # rendering fault rather than a scene change.
+  #
+  # So: one continuous session per clip, several commands, nothing
+  # cleared between them — the screen accumulates the way a real
+  # terminal does. One shot per reel follows from that; the caption acts
+  # as a title and the docs page's prose carries the detail.
+  #
+  # Durations are measured from the rendered tape, not guessed. The
+  # assembler pads a short clip with its final frame but TRUNCATES a
+  # long one, so each budget sits just above its raw length.
 
-  - id: fleet
-    title: "The fleet view"
-    output: docs-fleet
-    target_duration: 4.0
+  - id: operate-a-fleet
+    title: "Operating a fleet"
+    output: docs-operate-a-fleet
+    target_duration: 15.0
     docs_page: docs/content/docs/getting-started/_index.md
     shots:
-      - id: list
+      - id: session
         kind: terminal
-        duration: 4.0
-        caption: "Every agent, one command."
-        tape: tapes/10-fleet.tape
-        feature: agent-list
+        duration: 15.0
+        caption: "List agents, resolve a target, dispatch, read the output back."
+        tape: tapes/50-fleet-task.tape
+        feature: fleet-exec
 
-  - id: remote-exec
-    title: "Remote execution"
-    output: docs-remote-exec
-    target_duration: 9.0
-    docs_page: docs/content/docs/getting-started/_index.md
-    shots:
-      - id: target
-        kind: terminal
-        duration: 3.5
-        caption: "Resolve the target first."
-        tape: tapes/11-exec-target.tape
-        feature: exec-target
-      - id: run
-        kind: terminal
-        duration: 5.5
-        caption: "Then run it across the fleet."
-        tape: tapes/12-exec-run.tape
-        feature: exec-run
-
-  - id: secrets
-    title: "Secrets round-trip"
-    output: docs-secrets
-    target_duration: 9.5
+  - id: manage-secrets
+    title: "Managing secrets"
+    output: docs-manage-secrets
+    target_duration: 13.5
     docs_page: docs/content/docs/getting-started/secrets.md
     shots:
-      - id: put
+      - id: session
         kind: terminal
-        duration: 4.0
-        caption: "Write a secret."
-        tape: tapes/20-secrets-put.tape
-        feature: secrets-put
-      - id: get
-        kind: terminal
-        duration: 5.5
-        caption: "Read it back — masked by default."
-        tape: tapes/21-secrets-get.tape
-        feature: secrets-get
+        duration: 13.5
+        caption: "Write, list, read masked — then cleartext, deliberately."
+        tape: tapes/51-secrets-task.tape
+        feature: secrets-roundtrip
 
   - id: gitops-rollback
     title: "GitOps rollback with an approval gate"
     output: docs-gitops-rollback
-    target_duration: 9.5
+    target_duration: 13.5
     docs_page: docs/content/docs/getting-started/gitops.md
     shots:
-      - id: propose
+      - id: session
         kind: terminal
-        duration: 4.5
-        caption: "A rollback that waits for a human."
-        tape: tapes/30-rollback-propose.tape
-        feature: gitops-rollback-propose
-      - id: decide
-        kind: terminal
-        duration: 5.0
-        caption: "Approve or reject — the transition is recorded."
-        tape: tapes/31-rollback-reject.tape
-        feature: gitops-rollback-decide
+        duration: 13.5
+        caption: "Propose a rollback, see it waiting, then decide."
+        tape: tapes/52-rollback-task.tape
+        feature: gitops-rollback
 
   - id: outbound-webhooks
     title: "Outbound webhooks"
     output: docs-outbound-webhooks
-    target_duration: 11.0
+    target_duration: 13.5
     docs_page: docs/content/docs/getting-started/gitops.md
     shots:
-      - id: subscribe
+      - id: session
         kind: terminal
-        duration: 5.0
-        caption: "Subscribe to the events you care about."
-        tape: tapes/40-webhook-create.tape
-        feature: webhook-subscribe
-      - id: deliver
-        kind: terminal
-        duration: 6.0
-        caption: "Every delivery is attempted, and recorded."
-        tape: tapes/41-webhook-deliver.tape
-        feature: webhook-deliver
-
+        duration: 13.5
+        caption: "Subscribe, deliver, and read the delivery record."
+        tape: tapes/53-webhook-task.tape
+        feature: webhook-roundtrip

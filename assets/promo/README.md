@@ -18,14 +18,26 @@ see.
 | Reel | Output | Budget | Purpose |
 | --- | --- | --- | --- |
 | `promo` | `keystone-30s.mp4` (+ square cut) | 30.0s | The hook. Makes a stranger curious enough to click. |
-| `fleet` | `docs-fleet.mp4` | 4.0s | `agent list` — the first command an operator runs. |
-| `remote-exec` | `docs-remote-exec.mp4` | 9.0s | Resolve a target, then dispatch across the fleet. |
-| `secrets` | `docs-secrets.mp4` | 9.5s | Write a secret, read it back masked. |
-| `gitops-rollback` | `docs-gitops-rollback.mp4` | 9.5s | Propose a rollback, then approve or reject it. |
-| `outbound-webhooks` | `docs-outbound-webhooks.mp4` | 11.0s | Subscribe to events; deliver and record. |
+| `operate-a-fleet` | `docs-operate-a-fleet.mp4` | 15.0s | List agents, resolve a target, dispatch, read output back. |
+| `manage-secrets` | `docs-manage-secrets.mp4` | 13.5s | Write, list, read masked, then cleartext. |
+| `gitops-rollback` | `docs-gitops-rollback.mp4` | 13.5s | Propose a rollback, see it waiting, decide. |
+| `outbound-webhooks` | `docs-outbound-webhooks.mp4` | 13.5s | Subscribe, deliver, read the delivery record. |
 
 Docs clips carry no square cut and no end card: the page around them
 supplies the context a promo has to build for itself.
+
+**One reel per task, one tape per reel.** The first cut of these was one
+clip per *command* — 4 to 11 seconds, two or three shots each — and it
+was wrong twice over. A 4-second clip of a single command shows nothing
+an operator can act on. And every shot is its own tape, so it is its own
+terminal with its own `clear`: a multi-shot clip wiped the screen
+mid-task and read as a rendering fault rather than a scene change. A
+docs clip is one continuous session that accumulates the way a real
+terminal does.
+
+Durations are **measured from the rendered tape**, not guessed. The
+assembler pads a short clip with its final frame but truncates a long
+one, so each budget sits just above its raw length.
 
 Two clips set a smaller `FontSize` than `_common.tape`, and the tapes
 say why: their output carries full UUIDs, which wrap at the default and
