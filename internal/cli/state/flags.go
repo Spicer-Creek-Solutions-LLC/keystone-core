@@ -17,6 +17,10 @@ import (
 // content + variable subset but skip the agent / cluster / source
 // fields that only matter once a request hits the server.
 type inputFlags struct {
+	// Target is mandatory on every host-acting subcommand. See
+	// internal/cli/target.ParseRequired for why the old "omitted means
+	// the control plane" default was removed.
+	Target    string
 	Agent     string
 	Cluster   string
 	Source    string
@@ -32,8 +36,11 @@ type localFlags struct {
 
 // registerInputFlags wires the shared server-bound flags onto cmd.
 func registerInputFlags(cmd *cobra.Command, f *inputFlags) {
+	cmd.Flags().StringVar(&f.Target, "target", "",
+		"REQUIRED: where to run — 'localhost' for the control-plane host, "+
+			"or id:<agent>[,...] | <label>:<value> | hostname:<glob> for agents")
 	cmd.Flags().StringVar(&f.Agent, "agent", "",
-		"target agent ID")
+		"agent ID to record this run against (attribution only; use --target to choose where it runs)")
 	cmd.Flags().StringVar(&f.Cluster, "cluster", "",
 		"cluster ID (optional)")
 	cmd.Flags().StringVar(&f.Source, "source", "",

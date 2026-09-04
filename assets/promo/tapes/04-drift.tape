@@ -21,5 +21,5 @@ Type `bash drift.sh >/dev/null` Enter
 Type "clear" Enter
 Show
 
-Type "kscorectl state drift state/web.yaml" Enter
+Type "kscorectl state drift --target localhost state/web.yaml" Enter
 Sleep 4500ms

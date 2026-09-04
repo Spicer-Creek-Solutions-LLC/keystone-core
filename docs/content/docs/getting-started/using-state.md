@@ -9,6 +9,27 @@ match it — installing packages, writing files, starting services — and
 reports when reality has **drifted** away. Every module is **idempotent**:
 applying the same file twice changes nothing the second time.
 
+## Which host?
+
+Every state command takes a **required** `--target`, because "which
+host" is never a safe thing to guess:
+
+```bash
+kscorectl state apply web-stack.yaml --target localhost      # the control-plane host
+kscorectl state apply web-stack.yaml --target id:web-1       # one agent
+kscorectl state apply web-stack.yaml --target role:web       # every agent with role=web
+kscorectl state apply web-stack.yaml --target hostname:web-* # by hostname glob
+```
+
+A targeted run is compiled **on each agent**, against that agent's own
+facts — so `{{ .Facts.os }}` means the OS of the host being converged,
+not the control plane's. Results come back attributed per host, and one
+unreachable host does not stop the others.
+
+`--agent` is a different flag: it records a run against a host for
+history and audit. It does **not** choose where the run executes. Use
+`--target`.
+
 This guide covers the state-file language, requisites (ordering and
 reactivity), and the apply → check → drift → rollback workflow. For the
 full list of what you can manage, see the
@@ -114,15 +135,15 @@ file is a positional argument.
 
 ```bash
 # Apply — converge the host to the file (idempotent)
-kscorectl state apply web-stack.yaml --agent web-1
+kscorectl state apply web-stack.yaml --target id:web-1
 
 # Check — dry-run: report what WOULD change, change nothing
-kscorectl state check web-stack.yaml --agent web-1
+kscorectl state check web-stack.yaml --target id:web-1
 
 # Drift — report resources that have drifted from the file
-kscorectl state drift web-stack.yaml --agent web-1
+kscorectl state drift web-stack.yaml --target id:web-1
 #   …add --fix to re-apply and remediate the drift:
-kscorectl state drift web-stack.yaml --agent web-1 --fix
+kscorectl state drift web-stack.yaml --target id:web-1 --fix
 ```
 
 Every apply is recorded, so you can audit and roll back:

@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"go.keystone-core.io/keystone-core/internal/cli/target"
 	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 )
 
@@ -38,8 +39,13 @@ func runCheck(cmd *cobra.Command, args []string, g *globals, flags *inputFlags) 
 	if err != nil {
 		return fmt.Errorf("--fact: %w", err)
 	}
+	tgt, err := target.ParseRequired(flags.Target)
+	if err != nil {
+		return err
+	}
 	req := &v1.CheckStateRequest{
 		YamlContent:       yaml,
+		Target:            tgt,
 		Facts:             facts,
 		VariableOverrides: vars,
 		Source:            resolveSource(flags.Source, defaultSource),

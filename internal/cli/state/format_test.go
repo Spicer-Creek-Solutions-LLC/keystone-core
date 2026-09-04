@@ -14,13 +14,13 @@ import (
 func TestOutcomeBadge(t *testing.T) {
 	t.Parallel()
 	cases := map[v1.StateRunOutcome]string{
-		v1.StateRunOutcome_STATE_RUN_OUTCOME_UNCHANGED:       "ok    ",
-		v1.StateRunOutcome_STATE_RUN_OUTCOME_CHANGED:         "change",
-		v1.StateRunOutcome_STATE_RUN_OUTCOME_NO_OP:           "no-op ",
-		v1.StateRunOutcome_STATE_RUN_OUTCOME_FAILED:          "FAIL  ",
-		v1.StateRunOutcome_STATE_RUN_OUTCOME_DRIFT_DETECTED:  "drift ",
-		v1.StateRunOutcome_STATE_RUN_OUTCOME_SKIPPED:         "skip  ",
-		v1.StateRunOutcome(99):                                "?     ",
+		v1.StateRunOutcome_STATE_RUN_OUTCOME_UNCHANGED:      "ok    ",
+		v1.StateRunOutcome_STATE_RUN_OUTCOME_CHANGED:        "change",
+		v1.StateRunOutcome_STATE_RUN_OUTCOME_NO_OP:          "no-op ",
+		v1.StateRunOutcome_STATE_RUN_OUTCOME_FAILED:         "FAIL  ",
+		v1.StateRunOutcome_STATE_RUN_OUTCOME_DRIFT_DETECTED: "drift ",
+		v1.StateRunOutcome_STATE_RUN_OUTCOME_SKIPPED:        "skip  ",
+		v1.StateRunOutcome(99):                              "?     ",
 	}
 	for o, want := range cases {
 		if got := outcomeBadge(o); got != want {
@@ -169,9 +169,9 @@ func TestPrintDrift_SeverityOrdering(t *testing.T) {
 		AggregateSeverity: v1.DriftSeverity_DRIFT_SEVERITY_CRITICAL,
 		Aggregates:        &v1.StateRunAggregates{Drifted: 3},
 		Statuses: []*v1.DriftDeclaration{
-			{DeclId: "low",      Severity: v1.DriftSeverity_DRIFT_SEVERITY_LOW,      State: v1.DriftState_DRIFT_STATE_DRIFTED},
+			{DeclId: "low", Severity: v1.DriftSeverity_DRIFT_SEVERITY_LOW, State: v1.DriftState_DRIFT_STATE_DRIFTED},
 			{DeclId: "critical", Severity: v1.DriftSeverity_DRIFT_SEVERITY_CRITICAL, State: v1.DriftState_DRIFT_STATE_DRIFTED},
-			{DeclId: "high",     Severity: v1.DriftSeverity_DRIFT_SEVERITY_HIGH,     State: v1.DriftState_DRIFT_STATE_DRIFTED},
+			{DeclId: "high", Severity: v1.DriftSeverity_DRIFT_SEVERITY_HIGH, State: v1.DriftState_DRIFT_STATE_DRIFTED},
 		},
 	}
 	if err := printDrift(&buf, FormatTable, resp); err != nil {
@@ -309,7 +309,7 @@ func TestPrintShow_Full(t *testing.T) {
 			Source:       "test.yaml",
 			AgentId:      "web-1",
 			ErrorMessage: "",
-			Aggregates: &v1.StateRunAggregates{Total: 2, Changed: 1, Unchanged: 1},
+			Aggregates:   &v1.StateRunAggregates{Total: 2, Changed: 1, Unchanged: 1},
 		},
 		Declarations: []*v1.StateDeclarationResult{
 			{DeclId: "file:/a", Outcome: v1.StateRunOutcome_STATE_RUN_OUTCOME_CHANGED, ApplyDiff: "mode 0600→0644"},

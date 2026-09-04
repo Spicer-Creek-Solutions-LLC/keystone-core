@@ -7,6 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"go.keystone-core.io/keystone-core/internal/cli/target"
 	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
 )
 
@@ -47,6 +48,11 @@ func runDrift(cmd *cobra.Command, args []string, g *globals, flags *inputFlags, 
 	}
 	source := resolveSource(flags.Source, defaultSource)
 
+	tgt, err := target.ParseRequired(flags.Target)
+	if err != nil {
+		return err
+	}
+
 	client, closer, err := g.Deps.Dial(ctx, g.Server, g.APIKey)
 	if err != nil {
 		return err
@@ -55,6 +61,7 @@ func runDrift(cmd *cobra.Command, args []string, g *globals, flags *inputFlags, 
 
 	resp, err := client.DetectDrift(authContext(ctx, g.APIKey), &v1.DetectDriftRequest{
 		YamlContent:       yaml,
+		Target:            tgt,
 		Facts:             facts,
 		VariableOverrides: vars,
 		Source:            source,
@@ -80,8 +87,12 @@ func runDrift(cmd *cobra.Command, args []string, g *globals, flags *inputFlags, 
 		return nil
 	}
 	fmt.Fprintln(out, "\n--- fix ---")
+	// Same target as the detection pass. Without it --fix would report
+	// drift on the fleet and then remediate the control plane instead,
+	// which is worse than not remediating at all.
 	stream, err := client.ApplyState(authContext(ctx, g.APIKey), &v1.ApplyStateRequest{
 		YamlContent:       yaml,
+		Target:            tgt,
 		Facts:             facts,
 		VariableOverrides: vars,
 		Source:            source,

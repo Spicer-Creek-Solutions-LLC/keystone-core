@@ -358,8 +358,8 @@ If the agent never appears in the events list, jump to
 - [ ] A representative state apply works:
 
 ```bash
-kscorectl state apply ./examples/hello.yaml --agent trial-host-01
-kscorectl state drift --agent trial-host-01   # should report zero drift
+kscorectl state apply ./examples/hello.yaml --target id:trial-host-01
+kscorectl state drift --target id:trial-host-01   # should report zero drift
 ```
 
 ## Cross-references

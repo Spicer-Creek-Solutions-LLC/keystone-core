@@ -1,0 +1,20 @@
+kind: Changed
+body: |-
+  **BREAKING: `kscorectl state apply` / `check` / `drift` now require
+  `--target`.** Omitting one used to mean "the control-plane host",
+  which is a surprising default for a fleet tool -- a state apply looked
+  fleet-wide while converging exactly one machine, and nothing in the
+  docs said otherwise. `--target localhost` is the explicit way to ask
+  for the old behaviour; `id:<agent>`, `<label>:<value>` and
+  `hostname:<glob>` target agents, using the same dialect `exec` accepts
+  (the parser moved to internal/cli/target so the two cannot drift). The
+  existing `--agent` flag keeps its real meaning -- it records a run
+  against a host for history and audit, and does not choose where the
+  run executes. `drift --fix` now sends its remediation to the same
+  target it detected on; previously the second request carried no
+  target, so a fleet-wide `--fix` would have reported drift on agents
+  and then converged the control plane. The state guide gained a "Which
+  host?" section, since it never said which host a state file applied
+  to.
+custom:
+  Demo: ""
