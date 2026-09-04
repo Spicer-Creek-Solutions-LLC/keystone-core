@@ -466,4 +466,3 @@ func paginate(total int, pageSize int32, pageToken string) (pageBounds, string, 
 	}
 	return pageBounds{lo: lo, hi: hi}, next, nil
 }
-

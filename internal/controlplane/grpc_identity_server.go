@@ -322,8 +322,8 @@ func joinTokenToProto(t *identity.JoinToken) *v1.JoinToken {
 		Prefix:     t.Prefix,
 		AgentId:    t.AgentID,
 		TtlSeconds: int64(t.TTL / time.Second),
-		MaxUses:    int32(t.MaxUses),    //nolint:gosec // bounded by spec
-		UsedCount:  int32(t.UsedCount),  //nolint:gosec // bounded by MaxUses
+		MaxUses:    int32(t.MaxUses),   //nolint:gosec // bounded by spec
+		UsedCount:  int32(t.UsedCount), //nolint:gosec // bounded by MaxUses
 		Metadata:   t.Metadata,
 	}
 	if !t.CreatedAt.IsZero() {

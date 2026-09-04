@@ -36,6 +36,8 @@ import (
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/logging"
 	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
+	"go.keystone-core.io/keystone-core/internal/statemgmt"
+	"go.keystone-core.io/keystone-core/internal/statemgmt/stdlib"
 	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
 
@@ -98,6 +100,19 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 		Logger:         log,
 		DefaultTimeout: cfg.Agent.CommandTimeout,
 	})
+
+	// Register the FULL state stdlib on the agent. A state file that
+	// carries everything it needs should be runnable on the host it
+	// describes without the control plane resolving anything for it,
+	// so the agent holds a complete engine rather than a subset. That
+	// also means `.Facts` render against this machine, which is the
+	// whole reason compilation happens here (internal/agent/converge.go).
+	//
+	// ErrDuplicateModule is tolerated for the same reason kscore-server
+	// tolerates it: RegisterAll is idempotent across re-entry in tests.
+	if err := stdlib.RegisterAll(nil); err != nil && !errors.Is(err, statemgmt.ErrDuplicateModule) {
+		return fmt.Errorf("stdlib register: %w", err)
+	}
 
 	a, err := agent.New(agent.Config{
 		AgentID:           cfg.Agent.AgentID,

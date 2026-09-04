@@ -211,12 +211,12 @@ func declResultToRecord(runID string, r *statemgmt.DeclarationResult) *state.Sta
 		return nil
 	}
 	rec := &state.StateRunResultRecord{
-		RunID:        runID,
-		DeclID:       r.DeclID,
-		Module:       r.Module,
-		Outcome:      outcomeToRecord(r.Outcome),
-		StartedAt:    r.StartedAt,
-		DurationMS:   r.Duration.Milliseconds(),
+		RunID:      runID,
+		DeclID:     r.DeclID,
+		Module:     r.Module,
+		Outcome:    outcomeToRecord(r.Outcome),
+		StartedAt:  r.StartedAt,
+		DurationMS: r.Duration.Milliseconds(),
 	}
 	if r.Check != nil {
 		rec.CheckMatches = sqlBool(r.Check.Matches)

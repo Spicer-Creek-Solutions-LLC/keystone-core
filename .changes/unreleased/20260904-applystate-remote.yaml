@@ -1,0 +1,19 @@
+kind: Added
+body: |-
+  **`ApplyState` dispatches to agents when the request carries a
+  target.** A targeted apply resolves the target with the same
+  ResolveTarget batch exec uses, converges every matching agent
+  concurrently, and streams per-declaration results attributed to the
+  host each ran on. The state file is compiled ON each agent, never
+  centrally -- rendering resolves `.Facts`, so a central compile would
+  ship declarations describing the wrong machine. One host failing does
+  not abort the others; it is recorded against itself and the rest still
+  converge, and the terminal event carries a per-agent summary so an
+  operator can tell which host to go look at. Results are sorted by
+  agent id before streaming so two runs of the same file produce the
+  same transcript. Proto gains `StateDeclarationResult.agent_id` and
+  `StateRunTerminal.agent_summaries` (both additive). Untargeted applies
+  are unchanged and still converge the control plane; the scalar
+  `agent_id` field remains attribution and does not dispatch.
+custom:
+  Demo: ""

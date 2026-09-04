@@ -125,6 +125,11 @@ message StateDeclarationResult {
   string error_message                 = 8;
   google.protobuf.Timestamp started_at = 9;
   int64 duration_ms                    = 10;
+  // agent_id names the host this declaration ran on. Empty means the
+  // control plane itself, which is what an untargeted run still does.
+  // Without it a fleet-wide run reports N results per declaration with
+  // no way to tell which host each came from.
+  string agent_id = 11;
 }
 
 // StateRun is the header summary of one stored run.
@@ -157,6 +162,22 @@ message StateRunTerminal {
   StateRunStatus status         = 2;
   StateRunAggregates aggregates = 3;
   string error_message          = 4;
+  // agent_summaries carries one entry per targeted host. A run that
+  // succeeds on three hosts and fails on one is not adequately
+  // described by a single aggregate, and the operator needs to know
+  // WHICH host to go look at.
+  repeated StateAgentSummary agent_summaries = 5;
+}
+
+// StateAgentSummary is one host's outcome within a multi-agent run.
+message StateAgentSummary {
+  string agent_id               = 1;
+  StateRunStatus status         = 2;
+  StateRunAggregates aggregates = 3;
+  // error_message is set when the agent could not be reached, refused
+  // the run, or failed to compile the state file — as distinct from a
+  // declaration failing, which lands in aggregates.
+  string error_message = 4;
 }
 
 // ---- ApplyState -----------------------------------------------------

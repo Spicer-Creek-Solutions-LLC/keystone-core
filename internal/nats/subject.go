@@ -97,6 +97,31 @@ func (b *SubjectBuilder) AgentState(agentID string) string {
 	return b.prefix + ".agent." + agentID + ".state"
 }
 
+// AgentConverge is the per-agent inbound state-run subject. The
+// control plane publishes a signed ConvergeRequest here; the named
+// agent subscribes, compiles the state file against its OWN facts and
+// registry, and converges itself.
+//
+// Distinct from AgentState, which is the agent's outbound status
+// publication — the name collision is why this one is "converge".
+func (b *SubjectBuilder) AgentConverge(agentID string) string {
+	return b.prefix + ".agent." + agentID + ".converge"
+}
+
+// AgentConvergeResult is the per-agent state-run result subject,
+// mirroring AgentResponse for the command path. Agents publish; the
+// control plane correlates by the inbound MessageID.
+func (b *SubjectBuilder) AgentConvergeResult(agentID string) string {
+	return b.prefix + ".agent." + agentID + ".converge.result"
+}
+
+// AgentConvergeResultPattern is the wildcard form of
+// AgentConvergeResult, for the server-side subscriber that fans every
+// agent's run results into a correlation map.
+func (b *SubjectBuilder) AgentConvergeResultPattern() string {
+	return b.prefix + ".agent.*.converge.result"
+}
+
 // ServerAnnounce is the server-to-server announcement subject (Epic
 // 13 clustering). v1.0 single-server installs publish here on boot
 // for future-proofing the subject layout.

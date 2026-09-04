@@ -44,10 +44,10 @@ type AgentResponsePayload struct {
 // Late or duplicate responses (no waiter, command already finalized)
 // are logged at debug and dropped.
 type ResponseRouter struct {
-	subscriber  Subscriber
-	subjects    Subjects
-	dispatcher  *CommandDispatcher
-	logger      *slog.Logger
+	subscriber Subscriber
+	subjects   Subjects
+	dispatcher *CommandDispatcher
+	logger     *slog.Logger
 
 	mu      sync.Mutex
 	waiters map[string]chan AgentResponsePayload // by CorrelationID

@@ -35,6 +35,12 @@ func (f fakeSubjects) AgentResponse(id string) string {
 func (f fakeSubjects) AgentState(id string) string {
 	return "kscore." + f.cluster + ".agent." + id + ".state"
 }
+func (f fakeSubjects) AgentConverge(id string) string {
+	return "kscore." + f.cluster + ".agent." + id + ".converge"
+}
+func (f fakeSubjects) AgentConvergeResult(id string) string {
+	return "kscore." + f.cluster + ".agent." + id + ".converge.result"
+}
 func (f fakeSubjects) BootstrapRegister(id string) string {
 	return "kscore." + f.cluster + ".bootstrap." + id + ".register"
 }
@@ -58,17 +64,48 @@ func (s *fakeSubscription) Unsubscribe() error {
 // fakeNATSClient captures publishes per-subject and exposes the
 // subscriber callback so tests can deliver synthetic commands.
 type fakeNATSClient struct {
-	mu       sync.Mutex
+	mu sync.Mutex
+	// subSubj is the COMMAND subscription's subject. The agent also
+	// subscribes to its converge subject, so the last-write-wins field
+	// alone stopped being meaningful — handlers records every one.
 	subSubj  string
 	handler  MessageHandler
+	handlers map[string]MessageHandler
+	subjects []string
 	sub      *fakeSubscription
+	subs     []*fakeSubscription
 	subErr   error
-	publishes map[string][]envelope.Envelope
-	pubErr    error
+	// subErrAfter, when > 0, lets the Nth subscribe succeed and fails
+	// the ones after it — used to exercise the half-subscribed unwind.
+	subErrAfter int
+	publishes   map[string][]envelope.Envelope
+	pubErr      error
 }
 
 func newFakeNATS() *fakeNATSClient {
-	return &fakeNATSClient{publishes: map[string][]envelope.Envelope{}}
+	return &fakeNATSClient{
+		publishes: map[string][]envelope.Envelope{},
+		handlers:  map[string]MessageHandler{},
+	}
+}
+
+// handlerFor returns the callback registered for subject.
+func (f *fakeNATSClient) handlerFor(subject string) MessageHandler {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.handlers[subject]
+}
+
+// subscribed reports whether subject was subscribed.
+func (f *fakeNATSClient) subscribed(subject string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, s := range f.subjects {
+		if s == subject {
+			return true
+		}
+	}
+	return false
 }
 
 func (f *fakeNATSClient) PublishEnvelope(_ context.Context, subject string, env envelope.Envelope) error {
@@ -84,13 +121,24 @@ func (f *fakeNATSClient) PublishEnvelope(_ context.Context, subject string, env 
 func (f *fakeNATSClient) Subscribe(subject string, h MessageHandler) (Subscription, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.subErr != nil {
+	if f.subErr != nil && (f.subErrAfter == 0 || len(f.subjects) >= f.subErrAfter) {
 		return nil, f.subErr
 	}
-	f.subSubj = subject
-	f.handler = h
-	f.sub = &fakeSubscription{}
-	return f.sub, nil
+	if f.handlers == nil {
+		f.handlers = map[string]MessageHandler{}
+	}
+	f.handlers[subject] = h
+	f.subjects = append(f.subjects, subject)
+	sub := &fakeSubscription{}
+	f.subs = append(f.subs, sub)
+	// Keep the single-value fields pointing at the COMMAND subscription
+	// so existing assertions keep meaning what they meant.
+	if strings.HasSuffix(subject, ".command") {
+		f.subSubj = subject
+		f.handler = h
+		f.sub = sub
+	}
+	return sub, nil
 }
 
 func (f *fakeNATSClient) Health(_ context.Context) error { return nil }
@@ -104,7 +152,13 @@ func (f *fakeNATSClient) publishCount(subject string) int {
 func (f *fakeNATSClient) deliver(t *testing.T, subject string, env envelope.Envelope) error {
 	t.Helper()
 	f.mu.Lock()
-	h := f.handler
+	// Route by subject — the agent has more than one subscription now,
+	// so delivering to whichever handler registered last would silently
+	// send commands to the converge handler and vice versa.
+	h, ok := f.handlers[subject]
+	if !ok {
+		h = f.handler
+	}
 	f.mu.Unlock()
 	if h == nil {
 		t.Fatal("deliver: no handler attached")
@@ -728,7 +782,7 @@ func TestAgent_ShutdownDrainsInFlightCommand(t *testing.T) {
 		MessageID:      "cmd-shutdown-drain",
 		Command:        "/bin/sleep",
 		Args:           []string{"30"}, // would block well past test budget
-		TimeoutSeconds: 60,              // big enough that the per-command timeout doesn't kick in
+		TimeoutSeconds: 60,             // big enough that the per-command timeout doesn't kick in
 	}
 	req.Signature = enf.ComputeHMAC(req)
 	body, _ := json.Marshal(req)

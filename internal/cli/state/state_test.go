@@ -23,24 +23,24 @@ import (
 
 type fakeClient struct {
 	v1.StateServiceClient
-	applyStream     *fakeApplyStream
-	applyErr        error
-	checkResp       *v1.CheckStateResponse
-	checkErr        error
-	driftResp       *v1.DetectDriftResponse
-	driftErr        error
-	historyResp     *v1.GetStateHistoryResponse
-	historyErr      error
-	statusResp      *v1.GetStateStatusResponse
-	statusErr       error
-	rollbackStream  *fakeRollbackStream
-	rollbackErr     error
-	applyReqs       []*v1.ApplyStateRequest
-	checkReqs       []*v1.CheckStateRequest
-	driftReqs       []*v1.DetectDriftRequest
-	historyReqs     []*v1.GetStateHistoryRequest
-	statusReqs      []*v1.GetStateStatusRequest
-	rollbackReqs    []*v1.RollbackStateRequest
+	applyStream    *fakeApplyStream
+	applyErr       error
+	checkResp      *v1.CheckStateResponse
+	checkErr       error
+	driftResp      *v1.DetectDriftResponse
+	driftErr       error
+	historyResp    *v1.GetStateHistoryResponse
+	historyErr     error
+	statusResp     *v1.GetStateStatusResponse
+	statusErr      error
+	rollbackStream *fakeRollbackStream
+	rollbackErr    error
+	applyReqs      []*v1.ApplyStateRequest
+	checkReqs      []*v1.CheckStateRequest
+	driftReqs      []*v1.DetectDriftRequest
+	historyReqs    []*v1.GetStateHistoryRequest
+	statusReqs     []*v1.GetStateStatusRequest
+	rollbackReqs   []*v1.RollbackStateRequest
 }
 
 func (c *fakeClient) ApplyState(_ context.Context, req *v1.ApplyStateRequest, _ ...grpc.CallOption) (v1.StateService_ApplyStateClient, error) {
@@ -154,7 +154,7 @@ func TestApply_StreamsAllEvents(t *testing.T) {
 	root := NewCommand(dialFor(client))
 
 	yaml := writeYAML(t, "file:\n  /etc/hosts:\n    state: present\n")
-	out, err := runCmd(t, root, "apply", yaml, "--agent", "web-1")
+	out, err := runCmd(t, root, "apply", yaml, "--target", "localhost", "--agent", "web-1")
 	if err != nil {
 		t.Fatalf("apply: %v", err)
 	}
@@ -193,7 +193,7 @@ func TestApply_FailingTerminalReturnsError(t *testing.T) {
 	client := &fakeClient{applyStream: stream}
 	root := NewCommand(dialFor(client))
 	yaml := writeYAML(t, "file:\n  /a:\n    state: present\n")
-	_, err := runCmd(t, root, "apply", yaml)
+	_, err := runCmd(t, root, "apply", yaml, "--target", "localhost")
 	if err == nil || !strings.Contains(err.Error(), "failed") {
 		t.Errorf("want failure error, got %v", err)
 	}
@@ -209,7 +209,7 @@ func TestApply_DryRunFlagWired(t *testing.T) {
 	client := &fakeClient{applyStream: stream}
 	root := NewCommand(dialFor(client))
 	yaml := writeYAML(t, "file:\n  /a:\n    state: present\n")
-	if _, err := runCmd(t, root, "apply", yaml, "--dry-run"); err != nil {
+	if _, err := runCmd(t, root, "apply", yaml, "--target", "localhost", "--dry-run"); err != nil {
 		t.Fatalf("apply: %v", err)
 	}
 	if !client.applyReqs[0].DryRun {
@@ -227,7 +227,7 @@ func TestApply_VariablesAndFactsWired(t *testing.T) {
 	client := &fakeClient{applyStream: stream}
 	root := NewCommand(dialFor(client))
 	yaml := writeYAML(t, "file:\n  /a:\n    state: present\n")
-	_, err := runCmd(t, root, "apply", yaml,
+	_, err := runCmd(t, root, "apply", yaml, "--target", "localhost",
 		"--variable", "port=8080",
 		"--variable", "user=www",
 		"--fact", "os=linux",
@@ -249,7 +249,7 @@ func TestApply_StreamErrorBubblesUp(t *testing.T) {
 	client := &fakeClient{applyErr: errors.New("server unavailable")}
 	root := NewCommand(dialFor(client))
 	yaml := writeYAML(t, "file:\n  /a:\n    state: present\n")
-	_, err := runCmd(t, root, "apply", yaml)
+	_, err := runCmd(t, root, "apply", yaml, "--target", "localhost")
 	if err == nil || !strings.Contains(err.Error(), "server unavailable") {
 		t.Errorf("want underlying error surfaced, got %v", err)
 	}
@@ -260,8 +260,8 @@ func TestApply_StreamErrorBubblesUp(t *testing.T) {
 func TestCheck_RendersDeclarations(t *testing.T) {
 	t.Parallel()
 	client := &fakeClient{checkResp: &v1.CheckStateResponse{
-		RunId:  "r-2",
-		Status: v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED,
+		RunId:      "r-2",
+		Status:     v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED,
 		Aggregates: &v1.StateRunAggregates{Total: 2, Drifted: 1, Unchanged: 1},
 		Declarations: []*v1.StateDeclarationResult{
 			{DeclId: "file:/a", Outcome: v1.StateRunOutcome_STATE_RUN_OUTCOME_DRIFT_DETECTED},
@@ -270,7 +270,7 @@ func TestCheck_RendersDeclarations(t *testing.T) {
 	}}
 	root := NewCommand(dialFor(client))
 	yaml := writeYAML(t, "file:\n  /a:\n    state: present\n")
-	out, err := runCmd(t, root, "check", yaml)
+	out, err := runCmd(t, root, "check", yaml, "--target", "localhost")
 	if err != nil {
 		t.Fatalf("check: %v", err)
 	}
@@ -296,7 +296,7 @@ func TestDrift_PrintsAggregateSeverity(t *testing.T) {
 	}}
 	root := NewCommand(dialFor(client))
 	yaml := writeYAML(t, "file:\n  /x:\n    state: present\n")
-	out, err := runCmd(t, root, "drift", yaml)
+	out, err := runCmd(t, root, "drift", yaml, "--target", "localhost")
 	if err != nil {
 		t.Fatalf("drift: %v", err)
 	}
@@ -324,7 +324,7 @@ func TestDrift_FixReappliesWhenDrifted(t *testing.T) {
 	}
 	root := NewCommand(dialFor(client))
 	yaml := writeYAML(t, "file:\n  /x:\n    state: present\n")
-	out, err := runCmd(t, root, "drift", yaml, "--fix")
+	out, err := runCmd(t, root, "drift", yaml, "--target", "localhost", "--fix")
 	if err != nil {
 		t.Fatalf("drift --fix: %v", err)
 	}
@@ -344,7 +344,7 @@ func TestDrift_FixSkipsWhenNoDrift(t *testing.T) {
 	}}
 	root := NewCommand(dialFor(client))
 	yaml := writeYAML(t, "file:\n  /x:\n    state: present\n")
-	out, err := runCmd(t, root, "drift", yaml, "--fix")
+	out, err := runCmd(t, root, "drift", yaml, "--target", "localhost", "--fix")
 	if err != nil {
 		t.Fatalf("drift --fix: %v", err)
 	}
@@ -612,10 +612,10 @@ func TestShow_RendersHeaderAndDeclarations(t *testing.T) {
 	t.Parallel()
 	client := &fakeClient{statusResp: &v1.GetStateStatusResponse{
 		Run: &v1.StateRun{
-			Id:     "r-1",
-			Mode:   v1.StateRunMode_STATE_RUN_MODE_APPLY,
-			Status: v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED,
-			Source: "webserver.yaml",
+			Id:         "r-1",
+			Mode:       v1.StateRunMode_STATE_RUN_MODE_APPLY,
+			Status:     v1.StateRunStatus_STATE_RUN_STATUS_COMPLETED,
+			Source:     "webserver.yaml",
 			Aggregates: &v1.StateRunAggregates{Total: 3, Changed: 1, Unchanged: 2},
 		},
 		Declarations: []*v1.StateDeclarationResult{
@@ -699,7 +699,7 @@ func TestRollback_FailingTerminalReturnsError(t *testing.T) {
 	t.Parallel()
 	stream := &fakeRollbackStream{events: []*v1.RollbackStateResponse{
 		{Event: &v1.RollbackStateResponse_Terminal{Terminal: &v1.StateRunTerminal{
-			Status: v1.StateRunStatus_STATE_RUN_STATUS_FAILED,
+			Status:     v1.StateRunStatus_STATE_RUN_STATUS_FAILED,
 			Aggregates: &v1.StateRunAggregates{},
 		}}},
 	}}
@@ -746,5 +746,100 @@ func TestParseTimeBound(t *testing.T) {
 	}
 	if _, err := parseTimeBound("notatime"); err == nil {
 		t.Error("expected error on garbage input")
+	}
+}
+
+// --- required target ---------------------------------------------------
+
+// Omitting a target used to mean "the control plane", which is a
+// surprising default for a fleet tool: a state apply looked fleet-wide
+// while converging exactly one host. Every host-acting subcommand now
+// refuses rather than guessing.
+func TestStateCommands_RequireTarget(t *testing.T) {
+	t.Parallel()
+	yaml := writeYAML(t, "file:\n  /etc/hosts:\n    state: present\n")
+	for _, sub := range []string{"apply", "check", "drift"} {
+		t.Run(sub, func(t *testing.T) {
+			root := NewCommand(dialFor(&fakeClient{
+				applyStream: &fakeApplyStream{},
+				checkResp:   &v1.CheckStateResponse{},
+				driftResp:   &v1.DetectDriftResponse{},
+			}))
+			_, err := runCmd(t, root, sub, yaml)
+			if err == nil {
+				t.Fatalf("%s without --target = nil error, want a refusal", sub)
+			}
+			if !strings.Contains(err.Error(), "--target is required") {
+				t.Errorf("%s err = %v, want it to name the missing target", sub, err)
+			}
+		})
+	}
+}
+
+// localhost is the explicit way to ask for the old behaviour, and must
+// travel as an absent proto Target so the server runs in-process.
+func TestStateApply_LocalhostSendsNoTarget(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{applyStream: &fakeApplyStream{}}
+	root := NewCommand(dialFor(client))
+	yaml := writeYAML(t, "file:\n  /etc/hosts:\n    state: present\n")
+	if _, err := runCmd(t, root, "apply", yaml, "--target", "localhost"); err != nil {
+		t.Fatalf("apply --target localhost: %v", err)
+	}
+	if len(client.applyReqs) != 1 {
+		t.Fatalf("captured %d requests, want 1", len(client.applyReqs))
+	}
+	if got := client.applyReqs[0].GetTarget(); got != nil {
+		t.Errorf("Target = %+v, want nil for localhost", got)
+	}
+}
+
+// An agent target must reach the server as a Target the resolver can
+// act on — otherwise the run silently converges the control plane.
+func TestStateApply_AgentTargetIsSent(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{applyStream: &fakeApplyStream{}}
+	root := NewCommand(dialFor(client))
+	yaml := writeYAML(t, "file:\n  /etc/hosts:\n    state: present\n")
+	if _, err := runCmd(t, root, "apply", yaml, "--target", "id:agent-1"); err != nil {
+		t.Fatalf("apply --target id:agent-1: %v", err)
+	}
+	got := client.applyReqs[0].GetTarget()
+	if got == nil || len(got.GetAgentIds()) != 1 || got.GetAgentIds()[0] != "agent-1" {
+		t.Errorf("Target = %+v, want agent_ids=[agent-1]", got)
+	}
+}
+
+// `drift --fix` sends TWO requests: detect, then remediate. Both must
+// carry the same target — otherwise it reports drift on the fleet and
+// then converges the control plane instead, which is worse than not
+// remediating at all.
+func TestStateDriftFix_RemediatesTheSameTarget(t *testing.T) {
+	t.Parallel()
+	client := &fakeClient{
+		driftResp: &v1.DetectDriftResponse{
+			Aggregates: &v1.StateRunAggregates{Total: 1, Drifted: 1},
+			Statuses: []*v1.DriftDeclaration{{
+				DeclId: "file:/etc/hosts", Severity: v1.DriftSeverity_DRIFT_SEVERITY_MEDIUM,
+			}},
+		},
+		applyStream: &fakeApplyStream{},
+	}
+	root := NewCommand(dialFor(client))
+	yaml := writeYAML(t, "file:\n  /etc/hosts:\n    state: present\n")
+	if _, err := runCmd(t, root, "drift", yaml, "--target", "id:agent-1", "--fix"); err != nil {
+		t.Fatalf("drift --fix: %v", err)
+	}
+	if len(client.driftReqs) != 1 || len(client.applyReqs) != 1 {
+		t.Fatalf("requests = %d drift / %d apply, want 1 each",
+			len(client.driftReqs), len(client.applyReqs))
+	}
+	detect := client.driftReqs[0].GetTarget().GetAgentIds()
+	fix := client.applyReqs[0].GetTarget().GetAgentIds()
+	if len(fix) != 1 || fix[0] != "agent-1" {
+		t.Errorf("--fix targeted %v, want [agent-1] — the same hosts drift reported on", fix)
+	}
+	if len(detect) != len(fix) || detect[0] != fix[0] {
+		t.Errorf("detect targeted %v but fix targeted %v", detect, fix)
 	}
 }

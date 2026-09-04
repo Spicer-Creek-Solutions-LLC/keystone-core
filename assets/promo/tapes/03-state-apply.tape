@@ -16,5 +16,5 @@ Hide
 Type `cd assets/promo/scenario; PS1="\033[38;5;117m$\033[0m "; clear` Enter
 Show
 
-Type "kscorectl state apply state/web.yaml" Enter
+Type "kscorectl state apply --target localhost state/web.yaml" Enter
 Sleep 4s

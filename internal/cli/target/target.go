@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-package exec
+package target
 
 import (
 	"errors"
@@ -150,4 +150,54 @@ func matchesWord(haystack, needle string) bool {
 
 func containsAny(s string, chars string) bool {
 	return strings.ContainsAny(s, chars)
+}
+
+// Localhost is the reserved target naming the machine the control
+// plane runs on.
+//
+// Every command that acts on hosts requires a target — omitting one
+// used to mean "the control plane", which is a surprising default for
+// a fleet tool and the reason a state apply could look fleet-wide
+// while converging exactly one host. Making it explicit costs six
+// characters and removes the ambiguity.
+//
+// It resolves to no proto Target, which the server reads as "run here".
+// When the control plane is itself managed by an agent, `localhost`
+// becomes an ordinary agent id and this special case retires.
+const Localhost = "localhost"
+
+// ErrTargetRequired is returned when a host-acting command is invoked
+// without a target.
+var ErrTargetRequired = errors.New(
+	"--target is required (use 'localhost' for the control-plane host, " +
+		"or id:<agent> / <label>:<value> / hostname:<glob> for agents)")
+
+// ParseRequired parses a mandatory target.
+//
+// Returns (nil, nil) for Localhost — the absence of a proto Target is
+// how "run on the control plane" is expressed on the wire, so callers
+// pass the result straight through.
+func ParseRequired(raw string) (*v1.Target, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, ErrTargetRequired
+	}
+	if strings.EqualFold(strings.TrimSpace(raw), Localhost) {
+		return nil, nil
+	}
+	t, err := ParseTarget(raw)
+	if err != nil {
+		return nil, err
+	}
+	if t == nil {
+		// ParseTarget only returns nil for empty input, which the
+		// guard above already rejected; treat it as required anyway
+		// rather than silently converging the control plane.
+		return nil, ErrTargetRequired
+	}
+	return t, nil
+}
+
+// IsLocalhost reports whether raw names the control-plane host.
+func IsLocalhost(raw string) bool {
+	return strings.EqualFold(strings.TrimSpace(raw), Localhost)
 }

@@ -109,7 +109,7 @@ kscore-identity ca rotate-signing
 ```bash
 # Certificates are automatically distributed via state management
 # Apply certificate state
-kscorectl state apply /etc/kscore/states/certificates.yaml
+kscorectl state apply --target localhost /etc/kscore/states/certificates.yaml
 
 # For manual distribution:
 for node in ks-server-1 ks-server-2 ks-server-3; do

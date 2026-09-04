@@ -41,11 +41,16 @@ Sleep 1500ms
 
 # Backtick delimiter, not double quotes: VHS's Type does not support
 # \" escaping, and the shell quoting around $DB_PASS is worth keeping.
-Type `kscorectl state apply --variable db_password="$DB_PASS" state/app-env.yaml` Enter
+Type `kscorectl state apply --target localhost --variable db_password="$DB_PASS" state/app-env.yaml` Enter
 Sleep 4s
 
+# --target localhost: every state command requires an explicit target,
+# because "which host" is not safe to guess. The promo scenario runs in
+# the server container, so localhost is the honest answer here; moving
+# this clip onto an agent is tracked in the ROADMAP promo entry.
+#
 # The SAME --variable has to be supplied to the drift check: without it
 # the engine renders the declaration against the placeholder default and
 # reports a false drift, which would read as "the apply did not work".
-Type `kscorectl state drift --variable db_password="$DB_PASS" state/app-env.yaml` Enter
+Type `kscorectl state drift --target localhost --variable db_password="$DB_PASS" state/app-env.yaml` Enter
 Sleep 4s

@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"go.keystone-core.io/keystone-core/internal/agent"
 	"go.keystone-core.io/keystone-core/internal/audit"
 	"go.keystone-core.io/keystone-core/internal/state"
 	"go.keystone-core.io/keystone-core/internal/statemgmt"
@@ -45,6 +46,17 @@ type StateGRPCServer struct {
 	// audit.StateApplyObserver so every applied declaration emits one
 	// audit entry. Production wiring assigns auditRT.FanOut.
 	Auditor audit.Auditor
+
+	// Resolver selects the agents a targeted run applies to, using the
+	// same targeting as batch exec rather than a second dialect.
+	// Converge reaches them. Both nil means this server can only run
+	// state on itself, and a targeted request is refused rather than
+	// silently converging the control plane instead of the fleet.
+	Resolver AgentTargetResolver
+	Converge ConvergeFanout
+	// ConvergeTimeout bounds ONE agent's run. Zero uses
+	// defaultConvergeTimeout.
+	ConvergeTimeout time.Duration
 }
 
 // NewStateGRPCServer returns a server backed by registry + store.
@@ -67,6 +79,20 @@ func (s *StateGRPCServer) ApplyState(req *v1.ApplyStateRequest, stream grpc.Serv
 	if err := requireYAML(req.GetYamlContent()); err != nil {
 		return err
 	}
+
+	// A targeted request converges AGENTS; the state file is compiled
+	// on each of them, not here. Compiling centrally would render
+	// `.Facts` against the control plane and then ship declarations
+	// describing the wrong host, so the remote path deliberately never
+	// touches s.compile.
+	remoteAgents, err := s.resolveRemoteTargets(stream.Context(), req)
+	if err != nil {
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
+	if len(remoteAgents) > 0 {
+		return s.applyStateRemote(stream, req, remoteAgents)
+	}
+
 	decls, err := s.compile(req.GetYamlContent(), toMap(req.GetVariableOverrides()), toMap(req.GetFacts()))
 	if err != nil {
 		return err
@@ -132,6 +158,59 @@ func (s *StateGRPCServer) ApplyState(req *v1.ApplyStateRequest, stream grpc.Serv
 	}
 
 	return stream.Send(terminalEvent(runID, recordStatusToProto(finalStatus), reportAggregatesToProto(report), finalErrMsg))
+}
+
+// applyStateRemote runs a targeted apply across agents.
+//
+// The run record is opened with no declarations: the control plane has
+// not compiled them and, with per-agent facts, different hosts can
+// legitimately resolve the same file to different declaration sets.
+// Recording one host's view as if it were the run's would be a lie in
+// the history table.
+func (s *StateGRPCServer) applyStateRemote(
+	stream grpc.ServerStreamingServer[v1.ApplyStateResponse],
+	req *v1.ApplyStateRequest,
+	agents []state.AgentRecord,
+) error {
+	ctx := stream.Context()
+	mode := state.StateRunModeApply
+	convergeMode := agent.ConvergeModeApply
+	if req.GetDryRun() {
+		mode = state.StateRunModeCheck
+		convergeMode = agent.ConvergeModeCheck
+	}
+	runID := uuid.NewString()
+
+	if err := s.openRun(ctx, runID, mode, req.GetSource(), req.GetClusterId(), req.GetAgentId(), nil); err != nil {
+		return err
+	}
+	if err := stream.Send(&v1.ApplyStateResponse{Event: &v1.ApplyStateResponse_RunId{RunId: runID}}); err != nil {
+		return err
+	}
+
+	terminal, err := s.runRemote(ctx, stream, runID, agents, req, convergeMode, convergePrincipal(ctx))
+	if err != nil {
+		return err
+	}
+
+	finalStatus := state.StateRunStatusCompleted
+	if terminal.GetStatus() == v1.StateRunStatus_STATE_RUN_STATUS_FAILED {
+		finalStatus = state.StateRunStatusFailed
+	}
+	end := state.StateRunEnd{
+		Status:    finalStatus,
+		EndedAt:   nowOr(s.now()).Time(),
+		Changed:   int(terminal.GetAggregates().GetChanged()),
+		Unchanged: int(terminal.GetAggregates().GetUnchanged()),
+		Failed:    int(terminal.GetAggregates().GetFailed()),
+		Skipped:   int(terminal.GetAggregates().GetSkipped()),
+	}
+	end.Total = end.Changed + end.Unchanged + end.Failed + end.Skipped
+	if err := s.Store.FinalizeStateRun(ctx, runID, end); err != nil {
+		_ = stream.Send(&v1.ApplyStateResponse{Event: &v1.ApplyStateResponse_Terminal{Terminal: terminal}})
+		return status.Errorf(codes.Internal, "finalize state run: %v", err)
+	}
+	return stream.Send(&v1.ApplyStateResponse{Event: &v1.ApplyStateResponse_Terminal{Terminal: terminal}})
 }
 
 // CheckState is the unary form of dry-run. Same compile pipeline, but
@@ -477,12 +556,12 @@ func (s *StateGRPCServer) persistDriftResults(ctx context.Context, runID string,
 	}
 	for _, ds := range rep.Statuses {
 		rec := &state.StateRunResultRecord{
-			RunID:     runID,
-			DeclID:    ds.DeclID,
-			Module:    ds.Module,
-			Outcome:   driftStateToRecordOutcome(ds.State),
-			CheckDiff: ds.Diff,
-			StartedAt: ds.StartedAt,
+			RunID:      runID,
+			DeclID:     ds.DeclID,
+			Module:     ds.Module,
+			Outcome:    driftStateToRecordOutcome(ds.State),
+			CheckDiff:  ds.Diff,
+			StartedAt:  ds.StartedAt,
 			DurationMS: ds.Duration.Milliseconds(),
 		}
 		if ds.Error != nil {

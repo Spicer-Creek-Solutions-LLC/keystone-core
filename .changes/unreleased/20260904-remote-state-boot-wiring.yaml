@@ -1,0 +1,22 @@
+kind: Added
+body: |-
+  **Remote state apply is wired at `kscore-server` boot.** The
+  ConvergeDispatcher is constructed alongside the response router --
+  post-Start, so NATS is running before anything subscribes -- and
+  signs with the same SecurityEnforcer the command path uses, so a
+  state dispatch is authorized exactly like a command dispatch and the
+  canonical HMAC encoding cannot drift between the signer and the
+  agent's verifier. `StateGRPCServer` gets its target resolver from the
+  agent store. Before this, a targeted apply was refused with "remote
+  state apply is not wired on this server".
+
+  A new E2E scenario, `TestE2E_RemoteStateApply`, is the assertion whose
+  absence let this gap survive: every prior state scenario omitted a
+  target, so it passed while the control plane quietly converged itself.
+  It templates `.Facts.agent_id` into the declared file's path -- a fact
+  that exists only on an agent -- so the rendered declaration id proves
+  where compilation happened even in native mode, where the agents and
+  the server share one filesystem and mere file existence would prove
+  nothing. It also asserts the untargeted agent was left alone.
+custom:
+  Demo: ""
