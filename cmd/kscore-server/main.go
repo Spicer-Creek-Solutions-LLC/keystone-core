@@ -620,6 +620,35 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	}
 	defer func() { _ = router.Stop() }()
 
+	// Remote state apply. Wired post-Start for the same reason the
+	// response router is: the NATS manager has to be running before
+	// anything subscribes. Until this exists a targeted `state apply`
+	// is refused with "remote state apply is not wired on this server"
+	// rather than silently converging the control plane instead of the
+	// fleet the operator asked for.
+	//
+	// The signer is the SAME SecurityEnforcer the command path uses, so
+	// a state dispatch is authorized exactly like a command dispatch
+	// and the canonical HMAC encoding cannot drift between the signer
+	// here and the verifier on the agent.
+	convergeDispatcher, err := controlplane.NewConvergeDispatcher(controlplane.ConvergeDispatcherConfig{
+		Subscriber: natsSubscriberAdapter{m: natsManager},
+		Publisher:  natsManager,
+		Subjects:   natsManager.Subjects(),
+		Signer:     enforcer,
+		Logger:     log,
+	})
+	if err != nil {
+		return fmt.Errorf("converge dispatcher: %w", err)
+	}
+	if err := convergeDispatcher.Start(ctx); err != nil {
+		return fmt.Errorf("converge dispatcher start: %w", err)
+	}
+	defer func() { _ = convergeDispatcher.Stop() }()
+
+	stateGRPC.Resolver = controlplane.NewStoreResolver(store)
+	stateGRPC.Converge = convergeDispatcher
+
 	natsExec, err := controlplane.NewNATSBatchExecutor(controlplane.NATSBatchExecutorConfig{
 		Dispatcher: srv.CommandDispatcher(),
 		Router:     router,

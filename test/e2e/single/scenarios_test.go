@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -197,9 +198,10 @@ func TestE2E_StateApply(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Smallest declaration the v1.0 schema accepts. Server-side
-	// validation drives a real state.Runner against the agent;
-	// docker container has /tmp writable by the nonroot UID.
+	// Smallest declaration the v1.0 schema accepts. With no Target
+	// this converges the CONTROL-PLANE host, not an agent — agent_id
+	// here is run attribution only. TestE2E_RemoteStateApply below is
+	// the scenario that proves fleet dispatch.
 	const yaml = `metadata:
   name: epic-19-task-2a-state
   version: "0.1"
@@ -244,6 +246,152 @@ file:
 	if !gotTerminal {
 		t.Errorf("ApplyState: terminal event never emitted")
 	}
+}
+
+// TestE2E_RemoteStateApply proves a targeted `state apply` converges
+// the AGENT, not the control plane.
+//
+// This is the assertion whose absence let remote state apply ship
+// broken: every prior state scenario omitted Target, so it passed
+// while the control plane quietly converged itself.
+//
+// The discriminator is `.Facts.agent_id` in the file's path. That fact
+// exists only on an agent, so the path can only render to
+// /tmp/kscore-e2e-remote-agent-1 if compilation happened on agent-1.
+// A control-plane compile renders it to something else entirely — so
+// the assertion holds even in native mode, where the agents and the
+// server share one filesystem and mere file existence would prove
+// nothing.
+func TestE2E_RemoteStateApply(t *testing.T) {
+	requireDocker(t)
+	ctx, cancel := context.WithTimeout(context.Background(), scenarioBudget)
+	defer cancel()
+
+	apiKey := extractAdminAPIKey(ctx, t)
+	cp, cpCloser := dialControlPlane(t, apiKey)
+	defer cpCloser.Close()
+	state, stateCloser := dialStateService(t, apiKey)
+	defer stateCloser.Close()
+
+	if err := waitForAgentConnected(ctx, cp, apiKey, "agent-1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := waitForAgentConnected(ctx, cp, apiKey, "agent-2"); err != nil {
+		t.Fatal(err)
+	}
+
+	const marker = "remote-state-apply"
+	const yaml = `metadata:
+  name: remote-state-apply
+  version: "0.1"
+file:
+  /tmp/kscore-e2e-remote-{{ .Facts.agent_id }}:
+    state: present
+    content: "remote-state-apply on {{ .Facts.agent_id }}"
+    mode: "0644"
+`
+
+	stream, err := state.ApplyState(authContext(ctx, apiKey), &v1.ApplyStateRequest{
+		YamlContent: []byte(yaml),
+		Source:      "remote-state-apply.yaml",
+		Target:      &v1.Target{AgentIds: []string{"agent-1"}},
+	})
+	if err != nil {
+		t.Fatalf("ApplyState: %v", err)
+	}
+
+	var (
+		gotRunID  string
+		terminal  *v1.StateRunTerminal
+		declAgent []string
+		declIDs   []string
+	)
+	for {
+		ev, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("ApplyState recv: %v", err)
+		}
+		switch e := ev.Event.(type) {
+		case *v1.ApplyStateResponse_RunId:
+			gotRunID = e.RunId
+		case *v1.ApplyStateResponse_DeclResult:
+			if e.DeclResult != nil {
+				declAgent = append(declAgent, e.DeclResult.AgentId)
+				declIDs = append(declIDs, e.DeclResult.DeclId)
+				if e.DeclResult.ErrorMessage != "" {
+					t.Errorf("declaration %s failed: %s",
+						e.DeclResult.DeclId, e.DeclResult.ErrorMessage)
+				}
+			}
+		case *v1.ApplyStateResponse_Terminal:
+			terminal = e.Terminal
+		}
+	}
+
+	if gotRunID == "" {
+		t.Errorf("ApplyState: run_id never emitted")
+	}
+	if terminal == nil {
+		t.Fatal("ApplyState: terminal event never emitted")
+	}
+
+	// Every declaration result must be attributed to the targeted
+	// agent. An empty agent_id means the control plane ran it itself.
+	if len(declAgent) == 0 {
+		t.Fatalf("ApplyState: no declaration results streamed (terminal %+v)", terminal)
+	}
+	for _, id := range declAgent {
+		if id != "agent-1" {
+			t.Errorf("declaration result agent_id = %q, want %q", id, "agent-1")
+		}
+	}
+
+	// The rendered declaration id carries the fact. This is the proof
+	// that compilation happened on the agent.
+	wantDeclID := "file:/tmp/kscore-e2e-remote-agent-1"
+	if len(declIDs) != 1 || declIDs[0] != wantDeclID {
+		t.Errorf("declaration ids = %v, want [%s] (a different path means the\n"+
+			"state file was rendered somewhere other than agent-1)", declIDs, wantDeclID)
+	}
+
+	// Exactly one agent summary, for the one agent targeted. agent-2
+	// is connected and must not have been touched.
+	if len(terminal.AgentSummaries) != 1 {
+		t.Fatalf("agent summaries = %d, want 1: %+v",
+			len(terminal.AgentSummaries), terminal.AgentSummaries)
+	}
+	sum := terminal.AgentSummaries[0]
+	if sum.AgentId != "agent-1" {
+		t.Errorf("agent summary agent_id = %q, want %q", sum.AgentId, "agent-1")
+	}
+	if sum.ErrorMessage != "" {
+		t.Errorf("agent summary error: %s", sum.ErrorMessage)
+	}
+
+	// Native mode only: the agents are host subprocesses, so read back
+	// what agent-1 wrote. Docker mode stops at the assertions above —
+	// the distroless agent image has no shell to exec into, and the
+	// rendered decl id already proves where compilation ran.
+	if !agentFSIsHost {
+		return
+	}
+	got, err := os.ReadFile("/tmp/kscore-e2e-remote-agent-1")
+	if err != nil {
+		t.Fatalf("read file written by agent-1: %v", err)
+	}
+	want := marker + " on agent-1"
+	if string(got) != want {
+		t.Errorf("file content = %q, want %q", got, want)
+	}
+	if _, err := os.Stat("/tmp/kscore-e2e-remote-agent-2"); err == nil {
+		t.Error("agent-2 was converged but was not targeted")
+	}
+	t.Cleanup(func() {
+		_ = os.Remove("/tmp/kscore-e2e-remote-agent-1")
+	})
 }
 
 // TestE2E_BlueprintApply — scenario 4 from epic 19 §Scope. Verifies

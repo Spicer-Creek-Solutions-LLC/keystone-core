@@ -87,6 +87,15 @@ var (
 	// server reaches the host via host-gateway; in native the server
 	// IS on the host.
 	webhookReceiverHost string
+
+	// agentFSIsHost reports whether the agents share the test
+	// process's filesystem. True in native mode (agents are host
+	// subprocesses), false in docker mode (each agent is a distroless
+	// container with no shell to exec into). The remote-state scenario
+	// uses it to decide whether it can additionally read the file the
+	// agent wrote; every other assertion in that scenario is
+	// mode-independent.
+	agentFSIsHost bool
 )
 
 // composeFile resolves the absolute path to docker-compose.yml so the
@@ -157,6 +166,7 @@ func setDockerModeAddresses() {
 	commandExecBin = "/usr/local/bin/kscore"
 	commandExecArgs = []string{"--version"}
 	webhookReceiverHost = "host.docker.internal"
+	agentFSIsHost = false
 }
 
 // readDockerServerLogs is the docker-mode serverLogReader: it shells

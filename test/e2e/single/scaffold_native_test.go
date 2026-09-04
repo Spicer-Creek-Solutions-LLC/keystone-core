@@ -165,6 +165,7 @@ func startNativeStack() (cleanup func(), err error) {
 	// exit-0; payload is irrelevant.
 	commandExecBin = "/bin/echo"
 	commandExecArgs = []string{"native-e2e"}
+	agentFSIsHost = true
 	// Server runs on the host (not in a container), so the outbound
 	// webhook receiver is directly reachable on loopback.
 	webhookReceiverHost = "127.0.0.1"
