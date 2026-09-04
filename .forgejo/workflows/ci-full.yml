@@ -45,8 +45,12 @@ concurrency:
   group: ci-full-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
+# No `permissions:` block. Forgejo does not implement it and warns
+# once per job when it is present -- twelve warnings on every run of
+# this workflow. Capabilities come from the runner's automatic token
+# scope and the repo's Authorized Integrations instead. These
+# workflows live under `.forgejo/` and never execute on GitHub, so
+# there is no second consumer to keep the field for.
 
 jobs:
   # Epic 19 task 13 — release dry-run. Builds the full goreleaser
@@ -145,16 +149,15 @@ jobs:
   # `deps-outdated-issue` also maintains a single tracking issue (create
   # when deps drift, update each run, close when clear) so the findings
   # surface as an issue notification instead of living only in this log.
-  # That needs issue-write, hence the job-scoped permissions + token env;
-  # the issue sync is best-effort, so a token problem warns but never
+  # That needs issue-write, which on Forgejo comes from the runner's
+  # token scope / Authorized Integrations -- not from a `permissions:`
+  # block, which Forgejo ignores with a warning. Hence the token env
+  # alone. The issue sync is best-effort, so a token problem warns but never
   # fails the job (it would instead show up via enable-email-notifications
   # if the whole run went red for another reason).
   deps-outdated:
     runs-on: docker
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    permissions:
-      contents: read
-      issues: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
