@@ -1,0 +1,31 @@
+kind: Added
+body: |-
+  **An agent can now prove which agent it is.** `agent.SVIDSigner`
+  signs a payload with the private key from the agent's
+  bootstrap-issued SVID and attaches the certificate chain;
+  `controlplane.SVIDVerifier` builds a path to the CA, reads the agent
+  id out of the leaf's SPIFFE URI SAN, and returns that id rather than
+  the one the request claims.
+
+  This is the property the fleet-wide HMAC key cannot provide at any
+  configuration: every agent holds that key, so every agent can mint a
+  request naming any agent id and have it verify. The test suite
+  includes that exact forgery -- a hostile agent constructing (not
+  mutating) a request whose signature is cryptographically sound over a
+  canonical form naming somebody else -- and asserts it is rejected on
+  identity.
+
+  The verifier validates the chain before reading anything out of the
+  certificate, since an unverified leaf's URI SAN is attacker-
+  controlled text. The signed canonical form is length-prefixed and
+  covers the certificate chain, so a captured signature cannot be
+  re-presented under a different certificate. `IssuedAt` gives a
+  freshness window (60s, 30s clock-skew allowance), which is not replay
+  protection -- nonce tracking remains the ROADMAP entry "Replay
+  protection on agent commands".
+
+  Nothing on a live path uses this yet; it lands ahead of its first
+  consumer so the signature checking is reviewable on its own rather
+  than buried in a feature. The agent's secret lookup adopts it next.
+custom:
+  Demo: ""
