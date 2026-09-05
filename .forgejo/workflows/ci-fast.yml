@@ -52,8 +52,17 @@ enable-email-notifications: true
 on:
   push:
     branches: [main]
+  # No branch filter on pull_request. The filter matches the BASE
+  # branch, so a PR stacked on another PR's branch got no CI at all --
+  # silently, since "no statuses" looks identical to "still queued".
+  # Four stacked PRs sat unvalidated before anyone noticed.
+  #
+  # Unfiltered, every PR is gated regardless of what it targets, which
+  # is what a repo that uses stacked PRs needs. `push` stays pinned to
+  # main so a feature-branch push does not also queue a second,
+  # redundant run on the single serial runner -- the PR event already
+  # covers that branch.
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
