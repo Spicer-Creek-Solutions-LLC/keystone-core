@@ -1,0 +1,33 @@
+kind: Added
+body: |-
+  **A blueprint can be applied to a fleet.** `blueprint.StateFileRunner`
+  is a second executor seam that takes the rendered state *file* rather
+  than resolved declarations, and `controlplane.BlueprintConvergeRunner`
+  implements it over the same converge path `state apply --target`
+  uses.
+
+  The file/declaration distinction is the whole design. An agent must
+  receive a file because the agent is what renders `.Facts` -- it
+  compiles against the host being converged. Handing it pre-resolved
+  declarations would work today only because blueprints cannot
+  reference facts, and would be wrong the moment they can. The
+  blueprint layer's own rendering of parameters and features stays
+  central, which is correct: those are operator input, not properties
+  of the target host.
+
+  Agents are converged concurrently, and one host failing does not
+  abort the others -- a fleet operation should tell an operator which
+  hosts are wrong, not stop at the first. A partial failure still
+  returns a report, alongside an error so it cannot be mistaken for
+  success. Merged results are prefixed with the agent id and sorted, so
+  a fleet report says which host each line came from and two runs
+  produce the same transcript.
+
+  `AppliedRun` records both the target expression and the resolved
+  agent ids. They answer different questions: a rollback must reach the
+  hosts that received the apply, so it uses the recorded agents rather
+  than re-resolving the target, which could pick up an agent that
+  joined afterwards. The target is kept because it is what the operator
+  wrote.
+
+  Not yet wired to the CLI or gRPC surface; that is the next change.
