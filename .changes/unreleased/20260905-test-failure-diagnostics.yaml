@@ -1,0 +1,24 @@
+kind: Changed
+body: |-
+  **A failing `test` job now says which test failed.** Codeberg exposes
+  no job-log API -- every `/actions/.../logs` path 404s -- so a red
+  `test` job could only be diagnosed by a human opening the web UI and
+  copying the output by hand. That is why the flake in #246 survived
+  six reproduction attempts: the one fact needed to act on it was
+  unreachable.
+
+  Three changes to the job. The suite's output is now captured with
+  `tee` (under `set -o pipefail`, or the exit status would be tee's and
+  a failing suite would report green). On failure, a summary step
+  prints the failing test names in the last lines of the log, where a
+  human looks first. And the output is uploaded as an artifact --
+  `/api/v1/repos/.../actions/artifacts` **is** readable even though
+  logs are not, so the next occurrence is diagnosable by tooling rather
+  than by hand.
+
+  The upload is `continue-on-error` so a problem uploading can never
+  mask the test failure that triggered it. `test-output.log` is
+  gitignored and covered by `make clean` / `clean-check`.
+
+  This is diagnosis, not a fix: #246 stays open until a failure is
+  actually captured and the test named.

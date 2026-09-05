@@ -54,6 +54,9 @@ tmp/
 temp/
 *.tmp
 coverage.out
+# CI captures the test suite's output here so a failure can be
+# recovered from an artifact; job logs are not API-readable.
+test-output.log
 .idea
 
 # Rust build artifacts
