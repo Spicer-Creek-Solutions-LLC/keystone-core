@@ -105,10 +105,13 @@ func newFakeValidator() *fakeValidator {
 	return &fakeValidator{accept: map[string][]byte{}, consumed: map[string]bool{}}
 }
 
+// seed takes the raw secret and stores its hex form, because the
+// handler now passes the proof to the validator exactly as it arrived
+// on the wire -- and makeRegisterEnvelope hex-encodes it there.
 func (f *fakeValidator) seed(agentID string, proof []byte) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.accept[agentID] = append([]byte(nil), proof...)
+	f.accept[agentID] = []byte(hex.EncodeToString(proof))
 }
 
 func (f *fakeValidator) Validate(_ context.Context, agentID string, proof []byte) error {
@@ -273,8 +276,12 @@ func TestBootstrapHandler_RejectsAgentIDMismatch(t *testing.T) {
 	}
 }
 
-func TestBootstrapHandler_RejectsBadProofHex(t *testing.T) {
-	_, sub, pub, _, _ := newBootstrapFixture(t)
+// The handler passes the proof through verbatim; deciding whether it
+// is well-formed belongs to the validator, since a PSK is hex and a
+// join token is not.
+func TestBootstrapHandler_RejectsBadProof(t *testing.T) {
+	_, sub, pub, _, val := newBootstrapFixture(t)
+	val.seed("agent-1", []byte("x"))
 
 	body, _ := json.Marshal(map[string]any{
 		"agent_id": "agent-1",
@@ -284,6 +291,17 @@ func TestBootstrapHandler_RejectsBadProofHex(t *testing.T) {
 	_ = sub.deliver(t, "kscore.default.bootstrap.agent-1.register", env)
 	if calls := pub.Calls(); len(calls) != 0 {
 		t.Errorf("response published despite bad proof: %d", len(calls))
+	}
+}
+
+// A PSK arrives hex-encoded, so the validator rejects one that is not.
+func TestPSKValidator_RejectsNonHexProof(t *testing.T) {
+	exp := time.Now().Add(time.Hour)
+	v := controlplane.NewPSKValidator(controlplane.PSKValidatorConfig{
+		Entries: []controlplane.PSKEntry{{AgentID: "agent-1", Secret: []byte("x"), ExpiresAt: exp}},
+	})
+	if err := v.Validate(context.Background(), "agent-1", []byte("not-hex-zzz")); err == nil {
+		t.Error("Validate() error = nil for a non-hex proof")
 	}
 }
 
@@ -356,7 +374,7 @@ func TestPSKValidator_AcceptsValidProof(t *testing.T) {
 			{AgentID: "agent-1", Secret: []byte{0xde, 0xad, 0xbe, 0xef}, ExpiresAt: exp},
 		},
 	})
-	if err := v.Validate(context.Background(), "agent-1", []byte{0xde, 0xad, 0xbe, 0xef}); err != nil {
+	if err := v.Validate(context.Background(), "agent-1", []byte(hex.EncodeToString([]byte{0xde, 0xad, 0xbe, 0xef}))); err != nil {
 		t.Errorf("Validate = %v, want nil", err)
 	}
 }
@@ -368,10 +386,10 @@ func TestPSKValidator_ConsumeIsSingleUse(t *testing.T) {
 			{AgentID: "agent-1", Secret: []byte("x"), ExpiresAt: exp},
 		},
 	})
-	if err := v.Validate(context.Background(), "agent-1", []byte("x")); err != nil {
+	if err := v.Validate(context.Background(), "agent-1", []byte(hex.EncodeToString([]byte("x")))); err != nil {
 		t.Fatalf("first: %v", err)
 	}
-	if err := v.Validate(context.Background(), "agent-1", []byte("x")); !errors.Is(err, controlplane.ErrPSKConsumed) {
+	if err := v.Validate(context.Background(), "agent-1", []byte(hex.EncodeToString([]byte("x")))); !errors.Is(err, controlplane.ErrPSKConsumed) {
 		t.Errorf("second = %v, want ErrPSKConsumed", err)
 	}
 }
@@ -383,12 +401,12 @@ func TestPSKValidator_RejectsMismatch(t *testing.T) {
 			{AgentID: "agent-1", Secret: []byte("right"), ExpiresAt: exp},
 		},
 	})
-	if err := v.Validate(context.Background(), "agent-1", []byte("wrong")); !errors.Is(err, controlplane.ErrPSKMismatch) {
+	if err := v.Validate(context.Background(), "agent-1", []byte(hex.EncodeToString([]byte("wrong")))); !errors.Is(err, controlplane.ErrPSKMismatch) {
 		t.Errorf("Validate = %v, want ErrPSKMismatch", err)
 	}
 	// Mismatch must NOT consume the entry — agent can retry with the
 	// correct proof.
-	if err := v.Validate(context.Background(), "agent-1", []byte("right")); err != nil {
+	if err := v.Validate(context.Background(), "agent-1", []byte(hex.EncodeToString([]byte("right")))); err != nil {
 		t.Errorf("retry after mismatch: %v", err)
 	}
 }
@@ -401,14 +419,14 @@ func TestPSKValidator_RejectsExpired(t *testing.T) {
 		},
 		Clock: func() time.Time { return time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC) },
 	})
-	if err := v.Validate(context.Background(), "agent-1", []byte("x")); !errors.Is(err, controlplane.ErrPSKExpired) {
+	if err := v.Validate(context.Background(), "agent-1", []byte(hex.EncodeToString([]byte("x")))); !errors.Is(err, controlplane.ErrPSKExpired) {
 		t.Errorf("Validate = %v, want ErrPSKExpired", err)
 	}
 }
 
 func TestPSKValidator_RejectsUnknownAgent(t *testing.T) {
 	v := controlplane.NewPSKValidator(controlplane.PSKValidatorConfig{})
-	if err := v.Validate(context.Background(), "ghost", []byte("x")); !errors.Is(err, controlplane.ErrPSKNotFound) {
+	if err := v.Validate(context.Background(), "ghost", []byte(hex.EncodeToString([]byte("x")))); !errors.Is(err, controlplane.ErrPSKNotFound) {
 		t.Errorf("Validate = %v, want ErrPSKNotFound", err)
 	}
 }
