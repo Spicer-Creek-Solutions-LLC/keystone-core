@@ -1,0 +1,21 @@
+kind: Fixed
+body: |-
+  **Join-token bootstrap could never succeed.** The bootstrap handler
+  hex-decoded the agent's proof before handing it to the validator,
+  but a join token is a `kscore-join-...` string and the join-token
+  validator's own contract says the proof "MUST be the cleartext token
+  bytes". The two contracts contradicted each other, so an agent
+  enrolling against a control plane with `identity.enabled` was
+  rejected with "proof not hex" every time -- meaning no agent could
+  ever obtain the SVID the server was configured to issue it.
+
+  It survived because nothing exercised the combination: the E2E
+  topology ran with identity disabled, so the PSK path (which is hex)
+  was the only one tested.
+
+  The handler now passes the proof exactly as it arrived on the wire,
+  and each validator decodes it the way its own credential is encoded
+  -- hex for a PSK, cleartext for a join token. How a credential is
+  encoded is a property of that credential, not of the transport.
+custom:
+  Demo: ""
