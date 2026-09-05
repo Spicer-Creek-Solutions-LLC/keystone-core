@@ -47,6 +47,12 @@ func (f fakeSubjects) BootstrapRegister(id string) string {
 func (f fakeSubjects) BootstrapResponse(id string) string {
 	return "kscore." + f.cluster + ".bootstrap." + id + ".response"
 }
+func (f fakeSubjects) SecretRequest() string {
+	return "kscore." + f.cluster + ".secret.request"
+}
+func (f fakeSubjects) SecretResponse(id string) string {
+	return "kscore." + f.cluster + ".secret." + id + ".response"
+}
 func (f fakeSubjects) Cluster() string { return f.cluster }
 func (f fakeSubjects) Prefix() string  { return "kscore." + f.cluster }
 
@@ -97,6 +103,13 @@ func (f *fakeNATSClient) handlerFor(subject string) MessageHandler {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.handlers[subject]
+}
+
+// captured returns the envelopes published to subject.
+func (f *fakeNATSClient) captured(subject string) []envelope.Envelope {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]envelope.Envelope(nil), f.publishes[subject]...)
 }
 
 // subscribed reports whether subject was subscribed.
