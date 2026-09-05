@@ -111,6 +111,7 @@ var criticalPackages = []string{
 
 	// Identity + secrets
 	"internal/identity",
+	"internal/sealed",
 	"internal/secrets",
 	"internal/secrets/file",
 	"internal/secrets/vault",
