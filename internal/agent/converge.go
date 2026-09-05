@@ -32,6 +32,32 @@ type StateEngine struct {
 	// DeclTimeout bounds a single declaration. Zero means no per-decl
 	// timeout; the request's TimeoutSeconds still bounds the run.
 	DeclTimeout time.Duration
+	// Secrets resolves `{{ secret "path" "key" }}` during rendering.
+	// Nil means a state file referencing a secret fails with a reason
+	// rather than rendering a blank password and reporting success.
+	Secrets SecretResolver
+}
+
+// SecretResolver fetches one secret value. SecretClient implements it;
+// so does the lazy wrapper the agent binary uses, which cannot build a
+// client until bootstrap has delivered a credential.
+type SecretResolver interface {
+	Lookup(ctx context.Context, path, key string) (string, error)
+}
+
+// renderer builds the render pass for one converge.
+//
+// Per-converge rather than reused, because the secret resolver closes
+// over that run's context: a lookup is a round trip to the control
+// plane, and it has to be cancelled by the same deadline that bounds
+// the rest of the run.
+func (e *StateEngine) renderer(ctx context.Context) *statemgmt.Renderer {
+	if e.Secrets == nil {
+		return statemgmt.NewRenderer()
+	}
+	return statemgmt.NewRendererWithSecrets(func(path, key string) (string, error) {
+		return e.Secrets.Lookup(ctx, path, key)
+	})
 }
 
 func (e *StateEngine) registry() *statemgmt.Registry {
@@ -71,7 +97,7 @@ func (e *StateEngine) Converge(
 			sf.Variables[k] = v
 		}
 	}
-	rendered, err := statemgmt.NewRenderer().RenderStateFile(sf, facts)
+	rendered, err := e.renderer(ctx).RenderStateFile(sf, facts)
 	if err != nil {
 		return nil, fmt.Errorf("converge: render: %w", err)
 	}
@@ -198,7 +224,7 @@ func (a *Agent) engine() *StateEngine {
 	if a.stateEngine != nil {
 		return a.stateEngine
 	}
-	return &StateEngine{}
+	return &StateEngine{Secrets: a.cfg.Secrets}
 }
 
 // facts builds the render context for a state run. These are the

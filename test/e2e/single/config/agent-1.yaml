@@ -19,6 +19,7 @@ agent:
   metadatainterval: 30s
   commandtimeout: 30s
   bootstrappsk: "11111111111111111111111111111111"
+  credentialspath: /data/agent-1-credentials.json
   labels:
     topology: single
     role: agent

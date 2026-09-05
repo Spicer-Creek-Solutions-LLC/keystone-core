@@ -72,6 +72,13 @@ var (
 // subprocess stdout/stderr buffer).
 var serverLogReader func() (string, error)
 
+// agentLogReader returns a named agent's captured stdout/stderr in
+// native mode. Nil in docker mode, where `docker logs` is the route.
+// Exists because an agent that fails to start is otherwise invisible:
+// the scaffold captured the output and dropped it, so a broken agent
+// surfaced only as "agent-1 not yet connected" sixty seconds later.
+var agentLogReader func(agentID string) (string, error)
+
 // Per-mode command + host vars. Set by TestMain. Docker mode targets
 // the distroless container layout (/usr/local/bin/kscore) and uses the
 // docker host-gateway alias; native mode runs on the host so any

@@ -3,6 +3,7 @@
 package statemgmt
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"text/template"
@@ -22,11 +23,63 @@ type Renderer struct {
 	funcs template.FuncMap
 }
 
-// NewRenderer returns a Renderer pre-populated with the seven §4.8
-// custom funcs. Callers do not register their own — the v1.0 surface
-// is intentionally fixed; new funcs require an explicit design pass.
+// SecretFunc resolves `{{ secret "<path>" "<key>" }}`.
+//
+// It is a function rather than a map because a secret is fetched at
+// the moment it is rendered and never held: on an agent this is a
+// signed round trip to the control plane, made once per use, so that
+// revoking a grant takes effect on the next render rather than
+// whenever a cache would have expired.
+type SecretFunc func(path, key string) (string, error)
+
+// ErrSecretsUnavailable is what `secret` returns when no resolver is
+// configured. A state file that references a secret on a renderer
+// that cannot resolve one must fail loudly: rendering an empty string
+// would write a config file with a blank password and report success.
+var ErrSecretsUnavailable = errors.New("statemgmt: secret references are not available here")
+
+// NewRenderer returns a Renderer pre-populated with the §4.8 custom
+// funcs. Callers do not register their own — the v1.0 surface is
+// intentionally fixed; new funcs require an explicit design pass.
+//
+// `secret` is present but unresolvable. Present, so a template using
+// it fails with a reason rather than text/template's "function
+// "secret" not defined", which reads like a typo.
 func NewRenderer() *Renderer {
-	return &Renderer{funcs: defaultFuncMap()}
+	return &Renderer{funcs: funcMapWithSecrets(nil)}
+}
+
+// NewRendererWithSecrets returns a Renderer whose `secret` func
+// resolves through fn.
+func NewRendererWithSecrets(fn SecretFunc) *Renderer {
+	return &Renderer{funcs: funcMapWithSecrets(fn)}
+}
+
+// funcMapWithSecrets builds the FuncMap, wiring `secret` to fn or to
+// a resolver that always explains why it cannot.
+func funcMapWithSecrets(fn SecretFunc) template.FuncMap {
+	funcs := defaultFuncMap()
+	funcs["secret"] = func(path string, key ...string) (string, error) {
+		if fn == nil {
+			return "", fmt.Errorf("%w: %q", ErrSecretsUnavailable, path)
+		}
+		if path == "" {
+			return "", errors.New("statemgmt: secret: path is required")
+		}
+		// The key is optional so a single-value secret reads as
+		// `{{ secret "app/token" }}`; more than one is a template bug
+		// worth naming rather than silently ignoring.
+		var k string
+		switch len(key) {
+		case 0:
+		case 1:
+			k = key[0]
+		default:
+			return "", fmt.Errorf("statemgmt: secret %q: expected at most one key, got %d", path, len(key))
+		}
+		return fn(path, k)
+	}
+	return funcs
 }
 
 // renderContext is the "." root inside every template. Fields are

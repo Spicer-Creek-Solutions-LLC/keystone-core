@@ -649,6 +649,29 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	stateGRPC.Resolver = controlplane.NewStoreResolver(store)
 	stateGRPC.Converge = convergeDispatcher
 
+	// Agent secret lookups. Only wired when identity is enabled: the
+	// handler authenticates by SVID, so with no CA there is no way to
+	// tell which agent is asking, and answering anyway would hand a
+	// secret to whoever published the request.
+	if identityProvider != nil && secretsRT != nil && secretsRT.Broker != nil {
+		if err := startSecretHandler(ctx, secretHandlerDeps{
+			provider:   identityProvider,
+			subscriber: natsSubscriberAdapter{m: natsManager},
+			publisher:  natsManager,
+			subjects:   natsManager.Subjects(),
+			broker:     secretsRT.Broker,
+			agents:     store,
+			grants:     cfg.Secrets.AgentGrants,
+			log:        log,
+		}); err != nil {
+			return fmt.Errorf("secret request handler: %w", err)
+		}
+	} else {
+		log.Info("server: agent secret lookups disabled",
+			"identity_enabled", identityProvider != nil,
+			"secrets_enabled", secretsRT != nil && secretsRT.Broker != nil)
+	}
+
 	natsExec, err := controlplane.NewNATSBatchExecutor(controlplane.NATSBatchExecutorConfig{
 		Dispatcher: srv.CommandDispatcher(),
 		Router:     router,
@@ -746,4 +769,67 @@ func toConfigPSKs(in []config.BootstrapPSK) []controlplane.ConfigPSK {
 		})
 	}
 	return out
+}
+
+// secretHandlerDeps is what startSecretHandler needs. Grouped into a
+// struct rather than eight positional parameters because the wiring
+// order in run() is already dense enough to misread.
+type secretHandlerDeps struct {
+	provider   *identity.EmbeddedProvider
+	subscriber controlplane.Subscriber
+	publisher  controlplane.NATSPublisher
+	subjects   *natsmgr.SubjectBuilder
+	broker     controlplane.SecretReader
+	agents     controlplane.AgentLabelSource
+	grants     []config.SecretsAgentGrantConfig
+	log        *slog.Logger
+}
+
+// startSecretHandler wires the agent secret-lookup path.
+//
+// Grants are compiled here, at boot, so a malformed rule stops the
+// server rather than silently denying every lookup at runtime — an
+// operator who wrote a grant should hear about a typo immediately, not
+// discover it as a converge failure on some host at 3am.
+func startSecretHandler(ctx context.Context, d secretHandlerDeps) error {
+	bundle, err := d.provider.GetTrustBundle(ctx)
+	if err != nil {
+		return fmt.Errorf("trust bundle: %w", err)
+	}
+	roots, err := controlplane.SVIDRootsFromCerts(bundle.X509Authorities())
+	if err != nil {
+		return err
+	}
+
+	rules := make([]secrets.AgentGrant, 0, len(d.grants))
+	for _, g := range d.grants {
+		rules = append(rules, secrets.AgentGrant{
+			AgentIDs: g.AgentIDs, Labels: g.Labels, Paths: g.Paths,
+		})
+	}
+	grants, err := secrets.NewAgentGrants(rules)
+	if err != nil {
+		return err
+	}
+
+	handler, err := controlplane.NewSecretRequestHandler(controlplane.SecretHandlerConfig{
+		Subscriber: d.subscriber,
+		Publisher:  d.publisher,
+		Subjects:   d.subjects,
+		Verifier:   &controlplane.SVIDVerifier{Roots: roots},
+		Grants:     grants,
+		Broker:     d.broker,
+		Agents:     d.agents,
+		Logger:     d.log,
+	})
+	if err != nil {
+		return err
+	}
+	if err := handler.Start(ctx); err != nil {
+		return err
+	}
+	context.AfterFunc(ctx, func() { _ = handler.Stop() })
+
+	d.log.Info("server: agent secret lookups enabled", "grant_rules", len(rules))
+	return nil
 }
