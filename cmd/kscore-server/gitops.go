@@ -26,10 +26,10 @@ type gitOpsRuntime struct {
 	// Rollback engine + its durable store + the verification result
 	// store. Nil when the operator hasn't opted in (v1.0 keeps
 	// rollback off-by-default until a real ROLES path lands).
-	Rollback         *rollback.Engine
-	RollbackStore    *rollback.SQLiteStore
-	Verifications    verification.ResultStore
-	VerificationsDB  *verification.SQLiteResultStore
+	Rollback        *rollback.Engine
+	RollbackStore   *rollback.SQLiteStore
+	Verifications   verification.ResultStore
+	VerificationsDB *verification.SQLiteResultStore
 
 	// Webhook receiver (separate :8081/webhooks listener). Nil when
 	// gitops.webhook.enabled is false.
@@ -185,4 +185,3 @@ func (r *gitOpsRuntime) providersFrom() gitops.Providers {
 		Verifications: r.Verifications,
 	}
 }
-

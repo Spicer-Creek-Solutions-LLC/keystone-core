@@ -29,8 +29,8 @@ import (
 	"go.keystone-core.io/keystone-core/internal/controlplane"
 	natsmgr "go.keystone-core.io/keystone-core/internal/nats"
 	"go.keystone-core.io/keystone-core/internal/state"
-	"go.keystone-core.io/keystone-core/pkg/envelope"
 	v1 "go.keystone-core.io/keystone-core/pkg/api/v1"
+	"go.keystone-core.io/keystone-core/pkg/envelope"
 )
 
 // execFixture wires the full pipeline. 5 agents, real SQLite store,
@@ -174,12 +174,12 @@ func bootExecFixture(t *testing.T, specs []agentSpec) *execFixture {
 	// Server-side CommandDispatcher publishes signed CommandMessages
 	// onto the embedded bus.
 	disp, err := controlplane.NewDispatcher(controlplane.DispatcherConfig{
-		Store:                 store,
-		Agents:                connMgr,
-		Publisher:             serverNATSPublisher{m: serverNATS},
-		Subjects:              serverNATS.Subjects(),
-		Signer:                commandSignerAdapter{enf: enforcer},
-		Logger:                log,
+		Store:     store,
+		Agents:    connMgr,
+		Publisher: serverNATSPublisher{m: serverNATS},
+		Subjects:  serverNATS.Subjects(),
+		Signer:    commandSignerAdapter{enf: enforcer},
+		Logger:    log,
 		// A local echo round-trips in well under a second, but under the
 		// race detector + the full sequential integration suite a NATS
 		// round-trip can dilate past a few seconds; a generous ceiling

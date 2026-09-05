@@ -1,0 +1,19 @@
+kind: Changed
+body: |-
+  **The tree is gofmt-clean under Go 1.27, and stays that way.** 127
+  files had drifted: Go 1.27's gofmt changed struct-field and composite
+  -literal alignment and reflows doc-comment lists. Nothing caught it,
+  because `gofmt` was not among the enabled linters -- so the drift had
+  been growing since the toolchain bump and every unrelated diff
+  carried some of it.
+
+  Almost all of it is whitespace: of 1166 changed lines, 1046 are
+  alignment and 120 are comment reflow. Two comments came out of the
+  reflow reading worse -- a continuation line losing its hanging indent
+  reads as a new list item -- so those were reworded to say the same
+  thing in canonical form rather than accepting the degradation.
+
+  `gofmt` is now enabled in `.golangci.yml` (as a formatter, per
+  golangci-lint v2), excluding generated protobuf, which protoc-gen-go
+  formats and would reformat back on the next generation. Verified the
+  gate actually bites: deliberately misformatted code fails `make lint`.

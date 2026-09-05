@@ -127,9 +127,9 @@ func (s *SQLiteStore) DeleteAPIKey(ctx context.Context, id string) error {
 // scanAPIKey populates an APIKeyRecord from a *sql.Row or *sql.Rows.
 func scanAPIKey(r rowLike) (*APIKeyRecord, error) {
 	var (
-		k                            APIKeyRecord
-		createdAt                    string
-		expiresAt, lastUsedRaw       sql.NullString
+		k                      APIKeyRecord
+		createdAt              string
+		expiresAt, lastUsedRaw sql.NullString
 	)
 	if err := r.Scan(
 		&k.ID, &k.Name, &k.KeyHash, &k.Role,

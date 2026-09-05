@@ -111,7 +111,6 @@ func commentText(doc *ast.CommentGroup) string {
 // in angle brackets or markdown link syntax.
 var bareURLPattern = regexp.MustCompile(`https?://[A-Za-z0-9._:/?&=#@%~+-]+`)
 
-
 // structField is one koanf-tagged field after AST parsing.
 type structField struct {
 	Name     string // Go name (e.g., "GRPCPort")

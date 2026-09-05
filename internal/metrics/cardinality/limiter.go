@@ -108,10 +108,10 @@ const (
 
 // Limiter is safe for concurrent use.
 type Limiter struct {
-	mode     Mode
-	defMax   int
-	logger   *slog.Logger
-	reporter Reporter
+	mode      Mode
+	defMax    int
+	logger    *slog.Logger
+	reporter  Reporter
 	warnEvery time.Duration
 
 	mu       sync.RWMutex

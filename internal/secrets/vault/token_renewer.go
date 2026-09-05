@@ -29,21 +29,21 @@ var errRenewerNotRunning = errors.New("vault: token renewer not running")
 // v0.x ROADMAP entry "Vault auto re-authentication on token expiry"
 // tracks the self-healing variant.
 type tokenRenewer struct {
-	client   *vaultapi.Client
+	client    *vaultapi.Client
 	earlyFrac float64
-	logger   *slog.Logger
-	clock    func() time.Time
+	logger    *slog.Logger
+	clock     func() time.Time
 
 	// OnTick is a test hook fired after each renewal attempt
 	// (regardless of outcome).
 	OnTick func(ok bool, err error)
 
-	mu       sync.Mutex
-	started  bool
-	stopped  bool
-	healthy  bool
-	stopCh   chan struct{}
-	doneCh   chan struct{}
+	mu      sync.Mutex
+	started bool
+	stopped bool
+	healthy bool
+	stopCh  chan struct{}
+	doneCh  chan struct{}
 }
 
 func newTokenRenewer(client *vaultapi.Client, cfg Config) *tokenRenewer {

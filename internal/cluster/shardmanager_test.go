@@ -348,7 +348,7 @@ func TestShardManager_ObserverRemoveAndMembers(t *testing.T) {
 	o := &moveRec{}
 	sm.AddObserver(nil) // no-op
 	sm.AddObserver(o)
-	sm.RemoveObserver(o)         // present
+	sm.RemoveObserver(o)          // present
 	sm.RemoveObserver(&moveRec{}) // absent — no-op
 
 	got := sm.Members()

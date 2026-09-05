@@ -33,7 +33,7 @@ type ApplyOptions struct {
 	Enable     []string          // feature overrides on
 	Disable    []string          // feature overrides off
 	As         string            // multi-instance namespace ("" = none)
-	Entrypoint string             // "" = entrypoints.default
+	Entrypoint string            // "" = entrypoints.default
 }
 
 // ApplyResult is the outcome of Apply/Rollback.

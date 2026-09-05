@@ -51,10 +51,10 @@ type RateLimiter struct {
 }
 
 type clientState struct {
-	failures      []time.Time   // sliding window of failure timestamps
-	lockedUntil   time.Time     // zero = not locked
-	lockoutLevel  int           // 0 before first lockout; 1, 2, ... after
-	lastClearedAt time.Time     // last successful allow
+	failures      []time.Time // sliding window of failure timestamps
+	lockedUntil   time.Time   // zero = not locked
+	lockoutLevel  int         // 0 before first lockout; 1, 2, ... after
+	lastClearedAt time.Time   // last successful allow
 }
 
 // NewRateLimiter returns a RateLimiter with cfg defaults applied.

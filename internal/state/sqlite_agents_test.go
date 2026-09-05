@@ -267,9 +267,9 @@ func TestSQLiteStore_Agent_NullableFields(t *testing.T) {
 
 	a := sampleAgent("a-null")
 	a.LastHeartbeatAt = time.Time{} // zero -> NULL
-	a.PlatformVersion = ""           // empty -> NULL
-	a.AgentVersion = ""               // empty -> NULL
-	a.Metrics = nil                   // nil map -> NULL
+	a.PlatformVersion = ""          // empty -> NULL
+	a.AgentVersion = ""             // empty -> NULL
+	a.Metrics = nil                 // nil map -> NULL
 
 	if err := s.CreateAgent(ctx, a); err != nil {
 		t.Fatal(err)

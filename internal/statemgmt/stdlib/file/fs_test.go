@@ -85,12 +85,12 @@ func TestOwnerMatches_Branches(t *testing.T) {
 		declared string
 		want     bool
 	}{
-		{"", true},           // no declaration → matches
-		{"1000", true},       // numeric: match
-		{"1001", false},      // numeric: mismatch
-		{"alice", true},      // name: match
-		{"bob", false},       // name: mismatch
-		{"-1", false},        // numeric: negative non-match
+		{"", true},      // no declaration → matches
+		{"1000", true},  // numeric: match
+		{"1001", false}, // numeric: mismatch
+		{"alice", true}, // name: match
+		{"bob", false},  // name: mismatch
+		{"-1", false},   // numeric: negative non-match
 	}
 	for _, c := range cases {
 		if got := ownerMatches(c.declared, m); got != c.want {
@@ -300,4 +300,3 @@ func TestReadMeta_StatFieldsPositive(t *testing.T) {
 		t.Errorf("GID not int-roundtripable: %v", err)
 	}
 }
-

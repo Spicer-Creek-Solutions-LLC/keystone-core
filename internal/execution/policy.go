@@ -73,10 +73,10 @@ type CommandPolicy struct {
 
 // Sentinel errors. Callers should match via errors.Is.
 var (
-	ErrCommandTooLong     = errors.New("execution: command exceeds max length")
-	ErrCommandBlocked     = errors.New("execution: command blocked by policy")
-	ErrCommandNotAllowed  = errors.New("execution: command not in allow list")
-	ErrShellMetachar      = errors.New("execution: shell metacharacter not allowed in non-shell mode")
+	ErrCommandTooLong      = errors.New("execution: command exceeds max length")
+	ErrCommandBlocked      = errors.New("execution: command blocked by policy")
+	ErrCommandNotAllowed   = errors.New("execution: command not in allow list")
+	ErrShellMetachar       = errors.New("execution: shell metacharacter not allowed in non-shell mode")
 	ErrShellExecDisallowed = errors.New("execution: shell execution disabled by policy")
 )
 

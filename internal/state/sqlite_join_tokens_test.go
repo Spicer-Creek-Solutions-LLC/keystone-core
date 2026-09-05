@@ -227,7 +227,13 @@ func TestSQLiteStore_ListJoinTokens_Filters(t *testing.T) {
 	})
 	if len(combined) != 1 || combined[0].ID != "a" {
 		t.Errorf("combined = %d records, IDs %v, want [a]", len(combined),
-			func() []string { ids := []string{}; for _, r := range combined { ids = append(ids, r.ID) }; return ids }())
+			func() []string {
+				ids := []string{}
+				for _, r := range combined {
+					ids = append(ids, r.ID)
+				}
+				return ids
+			}())
 	}
 }
 

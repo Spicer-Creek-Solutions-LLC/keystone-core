@@ -27,7 +27,7 @@ type fakeStream struct {
 	trailerMD metadata.MD
 }
 
-func (s *fakeStream) Context() context.Context     { return s.ctx }
+func (s *fakeStream) Context() context.Context { return s.ctx }
 func (s *fakeStream) SetHeader(md metadata.MD) error {
 	if s.headerMD == nil {
 		s.headerMD = metadata.MD{}

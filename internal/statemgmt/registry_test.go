@@ -18,8 +18,8 @@ type noopModule struct {
 	name string
 }
 
-func (m *noopModule) Name() string                                           { return m.name }
-func (m *noopModule) ValidStates() []string                                  { return []string{"present"} }
+func (m *noopModule) Name() string          { return m.name }
+func (m *noopModule) ValidStates() []string { return []string{"present"} }
 func (m *noopModule) Check(context.Context, *Declaration) (*ModuleCheckResult, error) {
 	return &ModuleCheckResult{Matches: true}, nil
 }

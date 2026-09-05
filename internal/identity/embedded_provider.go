@@ -55,8 +55,8 @@ type EmbeddedProvider struct {
 	watchers  map[chan *TrustBundle]struct{}
 	startedAt time.Time // wall-clock of last Start; reported via Status
 
-	started atomic.Bool
-	stopped atomic.Bool
+	started  atomic.Bool
+	stopped  atomic.Bool
 	stopOnce sync.Once
 }
 
@@ -66,9 +66,9 @@ type EmbeddedProvider struct {
 type EmbeddedProviderConfig struct {
 	CAConfig        CAConfig
 	Storage         CAStorage
-	RotatorInterval time.Duration  // optional; defaults to DefaultCARotatorInterval
+	RotatorInterval time.Duration    // optional; defaults to DefaultCARotatorInterval
 	Clock           func() time.Time // optional; defaults to time.Now
-	Logger          *slog.Logger    // optional; defaults to slog.Default
+	Logger          *slog.Logger     // optional; defaults to slog.Default
 
 	// Attestors is the v0.1 pluggable attestation registry.
 	// Each entry handles one [AttestorType]; duplicates are
@@ -607,4 +607,3 @@ func (p *EmbeddedProvider) rebuildAndNotify() {
 		}
 	}
 }
-

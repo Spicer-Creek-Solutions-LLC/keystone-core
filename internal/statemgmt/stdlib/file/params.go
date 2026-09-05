@@ -49,15 +49,15 @@ const modeUnset = 0o7777 + 1
 // params is the parsed shape the Check/Apply paths consume. Strings
 // stay strings to keep the param flow readable.
 type params struct {
-	Path     string // from Declaration.Name
-	State    string // from Declaration.State
-	Content  string
+	Path       string // from Declaration.Name
+	State      string // from Declaration.State
+	Content    string
 	HasContent bool
-	Source   string
-	Mode     uint32 // modeUnset when not provided
-	Owner    string
-	Group    string
-	Target   string
+	Source     string
+	Mode       uint32 // modeUnset when not provided
+	Owner      string
+	Group      string
+	Target     string
 }
 
 // parseParams pulls a typed view out of a Declaration. Returns a

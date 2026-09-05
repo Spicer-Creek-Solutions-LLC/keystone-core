@@ -90,9 +90,9 @@ func (s stubAgentLookup) Get(_ context.Context, id string) (*state.AgentRecord, 
 // integrationFixture holds every component the integration test
 // boots so cleanup is centralized in the t.Cleanup function.
 type integrationFixture struct {
-	natsServer  *natsmgr.Manager        // embedded nats-server (the "server" in the spec)
-	natsAgent   *natsmgr.Manager        // agent's external client
-	agent       *agent.Agent            // the agent runtime
+	natsServer  *natsmgr.Manager // embedded nats-server (the "server" in the spec)
+	natsAgent   *natsmgr.Manager // agent's external client
+	agent       *agent.Agent     // the agent runtime
 	dispatcher  *controlplane.CommandDispatcher
 	testConn    *natsclient.Conn        // sibling connection for test subscribers
 	subBuilder  *natsmgr.SubjectBuilder // for subject construction

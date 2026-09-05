@@ -142,4 +142,3 @@ func maybeWireBlueprintService(cfg config.BlueprintsConfig, log *slog.Logger) (*
 		Applier: applier,
 	}, nil
 }
-

@@ -95,9 +95,9 @@ type DriftState int
 
 const (
 	DriftStateInSync  DriftState = iota // Check matched
-	DriftStateDrifted                    // Check showed drift
-	DriftStateError                      // Check failed
-	DriftStateSkipped                    // cascaded skip after earlier error
+	DriftStateDrifted                   // Check showed drift
+	DriftStateError                     // Check failed
+	DriftStateSkipped                   // cascaded skip after earlier error
 )
 
 func (s DriftState) String() string {

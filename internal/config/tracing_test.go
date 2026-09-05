@@ -43,7 +43,10 @@ func TestTracingConfig_Validate(t *testing.T) {
 		{"otlp grpc with endpoint", otlp(nil), ""},
 		{"otlp missing endpoint", otlp(func(c *TracingConfig) { c.Endpoint = "" }), "endpoint: required"},
 		{"otlp http", otlp(func(c *TracingConfig) { c.Exporter = TracingExporterOTLPHTTP }), ""},
-		{"zipkin with endpoint", otlp(func(c *TracingConfig) { c.Exporter = TracingExporterZipkin; c.Endpoint = "http://zipkin:9411/api/v2/spans" }), ""},
+		{"zipkin with endpoint", otlp(func(c *TracingConfig) {
+			c.Exporter = TracingExporterZipkin
+			c.Endpoint = "http://zipkin:9411/api/v2/spans"
+		}), ""},
 		{"unknown exporter", otlp(func(c *TracingConfig) { c.Exporter = "kafka" }), "exporter: \"kafka\""},
 		{"unknown sampler", otlp(func(c *TracingConfig) { c.Sampler = "weird" }), "sampler: \"weird\""},
 		{"adaptive sampler -> deferred", otlp(func(c *TracingConfig) { c.Sampler = "adaptive" }), "deferred to v2.x+"},

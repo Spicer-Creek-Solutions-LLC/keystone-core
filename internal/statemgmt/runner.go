@@ -12,10 +12,10 @@ import (
 // Runner orchestrates Check → Apply → Test per declaration in the
 // topo order produced by Resolver.Resolve. Per PROJECT-DETAILS §4.8:
 //
-//	6. Check phase   — Module.Check (read-only diff)
-//	7. Apply phase   — Module.Apply only when Check.Matches=false
-//	8. Test phase    — Module.Test verifies post-apply
-//	9. Report        — emit StateResult per state; emit events
+//  6. Check phase   — Module.Check (read-only diff)
+//  7. Apply phase   — Module.Apply only when Check.Matches=false
+//  8. Test phase    — Module.Test verifies post-apply
+//  9. Report        — emit StateResult per state; emit events
 //
 // The Runner is intentionally narrow. It does not own the upstream
 // pipeline (Parse → Load → Render → Validate → Resolve) — the caller
@@ -367,8 +367,8 @@ func (r *Runner) observer() RunObserver {
 // every transition.
 type noopObserver struct{}
 
-func (noopObserver) Start(context.Context, *Declaration)                          {}
-func (noopObserver) Drift(context.Context, *Declaration, *ModuleCheckResult)      {}
-func (noopObserver) Change(context.Context, *Declaration, *StateResult)           {}
-func (noopObserver) Done(context.Context, *DeclarationResult)                     {}
-func (noopObserver) Skip(context.Context, *Declaration, error)                    {}
+func (noopObserver) Start(context.Context, *Declaration)                     {}
+func (noopObserver) Drift(context.Context, *Declaration, *ModuleCheckResult) {}
+func (noopObserver) Change(context.Context, *Declaration, *StateResult)      {}
+func (noopObserver) Done(context.Context, *DeclarationResult)                {}
+func (noopObserver) Skip(context.Context, *Declaration, error)               {}

@@ -65,9 +65,9 @@ func (m *Metrics) SetQuorum(ok bool) {
 type FailoverOutcome string
 
 const (
-	FailoverOutcomeCompleted   FailoverOutcome = "completed"
-	FailoverOutcomeFailed      FailoverOutcome = "failed"
-	FailoverOutcomeRolledBack  FailoverOutcome = "rolled_back"
+	FailoverOutcomeCompleted  FailoverOutcome = "completed"
+	FailoverOutcomeFailed     FailoverOutcome = "failed"
+	FailoverOutcomeRolledBack FailoverOutcome = "rolled_back"
 )
 
 // RecordFailover increments the failover counter by outcome.

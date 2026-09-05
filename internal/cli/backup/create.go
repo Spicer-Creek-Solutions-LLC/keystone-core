@@ -21,10 +21,10 @@ import (
 // any CLI change here.
 func createCmd(g *globals) *cobra.Command {
 	var (
-		dst            string
-		configs        []string
-		ageRecipients  string
-		clusterName    string
+		dst           string
+		configs       []string
+		ageRecipients string
+		clusterName   string
 	)
 	cmd := &cobra.Command{
 		Use:   "create",

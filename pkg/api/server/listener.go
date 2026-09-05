@@ -143,4 +143,3 @@ func addrs(s []net.Listener) []string {
 	}
 	return out
 }
-

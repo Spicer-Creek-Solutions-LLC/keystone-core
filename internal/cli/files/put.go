@@ -82,4 +82,3 @@ func parseTagFlags(in []string) (map[string]string, error) {
 	}
 	return out, nil
 }
-

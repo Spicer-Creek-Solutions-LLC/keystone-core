@@ -36,14 +36,14 @@ var expectedMetricsRaw []byte
 // schema is huge and most of it is irrelevant to "does this dashboard
 // reference only metrics we ship?".
 type dashboard struct {
-	Title         string       `json:"title"`
-	UID           string       `json:"uid"`
-	SchemaVersion int          `json:"schemaVersion"`
-	Tags          []string     `json:"tags"`
-	Panels        []panel      `json:"panels"`
-	Templating    templating   `json:"templating"`
-	Time          timeRange    `json:"time"`
-	Refresh       interface{}  `json:"refresh"`
+	Title         string      `json:"title"`
+	UID           string      `json:"uid"`
+	SchemaVersion int         `json:"schemaVersion"`
+	Tags          []string    `json:"tags"`
+	Panels        []panel     `json:"panels"`
+	Templating    templating  `json:"templating"`
+	Time          timeRange   `json:"time"`
+	Refresh       interface{} `json:"refresh"`
 }
 
 type panel struct {

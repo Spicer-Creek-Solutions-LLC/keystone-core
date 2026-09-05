@@ -16,14 +16,14 @@ import (
 // method fires on which transition. Lookup uses an in-memory
 // table; mutations update it.
 type fakeProvider struct {
-	users         map[string]UserInfo
-	addErr        error
-	modErr        error
-	delErr        error
-	setGroupsErr  error
-	addCalls      []AddOptions
-	modCalls      []ModOptions
-	delCalls      []delCall
+	users          map[string]UserInfo
+	addErr         error
+	modErr         error
+	delErr         error
+	setGroupsErr   error
+	addCalls       []AddOptions
+	modCalls       []ModOptions
+	delCalls       []delCall
 	setGroupsCalls []setGroupsCall
 }
 

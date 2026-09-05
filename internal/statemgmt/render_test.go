@@ -68,7 +68,7 @@ func TestDefaultFunc(t *testing.T) {
 		{"fallback", nil, "fallback"},
 		{"fallback", "", "fallback"},
 		{"fallback", "actual", "actual"},
-		{"fallback", 0, 0},        // numeric zero is NOT "empty" for v1.0
+		{"fallback", 0, 0},         // numeric zero is NOT "empty" for v1.0
 		{"fallback", false, false}, // boolean false is NOT "empty"
 		{42, nil, 42},
 	}
@@ -140,13 +140,13 @@ func TestRenderString_CustomFuncs_Wired(t *testing.T) {
 		},
 	}
 	cases := map[string]string{
-		`{{ upper .Vars.name | trim }}`:                "NGINX",
-		`{{ lower "HELLO" }}`:                          "hello",
-		`{{ title "two words" }}`:                      "Two Words",
-		`{{ join "," .Vars.parts }}`:                   "a,b,c",
-		`{{ index (split "," "x,y,z") 1 }}`:            "y",
-		`{{ default "fallback" .Vars.empty }}`:         "fallback",
-		`{{ default "fallback" .Vars.name | trim }}`:   "nginx",
+		`{{ upper .Vars.name | trim }}`:              "NGINX",
+		`{{ lower "HELLO" }}`:                        "hello",
+		`{{ title "two words" }}`:                    "Two Words",
+		`{{ join "," .Vars.parts }}`:                 "a,b,c",
+		`{{ index (split "," "x,y,z") 1 }}`:          "y",
+		`{{ default "fallback" .Vars.empty }}`:       "fallback",
+		`{{ default "fallback" .Vars.name | trim }}`: "nginx",
 	}
 	for tpl, want := range cases {
 		got, err := r.RenderString(tpl, ctx)

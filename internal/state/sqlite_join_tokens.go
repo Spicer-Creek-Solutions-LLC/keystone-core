@@ -177,12 +177,12 @@ func (s *SQLiteStore) DeleteExpiredJoinTokens(ctx context.Context, before time.T
 // scanJoinTokenSQLite populates a JoinTokenRecord from a row.
 func scanJoinTokenSQLite(r rowLike) (*JoinTokenRecord, error) {
 	var (
-		rec        JoinTokenRecord
-		ttlNS      int64
-		createdAt  string
-		expiresAt  string
-		usedAt     sql.NullString
-		metadata   string
+		rec       JoinTokenRecord
+		ttlNS     int64
+		createdAt string
+		expiresAt string
+		usedAt    sql.NullString
+		metadata  string
 	)
 	if err := r.Scan(
 		&rec.ID, &rec.Hash, &rec.Salt, &rec.Prefix, &rec.AgentID,
@@ -265,4 +265,3 @@ func decodeMetadata(s string) (map[string]string, error) {
 	}
 	return out, nil
 }
-

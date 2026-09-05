@@ -72,9 +72,9 @@ type Provider interface {
 // KeyType by default) so the returned [X509SVID] carries both the
 // chain and the key.
 type IssueX509SVIDRequest struct {
-	ID          SPIFFEID         // required → URI SAN
-	KeyType     CAKeyType        // optional; "" → provider's CA KeyType
-	TTL         time.Duration    // 0 → CAConfig.DefaultSVIDTTL; > MaxSVIDTTL → capped
+	ID          SPIFFEID      // required → URI SAN
+	KeyType     CAKeyType     // optional; "" → provider's CA KeyType
+	TTL         time.Duration // 0 → CAConfig.DefaultSVIDTTL; > MaxSVIDTTL → capped
 	DNSNames    []string
 	IPAddresses []net.IP
 	Hint        string
@@ -85,8 +85,8 @@ type IssueX509SVIDRequest struct {
 // DefaultSVIDTTL).
 type IssueJWTSVIDRequest struct {
 	ID          SPIFFEID
-	Audience    []string         // required, ≥ 1
-	TTL         time.Duration    // 0 → CAConfig.DefaultSVIDTTL; > MaxSVIDTTL → capped
+	Audience    []string      // required, ≥ 1
+	TTL         time.Duration // 0 → CAConfig.DefaultSVIDTTL; > MaxSVIDTTL → capped
 	Hint        string
 	ExtraClaims map[string]any
 }

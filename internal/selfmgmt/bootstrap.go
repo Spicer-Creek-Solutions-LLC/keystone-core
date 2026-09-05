@@ -46,9 +46,9 @@ var ErrBootstrap = errors.New("selfmgmt: bootstrap failed")
 type Option func(*managerOptions)
 
 type managerOptions struct {
-	checkpointer  statemachine.Checkpointer[BootstrapState, BootstrapEvent]
-	logger        *slog.Logger
-	autoRollback  bool
+	checkpointer statemachine.Checkpointer[BootstrapState, BootstrapEvent]
+	logger       *slog.Logger
+	autoRollback bool
 }
 
 // WithCheckpointer overrides the default in-memory checkpointer.

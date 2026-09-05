@@ -389,17 +389,17 @@ func (m *CAManager) IssueCertificate(req IssueRequest) (*IssuedCertificate, erro
 	}
 
 	tpl := &x509.Certificate{
-		SerialNumber:   serial,
-		Subject:        pkix.Name{CommonName: req.ID.String()},
-		NotBefore:      now,
-		NotAfter:       now.Add(ttl),
-		KeyUsage:       keyUsage,
-		ExtKeyUsage:    extKeyUsage,
-		URIs:           []*url.URL{req.ID.URI()},
-		DNSNames:       req.DNSNames,
-		IPAddresses:    req.IPAddresses,
+		SerialNumber:          serial,
+		Subject:               pkix.Name{CommonName: req.ID.String()},
+		NotBefore:             now,
+		NotAfter:              now.Add(ttl),
+		KeyUsage:              keyUsage,
+		ExtKeyUsage:           extKeyUsage,
+		URIs:                  []*url.URL{req.ID.URI()},
+		DNSNames:              req.DNSNames,
+		IPAddresses:           req.IPAddresses,
 		BasicConstraintsValid: true,
-		IsCA:           false,
+		IsCA:                  false,
 	}
 
 	der, err := x509.CreateCertificate(rand.Reader, tpl, m.signingCert, req.PublicKey, m.signingKey)

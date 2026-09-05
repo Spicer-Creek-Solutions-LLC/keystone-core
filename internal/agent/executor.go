@@ -20,7 +20,7 @@ import (
 // SecurityEnforcer pre-filters the request before it reaches
 // Execute.
 type ExecuteRequest struct {
-	Command      string            // executable name or absolute path
+	Command      string // executable name or absolute path
 	Args         []string
 	Env          map[string]string // injected env (overlaid on inherited)
 	EnvAllowlist []string          // if non-empty, ONLY these inherited keys pass through
@@ -36,14 +36,14 @@ type ExecuteRequest struct {
 // onto the response subject without losing information about a
 // failed-but-completed exec.
 type ExecuteResult struct {
-	ExitCode        int           // process exit code; -1 on signal kill or fork failure
-	Stdout          []byte        // captured stdout (truncated if exceeded MaxStdoutBytes)
-	Stderr          []byte        // captured stderr (truncated if exceeded MaxStderrBytes)
+	ExitCode        int    // process exit code; -1 on signal kill or fork failure
+	Stdout          []byte // captured stdout (truncated if exceeded MaxStdoutBytes)
+	Stderr          []byte // captured stderr (truncated if exceeded MaxStderrBytes)
 	Duration        time.Duration
-	TimedOut        bool          // true if killed by timeout
+	TimedOut        bool // true if killed by timeout
 	StdoutTruncated bool
 	StderrTruncated bool
-	Error           string        // system-level error string; empty on natural exit
+	Error           string // system-level error string; empty on natural exit
 }
 
 // ExecutorConfig configures an Executor. Defaults match
@@ -61,7 +61,7 @@ type ExecutorConfig struct {
 const (
 	defaultKillGrace      = 5 * time.Second
 	defaultExecTimeout    = 5 * time.Minute
-	defaultMaxStdoutBytes = 1 << 20 // 1 MiB
+	defaultMaxStdoutBytes = 1 << 20   // 1 MiB
 	defaultMaxStderrBytes = 256 << 10 // 256 KiB
 )
 
@@ -293,4 +293,3 @@ func (b *cappedBuffer) bytes() []byte {
 	copy(out, b.buf.Bytes())
 	return out
 }
-

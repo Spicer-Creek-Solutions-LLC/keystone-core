@@ -48,9 +48,9 @@ func newSecretsAuditStoreBridge(auditor audit.Auditor) *secretsAuditStoreBridge 
 //   - Severity     ← Low on allowed; High on denied
 //   - Violations   ← single-element from event.ErrorReason on denied
 //   - Metadata     ← {backend, path, lease_id, duration_ns} where present;
-//                    masked_payload is intentionally NOT copied — the events
-//                    bus emission already carries the masked payload and
-//                    audit rows favor compact rolls.
+//     masked_payload is intentionally NOT copied — the events
+//     bus emission already carries the masked payload and
+//     audit rows favor compact rolls.
 func (b *secretsAuditStoreBridge) Emit(ctx context.Context, event secrets.SecretAccessEvent) {
 	severity := audit.SeverityLow
 	var violations []audit.Violation

@@ -20,8 +20,10 @@ func (*otherProvider) DaemonReload(context.Context) error    { return wrapUnsupp
 func (*otherProvider) Status(context.Context, string) (*TimerStatus, error) {
 	return nil, wrapUnsupported("Status")
 }
-func (*otherProvider) EnableNow(context.Context, string) error   { return wrapUnsupported("EnableNow") }
-func (*otherProvider) DisableStop(context.Context, string) error { return wrapUnsupported("DisableStop") }
+func (*otherProvider) EnableNow(context.Context, string) error { return wrapUnsupported("EnableNow") }
+func (*otherProvider) DisableStop(context.Context, string) error {
+	return wrapUnsupported("DisableStop")
+}
 
 func wrapUnsupported(op string) error { return &unsupportedError{op: op, os: runtime.GOOS} }
 

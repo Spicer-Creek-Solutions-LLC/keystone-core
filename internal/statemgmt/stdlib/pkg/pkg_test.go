@@ -13,11 +13,11 @@ import (
 
 // fakeProvider drives Module tests without touching apt-get.
 type fakeProvider struct {
-	pkgs          map[string]PkgInfo
-	installErr    error
-	removeErr     error
-	installCalls  []installCall
-	removeCalls   []string
+	pkgs         map[string]PkgInfo
+	installErr   error
+	removeErr    error
+	installCalls []installCall
+	removeCalls  []string
 }
 
 type installCall struct {

@@ -440,7 +440,10 @@ func TestBroker_NoRouteNoDefault_FiresAuditOnEveryMethod(t *testing.T) {
 
 	ctx := context.Background()
 	calls := []func() error{
-		func() error { _, err := b.GetSecret(ctx, GetSecretRequest{Path: "unrouted/a", Refresh: true}); return err },
+		func() error {
+			_, err := b.GetSecret(ctx, GetSecretRequest{Path: "unrouted/a", Refresh: true})
+			return err
+		},
 		func() error {
 			_, err := b.WriteSecret(ctx, WriteSecretRequest{Path: "unrouted/b", Data: map[string]any{"x": "y"}})
 			return err
@@ -1039,4 +1042,3 @@ func TestBroker_HealthBeforeStart(t *testing.T) {
 		t.Errorf("Health pre-Start = %v, want wraps ErrBackendNotStarted", err)
 	}
 }
-

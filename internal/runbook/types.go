@@ -91,11 +91,11 @@ type StepResult struct {
 // TrailEntry is one audit-trail row: a status transition for the
 // execution as a whole or for a named step.
 type TrailEntry struct {
-	At    time.Time
-	Step  string // "" for execution-level transitions
-	From  Status
-	To    Status
-	Note  string
+	At   time.Time
+	Step string // "" for execution-level transitions
+	From Status
+	To   Status
+	Note string
 }
 
 // Execution is the run record for one runbook invocation. Steps is

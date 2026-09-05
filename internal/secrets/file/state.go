@@ -18,8 +18,8 @@ const stateSchemaVersion = 1
 // trial-scale deployments hold hundreds of secrets and the rewrite
 // cost is dwarfed by fsync.
 type fileState struct {
-	Version int                       `json:"version"`
-	Secrets map[string]*storedSecret  `json:"secrets"`
+	Version int                      `json:"version"`
+	Secrets map[string]*storedSecret `json:"secrets"`
 }
 
 // newFileState returns an empty state at the current schema version.

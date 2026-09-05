@@ -170,11 +170,11 @@ func TestBootstrap_FSM_RunsToVerified(t *testing.T) {
 func TestBackup_Restore_RoundTrip_Plain(t *testing.T) {
 	clusterDir := t.TempDir()
 	files := map[string]int{
-		"kscore-server.yaml": 1 << 10,  // 1 KB
-		"kscore-agent.yaml":  100 << 10, // 100 KB
-		"kscore-cluster.yaml": 1 << 20, // 1 MB
-		"audit.yaml":         2 << 10,
-		"policy.yaml":        2 << 10,
+		"kscore-server.yaml":  1 << 10,   // 1 KB
+		"kscore-agent.yaml":   100 << 10, // 100 KB
+		"kscore-cluster.yaml": 1 << 20,   // 1 MB
+		"audit.yaml":          2 << 10,
+		"policy.yaml":         2 << 10,
 	}
 	want := stageCluster(t, clusterDir, files)
 	configPaths := configPathsFromStage(clusterDir, files)

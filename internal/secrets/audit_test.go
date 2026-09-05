@@ -413,13 +413,13 @@ func TestSecretAccessEvent_JSONRoundTrip(t *testing.T) {
 	t.Parallel()
 
 	in := SecretAccessEvent{
-		Timestamp:   time.Date(2026, 5, 14, 12, 0, 0, 0, time.UTC),
-		Action:      ActionWriteSecret,
-		Path:        "kv/app/db",
-		Backend:     "file",
-		Principal:   Principal{AgentID: "agent-1", SPIFFEID: "spiffe://kscore.local/agent/agent-1"},
-		Allowed:     true,
-		Duration:    200 * time.Millisecond,
+		Timestamp:     time.Date(2026, 5, 14, 12, 0, 0, 0, time.UTC),
+		Action:        ActionWriteSecret,
+		Path:          "kv/app/db",
+		Backend:       "file",
+		Principal:     Principal{AgentID: "agent-1", SPIFFEID: "spiffe://kscore.local/agent/agent-1"},
+		Allowed:       true,
+		Duration:      200 * time.Millisecond,
 		MaskedPayload: map[string]any{"password": MaskedValue},
 	}
 	b, err := json.Marshal(in)

@@ -150,8 +150,8 @@ type counter struct {
 	labels   Labels
 }
 
-func (c *counter) Inc()           { c.add(1) }
-func (c *counter) Add(v float64)  { c.add(v) }
+func (c *counter) Inc()          { c.add(1) }
+func (c *counter) Add(v float64) { c.add(v) }
 func (c *counter) With(l Labels) Counter {
 	return &counter{vec: c.vec, def: c.def, registry: c.registry, labels: l}
 }

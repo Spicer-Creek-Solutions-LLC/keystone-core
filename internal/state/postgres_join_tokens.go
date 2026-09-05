@@ -164,10 +164,10 @@ func (s *PostgreSQLStore) DeleteExpiredJoinTokens(ctx context.Context, before ti
 // is delivered as []byte; UsedAt comes through sql.NullTime.
 func scanJoinTokenPostgres(r rowLike) (*JoinTokenRecord, error) {
 	var (
-		rec       JoinTokenRecord
-		ttlNS     int64
-		usedAt    sql.NullTime
-		metadata  []byte
+		rec      JoinTokenRecord
+		ttlNS    int64
+		usedAt   sql.NullTime
+		metadata []byte
 	)
 	if err := r.Scan(
 		&rec.ID, &rec.Hash, &rec.Salt, &rec.Prefix, &rec.AgentID,

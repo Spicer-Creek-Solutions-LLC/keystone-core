@@ -263,12 +263,12 @@ func TestParse_TopLevelNullIsEmpty(t *testing.T) {
 func TestParse_RejectsMalformedSections(t *testing.T) {
 	t.Parallel()
 	cases := map[string]string{
-		"metadata not a map":         "metadata: \"foo\"\n",
-		"variables not a map":        "variables:\n  - one\n  - two\n",
-		"includes not a sequence":    "includes: nope\n",
-		"includes entry not string":  "includes:\n  - {nested: map}\n",
-		"module section not a map":   "file: \"hello\"\n",
-		"resource body not a map":    "file:\n  /etc/hosts: just-a-string\n",
+		"metadata not a map":        "metadata: \"foo\"\n",
+		"variables not a map":       "variables:\n  - one\n  - two\n",
+		"includes not a sequence":   "includes: nope\n",
+		"includes entry not string": "includes:\n  - {nested: map}\n",
+		"module section not a map":  "file: \"hello\"\n",
+		"resource body not a map":   "file:\n  /etc/hosts: just-a-string\n",
 	}
 	for name, in := range cases {
 		t.Run(name, func(t *testing.T) {

@@ -187,10 +187,13 @@ func readDockerServerLogs() (string, error) {
 // to log out of TestMain. Only Helper / Errorf / Fatalf are used.
 type lifecycleT struct{ testing.TB }
 
-func (l *lifecycleT) Helper()                            {}
-func (l *lifecycleT) Errorf(f string, a ...interface{})  { fmt.Fprintf(os.Stderr, f+"\n", a...) }
-func (l *lifecycleT) Fatalf(f string, a ...interface{})  { fmt.Fprintf(os.Stderr, f+"\n", a...); os.Exit(1) }
-func (l *lifecycleT) Logf(f string, a ...interface{})    { fmt.Fprintf(os.Stderr, f+"\n", a...) }
+func (l *lifecycleT) Helper()                           {}
+func (l *lifecycleT) Errorf(f string, a ...interface{}) { fmt.Fprintf(os.Stderr, f+"\n", a...) }
+func (l *lifecycleT) Fatalf(f string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, f+"\n", a...)
+	os.Exit(1)
+}
+func (l *lifecycleT) Logf(f string, a ...interface{}) { fmt.Fprintf(os.Stderr, f+"\n", a...) }
 
 // waitForHTTP polls url until it returns wantStatus or the context
 // expires. Used to assert /health/* readiness.

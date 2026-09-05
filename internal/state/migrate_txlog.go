@@ -14,10 +14,10 @@ import (
 type TxLogEntry struct {
 	Time   time.Time `json:"ts"`
 	Table  string    `json:"table"`
-	Op     string    `json:"op"`               // "insert" | "checkpoint"
-	ID     string    `json:"id,omitempty"`     // record id for inserts
-	Status string    `json:"status,omitempty"` // "ok" | "skipped" | "error" | "dryrun"
-	Error  string    `json:"error,omitempty"`  // populated when Status="error"
+	Op     string    `json:"op"`                // "insert" | "checkpoint"
+	ID     string    `json:"id,omitempty"`      // record id for inserts
+	Status string    `json:"status,omitempty"`  // "ok" | "skipped" | "error" | "dryrun"
+	Error  string    `json:"error,omitempty"`   // populated when Status="error"
 	LastID string    `json:"last_id,omitempty"` // populated when Op="checkpoint"
 }
 

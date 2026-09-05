@@ -41,15 +41,15 @@ const MaskedValue = "***"
 // CreatedAt / UpdatedAt are wall-clock timestamps in UTC; backends
 // that don't track one or both leave them zero.
 type Secret struct {
-	Path          string         `json:"path"`
-	Data          map[string]any `json:"data,omitempty"`
+	Path          string            `json:"path"`
+	Data          map[string]any    `json:"data,omitempty"`
 	Metadata      map[string]string `json:"metadata,omitempty"`
-	Version       uint64         `json:"version,omitempty"`
-	LeaseID       string         `json:"lease_id,omitempty"`
-	LeaseDuration time.Duration  `json:"lease_duration,omitempty"`
-	Renewable     bool           `json:"renewable,omitempty"`
-	CreatedAt     time.Time      `json:"created_at,omitempty"`
-	UpdatedAt     time.Time      `json:"updated_at,omitempty"`
+	Version       uint64            `json:"version,omitempty"`
+	LeaseID       string            `json:"lease_id,omitempty"`
+	LeaseDuration time.Duration     `json:"lease_duration,omitempty"`
+	Renewable     bool              `json:"renewable,omitempty"`
+	CreatedAt     time.Time         `json:"created_at,omitempty"`
+	UpdatedAt     time.Time         `json:"updated_at,omitempty"`
 }
 
 // IsDynamic reports whether this secret carries a lease — i.e. it was

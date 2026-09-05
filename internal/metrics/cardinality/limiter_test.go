@@ -207,12 +207,12 @@ func TestWarnThrottling(t *testing.T) {
 	now := time.Unix(0, 0)
 	l.SetClock(func() time.Time { return now })
 
-	l.Track("m", []string{"a"})    // accepted, fills cap
-	l.Track("m", []string{"b"})    // dropped → warn fires
-	l.Track("m", []string{"c"})    // dropped → throttled (same now)
+	l.Track("m", []string{"a"}) // accepted, fills cap
+	l.Track("m", []string{"b"}) // dropped → warn fires
+	l.Track("m", []string{"c"}) // dropped → throttled (same now)
 
 	now = now.Add(2 * time.Hour)
-	l.Track("m", []string{"d"})    // dropped → warn fires again
+	l.Track("m", []string{"d"}) // dropped → warn fires again
 
 	// We assert outcomes only; warn logging is observable to operators
 	// but we won't pin slog wiring in a unit test.

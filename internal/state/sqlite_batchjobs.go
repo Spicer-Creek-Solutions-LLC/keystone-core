@@ -227,10 +227,10 @@ func boolToInt(b bool) int {
 
 func scanBatchJob(r rowLike) (*BatchJobRecord, error) {
 	var (
-		b                BatchJobRecord
-		target, argsJSON string
-		statusRaw        string
-		createdAt        string
+		b                 BatchJobRecord
+		target, argsJSON  string
+		statusRaw         string
+		createdAt         string
 		startedAt, doneAt sql.NullString
 	)
 	if err := r.Scan(

@@ -156,10 +156,10 @@ func TestCompile_RunAgainstFlattened(t *testing.T) {
 	}{
 		{in: "status:online", want: true}, // connected → online
 		{in: "status:stale", want: false},
-		{in: "ip:10.0.0.0/8", want: true},  // CIDR hit on IPv4 element
+		{in: "ip:10.0.0.0/8", want: true},      // CIDR hit on IPv4 element
 		{in: "ip:192.168.0.0/16", want: false}, // CIDR miss
-		{in: "ip:fe80::/10", want: true},   // CIDR hit on IPv6 element
-		{in: "ip:10.0.1.5", want: true},    // literal hit on a single element
+		{in: "ip:fe80::/10", want: true},       // CIDR hit on IPv6 element
+		{in: "ip:10.0.1.5", want: true},        // literal hit on a single element
 		{in: "role:web AND env:prod", want: true},
 		{in: "id:web-* AND status:online AND ip:10.0.0.0/8", want: true},
 	}

@@ -11,18 +11,18 @@
 //
 // Later tasks layer on top:
 //
-//	2. State file YAML loader (StateFile / includes / variables)
-//	3. text/template renderer with custom filters
-//	4. Validator (module exists, params valid, requisite refs valid)
-//	5. Dependency resolver + cycle detection + topological sort
-//	6. State runner (Check → Apply → Test, event emission, audit)
-//	7. Drift detection + DriftReport
-//	8. History store (extends internal/state.Store)
-//	9. gRPC StateService + REST handlers
-//	10. kscorectl state CLI
-//	11. ~40 base stdlib modules
-//	12. Saga coordinator integration (minimal)
-//	13. End-to-end integration test
+//  2. State file YAML loader (StateFile / includes / variables)
+//  3. text/template renderer with custom filters
+//  4. Validator (module exists, params valid, requisite refs valid)
+//  5. Dependency resolver + cycle detection + topological sort
+//  6. State runner (Check → Apply → Test, event emission, audit)
+//  7. Drift detection + DriftReport
+//  8. History store (extends internal/state.Store)
+//  9. gRPC StateService + REST handlers
+//  10. kscorectl state CLI
+//  11. ~40 base stdlib modules
+//  12. Saga coordinator integration (minimal)
+//  13. End-to-end integration test
 //
 // Modules see one fully-resolved Declaration; requisites, templating,
 // and ordering are runner-level concerns and never reach a Module

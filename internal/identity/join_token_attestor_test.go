@@ -27,11 +27,11 @@ type fakeJoinTokenStore struct {
 	markUsedErr error
 
 	// Call counters.
-	lookupCalls    int
-	lookupArgs     []string
-	markUsedCalls  int
-	markUsedIDs    []string
-	markUsedTimes  []time.Time
+	lookupCalls   int
+	lookupArgs    []string
+	markUsedCalls int
+	markUsedIDs   []string
+	markUsedTimes []time.Time
 }
 
 func (f *fakeJoinTokenStore) Lookup(_ context.Context, prefix string) (*JoinToken, error) {

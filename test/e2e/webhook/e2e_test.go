@@ -155,8 +155,8 @@ func TestE2E_RetryExhaustion_Acceptance115(t *testing.T) {
 	t.Parallel()
 	const secret = "shh"
 	var (
-		calls       int32
-		validCount  int32
+		calls      int32
+		validCount int32
 	)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)

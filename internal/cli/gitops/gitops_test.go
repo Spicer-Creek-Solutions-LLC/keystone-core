@@ -313,4 +313,3 @@ func extractID(t *testing.T, out string) string {
 	}
 	return rest[:end]
 }
-

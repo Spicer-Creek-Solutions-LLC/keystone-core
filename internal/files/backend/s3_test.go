@@ -181,12 +181,12 @@ func (s *fakeS3) handleDelete(w http.ResponseWriter, key string) {
 }
 
 type listBucketResult struct {
-	XMLName     xml.Name        `xml:"ListBucketResult"`
-	Xmlns       string          `xml:"xmlns,attr"`
-	Name        string          `xml:"Name"`
-	KeyCount    int             `xml:"KeyCount"`
-	IsTruncated bool            `xml:"IsTruncated"`
-	Contents    []listEntryXML  `xml:"Contents"`
+	XMLName     xml.Name       `xml:"ListBucketResult"`
+	Xmlns       string         `xml:"xmlns,attr"`
+	Name        string         `xml:"Name"`
+	KeyCount    int            `xml:"KeyCount"`
+	IsTruncated bool           `xml:"IsTruncated"`
+	Contents    []listEntryXML `xml:"Contents"`
 }
 
 type listEntryXML struct {

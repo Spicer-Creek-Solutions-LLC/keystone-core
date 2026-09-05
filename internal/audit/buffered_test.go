@@ -143,10 +143,10 @@ func TestBufferedAuditor_DefensiveSnapshot(t *testing.T) {
 func TestBufferedAuditor_Concurrent(t *testing.T) {
 	t.Parallel()
 	const (
-		emitters    = 50
-		entriesEach = 20
+		emitters     = 50
+		entriesEach  = 20
 		snapshotters = 10
-		capacity    = 500
+		capacity     = 500
 	)
 	b, _ := NewBufferedAuditor(capacity)
 	ctx := context.Background()

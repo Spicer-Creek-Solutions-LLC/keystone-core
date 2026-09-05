@@ -402,7 +402,7 @@ func TestRun_ResumeMidPhase(t *testing.T) {
 // exercise the fireAndCheckpoint failure path without needing a real
 // durable backend.
 type faultyCheckpointer struct {
-	inner    statemachine.Checkpointer[BootstrapState, BootstrapEvent]
+	inner     statemachine.Checkpointer[BootstrapState, BootstrapEvent]
 	failAfter int
 	saves     int
 	saveErr   error

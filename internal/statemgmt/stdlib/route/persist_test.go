@@ -281,7 +281,7 @@ func TestPersist_NoParamSkipsFileOps(t *testing.T) {
 func TestPersist_Validation(t *testing.T) {
 	t.Parallel()
 	bad := []map[string]any{
-		{"destination": "10.0.0.0/24", "gateway": "192.168.1.1", "persist": "networkd"}, // no interface
+		{"destination": "10.0.0.0/24", "gateway": "192.168.1.1", "persist": "networkd"},                // no interface
 		{"destination": "10.0.0.0/24", "gateway": "192.168.1.1", "interface": "eth0", "persist": "nm"}, // bad backend
 		{"destination": "10.0.0.0/24", "gateway": "192.168.1.1", "interface": "eth0", "persist": 1},    // non-string
 	}

@@ -309,10 +309,10 @@ func appendEventConditionsSQLite(conds []string, args []any, f EventFilter) ([]s
 
 func scanEventSQLite(r rowLike) (*EventStoreRecord, error) {
 	var (
-		rec      EventStoreRecord
-		timeStr  string
-		tags     string
-		data     string
+		rec     EventStoreRecord
+		timeStr string
+		tags    string
+		data    string
 	)
 	if err := r.Scan(
 		&rec.ID, &rec.Type, &rec.Source,
