@@ -200,15 +200,39 @@ A credential that is present and unexpired makes the agent skip its
 bootstrap publish entirely. That is not an optimisation: bootstrap
 PSKs are single-use, so a re-publish is guaranteed to be rejected.
 
-**What this does not yet do.** Messages on the agent↔server NATS path
-are still authenticated with the fleet-wide `security.hmacsecret`,
-which proves that a sender is *some* member of the fleet, not *which*
-member. Until the agent signs with the SVID key it now holds and the
-server verifies against the CA, any per-agent authorisation decision
-would be advisory — an agent could assert another agent's id and the
-shared key would still verify. Anything that needs to distinguish
-agents from each other (per-agent secret grants, for one) depends on
-closing that gap, not on this storage.
+#### Proving which agent sent a message
+
+`agent.SVIDSigner` signs a payload with the stored private key and
+attaches the certificate chain; `controlplane.SVIDVerifier` builds a
+path to the CA, reads the agent id out of the leaf's SPIFFE URI SAN,
+and returns *that* id — never the one the request claims.
+
+Order matters in the verifier: the chain is validated before anything
+reads the certificate's contents, because an unverified leaf's URI SAN
+is attacker-controlled text. The claimed `agent_id` is checked against
+the certificate's and is advisory throughout; callers are handed the
+verified id so the guarantee does not depend on remembering which
+field was authoritative.
+
+The signed canonical form is length-prefixed and includes the
+certificate chain, so a captured signature cannot be re-presented
+under a different certificate, and shifting a byte across a field
+boundary changes the digest.
+
+`IssuedAt` bounds how long a captured request stays usable (60s by
+default, with a 30s allowance for an agent clock ahead of the
+server's). That is a freshness window, not replay protection: a
+request re-sent inside it verifies again. Nonce tracking is the
+gate-v1.0 ROADMAP entry *Replay protection on agent commands*.
+
+**What this does not yet do.** Nothing on a live path uses it. Every
+agent↔server message is still authenticated with the fleet-wide
+`security.hmacsecret`, which proves that a sender is *some* member of
+the fleet, not *which* member — so an agent can still assert another
+agent's id on the paths that exist today and the shared key will
+verify it. The primitive above landed ahead of its first consumer so
+the signature checking could be reviewed on its own; the first path to
+adopt it is the agent's secret lookup.
 
 ### Production-knob warnings (dev-mode boundaries)
 
