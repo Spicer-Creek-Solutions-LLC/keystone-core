@@ -1,0 +1,24 @@
+kind: Added
+body: |-
+  **`statemgmt.Marshal` renders a StateFile back to YAML.** Parse was
+  one-way, which is fine while a state file only ever travels as the
+  text an operator wrote. It stops being fine when a file is
+  manipulated in memory and then has to reach an agent: the blueprint
+  executor renders parameters, filters by feature and applies a
+  namespace, and the result has to become YAML again -- because the
+  agent must receive a state *file*, not resolved declarations. The
+  agent is what renders `.Facts`, and that only works if it does the
+  parsing.
+
+  The contract is round-trip *equivalence*, not byte-identity: Marshal
+  then Parse yields the same StateFile. Comments, key order and
+  original scalar formatting are not preserved, and none of them change
+  what the file means.
+
+  Strings are emitted quoted, which is the subtle part. Unquoted,
+  `"0644"` parses back as the integer 420 and a file mode silently
+  becomes wrong; `"1.0"` becomes a float; `"true"` becomes a bool.
+  Non-string values keep their real types, since quoting everything
+  would be as wrong as quoting nothing. Output is sorted by module and
+  resource so two marshals of the same file produce identical bytes --
+  it crosses a wire and lands in run history.
