@@ -22,9 +22,9 @@ This is an index. For request / response field detail, follow the
 
 | RPC | Request | Response | Source |
 |-----|---------|----------|--------|
-| `ApplyBlueprint` | `ApplyBlueprintRequest` | `ApplyBlueprintResponse` | [`api/proto/keystone/core/v1/blueprint.proto:14`](../../api/proto/keystone/core/v1/blueprint.proto#L14) |
-| `GetBlueprint` | `GetBlueprintRequest` | `GetBlueprintResponse` | [`api/proto/keystone/core/v1/blueprint.proto:13`](../../api/proto/keystone/core/v1/blueprint.proto#L13) |
-| `ListBlueprints` | `ListBlueprintsRequest` | `ListBlueprintsResponse` | [`api/proto/keystone/core/v1/blueprint.proto:12`](../../api/proto/keystone/core/v1/blueprint.proto#L12) |
+| `ApplyBlueprint` | `ApplyBlueprintRequest` | `ApplyBlueprintResponse` | [`api/proto/keystone/core/v1/blueprint.proto:16`](../../api/proto/keystone/core/v1/blueprint.proto#L16) |
+| `GetBlueprint` | `GetBlueprintRequest` | `GetBlueprintResponse` | [`api/proto/keystone/core/v1/blueprint.proto:15`](../../api/proto/keystone/core/v1/blueprint.proto#L15) |
+| `ListBlueprints` | `ListBlueprintsRequest` | `ListBlueprintsResponse` | [`api/proto/keystone/core/v1/blueprint.proto:14`](../../api/proto/keystone/core/v1/blueprint.proto#L14) |
 
 ### ClusterService
 

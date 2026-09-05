@@ -8,6 +8,8 @@ package keystone.core.v1;
 
 option go_package = "go.keystone-core.io/keystone-core/pkg/api/v1;v1";
 
+import "keystone/core/v1/common.proto";
+
 service BlueprintService {
   rpc ListBlueprints(ListBlueprintsRequest) returns (ListBlueprintsResponse);
   rpc GetBlueprint(GetBlueprintRequest) returns (GetBlueprintResponse);
@@ -55,6 +57,16 @@ message ApplyBlueprintRequest {
   repeated string disable = 4;
   string as = 5;
   string entrypoint = 6;
+
+  // target selects the hosts to apply on. Unset applies on the
+  // control-plane host, which is the pre-existing behaviour and stays
+  // the default so an older client keeps working unchanged.
+  //
+  // The rendered state file is sent to each matching agent, which
+  // compiles it itself -- the same path a targeted `state apply`
+  // takes, and for the same reason: `.Facts` must describe the host
+  // being converged.
+  Target target = 7;
 }
 
 message ApplyBlueprintResponse {

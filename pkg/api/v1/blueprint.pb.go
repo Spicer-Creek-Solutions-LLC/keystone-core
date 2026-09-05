@@ -346,13 +346,22 @@ func (x *GetBlueprintResponse) GetBlueprint() *BlueprintSummary {
 }
 
 type ApplyBlueprintRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Params        map[string]string      `protobuf:"bytes,2,rep,name=params,proto3" json:"params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	Enable        []string               `protobuf:"bytes,3,rep,name=enable,proto3" json:"enable,omitempty"`
-	Disable       []string               `protobuf:"bytes,4,rep,name=disable,proto3" json:"disable,omitempty"`
-	As            string                 `protobuf:"bytes,5,opt,name=as,proto3" json:"as,omitempty"`
-	Entrypoint    string                 `protobuf:"bytes,6,opt,name=entrypoint,proto3" json:"entrypoint,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Name       string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Params     map[string]string      `protobuf:"bytes,2,rep,name=params,proto3" json:"params,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Enable     []string               `protobuf:"bytes,3,rep,name=enable,proto3" json:"enable,omitempty"`
+	Disable    []string               `protobuf:"bytes,4,rep,name=disable,proto3" json:"disable,omitempty"`
+	As         string                 `protobuf:"bytes,5,opt,name=as,proto3" json:"as,omitempty"`
+	Entrypoint string                 `protobuf:"bytes,6,opt,name=entrypoint,proto3" json:"entrypoint,omitempty"`
+	// target selects the hosts to apply on. Unset applies on the
+	// control-plane host, which is the pre-existing behaviour and stays
+	// the default so an older client keeps working unchanged.
+	//
+	// The rendered state file is sent to each matching agent, which
+	// compiles it itself -- the same path a targeted `state apply`
+	// takes, and for the same reason: `.Facts` must describe the host
+	// being converged.
+	Target        *Target `protobuf:"bytes,7,opt,name=target,proto3" json:"target,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -429,6 +438,13 @@ func (x *ApplyBlueprintRequest) GetEntrypoint() string {
 	return ""
 }
 
+func (x *ApplyBlueprintRequest) GetTarget() *Target {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
 type ApplyBlueprintResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RunId         string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
@@ -501,7 +517,7 @@ var File_keystone_core_v1_blueprint_proto protoreflect.FileDescriptor
 
 const file_keystone_core_v1_blueprint_proto_rawDesc = "" +
 	"\n" +
-	" keystone/core/v1/blueprint.proto\x12\x10keystone.core.v1\"\xc0\x01\n" +
+	" keystone/core/v1/blueprint.proto\x12\x10keystone.core.v1\x1a\x1dkeystone/core/v1/common.proto\"\xc0\x01\n" +
 	"\x10BlueprintSummary\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aversion\x18\x02 \x01(\tR\aversion\x12 \n" +
@@ -525,7 +541,7 @@ const file_keystone_core_v1_blueprint_proto_rawDesc = "" +
 	"\x13GetBlueprintRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"X\n" +
 	"\x14GetBlueprintResponse\x12@\n" +
-	"\tblueprint\x18\x01 \x01(\v2\".keystone.core.v1.BlueprintSummaryR\tblueprint\"\x95\x02\n" +
+	"\tblueprint\x18\x01 \x01(\v2\".keystone.core.v1.BlueprintSummaryR\tblueprint\"\xc7\x02\n" +
 	"\x15ApplyBlueprintRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12K\n" +
 	"\x06params\x18\x02 \x03(\v23.keystone.core.v1.ApplyBlueprintRequest.ParamsEntryR\x06params\x12\x16\n" +
@@ -534,7 +550,8 @@ const file_keystone_core_v1_blueprint_proto_rawDesc = "" +
 	"\x02as\x18\x05 \x01(\tR\x02as\x12\x1e\n" +
 	"\n" +
 	"entrypoint\x18\x06 \x01(\tR\n" +
-	"entrypoint\x1a9\n" +
+	"entrypoint\x120\n" +
+	"\x06target\x18\a \x01(\v2\x18.keystone.core.v1.TargetR\x06target\x1a9\n" +
 	"\vParamsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8b\x02\n" +
@@ -575,24 +592,26 @@ var file_keystone_core_v1_blueprint_proto_goTypes = []any{
 	(*ApplyBlueprintResponse)(nil), // 7: keystone.core.v1.ApplyBlueprintResponse
 	nil,                            // 8: keystone.core.v1.ApplyBlueprintRequest.ParamsEntry
 	nil,                            // 9: keystone.core.v1.ApplyBlueprintResponse.OutputsEntry
+	(*Target)(nil),                 // 10: keystone.core.v1.Target
 }
 var file_keystone_core_v1_blueprint_proto_depIdxs = []int32{
-	0, // 0: keystone.core.v1.ListBlueprintsResponse.blueprints:type_name -> keystone.core.v1.BlueprintSummary
-	0, // 1: keystone.core.v1.GetBlueprintResponse.blueprint:type_name -> keystone.core.v1.BlueprintSummary
-	8, // 2: keystone.core.v1.ApplyBlueprintRequest.params:type_name -> keystone.core.v1.ApplyBlueprintRequest.ParamsEntry
-	9, // 3: keystone.core.v1.ApplyBlueprintResponse.outputs:type_name -> keystone.core.v1.ApplyBlueprintResponse.OutputsEntry
-	1, // 4: keystone.core.v1.ApplyBlueprintResponse.report:type_name -> keystone.core.v1.ApplyReport
-	2, // 5: keystone.core.v1.BlueprintService.ListBlueprints:input_type -> keystone.core.v1.ListBlueprintsRequest
-	4, // 6: keystone.core.v1.BlueprintService.GetBlueprint:input_type -> keystone.core.v1.GetBlueprintRequest
-	6, // 7: keystone.core.v1.BlueprintService.ApplyBlueprint:input_type -> keystone.core.v1.ApplyBlueprintRequest
-	3, // 8: keystone.core.v1.BlueprintService.ListBlueprints:output_type -> keystone.core.v1.ListBlueprintsResponse
-	5, // 9: keystone.core.v1.BlueprintService.GetBlueprint:output_type -> keystone.core.v1.GetBlueprintResponse
-	7, // 10: keystone.core.v1.BlueprintService.ApplyBlueprint:output_type -> keystone.core.v1.ApplyBlueprintResponse
-	8, // [8:11] is the sub-list for method output_type
-	5, // [5:8] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	0,  // 0: keystone.core.v1.ListBlueprintsResponse.blueprints:type_name -> keystone.core.v1.BlueprintSummary
+	0,  // 1: keystone.core.v1.GetBlueprintResponse.blueprint:type_name -> keystone.core.v1.BlueprintSummary
+	8,  // 2: keystone.core.v1.ApplyBlueprintRequest.params:type_name -> keystone.core.v1.ApplyBlueprintRequest.ParamsEntry
+	10, // 3: keystone.core.v1.ApplyBlueprintRequest.target:type_name -> keystone.core.v1.Target
+	9,  // 4: keystone.core.v1.ApplyBlueprintResponse.outputs:type_name -> keystone.core.v1.ApplyBlueprintResponse.OutputsEntry
+	1,  // 5: keystone.core.v1.ApplyBlueprintResponse.report:type_name -> keystone.core.v1.ApplyReport
+	2,  // 6: keystone.core.v1.BlueprintService.ListBlueprints:input_type -> keystone.core.v1.ListBlueprintsRequest
+	4,  // 7: keystone.core.v1.BlueprintService.GetBlueprint:input_type -> keystone.core.v1.GetBlueprintRequest
+	6,  // 8: keystone.core.v1.BlueprintService.ApplyBlueprint:input_type -> keystone.core.v1.ApplyBlueprintRequest
+	3,  // 9: keystone.core.v1.BlueprintService.ListBlueprints:output_type -> keystone.core.v1.ListBlueprintsResponse
+	5,  // 10: keystone.core.v1.BlueprintService.GetBlueprint:output_type -> keystone.core.v1.GetBlueprintResponse
+	7,  // 11: keystone.core.v1.BlueprintService.ApplyBlueprint:output_type -> keystone.core.v1.ApplyBlueprintResponse
+	9,  // [9:12] is the sub-list for method output_type
+	6,  // [6:9] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_keystone_core_v1_blueprint_proto_init() }
@@ -600,6 +619,7 @@ func file_keystone_core_v1_blueprint_proto_init() {
 	if File_keystone_core_v1_blueprint_proto != nil {
 		return
 	}
+	file_keystone_core_v1_common_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
