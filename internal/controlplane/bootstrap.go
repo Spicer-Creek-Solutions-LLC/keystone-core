@@ -54,6 +54,8 @@ type Subscription interface {
 // by satisfying this interface. Successful validation MUST mark the
 // proof as consumed atomically so a replay within the window is
 // rejected.
+// Proof is passed verbatim as it arrived on the wire; each
+// implementation decodes it the way its own credential is encoded.
 type BootstrapValidator interface {
 	Validate(ctx context.Context, agentID string, proof []byte) error
 }
@@ -271,14 +273,12 @@ func (h *BootstrapHandler) handle(ctx context.Context, subject string, env envel
 		return nil
 	}
 
-	proof, err := hex.DecodeString(req.Proof)
-	if err != nil {
-		h.logger.Warn("controlplane: bootstrap: proof not hex",
-			"agent_id", req.AgentID, "err", err)
-		return nil
-	}
-
-	if err := h.validator.Validate(ctx, req.AgentID, proof); err != nil {
+	// The proof goes to the validator verbatim. How it is encoded is
+	// the validator's business: a PSK is hex, a join token is a
+	// `kscore-join-` string. Decoding here forced one answer on both,
+	// and hex-decoding a join token made the join-token + SVID
+	// enrollment path impossible to complete.
+	if err := h.validator.Validate(ctx, req.AgentID, []byte(req.Proof)); err != nil {
 		h.logger.Warn("controlplane: bootstrap: validation failed",
 			"agent_id", req.AgentID, "err", err)
 		return nil
@@ -420,6 +420,16 @@ func NewPSKValidator(cfg PSKValidatorConfig) *PSKValidator {
 // compares the proof, then marks the entry consumed. Returns one of
 // the bootstrap-side sentinel errors on rejection.
 func (v *PSKValidator) Validate(_ context.Context, agentID string, proof []byte) error {
+	// PSKs are configured and presented as hex. Decoding here rather
+	// than in the handler keeps the wire format a property of this
+	// validator, so a validator with a different one (the join-token
+	// attestor takes a cleartext string) is not forced through it.
+	decoded, err := hex.DecodeString(string(proof))
+	if err != nil {
+		return fmt.Errorf("%w: proof is not hex", ErrPSKMismatch)
+	}
+	proof = decoded
+
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
