@@ -305,11 +305,19 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
      authorizes per agent from server config; and the `secret`
      template func ties it together, wired at boot on both sides.
 
-     Open follow-ups, tracked separately: per-agent NATS credentials
-     with subject permissions (would make the subject a boundary too,
-     but sealing does not depend on it); nonce tracking for replay,
-     covered by "Replay protection on agent commands"; and grants are
-     config-only, so changing them needs a server restart. -->
+     Open follow-ups: "Per-agent NATS credentials with subject
+     permissions" and "Agent secret grants are config-only" below;
+     nonce tracking for replay is covered by the existing "Replay
+     protection on agent commands". -->
+
+#### Per-agent NATS credentials with subject permissions
+
+- **Priority**: gate-v1.0
+- **What**: every agent authenticates to NATS with the same deployment-wide `nats.token` or `nats.credential` (`internal/nats/manager.go`), and no per-subject permissions are configured anywhere. Any agent can subscribe to any other agent's subjects, so a subject is addressing, not access control. Per-agent NATS credentials (NKey/JWT with publish/subscribe permissions scoped to that agent's own subjects) would make the subject a real boundary.
+- **Why deferred**: it is not what makes secret delivery safe today, and shipping it as the fix would have been the wrong order. `internal/sealed` encrypts each reply to the requesting agent's SVID public key, so a secret is confidential on its own rather than by virtue of where it was published — which holds even if NATS permissions are later misconfigured. Sealing does not depend on this landing, and does not become unnecessary if it does; the two are defence in depth, not alternatives.
+- **What it would still add**: confidentiality for everything on the agent path that is *not* individually encrypted (command payloads, converge requests, heartbeat and metadata), and it would stop an agent from *publishing* as another agent at the transport layer rather than only failing verification afterwards.
+- **Acceptance for unblock**: each agent receives its own NATS credential at bootstrap, scoped to publish/subscribe only on its own subjects plus the shared request subjects; an agent attempting to subscribe to another agent's response subject is refused by the broker; the credential is rotated with the SVID.
+- **References**: `internal/nats/manager.go` (single `Token`/`Credential`); `internal/controlplane/bootstrap_jointoken.go` (`SVIDBootstrapIssuer` — the natural place to also issue a NATS credential); `internal/sealed/` (what carries confidentiality today); `docs/project/SECURITY-DESIGN.md` § "A NATS subject is not a boundary".
 
 #### Remote / distributed blueprint apply wiring
 
@@ -687,6 +695,14 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
      operators, but Go cross-compile is reliable enough that a
      dedicated macOS sanity-run isn't load-bearing for v0.x. Revisit
      if/when macOS agent work resumes at v2.x+. -->
+
+#### Agent secret grants are config-only
+
+- **Priority**: v0.x
+- **What**: `secrets.agent_grants` is read from server config at boot and compiled once, so changing which agents may read which secret paths requires editing config and restarting `kscore-server`. There is no API, CLI, or hot-reload path.
+- **Why deferred**: config-only was the right first shape — grants must be a server-side decision (an agent that declares its own entitlements is granting itself), and compiling at boot means a malformed rule stops the server instead of silently denying every lookup at runtime. A CRUD surface adds a persistence model, an authorization model for who may edit grants, and an audit trail for grant changes, none of which the first cut needed.
+- **Acceptance for unblock**: grants are stored durably and editable through an authenticated API/CLI without a restart; a revoked grant takes effect on the next lookup (which is already per-use, so no cache invalidation is required); grant changes are audited with the principal that made them.
+- **References**: `internal/secrets/grants.go`; `internal/config/secrets.go` (`SecretsAgentGrantConfig`); `cmd/kscore-server/main.go` (`startSecretHandler`, where they compile); companion of "Full RBAC role/permission CRUD".
 
 #### Changie configuration: `replacements` for reference-link maintenance
 
