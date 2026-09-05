@@ -15,10 +15,10 @@ const DefaultQueryLimit = 100
 
 // Default retention policy per PROJECT-DETAILS §4.12.
 const (
-	DefaultRetentionMaxAge       = 90 * 24 * time.Hour
-	DefaultRetentionMaxCount     = 100_000
-	DefaultRetentionInterval     = time.Hour
-	DefaultRetentionJitter       = 0.1
+	DefaultRetentionMaxAge   = 90 * 24 * time.Hour
+	DefaultRetentionMaxCount = 100_000
+	DefaultRetentionInterval = time.Hour
+	DefaultRetentionJitter   = 0.1
 )
 
 // AuditStore is the consumer-facing persistence interface for the

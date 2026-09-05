@@ -79,14 +79,14 @@ func TestParseDriftSeverity(t *testing.T) {
 		want DriftSeverity
 		ok   bool
 	}{
-		"low":        {DriftSeverityLow, true},
-		"Low":        {DriftSeverityLow, true},
-		"  HIGH  ":   {DriftSeverityHigh, true},
-		"critical":   {DriftSeverityCritical, true},
-		"none":       {DriftSeverityNone, true},
-		"medium":     {DriftSeverityMedium, true},
-		"nuclear":    {DriftSeverityNone, false},
-		"":           {DriftSeverityNone, false},
+		"low":      {DriftSeverityLow, true},
+		"Low":      {DriftSeverityLow, true},
+		"  HIGH  ": {DriftSeverityHigh, true},
+		"critical": {DriftSeverityCritical, true},
+		"none":     {DriftSeverityNone, true},
+		"medium":   {DriftSeverityMedium, true},
+		"nuclear":  {DriftSeverityNone, false},
+		"":         {DriftSeverityNone, false},
 	}
 	for in, want := range cases {
 		got, ok := parseDriftSeverity(in)

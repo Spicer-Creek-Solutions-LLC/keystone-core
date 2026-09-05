@@ -77,4 +77,3 @@ func runTokenRevoke(ctx context.Context, out io.Writer, g *globals, id string) e
 		return nil
 	}
 }
-

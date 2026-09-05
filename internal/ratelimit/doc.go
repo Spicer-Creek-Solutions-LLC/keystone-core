@@ -19,19 +19,19 @@
 // already used by [internal/tracing.RateLimitingSampler]. The
 // wrapper:
 //
-//	- Exposes [Bucket.AllowOrRetryAfter] so Task 19 can populate
-//	  the HTTP Retry-After header without importing x/time/rate.
-//	- Treats RPM=0 as "passthrough" (always allow) — operators
-//	  who want the limiter wired but disabled set RPM to 0.
-//	  Bare rate.NewLimiter(0, 0) would deny every request.
-//	- Hides the rate.Limiter import from middleware so the public
-//	  ratelimit API is stable.
+//   - Exposes [Bucket.AllowOrRetryAfter] so Task 19 can populate
+//     the HTTP Retry-After header without importing x/time/rate.
+//   - Treats RPM=0 as "passthrough" (always allow) — operators
+//     who want the limiter wired but disabled set RPM to 0.
+//     Bare rate.NewLimiter(0, 0) would deny every request.
+//   - Hides the rate.Limiter import from middleware so the public
+//     ratelimit API is stable.
 //
 // Out of scope for v1.0 (defer to v1.x as ROADMAP entries):
 //
-//	- Per-namespace quotas (kscore-policy territory).
-//	- Sliding-window / fixed-window strategies.
-//	- Distributed counters (multi-replica shared limit).
+//   - Per-namespace quotas (kscore-policy territory).
+//   - Sliding-window / fixed-window strategies.
+//   - Distributed counters (multi-replica shared limit).
 //
 // [Bucket.Allow] is non-blocking; HTTP middleware needs that
 // shape. A blocking [Bucket.Wait] is a v1.x addition if a job-

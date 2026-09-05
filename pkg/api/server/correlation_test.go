@@ -112,12 +112,12 @@ type correlationFakeStream struct {
 	ctx context.Context
 }
 
-func (f *correlationFakeStream) Context() context.Context              { return f.ctx }
-func (f *correlationFakeStream) SetTrailer(metadata.MD)                {}
-func (f *correlationFakeStream) SetHeader(metadata.MD) error           { return nil }
-func (f *correlationFakeStream) SendHeader(metadata.MD) error          { return nil }
-func (f *correlationFakeStream) RecvMsg(any) error                     { return nil }
-func (f *correlationFakeStream) SendMsg(any) error                     { return nil }
+func (f *correlationFakeStream) Context() context.Context     { return f.ctx }
+func (f *correlationFakeStream) SetTrailer(metadata.MD)       {}
+func (f *correlationFakeStream) SetHeader(metadata.MD) error  { return nil }
+func (f *correlationFakeStream) SendHeader(metadata.MD) error { return nil }
+func (f *correlationFakeStream) RecvMsg(any) error            { return nil }
+func (f *correlationFakeStream) SendMsg(any) error            { return nil }
 
 func TestStreamCorrelationInterceptor_PassesInbound(t *testing.T) {
 	itc := StreamCorrelationInterceptor()

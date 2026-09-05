@@ -151,19 +151,19 @@ type CommandResult struct {
 // lands with epic 07 (Remote Execution); for now it's an opaque
 // map[string]any that the storage layer marshals as JSON.
 type BatchJobRecord struct {
-	ID                string
-	Target            map[string]any
-	Command           string
-	Args              []string
-	Status            BatchJobStatus
-	Concurrency       int
-	TotalAgents       int
-	CompletedAgents   int
-	SuccessfulAgents  int
-	FailedAgents      int
-	CreatedAt         time.Time
-	StartedAt         time.Time
-	CompletedAt       time.Time
+	ID               string
+	Target           map[string]any
+	Command          string
+	Args             []string
+	Status           BatchJobStatus
+	Concurrency      int
+	TotalAgents      int
+	CompletedAgents  int
+	SuccessfulAgents int
+	FailedAgents     int
+	CreatedAt        time.Time
+	StartedAt        time.Time
+	CompletedAt      time.Time
 }
 
 // BatchAgentResultRecord is one row in the per-agent results table for a
@@ -567,13 +567,13 @@ type AuditEntrySummaryRecord struct {
 // returned by AllowedAgentSortColumns; backends reject unknown columns
 // to prevent SQL injection through ORDER BY.
 type AgentFilter struct {
-	Status      AgentStatus
-	LabelKey    string
-	LabelValue  string
-	Limit       int
-	Offset      int
-	SortColumn  string
-	SortDesc    bool
+	Status     AgentStatus
+	LabelKey   string
+	LabelValue string
+	Limit      int
+	Offset     int
+	SortColumn string
+	SortDesc   bool
 }
 
 // CommandFilter narrows a CommandStore.ListCommands query.

@@ -91,12 +91,12 @@ type Config struct {
 // disables TLS verification; logged at WARN at boot because trial
 // deployments sometimes need it but production should not.
 type TLSConfig struct {
-	CACert        string // file path
-	CACertBytes   []byte
-	ClientCert    string // file path
-	ClientKey     string // file path
-	ServerName    string
-	Insecure      bool
+	CACert      string // file path
+	CACertBytes []byte
+	ClientCert  string // file path
+	ClientKey   string // file path
+	ServerName  string
+	Insecure    bool
 }
 
 // AuthConfig selects an auth method + its config. Exactly one of
@@ -128,10 +128,10 @@ type TokenAuthConfig struct {
 // using; the Vault SDK does that automatically. Mount defaults to
 // `approle` when empty.
 type AppRoleAuthConfig struct {
-	RoleID                 string
-	SecretID               string
+	RoleID                  string
+	SecretID                string
 	SecretIDIsWrappingToken bool
-	Mount                  string
+	Mount                   string
 }
 
 // KubernetesAuthConfig logs in via the Kubernetes auth method,
@@ -157,8 +157,8 @@ type LDAPAuthConfig struct {
 // MountConfig declares the KV engine version for one Vault mount
 // path. Operator config might list:
 //
-//	- {Path: "secret",     KVVersion: 2}
-//	- {Path: "kv-legacy",  KVVersion: 1}
+//   - {Path: "secret",     KVVersion: 2}
+//   - {Path: "kv-legacy",  KVVersion: 1}
 //
 // Unlisted mounts default to v2 (the modern Vault default).
 type MountConfig struct {

@@ -58,13 +58,12 @@ func (noopBreaker) Status() CircuitStatus { return CircuitClosed }
 //
 // State invariants:
 //   - closed:    consecutiveFail counts toward FailureThreshold;
-//                openedAt unset; halfOpen counters zero.
+//     openedAt unset; halfOpen counters zero.
 //   - open:      openedAt is non-zero; Allow() flips to half-open
-//                only after OpenDuration elapses.
+//     only after OpenDuration elapses.
 //   - half-open: halfOpenAttempt counts attempts allowed (capped at
-//                HalfOpenMaxAttempts); halfOpenSuccess counts
-//                successes (closes at SuccessThreshold). A single
-//                failure reverts to open.
+//     HalfOpenMaxAttempts); halfOpenSuccess counts successes (closes
+//     at SuccessThreshold). A single failure reverts to open.
 type circuitBreaker struct {
 	cfg config.CircuitBreakerConfig
 	now func() time.Time

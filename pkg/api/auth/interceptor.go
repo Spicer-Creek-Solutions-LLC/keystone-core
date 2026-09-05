@@ -31,7 +31,7 @@ type ClientKeyFunc func(ctx context.Context, principal *Principal) string
 //   - principal:  nil if Authenticate failed; non-nil on success.
 //   - allowed:    true iff BOTH Authenticate AND Authorize succeeded.
 //   - reason:     denial reason when !allowed; nil on allowed=true.
-//                 Wraps ErrUnauthenticated / authorizer rejection.
+//     Wraps ErrUnauthenticated / authorizer rejection.
 //
 // Bypass-list calls (auth-skipped methods) still invoke the callback
 // with allowed=true and principal=nil — the audit row records "no

@@ -330,4 +330,3 @@ func readMeta(metaPath string) (files.FileMetadata, error) {
 	}
 	return m, nil
 }
-

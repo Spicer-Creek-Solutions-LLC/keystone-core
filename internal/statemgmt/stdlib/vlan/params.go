@@ -41,9 +41,9 @@ var allowedKeys = map[string]struct{}{
 var ifaceRE = regexp.MustCompile(`^[A-Za-z0-9._-]{1,15}$`)
 
 type params struct {
-	Label  string
-	State  string
-	Name   string
+	Label   string
+	State   string
+	Name    string
 	Parent  string
 	ID      int
 	HasID   bool

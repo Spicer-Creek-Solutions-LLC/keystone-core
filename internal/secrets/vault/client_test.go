@@ -23,9 +23,9 @@ import (
 // keyed on `METHOD path`. Tests register handlers per route; the
 // fallback returns 404 so unexpected calls fail loudly.
 type vaultTestServer struct {
-	t        *testing.T
-	srv      *httptest.Server
-	mu       atomic.Pointer[handlerMap]
+	t   *testing.T
+	srv *httptest.Server
+	mu  atomic.Pointer[handlerMap]
 }
 
 type handlerMap = map[string]http.HandlerFunc

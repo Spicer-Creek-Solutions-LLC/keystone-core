@@ -13,15 +13,14 @@ import (
 // RoleACL implements [ACL] with per-(namespace, operation) minimum-
 // role rules. v1.0 access policy is:
 //
-//	1. If RoleAdmin always passes (AdminBypass=true, the default),
-//	   an admin principal is allowed regardless of rules.
-//	2. Look up the (namespace, op) rule. If present, the principal
-//	   must satisfy the minimum role.
-//	3. If no rule matches, apply AllowByDefault:
-//	     true   → allow (open-by-default; explicit deny rules form
-//	              a denylist)
-//	     false  → deny (closed-by-default; explicit allow rules
-//	              form an allowlist).
+//  1. If RoleAdmin always passes (AdminBypass=true, the default),
+//     an admin principal is allowed regardless of rules.
+//  2. Look up the (namespace, op) rule. If present, the principal
+//     must satisfy the minimum role.
+//  3. If no rule matches, apply AllowByDefault. True allows
+//     (open-by-default, so explicit deny rules form a denylist);
+//     false denies (closed-by-default, so explicit allow rules form
+//     an allowlist).
 //
 // Closed-by-default (AllowByDefault=false) is the recommended
 // posture; operators add rules to open specific namespaces.

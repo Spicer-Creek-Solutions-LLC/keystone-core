@@ -19,11 +19,11 @@ import (
 // key — same shape as the upstream library so existing key-loaders
 // (PEM, JWKS, etc.) drop in directly.
 type JWTAuthenticator struct {
-	keyFunc            jwt.Keyfunc
-	expectedIssuer     string // empty = don't enforce iss claim
-	expectedAudiences  []string
+	keyFunc                    jwt.Keyfunc
+	expectedIssuer             string // empty = don't enforce iss claim
+	expectedAudiences          []string
 	allowReadonlyOnNoRoleClaim bool // PROJECT-DETAILS §4.10 gotcha
-	now                func() time.Time
+	now                        func() time.Time
 }
 
 // JWTConfig configures a JWTAuthenticator at construction.

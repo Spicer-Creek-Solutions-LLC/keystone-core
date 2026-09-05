@@ -35,7 +35,7 @@ func errBackend(action string, err error) error {
 // + renewable bits drive the background renewer.
 type authResult struct {
 	Token     string
-	TTLSec    int  // 0 for non-expiring (root) tokens
+	TTLSec    int // 0 for non-expiring (root) tokens
 	Renewable bool
 }
 

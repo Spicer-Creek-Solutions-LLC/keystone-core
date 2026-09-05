@@ -70,4 +70,3 @@ func (l *S3Lister) List(ctx context.Context) ([]Entry, error) {
 	}
 	return out, nil
 }
-

@@ -194,14 +194,14 @@ func TestBuiltin_ConfigErrors(t *testing.T) {
 	cases := []string{
 		`not json at all`,
 		`{"rule":"does-not-exist"}`,
-		`{"rule":"require-labels"}`,                       // empty keys
-		`{"rule":"allowed-actions","allowed":[]}`,         // empty allowed
-		`{"rule":"resource-quota","max":10}`,              // missing field
-		`{"rule":"pattern-allow","field":"x"}`,            // no patterns
+		`{"rule":"require-labels"}`,                            // empty keys
+		`{"rule":"allowed-actions","allowed":[]}`,              // empty allowed
+		`{"rule":"resource-quota","max":10}`,                   // missing field
+		`{"rule":"pattern-allow","field":"x"}`,                 // no patterns
 		`{"rule":"pattern-deny","field":"x","patterns":["["]}`, // bad glob
-		`{"rule":"time-window","tz":"Not/AZone"}`,         // bad tz
-		`{"rule":"time-window","start":"9am"}`,            // bad start fmt
-		`{"rule":"time-window","days":["Funday"]}`,        // bad day
+		`{"rule":"time-window","tz":"Not/AZone"}`,              // bad tz
+		`{"rule":"time-window","start":"9am"}`,                 // bad start fmt
+		`{"rule":"time-window","days":["Funday"]}`,             // bad day
 	}
 	for _, code := range cases {
 		_, err := e.Evaluate(context.Background(), biPolicy("p", code), policy.EvaluationInput{})
@@ -221,8 +221,8 @@ func TestBuiltin_SourceContextVsResource(t *testing.T) {
 	// deny-privileged reading from context instead of resource.
 	code := `{"rule":"deny-privileged","field":"priv","source":"context"}`
 	res := mustEval(t, e, code, policy.EvaluationInput{
-		Resource: map[string]any{"priv": true},          // ignored
-		Context:  map[string]any{"priv": false},          // checked
+		Resource: map[string]any{"priv": true},  // ignored
+		Context:  map[string]any{"priv": false}, // checked
 	})
 	if !res.Allowed {
 		t.Errorf("source=context should read context.priv (false) → allow")

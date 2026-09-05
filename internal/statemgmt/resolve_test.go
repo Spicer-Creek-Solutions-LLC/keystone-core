@@ -390,9 +390,9 @@ func TestResolver_LargerGraph_ValidTopo(t *testing.T) {
 		{"file:n2", "file:n4"},
 		{"file:n3", "file:n4"},
 		{"file:n4", "file:n5"},
-		{"file:n4", "file:n6"},  // watch ordering
-		{"file:n7", "file:n8"},  // require_in
-		{"file:n5", "file:n9"},  // onchanges
+		{"file:n4", "file:n6"}, // watch ordering
+		{"file:n7", "file:n8"}, // require_in
+		{"file:n5", "file:n9"}, // onchanges
 	}
 	for _, ab := range mustBefore {
 		if pos[ab[0]] >= pos[ab[1]] {

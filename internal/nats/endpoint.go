@@ -78,7 +78,6 @@ type EndpointState struct {
 	rttCount       int
 }
 
-
 func newEndpointState(url string) *EndpointState {
 	return &EndpointState{
 		URL:     url,

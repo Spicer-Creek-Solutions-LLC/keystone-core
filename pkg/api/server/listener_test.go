@@ -44,8 +44,8 @@ func TestEnsureIPv6Brackets(t *testing.T) {
 		{"::", "[::]"},
 		{"::1", "[::1]"},
 		{"2001:db8::1", "[2001:db8::1]"},
-		{"[::]", "[::]"},     // idempotent
-		{"[::1]", "[::1]"},   // idempotent
+		{"[::]", "[::]"},   // idempotent
+		{"[::1]", "[::1]"}, // idempotent
 	}
 	for _, tc := range cases {
 		t.Run(tc.host, func(t *testing.T) {

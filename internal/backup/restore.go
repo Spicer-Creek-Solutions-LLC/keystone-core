@@ -296,10 +296,10 @@ func readTarEntries(r io.Reader) (map[string][]byte, error) {
 }
 
 // verifyIntegrity asserts the three integrity invariants:
-//   1. every manifest entry resolves to a tar entry,
-//   2. every tar entry (except manifest.json) is referenced by some
-//      manifest entry, and
-//   3. SHA-256 of each tar entry matches the manifest record.
+//  1. every manifest entry resolves to a tar entry,
+//  2. every tar entry (except manifest.json) is referenced by some
+//     manifest entry, and
+//  3. SHA-256 of each tar entry matches the manifest record.
 func verifyIntegrity(manifest *Manifest, entries map[string][]byte) error {
 	referenced := map[string]bool{ManifestFilename: true}
 

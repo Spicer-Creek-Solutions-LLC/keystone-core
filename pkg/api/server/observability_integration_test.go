@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
 	"go.keystone-core.io/keystone-core/internal/logging"
 	"go.keystone-core.io/keystone-core/internal/metrics"

@@ -43,7 +43,7 @@ func (s *spyObserver) Drift(context.Context, *statemgmt.Declaration, *statemgmt.
 func (s *spyObserver) Change(context.Context, *statemgmt.Declaration, *statemgmt.StateResult) {
 	s.changes++
 }
-func (s *spyObserver) Done(context.Context, *statemgmt.DeclarationResult) { s.dones++ }
+func (s *spyObserver) Done(context.Context, *statemgmt.DeclarationResult)  { s.dones++ }
 func (s *spyObserver) Skip(context.Context, *statemgmt.Declaration, error) { s.skips++ }
 
 func TestStateApplyObserver_DoneEmitsAudit(t *testing.T) {

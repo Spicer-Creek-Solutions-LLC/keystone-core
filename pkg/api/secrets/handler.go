@@ -636,4 +636,3 @@ func signFirstErr(rs []secrets.SignResult, fallback string) string {
 	}
 	return fallback
 }
-

@@ -318,7 +318,7 @@ func TestSignJWTSVID_RejectsShadowingExtraClaim(t *testing.T) {
 // RSA / Ed25519. Used to exercise joseAlgorithm's default branch.
 type unsupportedSigner struct{}
 
-func (unsupportedSigner) Public() crypto.PublicKey                                { return nil }
+func (unsupportedSigner) Public() crypto.PublicKey                                  { return nil }
 func (unsupportedSigner) Sign(io.Reader, []byte, crypto.SignerOpts) ([]byte, error) { return nil, nil }
 
 func TestSignJWTSVID_RejectsUnsupportedKeyType(t *testing.T) {

@@ -22,10 +22,10 @@ import (
 // list semantics; broader restore lights up as adapters land.
 func restoreCmd(g *globals) *cobra.Command {
 	var (
-		src           string
-		ageIdentity   string
-		configOutDir  string
-		force         bool
+		src          string
+		ageIdentity  string
+		configOutDir string
+		force        bool
 	)
 	cmd := &cobra.Command{
 		Use:   "restore",

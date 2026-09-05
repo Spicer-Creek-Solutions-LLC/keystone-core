@@ -22,9 +22,11 @@ type retentionStubStore struct {
 	applySignaled chan struct{}
 }
 
-func (s *retentionStubStore) Store(context.Context, AuditEntry) error          { return nil }
-func (s *retentionStubStore) StoreBatch(context.Context, []AuditEntry) error   { return nil }
-func (s *retentionStubStore) Get(context.Context, string) (AuditEntry, error)  { return AuditEntry{}, nil }
+func (s *retentionStubStore) Store(context.Context, AuditEntry) error        { return nil }
+func (s *retentionStubStore) StoreBatch(context.Context, []AuditEntry) error { return nil }
+func (s *retentionStubStore) Get(context.Context, string) (AuditEntry, error) {
+	return AuditEntry{}, nil
+}
 func (s *retentionStubStore) Query(context.Context, AuditQuery) (AuditPage, error) {
 	return AuditPage{}, nil
 }

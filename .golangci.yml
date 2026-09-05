@@ -73,6 +73,21 @@ linters:
         linters:
           - all
 
+# gofmt as a gate, not a suggestion. Without it the tree drifts
+# silently on a toolchain bump: Go 1.27's gofmt reformats struct-field
+# alignment and doc-comment lists, and 127 files had drifted before
+# anyone noticed, because nothing was checking.
+#
+# Generated protobuf is excluded -- it is formatted by protoc-gen-go,
+# and reformatting it would be undone on the next regeneration.
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - \.pb\.go$
+
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0

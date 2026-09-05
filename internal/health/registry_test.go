@@ -25,8 +25,8 @@ type stubChecker struct {
 	calls    atomic.Int64
 }
 
-func (s *stubChecker) Name() string                       { return s.name }
-func (s *stubChecker) Interval() time.Duration            { return s.interval }
+func (s *stubChecker) Name() string            { return s.name }
+func (s *stubChecker) Interval() time.Duration { return s.interval }
 func (s *stubChecker) Check(ctx context.Context) error {
 	s.calls.Add(1)
 	if s.fn == nil {

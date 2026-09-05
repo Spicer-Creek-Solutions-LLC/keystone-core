@@ -29,10 +29,10 @@ import (
 // cliRig boots the real SecretsGRPCServer over bufconn and exposes
 // a Deps that the CLI's NewCommand can use.
 type cliRig struct {
-	listen   *bufconn.Listener
-	grpc     *grpc.Server
-	backend  *cliFakeBackend
-	transit  *cliFakeTransit
+	listen  *bufconn.Listener
+	grpc    *grpc.Server
+	backend *cliFakeBackend
+	transit *cliFakeTransit
 }
 
 func newCLIRig(t *testing.T) *cliRig {

@@ -18,11 +18,11 @@ const (
 
 // Sampler kinds. The set is closed; Validate rejects anything else.
 const (
-	TracingSamplerAlwaysOn     = "always_on"
-	TracingSamplerAlwaysOff    = "always_off"
+	TracingSamplerAlwaysOn      = "always_on"
+	TracingSamplerAlwaysOff     = "always_off"
 	TracingSamplerProbabilistic = "probabilistic"
-	TracingSamplerParentBased  = "parent_based"
-	TracingSamplerRateLimiting = "rate_limiting"
+	TracingSamplerParentBased   = "parent_based"
+	TracingSamplerRateLimiting  = "rate_limiting"
 )
 
 // TracingConfig configures the Epic 17 task 4 OTel trace pipeline.

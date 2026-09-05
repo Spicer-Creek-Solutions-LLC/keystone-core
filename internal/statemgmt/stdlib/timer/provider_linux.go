@@ -183,12 +183,12 @@ func execRun(ctx context.Context, bin string, args []string) (string, error) {
 // ErrNoBackend — without systemd a timer can't be armed anyway.
 type noSystemdProvider struct{}
 
-func (*noSystemdProvider) ReadUnit(string) (string, bool, error)            { return "", false, nil }
-func (*noSystemdProvider) WriteUnit(string, string) error                   { return ErrNoBackend }
-func (*noSystemdProvider) RemoveUnit(string) error                          { return ErrNoBackend }
-func (*noSystemdProvider) DaemonReload(context.Context) error               { return ErrNoBackend }
+func (*noSystemdProvider) ReadUnit(string) (string, bool, error) { return "", false, nil }
+func (*noSystemdProvider) WriteUnit(string, string) error        { return ErrNoBackend }
+func (*noSystemdProvider) RemoveUnit(string) error               { return ErrNoBackend }
+func (*noSystemdProvider) DaemonReload(context.Context) error    { return ErrNoBackend }
 func (*noSystemdProvider) Status(context.Context, string) (*TimerStatus, error) {
 	return nil, ErrNoBackend
 }
-func (*noSystemdProvider) EnableNow(context.Context, string) error    { return ErrNoBackend }
-func (*noSystemdProvider) DisableStop(context.Context, string) error  { return ErrNoBackend }
+func (*noSystemdProvider) EnableNow(context.Context, string) error   { return ErrNoBackend }
+func (*noSystemdProvider) DisableStop(context.Context, string) error { return ErrNoBackend }

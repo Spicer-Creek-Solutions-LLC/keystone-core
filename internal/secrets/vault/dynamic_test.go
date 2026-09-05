@@ -63,8 +63,8 @@ func TestIssueDynamicSecret_PKIEngineWithParams(t *testing.T) {
 			"lease_duration": 86400,
 			"renewable":      false,
 			"data": map[string]any{
-				"certificate":  "-----BEGIN CERTIFICATE-----\n...",
-				"private_key":  "-----BEGIN PRIVATE KEY-----\n...",
+				"certificate":   "-----BEGIN CERTIFICATE-----\n...",
+				"private_key":   "-----BEGIN PRIVATE KEY-----\n...",
 				"serial_number": "ab:cd",
 			},
 		})

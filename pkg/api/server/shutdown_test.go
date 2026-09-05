@@ -27,14 +27,14 @@ import (
 // letting tests assert the gRPC → ... → HTTP order via per-step log
 // markers + this counter.
 type orderingNATS struct {
-	startCalled    atomic.Bool
-	shutdownAt     atomic.Int64 // unix-nano of Shutdown call
-	publishCalled  atomic.Int64
-	healthErr      error
+	startCalled   atomic.Bool
+	shutdownAt    atomic.Int64 // unix-nano of Shutdown call
+	publishCalled atomic.Int64
+	healthErr     error
 }
 
-func (n *orderingNATS) Start(context.Context) error             { n.startCalled.Store(true); return nil }
-func (n *orderingNATS) Health(context.Context) error            { return n.healthErr }
+func (n *orderingNATS) Start(context.Context) error  { n.startCalled.Store(true); return nil }
+func (n *orderingNATS) Health(context.Context) error { return n.healthErr }
 func (n *orderingNATS) PublishEnvelope(context.Context, string, envelope.Envelope) error {
 	n.publishCalled.Add(1)
 	return nil
@@ -51,7 +51,7 @@ type hangingNATS struct {
 	released chan struct{}
 }
 
-func newHangingNATS() *hangingNATS               { return &hangingNATS{released: make(chan struct{})} }
+func newHangingNATS() *hangingNATS                 { return &hangingNATS{released: make(chan struct{})} }
 func (n *hangingNATS) Start(context.Context) error { return nil }
 func (n *hangingNATS) Health(context.Context) error {
 	return nil

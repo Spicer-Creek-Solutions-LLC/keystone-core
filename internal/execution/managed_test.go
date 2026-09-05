@@ -376,7 +376,7 @@ func TestRetryPolicy_Backoff(t *testing.T) {
 		{1, 100 * time.Millisecond},
 		{2, 200 * time.Millisecond},
 		{3, 400 * time.Millisecond},
-		{4, 500 * time.Millisecond}, // capped
+		{4, 500 * time.Millisecond},  // capped
 		{10, 500 * time.Millisecond}, // still capped
 	}
 	for _, tc := range cases {

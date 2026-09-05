@@ -11,16 +11,16 @@
 //
 // Behavior summary:
 //
-//	1. Call [extract.Extractor.HTTP] (or .GRPC) to derive the
-//	   rate-limit key.
-//	2. ok=false from the extractor means "no usable key" — the
-//	   request is allowed without consulting the bucket
-//	   (skip-rather-than-deny). Operators chain APIKey → IP at
-//	   the extractor layer if they want a fallback identity.
-//	3. ok=true → call [ratelimit.Registry.AllowOrRetryAfter] for
-//	   the key. Allowed requests proceed; denied requests
-//	   short-circuit with the transport-appropriate "rate
-//	   limited" response.
+//  1. Call [extract.Extractor.HTTP] (or .GRPC) to derive the
+//     rate-limit key.
+//  2. ok=false from the extractor means "no usable key" — the
+//     request is allowed without consulting the bucket
+//     (skip-rather-than-deny). Operators chain APIKey → IP at
+//     the extractor layer if they want a fallback identity.
+//  3. ok=true → call [ratelimit.Registry.AllowOrRetryAfter] for
+//     the key. Allowed requests proceed; denied requests
+//     short-circuit with the transport-appropriate "rate
+//     limited" response.
 //
 // HTTP deny:
 //

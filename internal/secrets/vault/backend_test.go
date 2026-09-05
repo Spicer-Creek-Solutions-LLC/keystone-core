@@ -130,7 +130,10 @@ func TestBackend_OpsBeforeStart(t *testing.T) {
 	}
 
 	cases := []func() error{
-		func() error { _, err := b.GetSecret(context.Background(), secrets.GetSecretRequest{Path: "secret/x"}); return err },
+		func() error {
+			_, err := b.GetSecret(context.Background(), secrets.GetSecretRequest{Path: "secret/x"})
+			return err
+		},
 		func() error {
 			_, err := b.WriteSecret(context.Background(), secrets.WriteSecretRequest{Path: "secret/x", Data: map[string]any{"k": "v"}})
 			return err
@@ -139,7 +142,9 @@ func TestBackend_OpsBeforeStart(t *testing.T) {
 			_, err := b.ListSecrets(context.Background(), secrets.ListSecretsRequest{Prefix: "secret/"})
 			return err
 		},
-		func() error { return b.DeleteSecret(context.Background(), secrets.DeleteSecretRequest{Path: "secret/x"}) },
+		func() error {
+			return b.DeleteSecret(context.Background(), secrets.DeleteSecretRequest{Path: "secret/x"})
+		},
 		func() error {
 			_, err := b.IssueDynamicSecret(context.Background(), secrets.IssueDynamicSecretRequest{Path: "database/creds/app"})
 			return err

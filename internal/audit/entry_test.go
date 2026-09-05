@@ -291,8 +291,8 @@ func TestParsePolicyType(t *testing.T) {
 		{"cel", PolicyTypeCEL},
 		{"builtin", PolicyTypeBuiltin},
 		{"  OPA ", PolicyTypeOPA},
-		{"", ""},          // empty is allowed (non-policy entry sentinel)
-		{"   \t  ", ""},   // whitespace-only also empty
+		{"", ""},        // empty is allowed (non-policy entry sentinel)
+		{"   \t  ", ""}, // whitespace-only also empty
 	}
 	for _, c := range cases {
 		got, err := ParsePolicyType(c.in)

@@ -17,14 +17,14 @@ import (
 )
 
 type subscribeOpts struct {
-	filter         string
-	replay         time.Duration
-	queueGroup     string
-	eventType      string
-	category       string
-	source         string
-	minSeverity    string
-	tags           []string
+	filter      string
+	replay      time.Duration
+	queueGroup  string
+	eventType   string
+	category    string
+	source      string
+	minSeverity string
+	tags        []string
 }
 
 func subscribeCmd(g *globals) *cobra.Command {

@@ -21,11 +21,11 @@ type recordingStep struct {
 }
 
 type journalEntry struct {
-	Step     string
-	Kind     string // "action" | "compensate"
-	DataIn   any
-	DataOut  any
-	Err      error
+	Step    string
+	Kind    string // "action" | "compensate"
+	DataIn  any
+	DataOut any
+	Err     error
 }
 
 func buildSteps(j *[]journalEntry, ss ...recordingStep) []Step {
@@ -195,8 +195,8 @@ func TestRun_CompensateFailure_AggregatesAndContinues(t *testing.T) {
 	boom := errors.New("boom")
 	compErr := errors.New("compensate-bad")
 	steps := buildSteps(&j,
-		recordingStep{name: "a", action: passthroughAction()},                    // Compensate ok
-		recordingStep{name: "b", action: passthroughAction(), compErr: compErr},  // Compensate errors
+		recordingStep{name: "a", action: passthroughAction()},                   // Compensate ok
+		recordingStep{name: "b", action: passthroughAction(), compErr: compErr}, // Compensate errors
 		recordingStep{name: "c", action: failingAction(boom)},
 	)
 	c := &Coordinator{}
@@ -240,7 +240,7 @@ func TestRun_NilCompensate_IsNoOp(t *testing.T) {
 	var j []journalEntry
 	boom := errors.New("boom")
 	steps := buildSteps(&j,
-		recordingStep{name: "a", action: passthroughAction(), skipComp: true},    // Compensate is nil
+		recordingStep{name: "a", action: passthroughAction(), skipComp: true}, // Compensate is nil
 		recordingStep{name: "b", action: failingAction(boom)},
 	)
 	c := &Coordinator{}

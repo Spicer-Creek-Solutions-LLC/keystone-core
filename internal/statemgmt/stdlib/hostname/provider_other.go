@@ -13,8 +13,8 @@ type otherProvider struct{}
 
 func defaultProvider() Provider { return &otherProvider{} }
 
-func (*otherProvider) Current() (string, bool, error)         { return "", false, nil }
-func (*otherProvider) Set(context.Context, string) error      { return wrapUnsupported("Set") }
+func (*otherProvider) Current() (string, bool, error)    { return "", false, nil }
+func (*otherProvider) Set(context.Context, string) error { return wrapUnsupported("Set") }
 
 func wrapUnsupported(op string) error { return &unsupportedError{op: op, os: runtime.GOOS} }
 

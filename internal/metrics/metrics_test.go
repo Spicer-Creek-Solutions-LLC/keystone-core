@@ -533,4 +533,3 @@ func TestGatherer_ReturnsRegistry(t *testing.T) {
 		t.Errorf("Gatherer = %T, want *prometheus.Registry", g)
 	}
 }
-

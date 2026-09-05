@@ -720,4 +720,3 @@ func nullableExitCodeForBatch(code int, success bool) any {
 	}
 	return code
 }
-

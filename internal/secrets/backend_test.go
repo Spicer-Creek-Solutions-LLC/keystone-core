@@ -110,11 +110,11 @@ func TestBackendCapability_JSONRoundTrip(t *testing.T) {
 // test against.
 type noopBackend struct{ name string }
 
-func (b *noopBackend) Name() string                       { return b.name }
-func (b *noopBackend) Capabilities() []BackendCapability  { return nil }
-func (b *noopBackend) Start(_ context.Context) error      { return nil }
-func (b *noopBackend) Stop(_ context.Context) error       { return nil }
-func (b *noopBackend) Health(_ context.Context) error     { return ErrBackendNotStarted }
+func (b *noopBackend) Name() string                      { return b.name }
+func (b *noopBackend) Capabilities() []BackendCapability { return nil }
+func (b *noopBackend) Start(_ context.Context) error     { return nil }
+func (b *noopBackend) Stop(_ context.Context) error      { return nil }
+func (b *noopBackend) Health(_ context.Context) error    { return ErrBackendNotStarted }
 func (b *noopBackend) GetSecret(_ context.Context, _ GetSecretRequest) (*Secret, error) {
 	return nil, ErrNotImplementedYet
 }

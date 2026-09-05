@@ -40,10 +40,10 @@ var ErrInvalidCARotator = errors.New("identity: invalid CARotator")
 // per §4.10) is a separate cadence on a separate actor — that
 // wiring lands in the agent runtime, not here.
 type CARotator struct {
-	cfg     CARotatorConfig
-	cancel  context.CancelFunc
-	wg      sync.WaitGroup
-	started atomic.Bool
+	cfg      CARotatorConfig
+	cancel   context.CancelFunc
+	wg       sync.WaitGroup
+	started  atomic.Bool
 	stopOnce sync.Once
 }
 

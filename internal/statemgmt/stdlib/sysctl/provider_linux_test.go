@@ -22,8 +22,8 @@ func TestKeyToPath(t *testing.T) {
 func TestNormalizeValue(t *testing.T) {
 	t.Parallel()
 	cases := map[string]string{
-		"1\n":                   "1",
-		"  4096  16384  4096 ":  "4096 16384 4096",
+		"1\n":                    "1",
+		"  4096  16384  4096 ":   "4096 16384 4096",
 		"4096\t16384\t4194304\n": "4096 16384 4194304",
 	}
 	for in, want := range cases {

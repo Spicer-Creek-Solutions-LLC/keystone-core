@@ -182,11 +182,11 @@ func nullableExitCode(code int, status CommandStatus) sql.NullInt64 {
 
 func scanCommand(r rowLike) (*CommandRecord, error) {
 	var (
-		c                   CommandRecord
-		argsJSON, envJSON   string
-		statusRaw           string
-		exitCode            sql.NullInt64
-		startedAt, doneAt   sql.NullString
+		c                 CommandRecord
+		argsJSON, envJSON string
+		statusRaw         string
+		exitCode          sql.NullInt64
+		startedAt, doneAt sql.NullString
 	)
 	if err := r.Scan(
 		&c.ID, &c.AgentID, &c.Command, &argsJSON, &envJSON,

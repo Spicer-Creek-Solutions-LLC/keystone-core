@@ -117,15 +117,15 @@ type StepResult struct {
 // (in reverse-walk order); empty for [StatusCompleted] or
 // [StatusFailed].
 type Execution struct {
-	ID                string
-	Name              string
-	Status            ExecutionStatus
-	Data              any
-	Steps             []StepResult
-	StartedAt         time.Time
-	EndedAt           time.Time
-	Error             error
-	CompensateErrors  []error
+	ID               string
+	Name             string
+	Status           ExecutionStatus
+	Data             any
+	Steps            []StepResult
+	StartedAt        time.Time
+	EndedAt          time.Time
+	Error            error
+	CompensateErrors []error
 }
 
 // Coordinator runs sagas.

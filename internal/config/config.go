@@ -41,22 +41,22 @@ func (m Mode) Validate() error {
 // Foundation sub-configs (Server, Logging, Storage) are defined here; later
 // epics extend Config with their own domain sub-configs.
 type Config struct {
-	Mode     Mode           `koanf:"mode"`
-	Server   ServerConfig   `koanf:"server"`
-	Logging  LoggingConfig  `koanf:"logging"`
-	Storage  StorageConfig  `koanf:"storage"`
-	Health   HealthConfig   `koanf:"health"`
-	NATS     NATSConfig     `koanf:"nats"`
-	Agent    AgentConfig    `koanf:"agent"`
-	Security SecurityConfig `koanf:"security"`
-	Identity IdentityConfig `koanf:"identity"`
-	Secrets  SecretsConfig  `koanf:"secrets"`
-	Events   EventsConfig   `koanf:"events"`
-	Cluster  ClusterConfig  `koanf:"cluster"`
-	GitOps   GitOpsConfig   `koanf:"gitops"`
-	Webhook  WebhookConfig  `koanf:"webhook"`
-	Metrics   MetricsConfig   `koanf:"metrics"`
-	Tracing   TracingConfig   `koanf:"tracing"`
+	Mode       Mode             `koanf:"mode"`
+	Server     ServerConfig     `koanf:"server"`
+	Logging    LoggingConfig    `koanf:"logging"`
+	Storage    StorageConfig    `koanf:"storage"`
+	Health     HealthConfig     `koanf:"health"`
+	NATS       NATSConfig       `koanf:"nats"`
+	Agent      AgentConfig      `koanf:"agent"`
+	Security   SecurityConfig   `koanf:"security"`
+	Identity   IdentityConfig   `koanf:"identity"`
+	Secrets    SecretsConfig    `koanf:"secrets"`
+	Events     EventsConfig     `koanf:"events"`
+	Cluster    ClusterConfig    `koanf:"cluster"`
+	GitOps     GitOpsConfig     `koanf:"gitops"`
+	Webhook    WebhookConfig    `koanf:"webhook"`
+	Metrics    MetricsConfig    `koanf:"metrics"`
+	Tracing    TracingConfig    `koanf:"tracing"`
 	Profiling  ProfilingConfig  `koanf:"profiling"`
 	Blueprints BlueprintsConfig `koanf:"blueprints"`
 }

@@ -20,7 +20,7 @@ var ErrNotARepo = errors.New("git: directory exists but is not a git repository"
 // IsGitNotFound / IsNotARepo expose the sentinel matchers so the
 // gRPC server + CLI can render friendlier operator-facing messages.
 func IsGitNotFound(err error) bool { return errors.Is(err, ErrGitNotFound) }
-func IsNotARepo(err error) bool     { return errors.Is(err, ErrNotARepo) }
+func IsNotARepo(err error) bool    { return errors.Is(err, ErrNotARepo) }
 
 // RepoState is the inspected state of a working tree. Exists==false
 // → the directory is not a git repo (RemoteURL / HeadSHA are then

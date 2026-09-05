@@ -121,10 +121,10 @@ func TestSQLiteStore_NewStoreFailsOnUnwritablePath(t *testing.T) {
 // keep the SQL-builder logic covered without needing a DB round-trip.
 func TestOrderByClause(t *testing.T) {
 	tests := []struct {
-		name           string
-		col, defCol    string
-		desc           bool
-		want           string
+		name        string
+		col, defCol string
+		desc        bool
+		want        string
 	}{
 		{"empty col uses default DESC", "", "registered_at", false, " ORDER BY registered_at DESC"},
 		{"explicit col ASC", "hostname", "registered_at", false, " ORDER BY hostname ASC"},

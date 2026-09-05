@@ -22,17 +22,19 @@ type fakeAuditStore struct {
 	// trend keyed by bucket Start (RFC3339) → summary.
 	buckets map[string]audit.AuditSummary
 	// query returns these pages per ResourceType (one page, no cursor).
-	entries     map[string][]audit.AuditEntry
+	entries      map[string][]audit.AuditEntry
 	summarizeErr error
 	queryErr     error
-	summarizeN  int
+	summarizeN   int
 }
 
-func (f *fakeAuditStore) Store(context.Context, audit.AuditEntry) error          { return nil }
-func (f *fakeAuditStore) StoreBatch(context.Context, []audit.AuditEntry) error   { return nil }
-func (f *fakeAuditStore) Get(context.Context, string) (audit.AuditEntry, error)  { return audit.AuditEntry{}, nil }
-func (f *fakeAuditStore) Count(context.Context, audit.AuditQuery) (int, error)   { return 0, nil }
-func (f *fakeAuditStore) Delete(context.Context, string) error                   { return nil }
+func (f *fakeAuditStore) Store(context.Context, audit.AuditEntry) error        { return nil }
+func (f *fakeAuditStore) StoreBatch(context.Context, []audit.AuditEntry) error { return nil }
+func (f *fakeAuditStore) Get(context.Context, string) (audit.AuditEntry, error) {
+	return audit.AuditEntry{}, nil
+}
+func (f *fakeAuditStore) Count(context.Context, audit.AuditQuery) (int, error) { return 0, nil }
+func (f *fakeAuditStore) Delete(context.Context, string) error                 { return nil }
 func (f *fakeAuditStore) ApplyRetention(context.Context, audit.RetentionPolicy) (int, error) {
 	return 0, nil
 }
@@ -165,9 +167,9 @@ func TestGenerate_PolicyStatsUnscopedFromViolations(t *testing.T) {
 func TestGenerate_PolicyStatsScopedByFramework(t *testing.T) {
 	t.Parallel()
 	store := &fakeAuditStore{summaries: map[string]audit.AuditSummary{
-		"":    {TotalEvaluations: 50, AllowedCount: 40, DeniedCount: 10, ViolationsByPolicy: map[string]int{"req-labels": 10}},
-		"req-labels":   {TotalEvaluations: 25, AllowedCount: 20, DeniedCount: 5},
-		"deny-priv":    {TotalEvaluations: 25, AllowedCount: 20, DeniedCount: 5},
+		"":           {TotalEvaluations: 50, AllowedCount: 40, DeniedCount: 10, ViolationsByPolicy: map[string]int{"req-labels": 10}},
+		"req-labels": {TotalEvaluations: 25, AllowedCount: 20, DeniedCount: 5},
+		"deny-priv":  {TotalEvaluations: 25, AllowedCount: 20, DeniedCount: 5},
 	}}
 	cm := policy.NewControlMapping()
 	_ = cm.RegisterControl(&policy.ComplianceControl{
@@ -212,9 +214,9 @@ func TestGenerate_Trend(t *testing.T) {
 	store := &fakeAuditStore{
 		summaries: map[string]audit.AuditSummary{"": {TotalEvaluations: 0}},
 		buckets: map[string]audit.AuditSummary{
-			s.Format(time.RFC3339):                       {TotalEvaluations: 10, AllowedCount: 9},
-			s.Add(24 * time.Hour).Format(time.RFC3339):   {TotalEvaluations: 10, AllowedCount: 5},
-			s.Add(48 * time.Hour).Format(time.RFC3339):   {TotalEvaluations: 10, AllowedCount: 10},
+			s.Format(time.RFC3339):                     {TotalEvaluations: 10, AllowedCount: 9},
+			s.Add(24 * time.Hour).Format(time.RFC3339): {TotalEvaluations: 10, AllowedCount: 5},
+			s.Add(48 * time.Hour).Format(time.RFC3339): {TotalEvaluations: 10, AllowedCount: 10},
 		},
 	}
 	g, _ := policy.NewReportGenerator(store, nil)

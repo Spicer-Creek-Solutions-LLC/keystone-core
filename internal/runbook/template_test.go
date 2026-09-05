@@ -32,10 +32,10 @@ func TestRenderString_MissingLoud(t *testing.T) {
 func TestRenderConfig_Nested(t *testing.T) {
 	rr := renderRoot{inputs: map[string]any{"host": "db1"}, steps: map[string]any{}}
 	cfg := map[string]any{
-		"cmd":   "restart {{ .inputs.host }}",
-		"count": 3,
+		"cmd":    "restart {{ .inputs.host }}",
+		"count":  3,
 		"nested": map[string]any{"path": "/var/{{ .inputs.host }}"},
-		"list":  []any{"{{ .inputs.host }}", 7},
+		"list":   []any{"{{ .inputs.host }}", 7},
 	}
 	out, err := renderConfig(cfg, rr)
 	if err != nil {

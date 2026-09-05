@@ -33,13 +33,13 @@ import (
 
 // integrationRig wires the live components used by every sub-test.
 type integrationRig struct {
-	broker       *secrets.Broker
-	fileBackend  *file.Backend
-	fakeBackend  *recordingBackend
-	cache        *secrets.SecretCache
-	auditor      *recordingIntegrationAuditor
-	leases       *secrets.InMemoryLeaseDirectory
-	statePath    string
+	broker      *secrets.Broker
+	fileBackend *file.Backend
+	fakeBackend *recordingBackend
+	cache       *secrets.SecretCache
+	auditor     *recordingIntegrationAuditor
+	leases      *secrets.InMemoryLeaseDirectory
+	statePath   string
 }
 
 func newIntegrationRig(t *testing.T) *integrationRig {
@@ -60,8 +60,8 @@ func newIntegrationRig(t *testing.T) *integrationRig {
 	}
 
 	fakeBE := &recordingBackend{
-		name: "fake",
-		caps: []secrets.BackendCapability{secrets.CapKV, secrets.CapList},
+		name:  "fake",
+		caps:  []secrets.BackendCapability{secrets.CapKV, secrets.CapList},
 		store: make(map[string]*secrets.Secret),
 	}
 
@@ -388,11 +388,11 @@ type recordingBackend struct {
 	store map[string]*secrets.Secret
 }
 
-func (b *recordingBackend) Name() string                      { return b.name }
+func (b *recordingBackend) Name() string                              { return b.name }
 func (b *recordingBackend) Capabilities() []secrets.BackendCapability { return b.caps }
-func (b *recordingBackend) Start(context.Context) error       { return nil }
-func (b *recordingBackend) Stop(context.Context) error        { return nil }
-func (b *recordingBackend) Health(context.Context) error      { return nil }
+func (b *recordingBackend) Start(context.Context) error               { return nil }
+func (b *recordingBackend) Stop(context.Context) error                { return nil }
+func (b *recordingBackend) Health(context.Context) error              { return nil }
 
 func (b *recordingBackend) GetSecret(_ context.Context, req secrets.GetSecretRequest) (*secrets.Secret, error) {
 	b.mu.Lock()

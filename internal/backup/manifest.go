@@ -18,10 +18,10 @@ const ManifestFilename = "manifest.json"
 // locate each blob inside the tar and verify its integrity by
 // re-hashing the entry bytes against [ComponentEntry.SHA256Hex].
 type Manifest struct {
-	FormatVersion int               `json:"format_version"`
-	TakenAt       time.Time         `json:"taken_at"`
-	ClusterName   string            `json:"cluster_name,omitempty"`
-	Components    []ComponentEntry  `json:"components"`
+	FormatVersion int              `json:"format_version"`
+	TakenAt       time.Time        `json:"taken_at"`
+	ClusterName   string           `json:"cluster_name,omitempty"`
+	Components    []ComponentEntry `json:"components"`
 }
 
 // ComponentEntry is one row of [Manifest.Components]. Name is the

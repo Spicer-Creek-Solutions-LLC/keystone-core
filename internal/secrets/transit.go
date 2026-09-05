@@ -200,10 +200,10 @@ type VerifyResult struct {
 
 // HMACRequest drives [TransitBackend.HMAC].
 type HMACRequest struct {
-	Key           string
-	Algorithm     string // "sha2-256" / "sha2-384" / "sha2-512" / etc; empty = Vault default
-	KeyVersion    int
-	Items         []HMACInput
+	Key        string
+	Algorithm  string // "sha2-256" / "sha2-384" / "sha2-512" / etc; empty = Vault default
+	KeyVersion int
+	Items      []HMACInput
 }
 
 // HMACInput is one to-be-MAC'd item.

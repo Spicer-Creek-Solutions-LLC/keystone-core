@@ -719,5 +719,5 @@ func (nilStore) UpdateLease(context.Context, *state.LeaseStoreRecord) error { re
 func (nilStore) ListLeases(context.Context, state.LeaseFilter) ([]*state.LeaseStoreRecord, error) {
 	return nil, nil
 }
-func (nilStore) DeleteLease(context.Context, string) error                       { return nil }
-func (nilStore) DeleteExpiredLeases(context.Context, time.Time) (int, error)     { return 0, nil }
+func (nilStore) DeleteLease(context.Context, string) error                   { return nil }
+func (nilStore) DeleteExpiredLeases(context.Context, time.Time) (int, error) { return 0, nil }

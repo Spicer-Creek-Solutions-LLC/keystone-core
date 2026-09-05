@@ -110,9 +110,9 @@ func TestRun_NoTestFiles(t *testing.T) {
 
 func TestRun_TestFileCompileErrorIsolated(t *testing.T) {
 	dir := newModule(t, baseManifest(), map[string]string{
-		"main.star":    "def main(input):\n    return {}\n",
-		"a_test.star":  "def test_ok():\n    assert.true(True)\n",
-		"b_test.star":  "this is not valid starlark @@@\n",
+		"main.star":   "def main(input):\n    return {}\n",
+		"a_test.star": "def test_ok():\n    assert.true(True)\n",
+		"b_test.star": "this is not valid starlark @@@\n",
 	})
 	rep, err := Run(context.Background(), dir, Options{})
 	if err != nil {

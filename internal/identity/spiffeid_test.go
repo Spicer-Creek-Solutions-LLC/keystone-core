@@ -14,10 +14,10 @@ import (
 func TestParseSPIFFEID_Valid(t *testing.T) {
 	t.Parallel()
 	cases := []struct {
-		s          string
-		wantTD     string
-		wantPath   string
-		wantSegs   []string
+		s        string
+		wantTD   string
+		wantPath string
+		wantSegs []string
 	}{
 		{"spiffe://kscore.local", "kscore.local", "", nil},
 		{"spiffe://kscore.local/agent/agent-1", "kscore.local", "/agent/agent-1", []string{"agent", "agent-1"}},

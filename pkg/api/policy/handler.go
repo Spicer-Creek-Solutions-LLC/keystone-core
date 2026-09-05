@@ -139,9 +139,9 @@ type auditEntryDTO struct {
 }
 
 type evaluateRequest struct {
-	PolicyID    string         `json:"policy_id,omitempty"`
-	PolicySetID string         `json:"policy_set_id,omitempty"`
-	Input       evaluateInput  `json:"input"`
+	PolicyID    string        `json:"policy_id,omitempty"`
+	PolicySetID string        `json:"policy_set_id,omitempty"`
+	Input       evaluateInput `json:"input"`
 }
 
 type evaluateInput struct {

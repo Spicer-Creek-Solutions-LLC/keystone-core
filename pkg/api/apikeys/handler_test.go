@@ -111,8 +111,8 @@ func TestHandler_Create_RejectsInvalidJSON(t *testing.T) {
 func TestHandler_Create_RejectsMissingFields(t *testing.T) {
 	srv, _ := newHandlerServer(t)
 	for _, body := range []map[string]any{
-		{"role": "operator"},   // missing name
-		{"name": "k"},          // missing role
+		{"role": "operator"},               // missing name
+		{"name": "k"},                      // missing role
 		{"name": "k", "role": "superuser"}, // bad role
 	} {
 		status, _ := httpDo(t, srv, "POST", "/api/v1/apikeys", body)

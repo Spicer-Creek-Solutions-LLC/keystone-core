@@ -125,9 +125,9 @@ func (s *PostgreSQLStore) DeleteAPIKey(ctx context.Context, id string) error {
 
 func scanAPIKeyPg(r rowLike) (*APIKeyRecord, error) {
 	var (
-		k                       APIKeyRecord
-		createdAt               time.Time
-		expiresAt, lastUsedRaw  sql.NullTime
+		k                      APIKeyRecord
+		createdAt              time.Time
+		expiresAt, lastUsedRaw sql.NullTime
 	)
 	if err := r.Scan(
 		&k.ID, &k.Name, &k.KeyHash, &k.Role,

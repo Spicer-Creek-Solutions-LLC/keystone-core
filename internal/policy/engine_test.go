@@ -71,8 +71,8 @@ func TestWithEvaluator_WiringAndIgnores(t *testing.T) {
 	second := &stubEvaluator{allow: true}
 	e, _ := policy.NewEngine(policy.NewRegistry(),
 		policy.WithEvaluator(audit.PolicyTypeBuiltin, first),
-		policy.WithEvaluator(audit.PolicyTypeBuiltin, second), // last-wins
-		policy.WithEvaluator(audit.PolicyTypeOPA, nil),        // nil ignored
+		policy.WithEvaluator(audit.PolicyTypeBuiltin, second),  // last-wins
+		policy.WithEvaluator(audit.PolicyTypeOPA, nil),         // nil ignored
 		policy.WithEvaluator(audit.PolicyType("ldap"), second), // unknown ignored
 	)
 	got, ok := e.Evaluator(audit.PolicyTypeBuiltin)
@@ -144,7 +144,7 @@ func TestEngine_Evaluate_NoEvaluatorForType(t *testing.T) {
 	t.Parallel()
 	r := policy.NewRegistry()
 	_ = r.RegisterPolicy(enginePolicy("p1", true)) // builtin type
-	e, _ := policy.NewEngine(r)                     // none wired
+	e, _ := policy.NewEngine(r)                    // none wired
 	_, err := e.Evaluate(context.Background(), "p1", policy.EvaluationInput{})
 	if !errors.Is(err, policy.ErrNoEvaluator) {
 		t.Errorf("err = %v, want ErrNoEvaluator", err)

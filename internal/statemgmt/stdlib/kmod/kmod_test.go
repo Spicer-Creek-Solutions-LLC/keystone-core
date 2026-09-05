@@ -14,16 +14,16 @@ import (
 // fakeProvider drives Module tests without touching /proc/modules
 // or modprobe.
 type fakeProvider struct {
-	loaded        map[string]bool
-	persist       map[string]bool
-	loadErr       error
-	unloadErr     error
-	addErr        error
-	removeErr     error
-	loadCalls     []string
-	unloadCalls   []string
-	addCalls      []string
-	removeCalls   []string
+	loaded      map[string]bool
+	persist     map[string]bool
+	loadErr     error
+	unloadErr   error
+	addErr      error
+	removeErr   error
+	loadCalls   []string
+	unloadCalls []string
+	addCalls    []string
+	removeCalls []string
 }
 
 func newFake() *fakeProvider {
