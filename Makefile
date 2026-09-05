@@ -39,7 +39,7 @@ STRAY_ROOT_BINS := $(BINARIES) $(notdir $(wildcard tools/*))
 STRAY_PKG_BINS := tools/moddoc/moddoc scripts/docvalidation/docvalidation docvalidation
 
 # Non-binary artifacts both targets care about.
-STRAY_FILES := coverage.out
+STRAY_FILES := coverage.out test-output.log
 
 # ---- Cross-compile matrix --------------------------------------------------
 

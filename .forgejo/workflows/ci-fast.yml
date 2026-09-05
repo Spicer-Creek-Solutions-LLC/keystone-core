@@ -226,8 +226,45 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      # Captured to a file, not just streamed, so a failure can be
+      # recovered afterwards. Codeberg exposes no job-log API -- every
+      # /actions/.../logs path 404s -- so a red `test` job is otherwise
+      # undiagnosable without someone opening the web UI and copying it
+      # by hand. That is exactly what happened with the flake in #246:
+      # six reproduction attempts, none successful, and no way to learn
+      # which test had actually failed.
+      #
+      # pipefail matters here: without it the exit status would be
+      # tee's, which always succeeds, and a failing test suite would
+      # report green.
       - name: test (race + coverage)
-        run: make test-coverage
+        run: |
+          set -o pipefail
+          make test-coverage 2>&1 | tee test-output.log
+
+      # Name the failing tests in the last lines of the job log, so the
+      # answer is at the bottom where a human looks first rather than
+      # buried in several thousand lines of package output.
+      - name: summarise failures
+        if: failure()
+        run: |
+          echo "=== FAILING TESTS ==="
+          grep -E '^(--- FAIL|FAIL|\s+--- FAIL)' test-output.log | head -40 || echo "(no FAIL lines; the failure was not a test assertion)"
+          echo "=== FIRST FAILURE IN CONTEXT ==="
+          grep -B 5 -A 30 '^--- FAIL' test-output.log | head -80 || true
+
+      # The artifact is the part a tool can reach: /api/v1/repos/.../
+      # actions/artifacts is readable even though job logs are not.
+      # continue-on-error so a problem uploading can never mask the
+      # test failure that triggered it.
+      - name: upload test output on failure
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-${{ github.run_number }}
+          path: test-output.log
+          retention-days: 14
       # Epic 19 task 4 — per-package coverage gate. Critical >=70%,
       # CLI >=40%. Allowlist exceptions documented in tools/covgate/
       # config.go with per-entry GRADUATE-BY notes.
