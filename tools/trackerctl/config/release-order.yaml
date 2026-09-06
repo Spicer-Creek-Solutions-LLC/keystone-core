@@ -95,6 +95,7 @@ gate-v1.0:
 
 v0.x:
   - "Agent secret grants are config-only"
+  - "Blueprint publish: no path into the server catalog"
   - "Changie configuration: `replacements` for reference-link maintenance"
   - "Vault auto re-authentication on token expiry"
   - "Bootstrap protocol versioning"

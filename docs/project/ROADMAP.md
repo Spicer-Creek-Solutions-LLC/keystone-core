@@ -696,6 +696,20 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
      dedicated macOS sanity-run isn't load-bearing for v0.x. Revisit
      if/when macOS agent work resumes at v2.x+. -->
 
+#### Blueprint publish: no path into the server catalog
+
+- **Priority**: v0.x
+- **What**: a blueprint can only reach `kscore-server`'s catalog by putting files on the server host -- rsync, config management, a GitOps sync, or baking them into an image. `BlueprintService` exposes `ListBlueprints` / `GetBlueprint` / `ApplyBlueprint` and no publish RPC, and `kscore-blueprint install` / `update` copy into a **local** library on the operator's machine, not the server's catalog. An operator working through the API alone cannot add a blueprint at all.
+- **Second half of the same gap**: `fsBlueprintCatalog` reads the catalog directory **once at boot** into a map. Dropping a blueprint into the directory of a running server therefore does nothing until it restarts -- so even the filesystem route is not a live one, which is easy to discover the hard way during an incident.
+- **Why deferred**: remote blueprint apply works without it. A catalog deployed alongside the server (image, GitOps, config management) is a legitimate and arguably preferable posture: whatever gates that directory gates every fleet apply, which is why a targeted `kscorectl blueprint apply` takes a blueprint **name** rather than a directory to upload. The gap is a workflow one, not a correctness one.
+- **Design questions this has to answer** (the reason it is not a small change):
+  - **Who may publish.** A blueprint drives state changes across a fleet, so publishing is closer to deploying code than to writing a config value. It needs its own authorization, not `RoleOperator` by default.
+  - **Immutability.** If republishing a name replaces its content, a fleet apply can silently converge something different from what was reviewed. Versioned, immutable entries avoid that; overwriting does not.
+  - **Validation at ingest.** Manifest validity and entrypoint resolution should fail at publish time, where one person sees the error, rather than at apply time across N hosts.
+  - **Reload.** Whatever lands has to make the running server see it, which the boot-time map does not.
+- **Acceptance for unblock**: a blueprint can be published to a running server through an authenticated API and applied without a restart; publishing validates the manifest and rejects an invalid one; republishing either creates a new version or is refused, never silently replaces content an earlier apply used.
+- **References**: `cmd/kscore-server/blueprints.go` (`fsBlueprintCatalog`, boot-time load); `api/proto/keystone/core/v1/blueprint.proto` (no publish RPC); `internal/cli/blueprint/library.go` (`install`/`update` are local-library only); `internal/config/blueprints.go` (`CatalogPath`); companion of "Remote / distributed blueprint apply wiring".
+
 #### Agent secret grants are config-only
 
 - **Priority**: v0.x
