@@ -156,9 +156,16 @@ func TestApplyGuards(t *testing.T) {
 	if _, _, err := runCLI(clibp.Deps{}, "apply", dir); !errors.Is(err, clibp.ErrEngineNotConfigured) {
 		t.Fatalf("want ErrEngineNotConfigured, got %v", err)
 	}
-	// Remote target.
+	// A targeted apply is the control plane's work, so it needs a
+	// server address. Without one it must say so rather than silently
+	// applying to this host -- which is what it used to do before
+	// remote apply existed.
 	d := clibp.Deps{Executor: &bp.Executor{StateRunner: &fakeSR{}, Store: bp.NewMemoryAppliedStore()}}
-	if _, _, err := runCLI(d, "apply", dir, "--target", "id:agent-1"); !errors.Is(err, clibp.ErrRemoteNotConfigured) {
-		t.Fatalf("want ErrRemoteNotConfigured, got %v", err)
+	_, _, err := runCLI(d, "apply", "demo", "--target", "id:agent-1")
+	if err == nil {
+		t.Fatal("a targeted apply with no --server succeeded")
+	}
+	if !strings.Contains(err.Error(), "server") {
+		t.Fatalf("want an error naming --server, got %v", err)
 	}
 }
