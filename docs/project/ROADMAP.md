@@ -319,13 +319,20 @@ Format: each entry is a `####` heading; body opens with `**Priority**:` then **W
 - **Acceptance for unblock**: each agent receives its own NATS credential at bootstrap, scoped to publish/subscribe only on its own subjects plus the shared request subjects; an agent attempting to subscribe to another agent's response subject is refused by the broker; the credential is rotated with the SVID.
 - **References**: `internal/nats/manager.go` (single `Token`/`Credential`); `internal/controlplane/bootstrap_jointoken.go` (`SVIDBootstrapIssuer` — the natural place to also issue a NATS credential); `internal/sealed/` (what carries confidentiality today); `docs/project/SECURITY-DESIGN.md` § "A NATS subject is not a boundary".
 
-#### Remote / distributed blueprint apply wiring
+<!-- "Remote / distributed blueprint apply wiring" landed.
+     `kscorectl blueprint apply <bp> --target id:<agent>` renders the
+     blueprint centrally (params and features are operator input, not
+     properties of the target), marshals the result back to YAML, and
+     sends it to each matching agent, which compiles it against its own
+     facts. `rollback` reverts on the agents recorded for the apply,
+     taken from the run record rather than by re-resolving the target
+     -- re-resolving could reach an agent that joined afterwards or
+     miss one whose labels changed.
 
-- **Priority**: gate-v1.0
-- **What**: `kscore-blueprint apply` / `rollback` (Epic 15 task 10) drive `internal/blueprint.Executor` against an injected `StateRunner`. `cmd/kscore-blueprint` wires a **local-host** StateRunner (statemgmt + stdlib) so single-node apply works; a `--target` selecting remote agents has no wired distributed StateRunner and returns a clear "remote apply not configured" error. Until wired, `kscorectl blueprint apply demo --target id:agent-1` works only for the local host, not a remote agent fleet.
-- **Why deferred**: the transport is no longer the missing piece — remote *state* apply is wired (`ConvergeDispatcher` + the agent-side `StateEngine`), and a blueprint is a rendered collection of states. What remains is blueprint-specific: the executor renders params into a state collection and must hand that collection to the converge path per target rather than to its local StateRunner, and the AppliedRun record has to become per-agent so rollback can target the same fleet. The local path is enough for the v0.5 single-node trial.
-- **Acceptance for unblock**: `kscorectl blueprint apply <bp> --target id:<agent>` applies the rendered state collection on a remote agent and records the AppliedRun; rollback targets the same fleet.
-- **References**: `internal/controlplane/converge_dispatcher.go` + `internal/controlplane/state_remote.go` (the wired remote-state path to build on); `internal/cli/blueprint/apply.go`; `cmd/kscore-blueprint/main.go`; `internal/blueprint/executor.go`; `pkg/api/blueprint/handler.go` + `internal/controlplane/grpc_blueprint_server.go` (tasks 11/12 — REST routes + gRPC `BlueprintService` ship with empty providers, return 503 / `codes.Unavailable` until this boot wiring supplies `BlueprintCatalog`/`BlueprintApplier`); Epic 15 tasks 10/11/12; companion of the cluster boot-wiring entries.
+     Open follow-ups, tracked separately: "Blueprint applied-runs store
+     (durable)" -- the run record is in-memory, so a rollback only
+     works within one server lifetime; and "Blueprint publish: no path
+     into the server catalog". -->
 
 #### Durable runbook execution store
 

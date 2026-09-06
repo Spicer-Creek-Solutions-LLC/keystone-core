@@ -53,7 +53,6 @@ gate-v1.0:
   # carries confidentiality, so this is defence in depth rather than
   # the thing that makes agent secret reads safe.
   - "Per-agent NATS credentials with subject permissions"
-  - "Remote / distributed blueprint apply wiring"
   - "Durable runbook execution store"
   - "Blueprint e2e real docker-compose convergence form"
   - "Pre-rotation signing-CA retention in the bootstrap trust bundle"

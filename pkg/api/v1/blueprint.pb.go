@@ -445,6 +445,56 @@ func (x *ApplyBlueprintRequest) GetTarget() *Target {
 	return nil
 }
 
+// RollbackBlueprintRequest reverts a recorded apply.
+//
+// It carries only a run id, deliberately. The hosts to revert on come
+// from the run record, not from the caller: re-resolving the original
+// target could reach an agent that joined after the apply, or miss one
+// whose labels have since changed.
+type RollbackBlueprintRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RunId         string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RollbackBlueprintRequest) Reset() {
+	*x = RollbackBlueprintRequest{}
+	mi := &file_keystone_core_v1_blueprint_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RollbackBlueprintRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RollbackBlueprintRequest) ProtoMessage() {}
+
+func (x *RollbackBlueprintRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_keystone_core_v1_blueprint_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RollbackBlueprintRequest.ProtoReflect.Descriptor instead.
+func (*RollbackBlueprintRequest) Descriptor() ([]byte, []int) {
+	return file_keystone_core_v1_blueprint_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *RollbackBlueprintRequest) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
+}
+
 type ApplyBlueprintResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RunId         string                 `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
@@ -457,7 +507,7 @@ type ApplyBlueprintResponse struct {
 
 func (x *ApplyBlueprintResponse) Reset() {
 	*x = ApplyBlueprintResponse{}
-	mi := &file_keystone_core_v1_blueprint_proto_msgTypes[7]
+	mi := &file_keystone_core_v1_blueprint_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -469,7 +519,7 @@ func (x *ApplyBlueprintResponse) String() string {
 func (*ApplyBlueprintResponse) ProtoMessage() {}
 
 func (x *ApplyBlueprintResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_keystone_core_v1_blueprint_proto_msgTypes[7]
+	mi := &file_keystone_core_v1_blueprint_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -482,7 +532,7 @@ func (x *ApplyBlueprintResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyBlueprintResponse.ProtoReflect.Descriptor instead.
 func (*ApplyBlueprintResponse) Descriptor() ([]byte, []int) {
-	return file_keystone_core_v1_blueprint_proto_rawDescGZIP(), []int{7}
+	return file_keystone_core_v1_blueprint_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ApplyBlueprintResponse) GetRunId() string {
@@ -507,6 +557,81 @@ func (x *ApplyBlueprintResponse) GetOutputs() map[string]string {
 }
 
 func (x *ApplyBlueprintResponse) GetReport() *ApplyReport {
+	if x != nil {
+		return x.Report
+	}
+	return nil
+}
+
+// RollbackBlueprintResponse mirrors ApplyBlueprintResponse field for
+// field: a rollback IS an apply of the rollback entrypoint, and
+// reports the same way. It is a distinct type because one RPC's
+// response should not be another's -- they can diverge later without
+// a breaking change.
+type RollbackBlueprintResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// run_id is the ROLLBACK run's id, not the one being reverted. The
+	// rollback is itself a recorded run, with the original as its parent.
+	RunId         string            `protobuf:"bytes,1,opt,name=run_id,json=runId,proto3" json:"run_id,omitempty"`
+	Status        string            `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
+	Outputs       map[string]string `protobuf:"bytes,3,rep,name=outputs,proto3" json:"outputs,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Report        *ApplyReport      `protobuf:"bytes,4,opt,name=report,proto3" json:"report,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RollbackBlueprintResponse) Reset() {
+	*x = RollbackBlueprintResponse{}
+	mi := &file_keystone_core_v1_blueprint_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RollbackBlueprintResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RollbackBlueprintResponse) ProtoMessage() {}
+
+func (x *RollbackBlueprintResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_keystone_core_v1_blueprint_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RollbackBlueprintResponse.ProtoReflect.Descriptor instead.
+func (*RollbackBlueprintResponse) Descriptor() ([]byte, []int) {
+	return file_keystone_core_v1_blueprint_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *RollbackBlueprintResponse) GetRunId() string {
+	if x != nil {
+		return x.RunId
+	}
+	return ""
+}
+
+func (x *RollbackBlueprintResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *RollbackBlueprintResponse) GetOutputs() map[string]string {
+	if x != nil {
+		return x.Outputs
+	}
+	return nil
+}
+
+func (x *RollbackBlueprintResponse) GetReport() *ApplyReport {
 	if x != nil {
 		return x.Report
 	}
@@ -554,7 +679,9 @@ const file_keystone_core_v1_blueprint_proto_rawDesc = "" +
 	"\x06target\x18\a \x01(\v2\x18.keystone.core.v1.TargetR\x06target\x1a9\n" +
 	"\vParamsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8b\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"1\n" +
+	"\x18RollbackBlueprintRequest\x12\x15\n" +
+	"\x06run_id\x18\x01 \x01(\tR\x05runId\"\x8b\x02\n" +
 	"\x16ApplyBlueprintResponse\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12O\n" +
@@ -562,11 +689,20 @@ const file_keystone_core_v1_blueprint_proto_rawDesc = "" +
 	"\x06report\x18\x04 \x01(\v2\x1d.keystone.core.v1.ApplyReportR\x06report\x1a:\n" +
 	"\fOutputsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x012\xbb\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x91\x02\n" +
+	"\x19RollbackBlueprintResponse\x12\x15\n" +
+	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x16\n" +
+	"\x06status\x18\x02 \x01(\tR\x06status\x12R\n" +
+	"\aoutputs\x18\x03 \x03(\v28.keystone.core.v1.RollbackBlueprintResponse.OutputsEntryR\aoutputs\x125\n" +
+	"\x06report\x18\x04 \x01(\v2\x1d.keystone.core.v1.ApplyReportR\x06report\x1a:\n" +
+	"\fOutputsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x012\xa9\x03\n" +
 	"\x10BlueprintService\x12c\n" +
 	"\x0eListBlueprints\x12'.keystone.core.v1.ListBlueprintsRequest\x1a(.keystone.core.v1.ListBlueprintsResponse\x12]\n" +
 	"\fGetBlueprint\x12%.keystone.core.v1.GetBlueprintRequest\x1a&.keystone.core.v1.GetBlueprintResponse\x12c\n" +
-	"\x0eApplyBlueprint\x12'.keystone.core.v1.ApplyBlueprintRequest\x1a(.keystone.core.v1.ApplyBlueprintResponseB1Z/go.keystone-core.io/keystone-core/pkg/api/v1;v1b\x06proto3"
+	"\x0eApplyBlueprint\x12'.keystone.core.v1.ApplyBlueprintRequest\x1a(.keystone.core.v1.ApplyBlueprintResponse\x12l\n" +
+	"\x11RollbackBlueprint\x12*.keystone.core.v1.RollbackBlueprintRequest\x1a+.keystone.core.v1.RollbackBlueprintResponseB1Z/go.keystone-core.io/keystone-core/pkg/api/v1;v1b\x06proto3"
 
 var (
 	file_keystone_core_v1_blueprint_proto_rawDescOnce sync.Once
@@ -580,38 +716,45 @@ func file_keystone_core_v1_blueprint_proto_rawDescGZIP() []byte {
 	return file_keystone_core_v1_blueprint_proto_rawDescData
 }
 
-var file_keystone_core_v1_blueprint_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_keystone_core_v1_blueprint_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_keystone_core_v1_blueprint_proto_goTypes = []any{
-	(*BlueprintSummary)(nil),       // 0: keystone.core.v1.BlueprintSummary
-	(*ApplyReport)(nil),            // 1: keystone.core.v1.ApplyReport
-	(*ListBlueprintsRequest)(nil),  // 2: keystone.core.v1.ListBlueprintsRequest
-	(*ListBlueprintsResponse)(nil), // 3: keystone.core.v1.ListBlueprintsResponse
-	(*GetBlueprintRequest)(nil),    // 4: keystone.core.v1.GetBlueprintRequest
-	(*GetBlueprintResponse)(nil),   // 5: keystone.core.v1.GetBlueprintResponse
-	(*ApplyBlueprintRequest)(nil),  // 6: keystone.core.v1.ApplyBlueprintRequest
-	(*ApplyBlueprintResponse)(nil), // 7: keystone.core.v1.ApplyBlueprintResponse
-	nil,                            // 8: keystone.core.v1.ApplyBlueprintRequest.ParamsEntry
-	nil,                            // 9: keystone.core.v1.ApplyBlueprintResponse.OutputsEntry
-	(*Target)(nil),                 // 10: keystone.core.v1.Target
+	(*BlueprintSummary)(nil),          // 0: keystone.core.v1.BlueprintSummary
+	(*ApplyReport)(nil),               // 1: keystone.core.v1.ApplyReport
+	(*ListBlueprintsRequest)(nil),     // 2: keystone.core.v1.ListBlueprintsRequest
+	(*ListBlueprintsResponse)(nil),    // 3: keystone.core.v1.ListBlueprintsResponse
+	(*GetBlueprintRequest)(nil),       // 4: keystone.core.v1.GetBlueprintRequest
+	(*GetBlueprintResponse)(nil),      // 5: keystone.core.v1.GetBlueprintResponse
+	(*ApplyBlueprintRequest)(nil),     // 6: keystone.core.v1.ApplyBlueprintRequest
+	(*RollbackBlueprintRequest)(nil),  // 7: keystone.core.v1.RollbackBlueprintRequest
+	(*ApplyBlueprintResponse)(nil),    // 8: keystone.core.v1.ApplyBlueprintResponse
+	(*RollbackBlueprintResponse)(nil), // 9: keystone.core.v1.RollbackBlueprintResponse
+	nil,                               // 10: keystone.core.v1.ApplyBlueprintRequest.ParamsEntry
+	nil,                               // 11: keystone.core.v1.ApplyBlueprintResponse.OutputsEntry
+	nil,                               // 12: keystone.core.v1.RollbackBlueprintResponse.OutputsEntry
+	(*Target)(nil),                    // 13: keystone.core.v1.Target
 }
 var file_keystone_core_v1_blueprint_proto_depIdxs = []int32{
 	0,  // 0: keystone.core.v1.ListBlueprintsResponse.blueprints:type_name -> keystone.core.v1.BlueprintSummary
 	0,  // 1: keystone.core.v1.GetBlueprintResponse.blueprint:type_name -> keystone.core.v1.BlueprintSummary
-	8,  // 2: keystone.core.v1.ApplyBlueprintRequest.params:type_name -> keystone.core.v1.ApplyBlueprintRequest.ParamsEntry
-	10, // 3: keystone.core.v1.ApplyBlueprintRequest.target:type_name -> keystone.core.v1.Target
-	9,  // 4: keystone.core.v1.ApplyBlueprintResponse.outputs:type_name -> keystone.core.v1.ApplyBlueprintResponse.OutputsEntry
+	10, // 2: keystone.core.v1.ApplyBlueprintRequest.params:type_name -> keystone.core.v1.ApplyBlueprintRequest.ParamsEntry
+	13, // 3: keystone.core.v1.ApplyBlueprintRequest.target:type_name -> keystone.core.v1.Target
+	11, // 4: keystone.core.v1.ApplyBlueprintResponse.outputs:type_name -> keystone.core.v1.ApplyBlueprintResponse.OutputsEntry
 	1,  // 5: keystone.core.v1.ApplyBlueprintResponse.report:type_name -> keystone.core.v1.ApplyReport
-	2,  // 6: keystone.core.v1.BlueprintService.ListBlueprints:input_type -> keystone.core.v1.ListBlueprintsRequest
-	4,  // 7: keystone.core.v1.BlueprintService.GetBlueprint:input_type -> keystone.core.v1.GetBlueprintRequest
-	6,  // 8: keystone.core.v1.BlueprintService.ApplyBlueprint:input_type -> keystone.core.v1.ApplyBlueprintRequest
-	3,  // 9: keystone.core.v1.BlueprintService.ListBlueprints:output_type -> keystone.core.v1.ListBlueprintsResponse
-	5,  // 10: keystone.core.v1.BlueprintService.GetBlueprint:output_type -> keystone.core.v1.GetBlueprintResponse
-	7,  // 11: keystone.core.v1.BlueprintService.ApplyBlueprint:output_type -> keystone.core.v1.ApplyBlueprintResponse
-	9,  // [9:12] is the sub-list for method output_type
-	6,  // [6:9] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	12, // 6: keystone.core.v1.RollbackBlueprintResponse.outputs:type_name -> keystone.core.v1.RollbackBlueprintResponse.OutputsEntry
+	1,  // 7: keystone.core.v1.RollbackBlueprintResponse.report:type_name -> keystone.core.v1.ApplyReport
+	2,  // 8: keystone.core.v1.BlueprintService.ListBlueprints:input_type -> keystone.core.v1.ListBlueprintsRequest
+	4,  // 9: keystone.core.v1.BlueprintService.GetBlueprint:input_type -> keystone.core.v1.GetBlueprintRequest
+	6,  // 10: keystone.core.v1.BlueprintService.ApplyBlueprint:input_type -> keystone.core.v1.ApplyBlueprintRequest
+	7,  // 11: keystone.core.v1.BlueprintService.RollbackBlueprint:input_type -> keystone.core.v1.RollbackBlueprintRequest
+	3,  // 12: keystone.core.v1.BlueprintService.ListBlueprints:output_type -> keystone.core.v1.ListBlueprintsResponse
+	5,  // 13: keystone.core.v1.BlueprintService.GetBlueprint:output_type -> keystone.core.v1.GetBlueprintResponse
+	8,  // 14: keystone.core.v1.BlueprintService.ApplyBlueprint:output_type -> keystone.core.v1.ApplyBlueprintResponse
+	9,  // 15: keystone.core.v1.BlueprintService.RollbackBlueprint:output_type -> keystone.core.v1.RollbackBlueprintResponse
+	12, // [12:16] is the sub-list for method output_type
+	8,  // [8:12] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_keystone_core_v1_blueprint_proto_init() }
@@ -626,7 +769,7 @@ func file_keystone_core_v1_blueprint_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_keystone_core_v1_blueprint_proto_rawDesc), len(file_keystone_core_v1_blueprint_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

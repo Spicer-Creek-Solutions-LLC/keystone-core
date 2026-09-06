@@ -1,0 +1,23 @@
+kind: Added
+body: |-
+  **A fleet blueprint apply can be rolled back.** `RollbackBlueprint`
+  reverts a recorded run on the agents that received it, and
+  `kscorectl blueprint rollback <run-id> --server ...` reaches it.
+
+  The request carries **only a run id**. Which hosts to revert on comes
+  from the run record, never from the caller: re-resolving the original
+  target could reach an agent that joined after the apply -- handing it
+  a revert for something it never received -- or miss one whose labels
+  have since changed. There is deliberately no way to point a rollback
+  at a different fleet than the apply it reverts.
+
+  The CLI routes on an explicit `--server` (or `KSCORE_SERVER`) rather
+  than guessing. A locally-applied run is recorded in the CLI process
+  and a fleet apply on the control plane; run ids are opaque, so
+  nothing in the id says which store holds it.
+
+  This completes the ROADMAP entry *Remote / distributed blueprint
+  apply wiring*, which is retired. Two follow-ups it does not cover
+  stay tracked: the applied-run store is in-memory, so a rollback only
+  works within one server lifetime, and there is still no path to
+  publish a blueprint into the server's catalog.

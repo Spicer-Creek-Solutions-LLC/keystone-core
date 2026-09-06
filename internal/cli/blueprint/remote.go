@@ -161,3 +161,59 @@ func blueprintName(args []string) string {
 	}
 	return args[0]
 }
+
+// remoteRollbackWanted reports whether a rollback should be asked of
+// the control plane rather than run here.
+//
+// The discriminator is an explicit server address, not a guess. A run
+// applied to a fleet is recorded on the control plane and this process
+// has no record of it, so there is no way to infer the right
+// destination from the run id alone -- ids are opaque and the two
+// stores are separate.
+func remoteRollbackWanted(d Deps, server string) bool {
+	return server != "" || d.Server != "" || os.Getenv("KSCORE_SERVER") != ""
+}
+
+// runRemoteRollback asks the control plane to revert a recorded run.
+//
+// No target is sent: which hosts to revert on comes from the run
+// record on the server, so a rollback cannot be pointed at a different
+// fleet than the apply it reverts.
+func runRemoteRollback(cmd *cobra.Command, d Deps, runID, server, apiKey string) error {
+	if server == "" {
+		server = d.Server
+	}
+	if server == "" {
+		server = os.Getenv("KSCORE_SERVER")
+	}
+	if apiKey == "" {
+		apiKey = d.APIKey
+	}
+
+	ctx := withContext(cmd)
+	client, closer, err := d.dial()(ctx, server, apiKey)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = closer.Close() }()
+
+	resp, err := client.RollbackBlueprint(authContext(ctx, apiKey), &v1.RollbackBlueprintRequest{
+		RunId: runID,
+	})
+	if err != nil {
+		return err
+	}
+
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "rollback of %s\n", runID)
+	fmt.Fprintf(out, "  run:    %s\n", resp.GetRunId())
+	fmt.Fprintf(out, "  status: %s\n", resp.GetStatus())
+	if r := resp.GetReport(); r != nil {
+		fmt.Fprintf(out, "  total=%d changed=%d failed=%d\n",
+			r.GetTotal(), r.GetChanged(), r.GetFailed())
+	}
+	if resp.GetStatus() == "failed" {
+		return fmt.Errorf("blueprint rollback %s: failed", runID)
+	}
+	return nil
+}

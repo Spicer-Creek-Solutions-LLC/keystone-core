@@ -28,6 +28,13 @@ type (
 	blueprintApplier interface {
 		Apply(ctx context.Context, name string, opts bp.ApplyOptions) (*bp.ApplyResult, error)
 	}
+	// blueprintRollbacker is separate from blueprintApplier so an
+	// applier that cannot roll back -- one with no applied-run store --
+	// still satisfies the apply path rather than being excluded from
+	// it.
+	blueprintRollbacker interface {
+		Rollback(ctx context.Context, runID string) (*bp.ApplyResult, error)
+	}
 )
 
 // BlueprintGRPCServer implements v1.BlueprintServiceServer (Epic 15
@@ -216,4 +223,44 @@ func describeTarget(t *v1.Target) string {
 	default:
 		return ""
 	}
+}
+
+// RollbackBlueprint reverts a recorded apply on the hosts that
+// received it.
+//
+// The request carries only a run id. Which hosts to revert on comes
+// from the run record, so there is no target to resolve here and no
+// way for a caller to redirect a rollback at a different fleet.
+//
+// Like ApplyBlueprint, a run that completes but ends failed is
+// returned in the response with status="failed" rather than as a gRPC
+// error; only a setup failure with no result is an error.
+func (s *BlueprintGRPCServer) RollbackBlueprint(ctx context.Context, req *v1.RollbackBlueprintRequest) (*v1.RollbackBlueprintResponse, error) {
+	rb, ok := s.Applier.(blueprintRollbacker)
+	if s.Applier == nil || !ok {
+		return nil, status.Error(codes.Unavailable, "blueprint: rollback not wired")
+	}
+	if req.GetRunId() == "" {
+		return nil, status.Error(codes.InvalidArgument, "run_id is required")
+	}
+	res, err := rb.Rollback(ctx, req.GetRunId())
+	if res == nil {
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
+		return nil, status.Error(codes.Internal, "blueprint: rollback returned no result")
+	}
+	resp := &v1.RollbackBlueprintResponse{
+		RunId:   res.RunID,
+		Status:  res.Status,
+		Outputs: stringifyMap(res.Outputs),
+	}
+	if res.Report != nil {
+		resp.Report = &v1.ApplyReport{
+			Total:   int32(res.Report.Total),
+			Changed: int32(res.Report.Changed),
+			Failed:  int32(res.Report.Failed),
+		}
+	}
+	return resp, nil
 }
