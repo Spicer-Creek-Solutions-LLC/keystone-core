@@ -25,6 +25,7 @@ This is an index. For request / response field detail, follow the
 | `ApplyBlueprint` | `ApplyBlueprintRequest` | `ApplyBlueprintResponse` | [`api/proto/keystone/core/v1/blueprint.proto:16`](../../api/proto/keystone/core/v1/blueprint.proto#L16) |
 | `GetBlueprint` | `GetBlueprintRequest` | `GetBlueprintResponse` | [`api/proto/keystone/core/v1/blueprint.proto:15`](../../api/proto/keystone/core/v1/blueprint.proto#L15) |
 | `ListBlueprints` | `ListBlueprintsRequest` | `ListBlueprintsResponse` | [`api/proto/keystone/core/v1/blueprint.proto:14`](../../api/proto/keystone/core/v1/blueprint.proto#L14) |
+| `RollbackBlueprint` | `RollbackBlueprintRequest` | `RollbackBlueprintResponse` | [`api/proto/keystone/core/v1/blueprint.proto:17`](../../api/proto/keystone/core/v1/blueprint.proto#L17) |
 
 ### ClusterService
 

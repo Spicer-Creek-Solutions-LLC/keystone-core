@@ -14,6 +14,7 @@ service BlueprintService {
   rpc ListBlueprints(ListBlueprintsRequest) returns (ListBlueprintsResponse);
   rpc GetBlueprint(GetBlueprintRequest) returns (GetBlueprintResponse);
   rpc ApplyBlueprint(ApplyBlueprintRequest) returns (ApplyBlueprintResponse);
+  rpc RollbackBlueprint(RollbackBlueprintRequest) returns (RollbackBlueprintResponse);
 }
 
 // ---- Blueprint types ------------------------------------------------------
@@ -69,7 +70,31 @@ message ApplyBlueprintRequest {
   Target target = 7;
 }
 
+// RollbackBlueprintRequest reverts a recorded apply.
+//
+// It carries only a run id, deliberately. The hosts to revert on come
+// from the run record, not from the caller: re-resolving the original
+// target could reach an agent that joined after the apply, or miss one
+// whose labels have since changed.
+message RollbackBlueprintRequest {
+  string run_id = 1;
+}
+
 message ApplyBlueprintResponse {
+  string run_id = 1;
+  string status = 2;
+  map<string, string> outputs = 3;
+  ApplyReport report = 4;
+}
+
+// RollbackBlueprintResponse mirrors ApplyBlueprintResponse field for
+// field: a rollback IS an apply of the rollback entrypoint, and
+// reports the same way. It is a distinct type because one RPC's
+// response should not be another's -- they can diverge later without
+// a breaking change.
+message RollbackBlueprintResponse {
+  // run_id is the ROLLBACK run's id, not the one being reverted. The
+  // rollback is itself a recorded run, with the original as its parent.
   string run_id = 1;
   string status = 2;
   map<string, string> outputs = 3;

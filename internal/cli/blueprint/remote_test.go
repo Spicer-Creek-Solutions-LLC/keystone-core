@@ -19,9 +19,11 @@ import (
 // scripted response.
 type fakeBlueprintClient struct {
 	v1.BlueprintServiceClient
-	got  *v1.ApplyBlueprintRequest
-	resp *v1.ApplyBlueprintResponse
-	err  error
+	got          *v1.ApplyBlueprintRequest
+	resp         *v1.ApplyBlueprintResponse
+	gotRollback  *v1.RollbackBlueprintRequest
+	rollbackResp *v1.RollbackBlueprintResponse
+	err          error
 }
 
 func (f *fakeBlueprintClient) ApplyBlueprint(_ context.Context, req *v1.ApplyBlueprintRequest, _ ...grpc.CallOption) (*v1.ApplyBlueprintResponse, error) {
@@ -132,5 +134,62 @@ func TestRemoteApply_RequiresAName(t *testing.T) {
 	}
 	if c.got != nil {
 		t.Error("the CLI dialled without a blueprint name")
+	}
+}
+
+func (f *fakeBlueprintClient) RollbackBlueprint(_ context.Context, req *v1.RollbackBlueprintRequest, _ ...grpc.CallOption) (*v1.RollbackBlueprintResponse, error) {
+	f.gotRollback = req
+	if f.err != nil {
+		return nil, f.err
+	}
+	return f.rollbackResp, nil
+}
+
+// A rollback sends only a run id: which hosts to revert on comes from
+// the record on the server, so the CLI cannot point it at a different
+// fleet.
+func TestRemoteRollback_SendsOnlyTheRunID(t *testing.T) {
+	c := &fakeBlueprintClient{rollbackResp: &v1.RollbackBlueprintResponse{
+		RunId: "rb-1", Status: "succeeded",
+		Report: &v1.ApplyReport{Total: 1, Changed: 1},
+	}}
+	out, _, err := runCLI(depsFor(c), "rollback", "run-7")
+	if err != nil {
+		t.Fatalf("rollback: %v", err)
+	}
+	if c.gotRollback == nil {
+		t.Fatal("the CLI never called the control plane")
+	}
+	if c.gotRollback.GetRunId() != "run-7" {
+		t.Errorf("run_id = %q, want %q", c.gotRollback.GetRunId(), "run-7")
+	}
+	if !strings.Contains(out, "rb-1") {
+		t.Errorf("output does not report the rollback run:\n%s", out)
+	}
+}
+
+func TestRemoteRollback_FailedRunIsAnError(t *testing.T) {
+	c := &fakeBlueprintClient{rollbackResp: &v1.RollbackBlueprintResponse{
+		RunId: "rb-2", Status: "failed",
+	}}
+	if _, _, err := runCLI(depsFor(c), "rollback", "run-7"); err == nil {
+		t.Fatal("a failed rollback exited zero")
+	}
+}
+
+// With no server configured the rollback stays local, because a
+// locally-applied run is recorded in this process and nowhere else.
+func TestRemoteRollback_NoServerStaysLocal(t *testing.T) {
+	c := &fakeBlueprintClient{}
+	d := clibp.Deps{Dial: func(context.Context, string, string) (v1.BlueprintServiceClient, io.Closer, error) {
+		return c, nopCloser{}, nil
+	}}
+	t.Setenv("KSCORE_SERVER", "")
+	_, _, err := runCLI(d, "rollback", "run-7")
+	if err == nil {
+		t.Fatal("expected the local path to fail with no executor")
+	}
+	if c.gotRollback != nil {
+		t.Error("a rollback with no --server dialled the control plane")
 	}
 }

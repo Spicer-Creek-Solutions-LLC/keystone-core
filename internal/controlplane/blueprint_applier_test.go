@@ -167,3 +167,103 @@ func TestBlueprintApplier_Unwired(t *testing.T) {
 		}
 	})
 }
+
+// A rollback must reach the hosts that received the apply, taken from
+// the run record. Re-resolving the original target could reach an
+// agent that joined afterwards, or miss one whose labels changed.
+func TestBlueprintApplier_RollbackUsesRecordedAgents(t *testing.T) {
+	store := bp.NewMemoryAppliedStore()
+	f := &fanoutStub{respond: okResponse}
+	local := &recordingLocal{}
+	a := &controlplane.BlueprintApplier{
+		Catalog: stubCatalog{m: rollbackManifest(t)}, Converge: f, Local: local, Store: store,
+	}
+
+	applied, err := a.Apply(context.Background(), "demo", bp.ApplyOptions{
+		Agents: []string{"agent-1", "agent-2"}, Target: "role:web",
+	})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	f.seen = nil // forget the apply's traffic
+
+	if _, err := a.Rollback(context.Background(), applied.RunID); err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if local.ran {
+		t.Error("a rollback of a fleet apply ran on the LOCAL host")
+	}
+	if len(f.seen) != 2 {
+		t.Fatalf("rollback reached %d agents, want the same 2 as the apply", len(f.seen))
+	}
+	for _, id := range []string{"agent-1", "agent-2"} {
+		if _, ok := f.seen[id]; !ok {
+			t.Errorf("%s did not receive the rollback", id)
+		}
+	}
+}
+
+// A locally-applied run rolls back locally.
+func TestBlueprintApplier_RollbackOfLocalRunStaysLocal(t *testing.T) {
+	store := bp.NewMemoryAppliedStore()
+	f := &fanoutStub{respond: okResponse}
+	local := &recordingLocal{}
+	a := &controlplane.BlueprintApplier{
+		Catalog: stubCatalog{m: rollbackManifest(t)}, Converge: f, Local: local, Store: store,
+	}
+
+	applied, err := a.Apply(context.Background(), "demo", bp.ApplyOptions{})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if _, err := a.Rollback(context.Background(), applied.RunID); err != nil {
+		t.Fatalf("Rollback: %v", err)
+	}
+	if len(f.seen) != 0 {
+		t.Errorf("a local run's rollback reached %d agents, want 0", len(f.seen))
+	}
+}
+
+func TestBlueprintApplier_RollbackErrors(t *testing.T) {
+	t.Run("no store", func(t *testing.T) {
+		a := &controlplane.BlueprintApplier{Catalog: stubCatalog{m: rollbackManifest(t)}}
+		if _, err := a.Rollback(context.Background(), "run-1"); !errors.Is(err, controlplane.ErrNoAppliedStore) {
+			t.Errorf("error = %v, want ErrNoAppliedStore", err)
+		}
+	})
+
+	t.Run("unknown run", func(t *testing.T) {
+		a := &controlplane.BlueprintApplier{
+			Catalog: stubCatalog{m: rollbackManifest(t)}, Store: bp.NewMemoryAppliedStore(),
+		}
+		if _, err := a.Rollback(context.Background(), "nope"); err == nil {
+			t.Error("error = nil for an unknown run id")
+		}
+	})
+}
+
+// rollbackManifest writes a real blueprint directory and loads it.
+//
+// Executor.Rollback reloads the manifest from SourcePath, so a
+// hand-built struct is not enough -- the fixture has to exist on disk
+// the way a catalog entry does.
+func rollbackManifest(t *testing.T) *bp.Manifest {
+	t.Helper()
+	dir := t.TempDir()
+	writeFile(t, dir+"/blueprint.yaml", `metadata:
+  name: demo
+  version: 1.0.0
+  description: rollback fixture
+
+entrypoints:
+  default: apply.yaml
+  rollback: rollback.yaml
+`)
+	writeFile(t, dir+"/apply.yaml", "file:\n  /tmp/bp-rb.conf:\n    state: present\n")
+	writeFile(t, dir+"/rollback.yaml", "file:\n  /tmp/bp-rb.conf:\n    state: absent\n")
+	m, err := bp.Load(dir)
+	if err != nil {
+		t.Fatalf("load fixture blueprint: %v", err)
+	}
+	return m
+}

@@ -100,11 +100,19 @@ func applyCmd(d Deps) *cobra.Command {
 }
 
 func rollbackCmd(d Deps) *cobra.Command {
-	return &cobra.Command{
+	var server, apiKey string
+	cmd := &cobra.Command{
 		Use:   "rollback <run-id>",
 		Short: "Roll back a recorded blueprint apply",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// A run applied to a fleet is recorded on the control
+			// plane, so its rollback has to be asked for there --
+			// this process has no record of it. --server (or
+			// KSCORE_SERVER) is how the operator says which.
+			if remoteRollbackWanted(d, server) {
+				return runRemoteRollback(cmd, d, args[0], server, apiKey)
+			}
 			ex, err := d.engine()
 			if err != nil {
 				return err
@@ -116,6 +124,10 @@ func rollbackCmd(d Deps) *cobra.Command {
 			return err
 		},
 	}
+	f := cmd.Flags()
+	f.StringVar(&server, "server", "", "control-plane address; set to roll back a run recorded there (default $KSCORE_SERVER)")
+	f.StringVar(&apiKey, "api-key", "", "API key for a control-plane rollback (default $KSCORE_API_KEY)")
+	return cmd
 }
 
 func appliedCmd(d Deps) *cobra.Command {

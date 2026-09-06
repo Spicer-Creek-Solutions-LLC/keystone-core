@@ -23,9 +23,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	BlueprintService_ListBlueprints_FullMethodName = "/keystone.core.v1.BlueprintService/ListBlueprints"
-	BlueprintService_GetBlueprint_FullMethodName   = "/keystone.core.v1.BlueprintService/GetBlueprint"
-	BlueprintService_ApplyBlueprint_FullMethodName = "/keystone.core.v1.BlueprintService/ApplyBlueprint"
+	BlueprintService_ListBlueprints_FullMethodName    = "/keystone.core.v1.BlueprintService/ListBlueprints"
+	BlueprintService_GetBlueprint_FullMethodName      = "/keystone.core.v1.BlueprintService/GetBlueprint"
+	BlueprintService_ApplyBlueprint_FullMethodName    = "/keystone.core.v1.BlueprintService/ApplyBlueprint"
+	BlueprintService_RollbackBlueprint_FullMethodName = "/keystone.core.v1.BlueprintService/RollbackBlueprint"
 )
 
 // BlueprintServiceClient is the client API for BlueprintService service.
@@ -35,6 +36,7 @@ type BlueprintServiceClient interface {
 	ListBlueprints(ctx context.Context, in *ListBlueprintsRequest, opts ...grpc.CallOption) (*ListBlueprintsResponse, error)
 	GetBlueprint(ctx context.Context, in *GetBlueprintRequest, opts ...grpc.CallOption) (*GetBlueprintResponse, error)
 	ApplyBlueprint(ctx context.Context, in *ApplyBlueprintRequest, opts ...grpc.CallOption) (*ApplyBlueprintResponse, error)
+	RollbackBlueprint(ctx context.Context, in *RollbackBlueprintRequest, opts ...grpc.CallOption) (*RollbackBlueprintResponse, error)
 }
 
 type blueprintServiceClient struct {
@@ -75,6 +77,16 @@ func (c *blueprintServiceClient) ApplyBlueprint(ctx context.Context, in *ApplyBl
 	return out, nil
 }
 
+func (c *blueprintServiceClient) RollbackBlueprint(ctx context.Context, in *RollbackBlueprintRequest, opts ...grpc.CallOption) (*RollbackBlueprintResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RollbackBlueprintResponse)
+	err := c.cc.Invoke(ctx, BlueprintService_RollbackBlueprint_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // BlueprintServiceServer is the server API for BlueprintService service.
 // All implementations must embed UnimplementedBlueprintServiceServer
 // for forward compatibility.
@@ -82,6 +94,7 @@ type BlueprintServiceServer interface {
 	ListBlueprints(context.Context, *ListBlueprintsRequest) (*ListBlueprintsResponse, error)
 	GetBlueprint(context.Context, *GetBlueprintRequest) (*GetBlueprintResponse, error)
 	ApplyBlueprint(context.Context, *ApplyBlueprintRequest) (*ApplyBlueprintResponse, error)
+	RollbackBlueprint(context.Context, *RollbackBlueprintRequest) (*RollbackBlueprintResponse, error)
 	mustEmbedUnimplementedBlueprintServiceServer()
 }
 
@@ -100,6 +113,9 @@ func (UnimplementedBlueprintServiceServer) GetBlueprint(context.Context, *GetBlu
 }
 func (UnimplementedBlueprintServiceServer) ApplyBlueprint(context.Context, *ApplyBlueprintRequest) (*ApplyBlueprintResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ApplyBlueprint not implemented")
+}
+func (UnimplementedBlueprintServiceServer) RollbackBlueprint(context.Context, *RollbackBlueprintRequest) (*RollbackBlueprintResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RollbackBlueprint not implemented")
 }
 func (UnimplementedBlueprintServiceServer) mustEmbedUnimplementedBlueprintServiceServer() {}
 func (UnimplementedBlueprintServiceServer) testEmbeddedByValue()                          {}
@@ -176,6 +192,24 @@ func _BlueprintService_ApplyBlueprint_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BlueprintService_RollbackBlueprint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RollbackBlueprintRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BlueprintServiceServer).RollbackBlueprint(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BlueprintService_RollbackBlueprint_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BlueprintServiceServer).RollbackBlueprint(ctx, req.(*RollbackBlueprintRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // BlueprintService_ServiceDesc is the grpc.ServiceDesc for BlueprintService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -194,6 +228,10 @@ var BlueprintService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ApplyBlueprint",
 			Handler:    _BlueprintService_ApplyBlueprint_Handler,
+		},
+		{
+			MethodName: "RollbackBlueprint",
+			Handler:    _BlueprintService_RollbackBlueprint_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
