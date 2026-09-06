@@ -27,6 +27,22 @@ type StateRunner interface {
 	Run(ctx context.Context, decls []*statemgmt.Declaration) (*statemgmt.RunReport, error)
 }
 
+// StateFileRunner runs a rendered state FILE rather than the resolved
+// declarations StateRunner takes.
+//
+// The difference is not cosmetic. A remote run has to hand the agent a
+// file, because the agent is what renders `.Facts` -- it compiles
+// against the host being converged, which is the whole reason remote
+// state apply sends YAML instead of declarations. Handing an agent
+// pre-resolved declarations would work today only because blueprints
+// cannot reference facts, and would be wrong the moment they can.
+//
+// The blueprint layer's own rendering (params, features) stays central:
+// those are operator input, not properties of the target host.
+type StateFileRunner interface {
+	RunFile(ctx context.Context, stateFile []byte) (*statemgmt.RunReport, error)
+}
+
 // ApplyOptions configures one Apply.
 type ApplyOptions struct {
 	Inputs     map[string]string // raw param inputs (secret:// allowed for source:secret)
@@ -34,6 +50,15 @@ type ApplyOptions struct {
 	Disable    []string          // feature overrides off
 	As         string            // multi-instance namespace ("" = none)
 	Entrypoint string            // "" = entrypoints.default
+
+	// Target is the target expression this apply was asked for, e.g.
+	// "id:web-1". Recorded on the AppliedRun; empty means local.
+	Target string
+	// Agents are the agent ids Target resolved to. The executor does
+	// not resolve targets -- whoever built the FileRunner already did,
+	// and passes the result here so the run record says which hosts
+	// actually received the apply.
+	Agents []string
 }
 
 // ApplyResult is the outcome of Apply/Rollback.
@@ -48,9 +73,14 @@ type ApplyResult struct {
 // interfaces so the executor is unit-testable and acyclic.
 type Executor struct {
 	StateRunner StateRunner
-	Secrets     SecretResolver
-	Hooks       HookRunner
-	Store       AppliedStore
+	// FileRunner, when set, takes precedence over StateRunner: the
+	// rendered state file is marshalled back to YAML and handed to it
+	// whole, so whoever runs it does its own parsing and fact
+	// rendering. That is how a blueprint reaches an agent.
+	FileRunner StateFileRunner
+	Secrets    SecretResolver
+	Hooks      HookRunner
+	Store      AppliedStore
 
 	Clock func() time.Time
 	NewID func() string
@@ -84,7 +114,7 @@ func (e *Executor) store() AppliedStore {
 // entrypoint state collection, runs it, runs post_apply hooks,
 // renders outputs, and records an AppliedRun.
 func (e *Executor) Apply(ctx context.Context, m *Manifest, opts ApplyOptions) (*ApplyResult, error) {
-	if e.StateRunner == nil {
+	if e.StateRunner == nil && e.FileRunner == nil {
 		return nil, ErrNoStateRunner
 	}
 
@@ -111,6 +141,8 @@ func (e *Executor) Apply(ctx context.Context, m *Manifest, opts ApplyOptions) (*
 		Features:   features,
 		StartedAt:  e.now(),
 		Status:     "failed",
+		Target:     opts.Target,
+		Agents:     opts.Agents,
 	}
 
 	if err := e.runHooks(ctx, m, PhasePreApply, m.Hooks.PreApply, resolved, features, opts.As); err != nil {
@@ -153,7 +185,7 @@ func (e *Executor) Apply(ctx context.Context, m *Manifest, opts ApplyOptions) (*
 // Rollback reloads the blueprint recorded for runID and applies its
 // rollback entrypoint with the original resolved params/features.
 func (e *Executor) Rollback(ctx context.Context, runID string) (*ApplyResult, error) {
-	if e.StateRunner == nil {
+	if e.StateRunner == nil && e.FileRunner == nil {
 		return nil, ErrNoStateRunner
 	}
 	prev, err := e.store().Get(ctx, runID)
@@ -177,6 +209,10 @@ func (e *Executor) Rollback(ctx context.Context, runID string) (*ApplyResult, er
 		Features:   prev.Features,
 		StartedAt:  e.now(),
 		Status:     "failed",
+		// Carried from the apply, not re-resolved: a rollback belongs
+		// to the hosts that received the thing being rolled back.
+		Target: prev.Target,
+		Agents: prev.Agents,
 	}
 
 	if err := e.runHooks(ctx, m, PhasePreRollback, m.Hooks.PreRollback, resolved, prev.Features, prev.Namespace); err != nil {
@@ -232,6 +268,21 @@ func (e *Executor) runEntrypoint(ctx context.Context, m *Manifest, name string, 
 			return nil, rel, err
 		}
 	}
+	// A file runner gets the file, not declarations: it is running
+	// somewhere else, and that somewhere has to do its own rendering.
+	// Resolving here would bake this host's view into the result.
+	if e.FileRunner != nil {
+		out, err := statemgmt.Marshal(sf)
+		if err != nil {
+			return nil, rel, fmt.Errorf("blueprint: marshal entrypoint %q: %w", name, err)
+		}
+		report, err := e.FileRunner.RunFile(ctx, out)
+		if err != nil {
+			return nil, rel, fmt.Errorf("blueprint: run entrypoint %q: %w", name, err)
+		}
+		return report, rel, nil
+	}
+
 	decls, err := statemgmt.NewResolver().Resolve(sf)
 	if err != nil {
 		return nil, rel, fmt.Errorf("blueprint: resolve entrypoint %q: %w", name, err)

@@ -34,6 +34,21 @@ type AppliedRun struct {
 	Status     string // "succeeded" | "failed"
 	StartedAt  time.Time
 	EndedAt    time.Time
+
+	// Target is the target expression the operator asked for, e.g.
+	// "id:web-1" or "role:web". Empty means the run executed locally.
+	Target string
+	// Agents are the agent ids the run actually executed on, resolved
+	// from Target at apply time.
+	//
+	// Both are recorded because they answer different questions. A
+	// rollback must reach the hosts that received the apply, which is
+	// Agents -- re-resolving Target could pick up an agent that joined
+	// afterwards and hand it a rollback for something it never got, or
+	// miss one that has since changed labels. Target is kept because
+	// it is what the operator wrote, and a run record that cannot show
+	// that is hard to reconcile against the command someone ran.
+	Agents []string
 }
 
 // AppliedStore persists AppliedRun records. v1.0 ships the in-memory
