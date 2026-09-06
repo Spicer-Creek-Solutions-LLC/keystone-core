@@ -1,0 +1,22 @@
+kind: Docs
+body: |-
+  **Tracked the missing blueprint publish path.** A blueprint can only
+  reach `kscore-server`'s catalog by putting files on the server host:
+  `BlueprintService` has no publish RPC, and `kscore-blueprint install`
+  / `update` copy into a *local* library on the operator's machine, not
+  the server's catalog. Someone working through the API alone cannot
+  add a blueprint at all.
+
+  The sharper half is that `fsBlueprintCatalog` reads its directory
+  **once at boot** into a map, so dropping a blueprint into a running
+  server's catalog does nothing until it restarts. Even the filesystem
+  route is not a live one -- which is the kind of thing discovered
+  during an incident rather than before one.
+
+  Deferred rather than urgent: remote blueprint apply works without it,
+  and a catalog deployed alongside the server is a defensible posture,
+  since whatever gates that directory gates every fleet apply. The
+  entry records the design questions that make it more than a small
+  change -- who may publish, whether republishing a name may replace
+  content an earlier apply used, validating at ingest rather than
+  across N hosts, and making a running server see the result.
