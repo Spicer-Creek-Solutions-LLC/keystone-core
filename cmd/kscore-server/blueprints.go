@@ -76,16 +76,15 @@ func (c *fsBlueprintCatalog) Get(_ context.Context, name string) (*bp.Manifest, 
 	return m, nil
 }
 
-// localBlueprintApplier runs blueprints against a server-local stdlib
-// StateRunner. Same convergence path the kscore-blueprint CLI uses
-// today — see docs/project/ROADMAP.md "Remote / distributed blueprint
-// apply wiring" for the gate-v1.0 deferral on agent-fleet dispatch.
-type localBlueprintApplier struct {
-	catalog *fsBlueprintCatalog
-	exec    *bp.Executor
-}
-
-func newLocalBlueprintApplier(c *fsBlueprintCatalog) (*localBlueprintApplier, error) {
+// newBlueprintApplier builds the applier the BlueprintService uses.
+//
+// It is target-aware: an apply that resolves to agents goes to them
+// over the converge path, and one that resolves to none converges this
+// host with the server-local stdlib runner. Converge is assigned after
+// Start, once the dispatcher exists -- until then a targeted apply is
+// refused rather than silently applied here, which is the whole point
+// of the distinction.
+func newBlueprintApplier(c *fsBlueprintCatalog) (*controlplane.BlueprintApplier, error) {
 	stReg := statemgmt.NewRegistry()
 	if err := stdlib.RegisterAll(stReg); err != nil {
 		return nil, fmt.Errorf("blueprint applier: stdlib register: %w", err)
@@ -94,22 +93,12 @@ func newLocalBlueprintApplier(c *fsBlueprintCatalog) (*localBlueprintApplier, er
 	if err := steps.RegisterAll(rbReg, steps.Deps{}); err != nil {
 		return nil, fmt.Errorf("blueprint applier: runbook steps: %w", err)
 	}
-	return &localBlueprintApplier{
-		catalog: c,
-		exec: &bp.Executor{
-			StateRunner: statemgmt.NewRunner(stReg, nil),
-			Hooks:       bp.NewRunbookHookRunner(&runbook.Executor{Registry: rbReg}),
-			Store:       bp.NewMemoryAppliedStore(),
-		},
+	return &controlplane.BlueprintApplier{
+		Catalog: c,
+		Local:   statemgmt.NewRunner(stReg, nil),
+		Hooks:   bp.NewRunbookHookRunner(&runbook.Executor{Registry: rbReg}),
+		Store:   bp.NewMemoryAppliedStore(),
 	}, nil
-}
-
-func (a *localBlueprintApplier) Apply(ctx context.Context, name string, opts bp.ApplyOptions) (*bp.ApplyResult, error) {
-	m, err := a.catalog.Get(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	return a.exec.Apply(ctx, m, opts)
 }
 
 // maybeWireBlueprintService constructs the catalog + applier from
@@ -117,28 +106,28 @@ func (a *localBlueprintApplier) Apply(ctx context.Context, name string, opts bp.
 // empty or the directory is missing — the BlueprintService stays
 // unregistered and clients reach Unimplemented. Errors only when a
 // non-empty path is set but the catalog walk fails.
-func maybeWireBlueprintService(cfg config.BlueprintsConfig, log *slog.Logger) (*controlplane.BlueprintGRPCServer, error) {
+func maybeWireBlueprintService(cfg config.BlueprintsConfig, log *slog.Logger) (*controlplane.BlueprintGRPCServer, *controlplane.BlueprintApplier, error) {
 	if strings.TrimSpace(cfg.CatalogPath) == "" {
-		return nil, nil
+		return nil, nil, nil
 	}
 	if _, err := os.Stat(cfg.CatalogPath); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			log.Warn("blueprints.catalogpath does not exist; skipping BlueprintService",
 				"path", cfg.CatalogPath)
-			return nil, nil
+			return nil, nil, nil
 		}
-		return nil, fmt.Errorf("blueprints catalog stat: %w", err)
+		return nil, nil, fmt.Errorf("blueprints catalog stat: %w", err)
 	}
 	cat, err := newFSBlueprintCatalog(cfg.CatalogPath, log)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	applier, err := newLocalBlueprintApplier(cat)
+	applier, err := newBlueprintApplier(cat)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return &controlplane.BlueprintGRPCServer{
 		Catalog: cat,
 		Applier: applier,
-	}, nil
+	}, applier, nil
 }

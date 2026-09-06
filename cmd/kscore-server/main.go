@@ -584,7 +584,7 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 	// the stdlib StateRunner. Skipped when CatalogPath is empty;
 	// remote-fleet dispatch is the gate-v1.0 ROADMAP item "Remote /
 	// distributed blueprint apply wiring".
-	blueprintGRPC, err := maybeWireBlueprintService(cfg.Blueprints, log)
+	blueprintGRPC, blueprintApplier, err := maybeWireBlueprintService(cfg.Blueprints, log)
 	if err != nil {
 		return fmt.Errorf("blueprint service: %w", err)
 	}
@@ -648,6 +648,16 @@ func run(ctx context.Context, cfg *config.Config, log *slog.Logger) error {
 
 	stateGRPC.Resolver = controlplane.NewStoreResolver(store)
 	stateGRPC.Converge = convergeDispatcher
+
+	// Blueprints reach a fleet over the same dispatcher, so they are
+	// wired here for the same reason: it does not exist until after
+	// Start. Until this point a targeted blueprint apply is refused,
+	// never quietly applied to the control-plane host.
+	if blueprintGRPC != nil {
+		blueprintGRPC.Resolver = controlplane.NewStoreResolver(store)
+		blueprintApplier.Converge = convergeDispatcher
+		log.Info("server: remote blueprint apply enabled")
+	}
 
 	// Agent secret lookups. Only wired when identity is enabled: the
 	// handler authenticates by SVID, so with no CA there is no way to
