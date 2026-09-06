@@ -221,10 +221,17 @@ const defaultConvergeTimeout = 10 * time.Minute
 // Targeting goes through target, and the follow-up that makes a target
 // mandatory settles what agent_id means afterwards.
 func targetFromRequest(req *v1.ApplyStateRequest) Target {
+	return targetFromProto(req.GetTarget())
+}
+
+// targetFromProto converts the wire Target to the internal one. Shared
+// with blueprint apply so both commands agree on what an expression
+// selects -- two conversions would be two chances to disagree.
+func targetFromProto(t *v1.Target) Target {
 	return Target{
-		AgentIDs:        req.GetTarget().GetAgentIds(),
-		Labels:          req.GetTarget().GetLabels(),
-		HostnamePattern: req.GetTarget().GetHostnamePattern(),
+		AgentIDs:        t.GetAgentIds(),
+		Labels:          t.GetLabels(),
+		HostnamePattern: t.GetHostnamePattern(),
 	}
 }
 

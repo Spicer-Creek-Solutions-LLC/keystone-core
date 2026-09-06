@@ -1,0 +1,25 @@
+kind: Added
+body: |-
+  **`ApplyBlueprint` accepts a target.** `ApplyBlueprintRequest` gains
+  an additive `target` field, resolved through the same resolver a
+  targeted `state apply` uses -- one place decides what an expression
+  selects, so the two commands cannot disagree about which hosts an
+  operator meant.
+
+  `controlplane.BlueprintApplier` routes on a single fact: whether the
+  caller resolved any agents. Agents means the rendered state file goes
+  to them, each compiling it against its own facts; no agents means the
+  control-plane host converges itself, which is the pre-existing
+  behaviour and stays the default so an older client is unaffected.
+
+  Three refusals rather than silent fallbacks, because each would
+  otherwise converge the wrong machine: a targeted apply with no
+  converge path wired fails instead of running locally; a target that
+  resolves to no agents is `NotFound` rather than an empty success,
+  since "applied, 0 changed" would hide the operator's mistake; and a
+  request with a target on a server with no resolver is refused rather
+  than treated as untargeted.
+
+  Not yet wired at server boot or reachable from `kscorectl blueprint
+  apply --target`, which still runs in-process and locally. That is the
+  remaining piece.
