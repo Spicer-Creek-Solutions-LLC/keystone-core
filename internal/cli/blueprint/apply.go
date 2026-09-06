@@ -39,24 +39,37 @@ func localTarget(t string) bool {
 
 func applyCmd(d Deps) *cobra.Command {
 	var params, enable, disable []string
-	var as, entrypoint, target string
+	var as, entrypoint, target, server, apiKey string
 	cmd := &cobra.Command{
 		Use:   "apply [dir]",
 		Short: "Apply a blueprint",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			inputs, err := parseKV(params)
+			if err != nil {
+				return err
+			}
+			// A targeted apply is the control plane's work: it holds
+			// the converge dispatcher and the agent registry. Only a
+			// local apply runs in this process.
 			if !localTarget(target) {
-				return ErrRemoteNotConfigured
+				return runRemoteApply(cmd, d, remoteApplyArgs{
+					name:       blueprintName(args),
+					target:     target,
+					inputs:     inputs,
+					enable:     enable,
+					disable:    disable,
+					as:         as,
+					entrypoint: entrypoint,
+					server:     server,
+					apiKey:     apiKey,
+				})
 			}
 			ex, err := d.engine()
 			if err != nil {
 				return err
 			}
 			m, err := loadManifest(argDir(args))
-			if err != nil {
-				return err
-			}
-			inputs, err := parseKV(params)
 			if err != nil {
 				return err
 			}
@@ -79,7 +92,10 @@ func applyCmd(d Deps) *cobra.Command {
 	f.StringArrayVar(&disable, "disable", nil, "feature to disable (repeatable)")
 	f.StringVar(&as, "as", "", "multi-instance namespace")
 	f.StringVar(&entrypoint, "entrypoint", "", "named entrypoint (default: entrypoints.default)")
-	f.StringVar(&target, "target", "", "apply target (v1.0: local only)")
+	f.StringVar(&target, "target", "",
+		"apply target: empty or 'localhost' for this host, or id:<agent> / <label>:<value> / hostname:<glob> for a fleet")
+	f.StringVar(&server, "server", "", "control-plane address for a targeted apply (default $KSCORE_SERVER)")
+	f.StringVar(&apiKey, "api-key", "", "API key for a targeted apply (default $KSCORE_API_KEY)")
 	return cmd
 }
 

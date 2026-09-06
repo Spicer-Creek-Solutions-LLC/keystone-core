@@ -1,0 +1,22 @@
+kind: Added
+body: |-
+  **`kscorectl blueprint apply --target` reaches a fleet.** The command
+  previously ran the executor in-process and refused any non-local
+  target with "remote apply not configured". A targeted apply now calls
+  the control plane's `ApplyBlueprint`, which resolves the target and
+  converges each matching agent.
+
+  A targeted apply takes the blueprint **name**, not a directory. The
+  server applies from its own catalog, so one cannot push a
+  locally-edited copy to a fleet without it going through the catalog
+  first -- which is where review and version pinning live. A local
+  apply still takes a directory, unchanged.
+
+  A run that completed but ended failed exits non-zero while still
+  printing its report: an operator needs to see what happened, and a
+  script needs the failure to register. `ErrRemoteNotConfigured` is
+  gone, and the test that asserted it now asserts the new contract.
+
+  `rollback` is still local-only -- there is no RollbackBlueprint RPC,
+  so rolling back a fleet apply is not yet possible. The AppliedRun
+  records the agents it would need.
