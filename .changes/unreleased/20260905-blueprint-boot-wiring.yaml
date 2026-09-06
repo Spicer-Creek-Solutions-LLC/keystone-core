@@ -1,0 +1,22 @@
+kind: Added
+body: |-
+  **Remote blueprint apply is wired at `kscore-server` boot.** The
+  server's blueprint applier is now the target-aware one: an apply that
+  resolves to agents goes to them over the converge path, and one that
+  resolves to none converges the control-plane host with the local
+  stdlib runner, which is the pre-existing behaviour.
+
+  The converge dispatcher is assigned after `Start`, for the same
+  reason the state path's is -- it does not exist until NATS is
+  running. Before that point a targeted blueprint apply is refused
+  rather than quietly applied to the control-plane host, which is the
+  distinction the whole change exists to make.
+
+  This replaces `localBlueprintApplier`, which could only ever run
+  locally, rather than adding a second applier beside it. One applier
+  that knows about both paths is easier to reason about than two that
+  each know about one.
+
+  `kscorectl blueprint apply --target` still runs in-process and
+  locally: the CLI does not call the gRPC service, so the remote path
+  is reachable through the API but not yet through that command.
