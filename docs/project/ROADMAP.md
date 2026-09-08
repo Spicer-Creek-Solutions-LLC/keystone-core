@@ -1,5 +1,13 @@
 # Roadmap — Ranked v0.x Backlog
 
+> **Generation 1 archive notice:** this backlog is frozen pending the transition
+> in [RFC 0001](../rfcs/0001-generation-2-reboot.md). It must not be reconciled
+> into new issues. Active work is defined by the
+> [Generation 2 execution plan](REBOOT-EXECUTION-PLAN.md); archived ideas start
+> in [Future / Unscheduled](FUTURE-CAPABILITIES.md). Task R09 replaces this file
+> with the public `Now` / `Next` / `Future / Unscheduled` / `Not Planned`
+> roadmap after tracker retirement.
+
 Single source of truth for scope **narrowed during implementation** of the v0.1 line plus the larger pre-/post-v1.0 work pulled forward from `FEATURES.md` and the old `PROJECT-DETAILS.md §6.2` table. Distinct from `FEATURES.md` (up-front product scope), `PROJECT-DETAILS.md §6.2` (high-level release-line summary), and `docs/project/VERSIONING.md` (canonical milestone gates) — those capture what was *planned* or *gated*. This file captures what is *queued*, with a per-entry priority.
 
 ## Priority taxonomy

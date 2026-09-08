@@ -32,6 +32,12 @@ architectural decision records, see [`../adr/`](../adr/).
 ## Design + architecture
 
 - [`DESIGN.md`](DESIGN.md) — high-level architecture.
+- [`PROJECT-REBOOT-REVIEW.md`](PROJECT-REBOOT-REVIEW.md) — evidence behind the
+  accepted Generation 2 reboot.
+- [`../rfcs/0001-generation-2-reboot.md`](../rfcs/0001-generation-2-reboot.md) —
+  accepted reboot decision and boundaries.
+- [`ARCHITECTURE-INVARIANTS.md`](ARCHITECTURE-INVARIANTS.md) — normative
+  Generation 2 communication, NATS, execution, and validation constraints.
 - [`PROBLEM-STATEMENT.md`](PROBLEM-STATEMENT.md) — why this project
   exists, what it is (and isn't).
 - [`COMPATIBILITY.md`](COMPATIBILITY.md) — supported platforms,
@@ -70,6 +76,10 @@ at the repo root.
 
 ## Testing + quality
 
+- [`TESTING.md`](TESTING.md) — Generation 2 production-process Docker, VM,
+  negative-security, durability, and release requirements.
+- [`REQUIREMENTS-TRACEABILITY.md`](REQUIREMENTS-TRACEABILITY.md) — invariant to
+  automated-evidence register.
 - [`TEST-POLICY.md`](TEST-POLICY.md) — `-race`, `goleak`, build tags,
   the test target matrix.
 - [`COVERAGE-GATES.md`](COVERAGE-GATES.md) — per-package coverage
@@ -94,16 +104,18 @@ at the repo root.
 
 ## Project lifecycle
 
-- [`VERSIONING.md`](VERSIONING.md) — the v0.x → v0.5 → v1.0 release
-  ladder + gate checklists.
-- [`ROADMAP.md`](ROADMAP.md) — ranked backlog (gate-v0.5,
-  gate-v1.0, v0.x, v1.x, v2.x+).
-- [`PUBLIC-LAUNCH-CHECKLIST.md`](PUBLIC-LAUNCH-CHECKLIST.md) — the
-  pre-launch quality gate checklist (Phases A–G).
-- [`CODEBERG-SETTINGS-AUDIT.md`](CODEBERG-SETTINGS-AUDIT.md) —
-  in-repo source of truth for the Codeberg-side repository
-  configuration (metadata, feature toggles, merge methods, branch
-  protection). Closes E1 of the launch checklist.
+- [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) — approval-sized
+  transition, architecture, implementation, and pilot tasks.
+- [`FUTURE-CAPABILITIES.md`](FUTURE-CAPABILITIES.md) — unversioned archive
+  capability catalog; inclusion is not a delivery promise.
+- [`VERSIONING.md`](VERSIONING.md) — active reboot version policy followed by
+  retained Generation 1 release evidence.
+- [`ROADMAP.md`](ROADMAP.md) — frozen Generation 1 ranked backlog and transition
+  notice; it must not generate new work.
+- [`PUBLIC-LAUNCH-CHECKLIST.md`](PUBLIC-LAUNCH-CHECKLIST.md) — retained
+  Generation 1 pre-launch evidence pending archive.
+- [`CODEBERG-SETTINGS-AUDIT.md`](CODEBERG-SETTINGS-AUDIT.md) — Generation 1
+  repository-setting snapshot; R02 and R06 produce transition snapshots.
 
 ## Related directories
 
@@ -111,6 +123,5 @@ at the repo root.
   day-2 procedures.
 - [`../adr/`](../adr/) — formal Architectural Decision Records +
   template.
-- [`../../epics/`](../../epics/) — the 19 reconstruction epics, in
-  dependency order. Epic acceptance criteria are the authoritative
-  v0.1.0 scope.
+- [`../../epics/20-generation-2-reboot.md`](../../epics/20-generation-2-reboot.md)
+  — active reboot epic; Epics 00–19 are Generation 1 evidence.

@@ -1,5 +1,12 @@
 # Versioning
 
+> **Generation 2 decision:** [RFC 0001](../rfcs/0001-generation-2-reboot.md)
+> supersedes the pre-v1 release ladder below for active development. Untagged
+> reboot builds report `0.0.0-dev+g<commit>`; no `v0.0.0` tag will be created;
+> pilots use `v0.6.0-alpha.N`; and the first completed reboot release is
+> `v0.6.0`. The remaining document is retained as Generation 1 evidence until
+> archive task R08 replaces it with the clean-baseline versioning document.
+
 How Keystone Core numbers releases, what each milestone signals, and what's frozen vs. fair-game at each stage.
 
 This document is canonical. When other docs (README, PROJECT-DETAILS, epics, V1X / ROADMAP entries, module doc-comments) talk about versioning, they defer here.

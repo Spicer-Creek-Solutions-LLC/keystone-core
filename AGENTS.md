@@ -15,17 +15,25 @@ Operational guidance for AI coding agents in this repository. Keep this file pol
 ## 2) Execution Rules
 
 - Use available skills from `~/.claude/skills/` when task scope clearly matches.
-- Once a `Makefile` exists, prefer its targets over raw tool invocations (e.g., `make test` over `go test ./...`). The reboot starts without one — Epic 01 reintroduces it.
+- Once a `Makefile` exists, prefer its targets over raw tool invocations (e.g., `make test` over `go test ./...`). The clean baseline starts without one — task P11 reintroduces it.
 - Commit and push incrementally as meaningful progress is made.
 
 ## 3) Non-Negotiable Workflow: Epic Tasks
 
-This repo is being reconstructed from scratch toward an eventual v1.0 SemVer-stable release; the current line is `v0.x` (see `docs/project/VERSIONING.md`). All work flows through the epics in `epics/` (start at `epics/00-meta-reconstruction-plan.md`).
+This repo is transitioning from the Generation 1 implementation to the accepted
+Generation 2 reboot. All new work flows through
+`epics/20-generation-2-reboot.md`; Epics 01–19 are Generation 1 evidence and do
+not authorize implementation. See `docs/rfcs/0001-generation-2-reboot.md` and
+`docs/project/REBOOT-EXECUTION-PLAN.md`.
 
 Before starting any epic task, you MUST:
 
 1. Read the epic and the task within it (`epics/NN-*.md`).
-2. Cross-reference relevant sections in `PROJECT-DETAILS.md` and `FEATURES.md`.
+2. For R-stage work, cross-reference relevant Generation 1 sections in
+   `PROJECT-DETAILS.md` and `FEATURES.md`. For P/C-stage work, use RFC 0001,
+   accepted ADRs, the product charter, architecture invariants, and the task
+   dossier. Consult commit-pinned archive sources only when historical research
+   is relevant.
 3. Present an implementation plan.
 4. Wait for explicit user approval (`yes` or equivalent).
 5. Implement only the approved plan.
@@ -81,7 +89,10 @@ Keystone Core is the runtime operations control plane between deployment tooling
 
 Positioning: "GitOps deploys it. We keep it running."
 
-This repository was reset to a clean reconstruction baseline on 2026-05-05. The prior implementation was substantial but unshippable as a coherent first release; it is not preserved in this repository. The current line starts fresh from the reconstruction baseline — there is no v0 history to import from.
+The Generation 1 implementation is still present until task R08 lands the clean
+baseline. Do not treat its implemented breadth as Generation 2 scope. Tasks
+R02–R10 preserve the old line, transition the tracker and forge safely, and
+establish the clean baseline without rewriting history.
 
 Do not duplicate volatile inventories (epic counts, feature matrices, binary lists) in this file. Those drift quickly.
 
@@ -90,13 +101,18 @@ Do not duplicate volatile inventories (epic counts, feature matrices, binary lis
 Use these files instead of expanding AGENTS with mutable detail:
 
 - Project overview/status: `README.md`
-- Versioning scheme + v0.5 + v1.0 gates: `docs/project/VERSIONING.md`
+- Accepted reboot decision: `docs/rfcs/0001-generation-2-reboot.md`
+- Reboot tasks and sequencing: `docs/project/REBOOT-EXECUTION-PLAN.md`
+- Generation 2 invariants/tests: `docs/project/{ARCHITECTURE-INVARIANTS,TESTING,REQUIREMENTS-TRACEABILITY}.md`
+- Uncommitted archive capability catalog: `docs/project/FUTURE-CAPABILITIES.md`
+- Active version policy plus retained Generation 1 gates: `docs/project/VERSIONING.md`
 - Why this project exists: `docs/project/PROBLEM-STATEMENT.md`
-- Feature inventory + version tags: `FEATURES.md`
-- State module support matrix (per-param stable/experimental status — the v0.5 "what works / what doesn't" doc): `docs/project/STATE-SUPPORT-MATRIX.md`
-- Ranked v0.x backlog (implementation-time deferrals): `docs/project/ROADMAP.md` (update whenever a task narrows scope mid-implementation)
-- Implementation reconstruction guide: `PROJECT-DETAILS.md`
-- Epic plans: `epics/` (start at `00-meta-reconstruction-plan.md`)
+- Generation 1 feature inventory pending archive: `FEATURES.md`
+- Generation 1 state support evidence pending archive: `docs/project/STATE-SUPPORT-MATRIX.md`
+- Frozen Generation 1 backlog and transition notice: `docs/project/ROADMAP.md`
+- Generation 1 implementation evidence pending archive: `PROJECT-DETAILS.md`
+- Active epic: `epics/20-generation-2-reboot.md`; Epics 00–19 are Generation 1
+  evidence pending archive.
 - Issue tracker conventions (labels, milestones, tracker issues, ticket lifecycle): `docs/project/ISSUE-TRACKING.md`
 - High-level design: `docs/project/DESIGN.md`
 - Policy & audit operator guide (audit-mode-only + enabling-enforcement migration): `docs/project/POLICY-AUDIT.md`
