@@ -1,0 +1,25 @@
+kind: Docs
+body: |-
+  **Generation 1 capability catalog (R03).** Expands
+  `docs/project/FUTURE-CAPABILITIES.md` from 21 sections of prose into 701
+  item-level entries with stable `CAP-*` identifiers, each carrying its archived
+  source pinned to the final Generation 1 commit, a status, known gaps, and a
+  scope marking of either `v0.6` or `Future`.
+
+  Status records what Generation 1 actually reached rather than what it
+  intended, so `unknown` is a real outcome: 191 capabilities are described as in
+  scope with no evidence either way in the archived sources. RFC 0001 records
+  that package-level coverage coexisted with missing production wiring, so
+  absence of evidence is reported rather than resolved into a guess. A further
+  19 entries name a source path in `FEATURES.md` that is absent from the final
+  tree.
+
+  `docs/transition/capability-coverage.json` maps all 1064 source items --
+  every capability bullet, roadmap entry, epic checklist item, runbook heading,
+  support-matrix module, architecture section, and changelog fragment -- to
+  exactly one entry, recording whether each is that entry's primary source or a
+  refinement, duplicate, or domain overview. That file, not the catalog's prose,
+  is what a coverage check runs against.
+
+  Also ticks R02 and R03 in epic 20 and adds their execution-plan status lines;
+  R02's were missed when it landed.

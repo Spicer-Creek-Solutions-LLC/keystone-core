@@ -55,8 +55,8 @@ and pull requests. Detailed controls are normative in the execution plan.
 
 - [x] R00 — Reboot assessment.
 - [x] R01 — Decision and control documents.
-- [ ] R02 — Freeze and reconcile Generation 1.
-- [ ] R03 — Complete archive capability catalog.
+- [x] R02 — Freeze and reconcile Generation 1.
+- [x] R03 — Complete archive capability catalog.
 - [ ] R04 — Build tracker-retirement tooling.
 - [ ] R05 — Create immutable archive evidence.
 - [ ] R06 — Prepare CI and branch protection.
