@@ -72,9 +72,9 @@ rather than repeated here.
 |---|---|
 | Catalog entries | 701 |
 | Source items mapped | 1064 |
-| implemented / partial / planned / unknown | 201 / 108 / 197 / 152 |
-| reference (non-capability entries) | 43 |
-| `v0.6` / `Future` | 49 / 652 |
+| implemented / partial / planned / unknown | 205 / 28 / 258 / 170 |
+| reference (non-capability entries) | 40 |
+| `v0.6` / `Future` | 50 / 651 |
 
 ## Catalog
 
@@ -96,7 +96,7 @@ rather than repeated here.
 | `CAP-FOUND-012` | Pre-commit hooks | implemented | Future | `FEATURES.md L62` |
 | `CAP-FOUND-013` | Baseline lint set | implemented | v0.6 | `FEATURES.md L63` |
 | `CAP-FOUND-014` | Single-topology E2E | implemented | v0.6 | `FEATURES.md L64` |
-| `CAP-FOUND-015` | Documentation site | planned | Future | `FEATURES.md L68` |
+| `CAP-FOUND-015` | Documentation site | partial | Future | `FEATURES.md L68` |
 | `CAP-FOUND-016` | Syslog logging output | planned | Future | `FEATURES.md L72` |
 | `CAP-FOUND-017` | PDF export of the docs site | planned | Future | `FEATURES.md L73` |
 | `CAP-FOUND-018` | HA / IPv6 / HA+IPv6 E2E topologies | planned | Future | `FEATURES.md L74` |
@@ -107,26 +107,19 @@ rather than repeated here.
 | `CAP-FOUND-023` | Goreleaser signing ceremony / multi-party release | planned | Future | `FEATURES.md L79` |
 | `CAP-FOUND-024` | Benchmark suite | planned | Future | `FEATURES.md L80` |
 | `CAP-FOUND-025` | Air-gapped repo packaging (kscore-bootstrap) | planned | Future | `FEATURES.md L81` |
-| `CAP-FOUND-026` | Rotation orchestrator | partial | Future | `docs/project/ROADMAP.md L504` |
-| `CAP-FOUND-027` | WASM module runtime | partial | Future | `docs/project/ROADMAP.md L1355` |
-| `CAP-FOUND-028` | K8s operator | partial | Future | `docs/project/ROADMAP.md L1431` |
+| `CAP-FOUND-026` | Rotation orchestrator | unknown | Future | `docs/project/ROADMAP.md L504` |
+| `CAP-FOUND-027` | WASM module runtime | unknown | Future | `docs/project/ROADMAP.md L1355` |
+| `CAP-FOUND-028` | K8s operator | unknown | Future | `docs/project/ROADMAP.md L1431` |
 | `CAP-FOUND-029` | All 19 epics complete with their acceptance criteria | planned | Future | `epics/00-meta-reconstruction-plan.md L58` |
 | `CAP-FOUND-030` | make build produces three binaries in build/bin/$GOOS/$GOARCH/ | implemented | Future | `epics/01-foundations.md L61` |
 | `CAP-FOUND-031` | kscore-server --version prints version + commit + build date | implemented | Future | `epics/01-foundations.md L63` |
 | `CAP-FOUND-032` | make proto round-trips an empty proto file successfully | implemented | Future | `epics/01-foundations.md L67` |
 | `CAP-FOUND-033` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L100` |
 
-Scope and status notes:
-
-- `CAP-FOUND-017` — F11: no PDF pipeline exists in the Makefile or deploy/docs/.
-- `CAP-FOUND-022` — F10: no make target or CI job runs semgrep, trivy, syft, grype or hadolint.
-
 Known gaps and limitations:
 
+- `CAP-FOUND-015` — Hugo docs site.
 - `CAP-FOUND-023` — Release signing ceremony — signed tags + checksums + SBOMs.
-- `CAP-FOUND-026` — Rotation orchestrator.
-- `CAP-FOUND-027` — WASM module runtime.
-- `CAP-FOUND-028` — K8s operator.
 
 ### NATS messaging
 
@@ -150,24 +143,19 @@ Known gaps and limitations:
 | `CAP-NATS-016` | Auto-discovery | planned | Future | `FEATURES.md L107` |
 | `CAP-NATS-017` | NAT traversal via reverse leaf | planned | Future | `FEATURES.md L108` |
 | `CAP-NATS-018` | Exactly-once delivery | planned | Future | `FEATURES.md L109` |
-| `CAP-NATS-019` | Boostrap PSK consumption: in-memory tracking only | partial | Future | `docs/project/ROADMAP.md L591` |
+| `CAP-NATS-019` | Boostrap PSK consumption: in-memory tracking only | planned | Future | `docs/project/ROADMAP.md L591` |
 | `CAP-NATS-020` | Bootstrap protocol versioning | planned | v0.6 | `docs/project/ROADMAP.md L760` |
-| `CAP-NATS-021` | Active dial-time circuit breaker eviction | partial | Future | `docs/project/ROADMAP.md L983` |
+| `CAP-NATS-021` | Active dial-time circuit breaker eviction | planned | Future | `docs/project/ROADMAP.md L983` |
 | `CAP-NATS-022` | Health() reports unhealthy when NATS down; recovers when up | implemented | Future | `epics/05-nats-messaging.md L72` |
 | `CAP-NATS-023` | Coverage >80% on internal/nats | implemented | Future | `epics/05-nats-messaging.md L74` |
 | `CAP-NATS-024` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L214` |
 
-Scope and status notes:
-
-- `CAP-NATS-019` — F5: the source heading states in-memory tracking only.
-- `CAP-NATS-020` — F5: the source says a protocol_version field would make compatibility explicit; it is not built.
-
 Known gaps and limitations:
 
 - `CAP-NATS-013` — Embedded NATS / hybrid mode / leaf node / endpoint advertiser / supercluster / WebSocket.
-- `CAP-NATS-019` — Boostrap PSK consumption: in-memory tracking only.
-- `CAP-NATS-020` — Bootstrap protocol versioning.
-- `CAP-NATS-021` — Active dial-time circuit breaker eviction.
+- `CAP-NATS-019` — The backlog item's own text states this had not been built: Boostrap PSK consumption: in-memory tracking only.
+- `CAP-NATS-020` — Referenced code exists, but this backlog item describes work that had not landed: `AgentCredentials.ProtocolVersion uint32` field; bootstrap response carries the current version; agents check + log on mismatch.
+- `CAP-NATS-021` — The backlog item's own text states this had not been built: An endpoint with breaker OPEN is skipped during reconnect attempts until the breaker half-opens.
 
 ### Storage
 
@@ -181,7 +169,7 @@ Known gaps and limitations:
 | `CAP-STORE-006` | Direct parametrized SQL | unknown | Future | `FEATURES.md L122` |
 | `CAP-STORE-007` | Connection pooling tuned per-backend | unknown | Future | `FEATURES.md L123` |
 | `CAP-STORE-008` | JSON-encoded complex columns | unknown | Future | `FEATURES.md L124` |
-| `CAP-STORE-009` | SQLite → PostgreSQL migration tool | partial | Future | `FEATURES.md L125` |
+| `CAP-STORE-009` | SQLite → PostgreSQL migration tool | implemented | Future | `FEATURES.md L125` |
 | `CAP-STORE-010` | Migration features | implemented | Future | `FEATURES.md L126` |
 | `CAP-STORE-011` | IPv6-safe DSN building | implemented | Future | `FEATURES.md L127` |
 | `CAP-STORE-012` | Schema versioning / golang-migrate | planned | Future | `FEATURES.md L131` |
@@ -198,10 +186,7 @@ Known gaps and limitations:
 
 Known gaps and limitations:
 
-- `CAP-STORE-009` — FEATURES.md declares source path(s) absent from the final tree: internal/state/Migrator.
 - `CAP-STORE-012` — Schema versioning via `golang-migrate`.
-- `CAP-STORE-013` — Encryption at rest (`KeyProvider`).
-- `CAP-STORE-014` — Multi-table transaction wrapper.
 
 ### Control plane core
 
@@ -213,7 +198,7 @@ Known gaps and limitations:
 | `CAP-CTRL-004` | Batch Dispatcher | unknown | Future | `FEATURES.md L147` |
 | `CAP-CTRL-005` | Listen ports | unknown | Future | `FEATURES.md L148` |
 | `CAP-CTRL-006` | Dual-stack (IPv4 + IPv6) listeners | unknown | Future | `FEATURES.md L149` |
-| `CAP-CTRL-007` | Health endpoints | implemented | v0.6 | `FEATURES.md L150` |
+| `CAP-CTRL-007` | Health endpoints | unknown | v0.6 | `FEATURES.md L150` |
 | `CAP-CTRL-008` | Middleware chain | implemented | Future | `FEATURES.md L151` |
 | `CAP-CTRL-009` | Graceful shutdown sequence | unknown | v0.6 | `FEATURES.md L152` |
 | `CAP-CTRL-010` | 30s status ticker logging | unknown | Future | `FEATURES.md L153` |
@@ -223,7 +208,7 @@ Known gaps and limitations:
 | `CAP-CTRL-014` | Webhook receiver port (8081) | planned | Future | `FEATURES.md L160` |
 | `CAP-CTRL-015` | K8s operator wiring | planned | Future | `FEATURES.md L161` |
 | `CAP-CTRL-016` | Profiling endpoint defaults-on | planned | Future | `FEATURES.md L162` |
-| `CAP-CTRL-017` | Cluster leader-check boot wiring (kscore-server) | partial | Future | `docs/project/ROADMAP.md L279` |
+| `CAP-CTRL-017` | Cluster leader-check boot wiring (kscore-server) | planned | Future | `docs/project/ROADMAP.md L279` |
 | `CAP-CTRL-018` | kscore-server run --config dev.yaml starts in &lt;2s on a laptop | implemented | Future | `epics/04-control-plane-core.md L53` |
 | `CAP-CTRL-019` | First-run banner includes versions, ports, auth mode, production warnings | implemented | Future | `epics/04-control-plane-core.md L54` |
 | `CAP-CTRL-020` | All 7 v1.0 gRPC services register (with nil-guarded conditional services for cluster/policy/etc.) | planned | Future | `epics/04-control-plane-core.md L55` |
@@ -234,21 +219,17 @@ Known gaps and limitations:
 | `CAP-CTRL-025` | SIGTERM produces ordered shutdown logs; integration test verifies no goroutine leaks (goleak package) | implemented | Future | `epics/04-control-plane-core.md L61` |
 | `CAP-CTRL-026` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L312` |
 
-Scope and status notes:
-
-- `CAP-CTRL-007` — F14: same endpoints as CAP-OBS-005, evidenced by internal/health/.
-
 Known gaps and limitations:
 
-- `CAP-CTRL-017` — Cluster leader-check boot wiring (kscore-server).
+- `CAP-CTRL-017` — Referenced code exists, but this backlog item describes work that had not landed: Cluster leader-check boot wiring (kscore-server).
 - `CAP-CTRL-017` — Server boot-integration foundation (kscore-server lifecycle wiring).
 
 ### API surface
 
 | ID | Capability | Status | Scope | Source |
 |---|---|---|---|---|
-| `CAP-API-001` | AgentService | planned | Future | `FEATURES.md L170` |
-| `CAP-API-002` | ControlPlaneService | planned | Future | `FEATURES.md L171` |
+| `CAP-API-001` | AgentService | implemented | Future | `FEATURES.md L170` |
+| `CAP-API-002` | ControlPlaneService | implemented | Future | `FEATURES.md L171` |
 | `CAP-API-003` | StateService | unknown | Future | `FEATURES.md L172` |
 | `CAP-API-004` | EventService | unknown | Future | `FEATURES.md L173` |
 | `CAP-API-005` | PolicyService | unknown | Future | `FEATURES.md L174` |
@@ -259,7 +240,7 @@ Known gaps and limitations:
 | `CAP-API-010` | REST endpoints (v1.0 wired) | unknown | Future | `FEATURES.md L179` |
 | `CAP-API-011` | Streaming patterns | unknown | Future | `FEATURES.md L180` |
 | `CAP-API-012` | Standardized pagination | unknown | Future | `FEATURES.md L181` |
-| `CAP-API-013` | Standard error model | implemented | Future | `FEATURES.md L182` |
+| `CAP-API-013` | Standard error model | unknown | Future | `FEATURES.md L182` |
 | `CAP-API-014` | Versioning registry | implemented | Future | `FEATURES.md L183` |
 | `CAP-API-015` | gRPC ↔ REST mapping | unknown | Future | `FEATURES.md L184` |
 | `CAP-API-016` | MaintenanceService | planned | Future | `FEATURES.md L188` |
@@ -271,8 +252,8 @@ Known gaps and limitations:
 | `CAP-API-022` | Full RBAC (pkg/api/rbac) | planned | Future | `FEATURES.md L194` |
 | `CAP-API-023` | gRPC-gateway adoption | planned | Future | `FEATURES.md L195` |
 | `CAP-API-024` | OpenAPI auto-generation from protos | planned | Future | `FEATURES.md L196` |
-| `CAP-API-025` | Maintenance + Schedule gRPC | partial | Future | `docs/project/ROADMAP.md L452` |
-| `CAP-API-026` | Encrypted-file per-secret TTL expiry | partial | Future | `docs/project/ROADMAP.md L1326` |
+| `CAP-API-025` | Maintenance + Schedule gRPC | planned | Future | `docs/project/ROADMAP.md L452` |
+| `CAP-API-026` | Encrypted-file per-secret TTL expiry | planned | Future | `docs/project/ROADMAP.md L1326` |
 | `CAP-API-027` | All 8 protos compile via make proto | implemented | Future | `epics/03-api-surface.md L53` |
 | `CAP-API-028` | buf lint passes; buf breaking against main clean | implemented | Future | `epics/03-api-surface.md L54` |
 | `CAP-API-029` | CoordinationService rejects non-mTLS callers | implemented | Future | `epics/03-api-surface.md L57` |
@@ -280,17 +261,11 @@ Known gaps and limitations:
 | `CAP-API-031` | Bypass list (health, registration, coordination internal) works without credentials | implemented | Future | `epics/03-api-surface.md L60` |
 | `CAP-API-032` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L386` |
 
-Scope and status notes:
-
-- `CAP-API-013` — F14: same model as CAP-FOUND-009, evidenced by pkg/api/apierror.
-
 Known gaps and limitations:
 
-- `CAP-API-001` — FEATURES.md declares source path(s) absent from the final tree: api/proto/agent.proto.
-- `CAP-API-002` — FEATURES.md declares source path(s) absent from the final tree: api/proto/controlplane.proto.
 - `CAP-API-023` — gRPC-gateway annotation-driven REST + OpenAPI auto-gen.
-- `CAP-API-025` — Maintenance + Schedule gRPC.
-- `CAP-API-026` — Encrypted-file per-secret TTL expiry.
+- `CAP-API-025` — The backlog item's own text states this had not been built: gRPC clients call `MaintenanceService.{Plan,Apply,Status}` and `ScheduleService.{Create,List,Run}`.
+- `CAP-API-026` — Referenced code exists, but this backlog item describes work that had not landed: encrypted-file backend reaps entries whose `Metadata["ttl_seconds"]` has elapsed since `UpdatedAt`; `GetSecret` on an expired path returns `ErrSecretNotFound` even without an expli.
 
 ### Agent runtime
 
@@ -302,8 +277,8 @@ Known gaps and limitations:
 | `CAP-AGENT-004` | Continuous metadata collection | implemented | Future | `FEATURES.md L207` |
 | `CAP-AGENT-005` | Command execution engine | implemented | v0.6 | `FEATURES.md L208` |
 | `CAP-AGENT-006` | Security enforcement | implemented | Future | `FEATURES.md L209` |
-| `CAP-AGENT-007` | TUI-guided bootstrap | planned | Future | `FEATURES.md L210` |
-| `CAP-AGENT-008` | Non-interactive bootstrap | partial | v0.6 | `FEATURES.md L211` |
+| `CAP-AGENT-007` | TUI-guided bootstrap | partial | Future | `FEATURES.md L210` |
+| `CAP-AGENT-008` | Non-interactive bootstrap | unknown | v0.6 | `FEATURES.md L211` |
 | `CAP-AGENT-009` | Bootstrap phases | unknown | Future | `FEATURES.md L212` |
 | `CAP-AGENT-010` | Systemd service install + management | unknown | v0.6 | `FEATURES.md L213` |
 | `CAP-AGENT-011` | Self-signed CA bootstrap path | unknown | Future | `FEATURES.md L214` |
@@ -317,17 +292,17 @@ Known gaps and limitations:
 | `CAP-AGENT-019` | Windows agent | planned | Future | `FEATURES.md L225` |
 | `CAP-AGENT-020` | macOS agent | planned | Future | `FEATURES.md L226` |
 | `CAP-AGENT-021` | Interactive shell sessions | planned | Future | `FEATURES.md L227` |
-| `CAP-AGENT-022` | VM-based bootstrap test harness | planned | Future | `FEATURES.md L228` |
+| `CAP-AGENT-022` | VM-based bootstrap test harness | planned | v0.6 | `FEATURES.md L228` |
 | `CAP-AGENT-023` | Auto-rotation of NATS creds in memory | planned | Future | `FEATURES.md L229` |
-| `CAP-AGENT-024` | Replay protection on agent commands | partial | Future | `docs/project/ROADMAP.md L428` |
-| `CAP-AGENT-025` | AWS decorrelated jitter for fleet-scale reconnect storms | partial | Future | `docs/project/ROADMAP.md L1447` |
-| `CAP-AGENT-026` | kscore-agent service start\|stop subcommands | planned | Future | `docs/project/ROADMAP.md L1503` |
-| `CAP-AGENT-027` | Bootstrap auto-installs systemd unit (production mode) | partial | Future | `docs/project/ROADMAP.md L1527` |
-| `CAP-AGENT-028` | Type=notify systemd integration (sd_notify) | partial | Future | `docs/project/ROADMAP.md L1535` |
-| `CAP-AGENT-029` | Bootstrap wizard: storage backend + blueprint selection screens | partial | Future | `docs/project/ROADMAP.md L1543` |
-| `CAP-AGENT-030` | Bootstrap: no rollback / transactional revert | partial | Future | `docs/project/ROADMAP.md L1551` |
-| `CAP-AGENT-031` | Dedicated kscore system user auto-creation | partial | v0.6 | `docs/project/ROADMAP.md L1559` |
-| `CAP-AGENT-032` | Cluster-wide HMAC secret (vs per-agent) | partial | Future | `docs/project/ROADMAP.md L1600` |
+| `CAP-AGENT-024` | Replay protection on agent commands | planned | Future | `docs/project/ROADMAP.md L428` |
+| `CAP-AGENT-025` | AWS decorrelated jitter for fleet-scale reconnect storms | planned | Future | `docs/project/ROADMAP.md L1447` |
+| `CAP-AGENT-026` | kscore-agent service start\|stop subcommands | unknown | Future | `docs/project/ROADMAP.md L1503` |
+| `CAP-AGENT-027` | Bootstrap auto-installs systemd unit (production mode) | planned | Future | `docs/project/ROADMAP.md L1527` |
+| `CAP-AGENT-028` | Type=notify systemd integration (sd_notify) | planned | Future | `docs/project/ROADMAP.md L1535` |
+| `CAP-AGENT-029` | Bootstrap wizard: storage backend + blueprint selection screens | unknown | Future | `docs/project/ROADMAP.md L1543` |
+| `CAP-AGENT-030` | Bootstrap: no rollback / transactional revert | planned | Future | `docs/project/ROADMAP.md L1551` |
+| `CAP-AGENT-031` | Dedicated kscore system user auto-creation | unknown | v0.6 | `docs/project/ROADMAP.md L1559` |
+| `CAP-AGENT-032` | Cluster-wide HMAC secret (vs per-agent) | planned | Future | `docs/project/ROADMAP.md L1600` |
 | `CAP-AGENT-033` | HMAC-invalid command rejected with audit log entry | implemented | Future | `epics/06-agent-runtime.md L73` |
 | `CAP-AGENT-034` | Re-running bootstrap is idempotent (no duplicate systemd units, no broken state) | implemented | Future | `epics/06-agent-runtime.md L77` |
 | `CAP-AGENT-035` | Coverage >75% on internal/agent | implemented | Future | `epics/06-agent-runtime.md L79` |
@@ -335,36 +310,29 @@ Known gaps and limitations:
 
 Scope and status notes:
 
-- `CAP-AGENT-005` — RFC 0001 admits bounded argv-only execution. The working-directory, environment and user-switch sub-capabilities named here are outside that boundary and are Future.
-- `CAP-AGENT-007` — F9: bubbletea is an indirect dependency with zero imports; kscore-bootstrap ships a CLI shell and a NoOp phase handler.
-- `CAP-AGENT-026` — F5: cmd/kscore-agent/service.go ships install, uninstall and status only.
-- `CAP-AGENT-031` — F5: the service install path requires the user to already exist; there is no auto-create.
+- `CAP-AGENT-005` — RFC 0001 confines the first release to argv-only, non-interactive execution. The caller-selected working directory, caller-provided environment and user-switching behaviour named in the archived description are outside that boundary; admitting them requires an RFC amendment rather than ordinary promotion.
+- `CAP-AGENT-017` — FEATURES.md declares source path(s) that are absent from the final tree: internal/agent/nats_server.go
+- `CAP-AGENT-022` — Duplicate of `CAP-FOUND-021`; both describe the same capability and carry the same scope.
 
 Known gaps and limitations:
 
-- `CAP-AGENT-007` — FEATURES.md declares source path(s) absent from the final tree: cmd/kscore-agent/.../bootstrap.
 - `CAP-AGENT-007` — Bootstrap: demo mode only (TUI + non-interactive).
 - `CAP-AGENT-008` — Bootstrap CLI flags dropped from v1.0 surface.
-- `CAP-AGENT-017` — FEATURES.md declares source path(s) absent from the final tree: internal/agent/nats_server.go.
 - `CAP-AGENT-017` — Server-side heartbeat / metadata NATS subscriber → agent registry.
-- `CAP-AGENT-019` — Windows agent (native service).
 - `CAP-AGENT-023` — Auto-rotation of in-memory NATS creds.
-- `CAP-AGENT-024` — Replay protection on agent commands.
-- `CAP-AGENT-025` — AWS decorrelated jitter for fleet-scale reconnect storms.
-- `CAP-AGENT-026` — `kscore-agent service start\|stop` subcommands.
-- `CAP-AGENT-027` — Bootstrap auto-installs systemd unit (production mode).
-- `CAP-AGENT-028` — Type=notify systemd integration (sd_notify).
-- `CAP-AGENT-029` — Bootstrap wizard: storage backend + blueprint selection screens.
-- `CAP-AGENT-030` — Bootstrap: no rollback / transactional revert.
-- `CAP-AGENT-031` — Dedicated `kscore` system user auto-creation.
-- `CAP-AGENT-032` — Cluster-wide HMAC secret (vs per-agent).
+- `CAP-AGENT-024` — Referenced code exists, but this backlog item describes work that had not landed: Replayed `CommandRequest` (same nonce within window) is rejected with a typed error and audit log; legitimate commands inside the window pass.
+- `CAP-AGENT-025` — Referenced code exists, but this backlog item describes work that had not landed: `reconnectDelay` (or a sibling) implements decorrelated jitter; benchmark/sim shows tighter reconnect-time distribution at 1000+ agent scale; opt-in via a config knob (`reconnectji.
+- `CAP-AGENT-027` — Referenced code exists, but this backlog item describes work that had not landed: Bootstrap auto-installs systemd unit (production mode).
+- `CAP-AGENT-028` — Referenced code exists, but this backlog item describes work that had not landed: Type=notify systemd integration (sd_notify).
+- `CAP-AGENT-030` — The backlog item's own text states this had not been built: Failed bootstrap re-runs cleanly; for true rollback, operator runs `kscore-agent bootstrap --rollback`.
+- `CAP-AGENT-032` — The backlog item's own text states this had not been built: Cluster-wide HMAC secret (vs per-agent).
 
 ### Remote execution and targeting
 
 | ID | Capability | Status | Scope | Source |
 |---|---|---|---|---|
 | `CAP-EXEC-001` | Single-agent execution | implemented | v0.6 | `FEATURES.md L237` |
-| `CAP-EXEC-002` | Batch execution across target expressions | partial | Future | `FEATURES.md L238` |
+| `CAP-EXEC-002` | Batch execution across target expressions | implemented | Future | `FEATURES.md L238` |
 | `CAP-EXEC-003` | Streaming output protocol | unknown | Future | `FEATURES.md L239` |
 | `CAP-EXEC-004` | Targeting by hostname glob | implemented | Future | `FEATURES.md L240` |
 | `CAP-EXEC-005` | Targeting by labels | implemented | Future | `FEATURES.md L241` |
@@ -382,31 +350,29 @@ Known gaps and limitations:
 | `CAP-EXEC-017` | Output archival to object storage (S3/GCS) cold-tier | planned | Future | `FEATURES.md L256` |
 | `CAP-EXEC-018` | Interactive shell over stream | planned | Future | `FEATURES.md L257` |
 | `CAP-EXEC-019` | Agent-side cancel propagation (SIGTERM to in-flight commands) | planned | v0.6 | `docs/project/ROADMAP.md L396` |
-| `CAP-EXEC-020` | Unified single + batch dispatch persistence | partial | Future | `docs/project/ROADMAP.md L404` |
-| `CAP-EXEC-021` | Server-side target expression compile (proto extension) | partial | Future | `docs/project/ROADMAP.md L412` |
-| `CAP-EXEC-022` | Batch job retention (DeleteBatchJobsBefore + cascading FK) | partial | Future | `docs/project/ROADMAP.md L420` |
+| `CAP-EXEC-020` | Unified single + batch dispatch persistence | planned | Future | `docs/project/ROADMAP.md L404` |
+| `CAP-EXEC-021` | Server-side target expression compile (proto extension) | planned | Future | `docs/project/ROADMAP.md L412` |
+| `CAP-EXEC-022` | Batch job retention (DeleteBatchJobsBefore + cascading FK) | planned | Future | `docs/project/ROADMAP.md L420` |
 | `CAP-EXEC-023` | Live mid-execution stdout / stderr streaming | partial | Future | `docs/project/ROADMAP.md L784` |
-| `CAP-EXEC-024` | Eval-time observability for malformed targeting patterns | partial | Future | `docs/project/ROADMAP.md L792` |
+| `CAP-EXEC-024` | Eval-time observability for malformed targeting patterns | planned | Future | `docs/project/ROADMAP.md L792` |
 | `CAP-EXEC-025` | Output truncation works at configured limits | implemented | v0.6 | `epics/07-remote-execution.md L62` |
 | `CAP-EXEC-026` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L490` |
 
 Scope and status notes:
 
-- `CAP-EXEC-014` — RFC 0001 admits run, status, output and cancel. The script subcommand is outside the argv-only boundary and is Future.
-- `CAP-EXEC-019` — F6: cancel persists CANCELLED server-side only; agent-side in-flight processes run to completion.
+- `CAP-EXEC-014` — FEATURES.md declares source path(s) that are absent from the final tree: cmd/kscore-exec/
+- `CAP-EXEC-014` — RFC 0001 admits run, status, output and cancel. The async, list and script subcommands named here involve batch fan-out and script execution, which the RFC places outside the first-release boundary; admitting them requires an RFC amendment.
 
 Known gaps and limitations:
 
-- `CAP-EXEC-002` — FEATURES.md declares source path(s) absent from the final tree: internal/targeting/batch.go.
-- `CAP-EXEC-014` — FEATURES.md declares source path(s) absent from the final tree: cmd/kscore-exec/.
 - `CAP-EXEC-016` — Percentage-based / rolling batch execution.
 - `CAP-EXEC-017` — Output archival to object storage cold-tier.
-- `CAP-EXEC-019` — Agent-side cancel propagation (SIGTERM to in-flight commands).
-- `CAP-EXEC-020` — Unified single + batch dispatch persistence.
-- `CAP-EXEC-021` — Server-side target expression compile (proto extension).
-- `CAP-EXEC-022` — Batch job retention (DeleteBatchJobsBefore + cascading FK).
-- `CAP-EXEC-023` — Live mid-execution stdout / stderr streaming.
-- `CAP-EXEC-024` — Eval-time observability for malformed targeting patterns.
+- `CAP-EXEC-019` — Referenced code exists, but this backlog item describes work that had not landed: `kscorectl exec cancel &lt;id>` mid-batch results in agent-side processes receiving SIGTERM (then SIGKILL after KillGrace); per-agent batch_agent_result rows record the cancelled stat.
+- `CAP-EXEC-020` — Referenced code exists, but this backlog item describes work that had not landed: Batch dispatches write to a single row family (TBD: extend batch_agent_results, OR keep commands and drop batch_agent_results, OR linked via a `commands.batch_id` FK). Pick depends.
+- `CAP-EXEC-021` — Referenced code exists, but this backlog item describes work that had not landed: `kscorectl exec run "uptime" --target "os:linux AND (role:web OR role:cache)"` resolves correctly against a stretched fleet; the AND-of-labels-plus-hostname-glob path remains a val.
+- `CAP-EXEC-022` — Referenced code exists, but this backlog item describes work that had not landed: `BatchJobStore.DeleteBatchJobsBefore(t)` deletes both `batch_jobs` rows and dependent `batch_agent_results` rows in a single tx (or cascade); `BatchDispatcher` has a configurable r.
+- `CAP-EXEC-023` — A long-running command (e.g., `tail -F`) streams partial stdout to a connected `kscorectl exec` over gRPC; agent disconnect mid-stream surfaces as `AGENT_FAILED` with the partial b.
+- `CAP-EXEC-024` — Referenced code exists, but this backlog item describes work that had not landed: A target expression with a literal-asterisk pattern (`role:*`-with-meta-on-empty-value) or a bad CIDR logs once per dispatch with the offending pattern, evaluation count, and targe.
 
 ### State management and standard library
 
@@ -420,10 +386,10 @@ Known gaps and limitations:
 | `CAP-STATE-006` | Drift detection with severity | unknown | Future | `FEATURES.md L270` |
 | `CAP-STATE-007` | Cross-platform dispatch | unknown | Future | `FEATURES.md L271` |
 | `CAP-STATE-008` | Dry-run / check mode | unknown | Future | `FEATURES.md L272` |
-| `CAP-STATE-009` | Audit + event emission per state apply | partial | Future | `FEATURES.md L273` |
+| `CAP-STATE-009` | Audit + event emission per state apply | unknown | Future | `FEATURES.md L273` |
 | `CAP-STATE-010` | History store | implemented | Future | `FEATURES.md L274` |
 | `CAP-STATE-011` | State runner pipeline | unknown | Future | `FEATURES.md L275` |
-| `CAP-STATE-012` | Saga / checkpoint integration | partial | Future | `FEATURES.md L276` |
+| `CAP-STATE-012` | Saga / checkpoint integration | unknown | Future | `FEATURES.md L276` |
 | `CAP-STATE-013` | Container modules | planned | Future | `FEATURES.md L294` |
 | `CAP-STATE-014` | Web servers | planned | Future | `FEATURES.md L295` |
 | `CAP-STATE-015` | Database admin | planned | Future | `FEATURES.md L296` |
@@ -436,16 +402,16 @@ Known gaps and limitations:
 | `CAP-STATE-022` | service stdlib module — OpenRC / sysvinit / launchd backends | partial | Future | `docs/project/ROADMAP.md L41` |
 | `CAP-STATE-023` | firewalld stdlib module — whole-zone management, masquerade/forward-port, direct rules | partial | Future | `docs/project/ROADMAP.md L64` |
 | `CAP-STATE-024` | firewall abstraction — deny action, IPv6 on iptables, chain/table overrides, service catalog expansion | implemented | Future | `docs/project/ROADMAP.md L77` |
-| `CAP-STATE-025` | security stdlib module — AppArmor, SELinux file contexts / ports / modules / logins, absent semantics | implemented | Future | `docs/project/ROADMAP.md L92` |
+| `CAP-STATE-025` | security stdlib module — AppArmor, SELinux file contexts / ports / modules / logins, absent semantics | partial | Future | `docs/project/ROADMAP.md L92` |
 | `CAP-STATE-026` | lvm stdlib module — existing-VG PV-set mgmt, LV resize, metadata, thin/cache/snapshot | partial | Future | `docs/project/ROADMAP.md L120` |
-| `CAP-STATE-027` | bond stdlib module — in-place attribute / member reconciliation, persistent configuration, slave attributes | partial | Future | `docs/project/ROADMAP.md L178` |
-| `CAP-STATE-028` | Cross-distro state stdlib docker matrix harness | implemented | Future | `docs/project/ROADMAP.md L216` |
-| `CAP-STATE-029` | Salt-faithful prereq direction in statemgmt resolver | partial | Future | `docs/project/ROADMAP.md L480` |
-| `CAP-STATE-030` | git stdlib module — authentication, submodules, advanced clone | partial | Future | `docs/project/ROADMAP.md L800` |
-| `CAP-STATE-031` | link stdlib module — relative-target normalisation | partial | Future | `docs/project/ROADMAP.md L813` |
-| `CAP-STATE-032` | cron stdlib module — per-field schedule, cron.d, env lines | partial | Future | `docs/project/ROADMAP.md L820` |
-| `CAP-STATE-033` | config stdlib module — more formats, separators, uncomment-aware updates | partial | Future | `docs/project/ROADMAP.md L844` |
-| `CAP-STATE-034` | at stdlib module — replace-on-change, per-user queues, batch | partial | Future | `docs/project/ROADMAP.md L874` |
+| `CAP-STATE-027` | bond stdlib module — in-place attribute / member reconciliation, persistent configuration, slave attributes | planned | Future | `docs/project/ROADMAP.md L178` |
+| `CAP-STATE-028` | Cross-distro state stdlib docker matrix harness | partial | Future | `docs/project/ROADMAP.md L216` |
+| `CAP-STATE-029` | Salt-faithful prereq direction in statemgmt resolver | planned | Future | `docs/project/ROADMAP.md L480` |
+| `CAP-STATE-030` | git stdlib module — authentication, submodules, advanced clone | planned | Future | `docs/project/ROADMAP.md L800` |
+| `CAP-STATE-031` | link stdlib module — relative-target normalisation | planned | Future | `docs/project/ROADMAP.md L813` |
+| `CAP-STATE-032` | cron stdlib module — per-field schedule, cron.d, env lines | planned | Future | `docs/project/ROADMAP.md L820` |
+| `CAP-STATE-033` | config stdlib module — more formats, separators, uncomment-aware updates | planned | Future | `docs/project/ROADMAP.md L844` |
+| `CAP-STATE-034` | at stdlib module — replace-on-change, per-user queues, batch | planned | Future | `docs/project/ROADMAP.md L874` |
 | `CAP-STATE-035` | kscorectl state apply tests/webserver.yaml --target role:web applies on matching agents | implemented | Future | `epics/08-state-management.md L82` |
 | `CAP-STATE-036` | Idempotency verified: same state apply twice produces zero changes on second run for every module | implemented | Future | `epics/08-state-management.md L87` |
 | `CAP-STATE-037` | Coverage >80% per stdlib module; >85% on engine | implemented | Future | `epics/08-state-management.md L88` |
@@ -458,12 +424,12 @@ Known gaps and limitations:
 | `CAP-STATE-044` | archive | implemented | Future | `docs/project/STATE-SUPPORT-MATRIX.md L130` |
 | `CAP-STATE-045` | config | implemented | Future | `docs/project/STATE-SUPPORT-MATRIX.md L144` |
 | `CAP-STATE-046` | git | implemented | Future | `docs/project/STATE-SUPPORT-MATRIX.md L161` |
-| `CAP-STATE-047` | package | reference | Future | `docs/project/STATE-SUPPORT-MATRIX.md L181` |
+| `CAP-STATE-047` | package | partial | Future | `docs/project/STATE-SUPPORT-MATRIX.md L181` |
 | `CAP-STATE-048` | langpkg | partial | Future | `docs/project/STATE-SUPPORT-MATRIX.md L197` |
 | `CAP-STATE-049` | service | partial | Future | `docs/project/STATE-SUPPORT-MATRIX.md L215` |
 | `CAP-STATE-050` | cron | implemented | Future | `docs/project/STATE-SUPPORT-MATRIX.md L233` |
 | `CAP-STATE-051` | at | implemented | Future | `docs/project/STATE-SUPPORT-MATRIX.md L246` |
-| `CAP-STATE-052` | systemd_timer | reference | Future | `docs/project/STATE-SUPPORT-MATRIX.md L259` |
+| `CAP-STATE-052` | systemd_timer | implemented | Future | `docs/project/STATE-SUPPORT-MATRIX.md L259` |
 | `CAP-STATE-053` | user | implemented | Future | `docs/project/STATE-SUPPORT-MATRIX.md L278` |
 | `CAP-STATE-054` | group | implemented | Future | `docs/project/STATE-SUPPORT-MATRIX.md L298` |
 | `CAP-STATE-055` | ssh | implemented | Future | `docs/project/STATE-SUPPORT-MATRIX.md L307` |
@@ -487,31 +453,42 @@ Known gaps and limitations:
 | `CAP-STATE-073` | nftables | implemented | Future | `docs/project/STATE-SUPPORT-MATRIX.md L572` |
 | `CAP-STATE-074` | security | partial | Future | `docs/project/STATE-SUPPORT-MATRIX.md L592` |
 | `CAP-STATE-075` | pki | implemented | Future | `docs/project/STATE-SUPPORT-MATRIX.md L614` |
-| `CAP-STATE-076` | command | reference | Future | `docs/project/STATE-SUPPORT-MATRIX.md L642` |
+| `CAP-STATE-076` | command | partial | Future | `docs/project/STATE-SUPPORT-MATRIX.md L642` |
 
 Known gaps and limitations:
 
 - `CAP-STATE-009` — `state.apply.skip` event taxonomy + wiring.
 - `CAP-STATE-012` — Saga/checkpoint advanced features.
+- `CAP-STATE-022` — `package` stdlib module — dnf, apk, zypper, pacman backends.
 - `CAP-STATE-022` — `systemd_timer` stdlib module — generated service, user timers, more [Timer] knobs.
 - `CAP-STATE-023` — `route` stdlib module — persistent configuration, route attributes, source-routing rules, multipath.
 - `CAP-STATE-023` — `ssh` stdlib module — key validation, options-set compare, whole-file management.
 - `CAP-STATE-023` — `iptables` stdlib module — structured rules, ordering, both-family, distro persistence.
 - `CAP-STATE-023` — `nftables` stdlib module — structured rules, ordering, table/chain management, comment matching.
+- `CAP-STATE-025` — `system` stdlib module — reboot disconnect-tolerance, cross-distro reboot detection, locale dual-file, absent semantics for reboot/locale.
+- `CAP-STATE-026` — an `lv:` decl with a new size larger than the live LV runs `lvextend` (with `--resizefs` when `resize_fs: true`) **(met — LV resize landed)**; a `vg:` decl with a different `pvs:`.
+- `CAP-STATE-026` — `disk` stdlib module — partition mgmt, resize, label/UUID, encryption, fstype catalog expansion.
+- `CAP-STATE-026` — `network` stdlib module — boot-survive configuration, per-family addresses, DNS / NTP / domain mgmt.
 - `CAP-STATE-026` — `swap` stdlib module — UUID sources, resize, fallocate, custom opts.
-- `CAP-STATE-027` — `bond` stdlib module — in-place attribute / member reconciliation, persistent configuration, slave attributes.
+- `CAP-STATE-027` — Referenced code exists, but this backlog item describes work that had not landed: a `mode:` change on a live bond reconciles via `echo &lt;mode> > /sys/class/net/&lt;bond>/bonding/mode` (or down-up-cycle if required) and reports the before→after in the Diff; `members:.
 - `CAP-STATE-027` — `bridge` stdlib module — in-place attribute / port reconciliation, per-port attributes, persistent configuration.
 - `CAP-STATE-027` — `vlan` stdlib module — in-place attribute reconciliation, QinQ, VLAN ranges, persistent configuration.
-- `CAP-STATE-029` — Salt-faithful `prereq` direction in statemgmt resolver.
-- `CAP-STATE-030` — `git` stdlib module — authentication, submodules, advanced clone.
-- `CAP-STATE-031` — `link` stdlib module — relative-target normalisation.
-- `CAP-STATE-032` — `cron` stdlib module — per-field schedule, cron.d, env lines.
-- `CAP-STATE-033` — `config` stdlib module — more formats, separators, uncomment-aware updates.
+- `CAP-STATE-028` — The backlog item records this as partly landed without naming what remains.
+- `CAP-STATE-029` — Referenced code exists, but this backlog item describes work that had not landed: Resolver applies a per-key direction policy where `prereq` and `prereq_in` use the Salt-faithful convention while keeping `require` / `watch` / `onchanges` (and their `_in` variant.
+- `CAP-STATE-030` — Referenced code exists, but this backlog item describes work that had not landed: a `credentials:` / `identity_file:` param flows an SSH key or credential helper into the clone/fetch; `submodules: true` recurses; the integration test clones a private repo over S.
+- `CAP-STATE-031` — Referenced code exists, but this backlog item describes work that had not landed: `link` stdlib module — relative-target normalisation.
+- `CAP-STATE-032` — Referenced code exists, but this backlog item describes work that had not landed: `minute: "*/5"` etc. compose into a schedule; `cron_d: true` writes `/etc/cron.d/&lt;name>` with a `user` column; an `env:` map emits `KEY=value` lines above the entry; malformed fiel.
+- `CAP-STATE-033` — Referenced code exists, but this backlog item describes work that had not landed: `case_insensitive: true` matches `Key`/`key`; `separator: " "` round-trips an `sshd_config` directive; an inline `# comment` survives a value change; setting a directive that exist.
 - `CAP-STATE-033` — `archive` stdlib module — absent state, clean mode, safe symlinks, more formats.
 - `CAP-STATE-033` — `x509` stdlib module — combined PEM, encrypted keys, more issuance options.
 - `CAP-STATE-033` — `langpkg` stdlib module — per-user/per-project installs, lockfiles, semver ranges, more ecosystems.
-- `CAP-STATE-034` — `at` stdlib module — replace-on-change, per-user queues, batch.
+- `CAP-STATE-034` — Referenced code exists, but this backlog item describes work that had not landed: a `present` declaration whose command changed re-queues the job (old one removed); a `user:` param queues a job for that user; `batch: true` submits via `batch`; the queue scan can.
 - `CAP-STATE-034` — `mount` stdlib module — remount-on-change, escaping, swap, crypttab.
+- `CAP-STATE-047` — The support matrix marks some parameters of this module experimental rather than stable.
+- `CAP-STATE-048` — The support matrix marks some parameters of this module experimental rather than stable.
+- `CAP-STATE-049` — The support matrix marks some parameters of this module experimental rather than stable.
+- `CAP-STATE-074` — The support matrix marks some parameters of this module experimental rather than stable.
+- `CAP-STATE-076` — The support matrix marks some parameters of this module experimental rather than stable.
 
 ### Events and automation
 
@@ -538,24 +515,20 @@ Known gaps and limitations:
 | `CAP-EVENT-019` | Inbound webhook receiver for events | planned | Future | `FEATURES.md L337` |
 | `CAP-EVENT-020` | Object-storage archival (S3/GCS) | planned | Future | `FEATURES.md L338` |
 | `CAP-EVENT-021` | Multi-region replication | planned | Future | `FEATURES.md L339` |
-| `CAP-EVENT-022` | Policy enforcement side-effects (Warn events + Enforce violation handlers) | partial | Future | `docs/project/ROADMAP.md L652` |
+| `CAP-EVENT-022` | Policy enforcement side-effects (Warn events + Enforce violation handlers) | planned | Future | `docs/project/ROADMAP.md L652` |
 | `CAP-EVENT-023` | kscore-events retention subcommand | planned | Future | `docs/project/ROADMAP.md L1262` |
-| `CAP-EVENT-024` | Strict audit-on-access via Auditor.Emit error return | partial | Future | `docs/project/ROADMAP.md L1302` |
+| `CAP-EVENT-024` | Strict audit-on-access via Auditor.Emit error return | planned | Future | `docs/project/ROADMAP.md L1302` |
 | `CAP-EVENT-025` | Slow consumer (handler >30s) triggers redelivery up to 3 times | implemented | Future | `epics/11-events.md L75` |
 | `CAP-EVENT-026` | Coverage >80% on internal/events | implemented | Future | `epics/11-events.md L76` |
 | `CAP-EVENT-027` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L636` |
 
-Scope and status notes:
-
-- `CAP-EVENT-023` — F5: no retention subcommand exists in internal/cli/.
-
 Known gaps and limitations:
 
 - `CAP-EVENT-008` — kscore-events query subcommand (CEL post-filter).
-- `CAP-EVENT-022` — Policy enforcement side-effects (Warn events + Enforce violation handlers).
-- `CAP-EVENT-023` — kscore-events retention subcommand.
+- `CAP-EVENT-022` — Referenced code exists, but this backlog item describes work that had not landed: `policy.enforcement_enabled=true` is operator-settable (config plumbing); `Warn` mode emits a `policy.warn` (or §4.9-canonical) event through the events bus on a denying verdict an.
+- `CAP-EVENT-023` — Referenced code exists, but this backlog item describes work that had not landed: `kscore-events retention show` prints the active policy table; `kscore-events retention apply --type agent.heartbeat --max-age 24h --max-count 10000` invokes a one-shot retention p.
 - `CAP-EVENT-023` — kscore-events analyze subcommand.
-- `CAP-EVENT-024` — Strict audit-on-access via Auditor.Emit error return.
+- `CAP-EVENT-024` — Referenced code exists, but this backlog item describes work that had not landed: `secrets.Auditor.Emit` returns `error`; the broker has an `AuditFailurePolicy` config (`fail_open` / `fail_closed`); the bridge propagates publish errors; integration test confirms.
 
 ### Identity and authorization
 
@@ -563,8 +536,8 @@ Known gaps and limitations:
 |---|---|---|---|---|
 | `CAP-IDENT-001` | API keys | implemented | Future | `FEATURES.md L347` |
 | `CAP-IDENT-002` | API key rotation + revocation | implemented | Future | `FEATURES.md L348` |
-| `CAP-IDENT-003` | mTLS | partial | Future | `FEATURES.md L349` |
-| `CAP-IDENT-004` | Embedded CA | partial | Future | `FEATURES.md L350` |
+| `CAP-IDENT-003` | mTLS | implemented | Future | `FEATURES.md L349` |
+| `CAP-IDENT-004` | Embedded CA | implemented | Future | `FEATURES.md L350` |
 | `CAP-IDENT-005` | SPIFFE-shaped identities from day 1 | implemented | Future | `FEATURES.md L351` |
 | `CAP-IDENT-006` | Embedded identity provider | unknown | Future | `FEATURES.md L352` |
 | `CAP-IDENT-007` | JWT | unknown | Future | `FEATURES.md L353` |
@@ -580,34 +553,33 @@ Known gaps and limitations:
 | `CAP-IDENT-017` | Cloud workload identity | planned | Future | `FEATURES.md L369` |
 | `CAP-IDENT-018` | Service mesh integration | planned | Future | `FEATURES.md L370` |
 | `CAP-IDENT-019` | Multi-party CA / certificate issuance | planned | Future | `FEATURES.md L371` |
-| `CAP-IDENT-020` | Encrypt CA material at rest | implemented | Future | `docs/project/ROADMAP.md L224` |
-| `CAP-IDENT-021` | Pre-rotation signing-CA retention in the bootstrap trust bundle | partial | Future | `docs/project/ROADMAP.md L388` |
-| `CAP-IDENT-022` | Direct signing-cert accessor on CAManager | partial | Future | `docs/project/ROADMAP.md L768` |
-| `CAP-IDENT-023` | Join-token "any agent" mode (AgentID-less binding) | partial | Future | `docs/project/ROADMAP.md L776` |
-| `CAP-IDENT-024` | kscore-identity federation subcommands | partial | Future | `docs/project/ROADMAP.md L1334` |
-| `CAP-IDENT-025` | SPIRE-backed identity provider | partial | Future | `docs/project/ROADMAP.md L1423` |
+| `CAP-IDENT-020` | Encrypt CA material at rest | partial | Future | `docs/project/ROADMAP.md L224` |
+| `CAP-IDENT-021` | Pre-rotation signing-CA retention in the bootstrap trust bundle | planned | Future | `docs/project/ROADMAP.md L388` |
+| `CAP-IDENT-022` | Direct signing-cert accessor on CAManager | planned | Future | `docs/project/ROADMAP.md L768` |
+| `CAP-IDENT-023` | Join-token "any agent" mode (AgentID-less binding) | planned | Future | `docs/project/ROADMAP.md L776` |
+| `CAP-IDENT-024` | kscore-identity federation subcommands | planned | Future | `docs/project/ROADMAP.md L1334` |
+| `CAP-IDENT-025` | SPIRE-backed identity provider | unknown | Future | `docs/project/ROADMAP.md L1423` |
 | `CAP-IDENT-026` | TLS 1.3 enforced on gRPC; 1.2 only when explicitly configured | implemented | Future | `epics/09-identity-auth.md L75` |
 | `CAP-IDENT-027` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L693` |
 
+Scope and status notes:
+
+- `CAP-IDENT-009` — FEATURES.md declares source path(s) that are absent from the final tree: pkg/api/rbac/
+
 Known gaps and limitations:
 
-- `CAP-IDENT-003` — FEATURES.md declares source path(s) absent from the final tree: internal/security/.
-- `CAP-IDENT-004` — FEATURES.md declares source path(s) absent from the final tree: internal/pki/.
-- `CAP-IDENT-009` — FEATURES.md declares source path(s) absent from the final tree: pkg/api/rbac/.
 - `CAP-IDENT-009` — Full RBAC role/permission CRUD.
-- `CAP-IDENT-015` — Trust federation (cross-domain bundle endpoint).
-- `CAP-IDENT-017` — Cloud workload identity (AWS IRSA, GCP WI, Azure MI).
-- `CAP-IDENT-021` — Pre-rotation signing-CA retention in the bootstrap trust bundle.
-- `CAP-IDENT-022` — Direct signing-cert accessor on CAManager.
-- `CAP-IDENT-023` — Join-token "any agent" mode (AgentID-less binding).
-- `CAP-IDENT-024` — kscore-identity federation subcommands.
-- `CAP-IDENT-025` — SPIRE-backed identity provider.
+- `CAP-IDENT-020` — met — `EncryptedFileCAStorage` round-trips with `FileCAStorage` (key-only encryption; wrong-key + tamper rejected via the envelope's fingerprint guard + GCM auth); the `ca encrypt`.
+- `CAP-IDENT-021` — Referenced code exists, but this backlog item describes work that had not landed: `CAManager.RotateSigningCA` records prior signing CAs into a retention list; `BuildTrustBundle` includes the active root + retained pre-rotation signing CAs; retention window is co.
+- `CAP-IDENT-022` — Referenced code exists, but this backlog item describes work that had not landed: `IdentityGRPCServer.ExportCA WHAT_SIGNING` returns the same PEM without invoking `IssueCertificate`; `GetStatus.SigningExpiresAt` reads from `SigningCAExpiresAt()`; the throwaway-p.
+- `CAP-IDENT-023` — Referenced code exists, but this backlog item describes work that had not landed: a `kscore-identity token create --any-agent` creates a token with empty `AgentID`; agents pass `--agent-id agent-1` on attestation; the attestor binds the claimed AgentID atomicall.
+- `CAP-IDENT-024` — Referenced code exists, but this backlog item describes work that had not landed: `kscore-identity federation add-domain spiffe://peer.example.org/` registers + fetches the peer bundle; `kscore-identity federation list` shows registered domains + last-refresh ti.
 
 ### Secrets
 
 | ID | Capability | Status | Scope | Source |
 |---|---|---|---|---|
-| `CAP-SECRET-001` | Encrypted-file backend | partial | Future | `FEATURES.md L379` |
+| `CAP-SECRET-001` | Encrypted-file backend | implemented | Future | `FEATURES.md L379` |
 | `CAP-SECRET-002` | HashiCorp Vault backend | implemented | Future | `FEATURES.md L380` |
 | `CAP-SECRET-003` | SecretBroker with path-prefix routing | implemented | Future | `FEATURES.md L381` |
 | `CAP-SECRET-004` | CRUD via REST + gRPC + CLI | implemented | Future | `FEATURES.md L382` |
@@ -626,29 +598,23 @@ Known gaps and limitations:
 | `CAP-SECRET-017` | Cloud KMS for master keys | planned | Future | `FEATURES.md L401` |
 | `CAP-SECRET-018` | Hardware HSM support | planned | Future | `FEATURES.md L402` |
 | `CAP-SECRET-019` | L2 KMS-backed cache | planned | Future | `FEATURES.md L403` |
-| `CAP-SECRET-020` | Vault AWS IAM auth method | partial | Future | `docs/project/ROADMAP.md L512` |
-| `CAP-SECRET-021` | Vault auto re-authentication on token expiry | partial | Future | `docs/project/ROADMAP.md L752` |
+| `CAP-SECRET-020` | Vault AWS IAM auth method | planned | Future | `docs/project/ROADMAP.md L512` |
+| `CAP-SECRET-021` | Vault auto re-authentication on token expiry | planned | Future | `docs/project/ROADMAP.md L752` |
 | `CAP-SECRET-022` | kscore-secrets dynamic subcommand | planned | Future | `docs/project/ROADMAP.md L1238` |
-| `CAP-SECRET-023` | Secrets transit GenerateDataKey on the wire | partial | Future | `docs/project/ROADMAP.md L1318` |
+| `CAP-SECRET-023` | Secrets transit GenerateDataKey on the wire | planned | Future | `docs/project/ROADMAP.md L1318` |
 | `CAP-SECRET-024` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L758` |
-
-Scope and status notes:
-
-- `CAP-SECRET-011` — F7: internal/secrets/rotation.go is a documented v1.0 placeholder - only RotationPolicy.Enabled=false is honoured.
-- `CAP-SECRET-022` — F5: no dynamic subcommand exists.
 
 Known gaps and limitations:
 
-- `CAP-SECRET-001` — Encrypted-file backend master-key rotation tooling.
 - `CAP-SECRET-006` — Secrets transit batch API on the wire.
 - `CAP-SECRET-009` — kscore-secrets backends subcommand.
 - `CAP-SECRET-009` — kscore-secrets audit subcommand.
 - `CAP-SECRET-009` — kscore-secrets cache subcommand.
 - `CAP-SECRET-009` — kscore-secrets template subcommand.
-- `CAP-SECRET-020` — Vault AWS IAM auth method.
-- `CAP-SECRET-021` — Vault auto re-authentication on token expiry.
-- `CAP-SECRET-022` — kscore-secrets dynamic subcommand.
-- `CAP-SECRET-023` — Secrets transit GenerateDataKey on the wire.
+- `CAP-SECRET-020` — Referenced code exists, but this backlog item describes work that had not landed: `Auth.Method=aws` with an `AWSAuthConfig{Role, Region, IAMServerIDHeader, ...}` round-trips against a `vault dev` server with the AWS auth method enabled; the AWS SDK dep is brough.
+- `CAP-SECRET-021` — Referenced code exists, but this backlog item describes work that had not landed: On `auth/token/renew-self` failure, the renewer re-invokes the configured auth method to obtain a fresh token and resumes the renewal loop on success; method-specific lockout heuri.
+- `CAP-SECRET-022` — Referenced code exists, but this backlog item describes work that had not landed: proto adds `IssueDynamicSecret` RPC; CLI subcommand exists; ENG round-trips an actual Vault DB credential round-trip in the integration test.
+- `CAP-SECRET-023` — Referenced code exists, but this backlog item describes work that had not landed: `api/proto/keystone/core/v1/secrets.proto` adds `GenerateDataKey` RPC with a `Mode` enum field (`PLAINTEXT` / `WRAPPED`) + `bits` + `context`; the gRPC service forwards to `Transit.
 
 ### Audit and policy
 
@@ -680,28 +646,23 @@ Known gaps and limitations:
 | `CAP-AUDIT-024` | Continuous compliance scan scheduler | planned | Future | `FEATURES.md L440` |
 | `CAP-AUDIT-025` | CEL custom function library | planned | Future | `FEATURES.md L441` |
 | `CAP-AUDIT-026` | Anomaly detection (audit log analysis) | planned | Future | `FEATURES.md L442` |
-| `CAP-AUDIT-027` | Module system boot wiring (loader PolicyChecker/Hosts/trust-policy + runtime registration) | partial | Future | `docs/project/ROADMAP.md L251` |
-| `CAP-AUDIT-028` | Rate-limit: Auditor hook for rejections | partial | Future | `docs/project/ROADMAP.md L1190` |
+| `CAP-AUDIT-027` | Module system boot wiring (loader PolicyChecker/Hosts/trust-policy + runtime registration) | planned | Future | `docs/project/ROADMAP.md L251` |
+| `CAP-AUDIT-028` | Rate-limit: Auditor hook for rejections | planned | Future | `docs/project/ROADMAP.md L1190` |
 | `CAP-AUDIT-029` | Redaction strips configured patterns (e.g., password=*) from exported metadata | implemented | Future | `epics/12-audit-policy.md L105` |
 | `CAP-AUDIT-030` | v1.0 critical: even when policies return Allowed=false, operations still proceed (audit-mode-only) | implemented | Future | `epics/12-audit-policy.md L110` |
 | `CAP-AUDIT-031` | CRUD RPCs return Unimplemented cleanly (clients can probe) | implemented | Future | `epics/12-audit-policy.md L111` |
 | `CAP-AUDIT-032` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L830` |
 
-Scope and status notes:
-
-- `CAP-AUDIT-002` — F15: declared path moved; internal/audit/ provides sql_store.go, buffered.go, retention.go and redaction.go.
-
 Known gaps and limitations:
 
-- `CAP-AUDIT-002` — FEATURES.md declares source path(s) absent from the final tree: internal/policy/audit.go, SQLitePolicyAuditStore.
 - `CAP-AUDIT-002` — kscore-audit export `--redaction-config` file.
 - `CAP-AUDIT-005` — kscore-audit search subcommand.
 - `CAP-AUDIT-005` — kscore-audit analyze / timeline / watch subcommands.
 - `CAP-AUDIT-017` — kscore-policy check / test subcommands.
 - `CAP-AUDIT-018` — Policy enforcement (Enforce + Warn modes).
 - `CAP-AUDIT-022` — Policy CRUD via gRPC (`CreatePolicy`/`UpdatePolicy`/`DeletePolicy`/`activate`/`deactivate`/`remediate`/`monitor`).
-- `CAP-AUDIT-027` — Module system boot wiring (loader PolicyChecker/Hosts/trust-policy + runtime registration).
-- `CAP-AUDIT-028` — Rate-limit: Auditor hook for rejections.
+- `CAP-AUDIT-027` — Referenced code exists, but this backlog item describes work that had not landed: Module system boot wiring (loader PolicyChecker/Hosts/trust-policy + runtime registration).
+- `CAP-AUDIT-028` — Referenced code exists, but this backlog item describes work that had not landed: New `WithAuditor(fn)` option on the HTTP middleware + gRPC interceptor; auditor fires synchronously on each deny carrying key + reason + observed RPS.
 
 ### GitOps
 
@@ -732,14 +693,14 @@ Known gaps and limitations:
 | `CAP-GITOPS-023` | Helm/Kustomize-native integration | planned | Future | `FEATURES.md L478` |
 | `CAP-GITOPS-024` | Deployment dependency graph | planned | Future | `FEATURES.md L479` |
 | `CAP-GITOPS-025` | Webhook timestamp validation + nonce dedup | planned | Future | `FEATURES.md L480` |
-| `CAP-GITOPS-026` | Outbound webhook Manager boot wiring (kscore-server) | partial | Future | `docs/project/ROADMAP.md L379` |
+| `CAP-GITOPS-026` | Outbound webhook Manager boot wiring (kscore-server) | planned | Future | `docs/project/ROADMAP.md L379` |
 | `CAP-GITOPS-027` | HMAC signature validates on receiver side | implemented | Future | `epics/16-gitops-webhooks.md L113` |
 | `CAP-GITOPS-028` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L888` |
 
 Known gaps and limitations:
 
 - `CAP-GITOPS-011` — K8s rollout-undo client-go adapter + GitOps rollback boot wiring.
-- `CAP-GITOPS-026` — Outbound webhook Manager boot wiring (kscore-server).
+- `CAP-GITOPS-026` — Referenced code exists, but this backlog item describes work that had not landed: Outbound webhook Manager boot wiring (kscore-server).
 
 ### Outbound webhooks and integrations
 
@@ -784,7 +745,7 @@ Known gaps and limitations:
 | `CAP-CLUSTER-014` | Graceful shutdown | planned | Future | `FEATURES.md L528` |
 | `CAP-CLUSTER-015` | Split-brain prevention via quorum | unknown | Future | `FEATURES.md L529` |
 | `CAP-CLUSTER-016` | Lease + epoch fencing | unknown | Future | `FEATURES.md L530` |
-| `CAP-CLUSTER-017` | Server-to-server coordination | partial | Future | `FEATURES.md L531` |
+| `CAP-CLUSTER-017` | Server-to-server coordination | unknown | Future | `FEATURES.md L531` |
 | `CAP-CLUSTER-018` | Health monitor with consecutive-failure threshold | unknown | Future | `FEATURES.md L532` |
 | `CAP-CLUSTER-019` | Cluster backup/restore | partial | Future | `FEATURES.md L533` |
 | `CAP-CLUSTER-020` | ClusterService gRPC + REST | unknown | Future | `FEATURES.md L534` |
@@ -800,27 +761,21 @@ Known gaps and limitations:
 | `CAP-CLUSTER-030` | Advanced topology (gateway / proxy members) | planned | Future | `FEATURES.md L550` |
 | `CAP-CLUSTER-031` | Fencing guard wired around server write paths | planned | Future | `docs/project/ROADMAP.md L271` |
 | `CAP-CLUSTER-032` | HA E2E multi-process / iptables-partition form | planned | Future | `docs/project/ROADMAP.md L288` |
-| `CAP-CLUSTER-033` | Blueprint e2e real docker-compose convergence form | partial | Future | `docs/project/ROADMAP.md L353` |
-| `CAP-CLUSTER-034` | GitOps webhook receiver boot registration (kscore-server) | partial | Future | `docs/project/ROADMAP.md L361` |
+| `CAP-CLUSTER-033` | Blueprint e2e real docker-compose convergence form | planned | Future | `docs/project/ROADMAP.md L353` |
+| `CAP-CLUSTER-034` | GitOps webhook receiver boot registration (kscore-server) | planned | Future | `docs/project/ROADMAP.md L361` |
 | `CAP-CLUSTER-035` | kscore-cluster watch subcommand | planned | Future | `docs/project/ROADMAP.md L1053` |
 | `CAP-CLUSTER-036` | Restart of failed member: rejoins cluster in &lt;15s; reclaims its shards from shard map | implemented | Future | `epics/13-clustering-ha.md L123` |
 | `CAP-CLUSTER-037` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L995` |
-
-Scope and status notes:
-
-- `CAP-CLUSTER-031` — F5: open gate-v1.0 blocker.
-- `CAP-CLUSTER-032` — F5: open gate-v1.0 blocker.
-- `CAP-CLUSTER-035` — F5: no cluster watch subcommand exists.
 
 Known gaps and limitations:
 
 - `CAP-CLUSTER-017` — Cluster gRPC services boot registration (ClusterService/CoordinationService + mTLS listener).
 - `CAP-CLUSTER-019` — kscore-cluster-backup schedule subcommand.
-- `CAP-CLUSTER-031` — Fencing guard wired around server write paths.
-- `CAP-CLUSTER-032` — HA E2E multi-process / iptables-partition form.
-- `CAP-CLUSTER-033` — Blueprint e2e real docker-compose convergence form.
-- `CAP-CLUSTER-034` — GitOps webhook receiver boot registration (kscore-server).
-- `CAP-CLUSTER-035` — kscore-cluster watch subcommand.
+- `CAP-CLUSTER-031` — Referenced code exists, but this backlog item describes work that had not landed: write-bearing gRPC/REST handlers acquire `FencingManager.Guard(OpWrite)` (release on completion); the HA E2E suite (task 17) verifies a minority partition rejects writes within 1s.
+- `CAP-CLUSTER-032` — Referenced code exists, but this backlog item describes work that had not landed: HA E2E multi-process / iptables-partition form.
+- `CAP-CLUSTER-033` — Referenced code exists, but this backlog item describes work that had not landed: Blueprint e2e real docker-compose convergence form.
+- `CAP-CLUSTER-034` — Referenced code exists, but this backlog item describes work that had not landed: GitOps webhook receiver boot registration (kscore-server).
+- `CAP-CLUSTER-035` — Referenced code exists, but this backlog item describes work that had not landed: `kscore-cluster watch [--leadership]` consumes `ClusterServiceClient.WatchMembership`/`WatchLeadership` and renders events until interrupted, like `kscore-events watch`.
 
 ### Observability
 
@@ -846,18 +801,19 @@ Known gaps and limitations:
 | `CAP-OBS-018` | pprof visualization UI | planned | Future | `FEATURES.md L584` |
 | `CAP-OBS-019` | SIEM export (CEF/LEEF) | planned | Future | `FEATURES.md L585` |
 | `CAP-OBS-020` | Real-time alerting from TUI | planned | Future | `FEATURES.md L586` |
-| `CAP-OBS-021` | Zipkin tracing exporter: do not freeze into the v1.0 surface | partial | Future | `docs/project/ROADMAP.md L676` |
-| `CAP-OBS-022` | Telemetry gateway | partial | Future | `docs/project/ROADMAP.md L1455` |
+| `CAP-OBS-021` | Zipkin tracing exporter: do not freeze into the v1.0 surface | planned | Future | `docs/project/ROADMAP.md L676` |
+| `CAP-OBS-022` | Telemetry gateway | unknown | Future | `docs/project/ROADMAP.md L1455` |
 | `CAP-OBS-023` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L1119` |
+
+Scope and status notes:
+
+- `CAP-OBS-014` — FEATURES.md declares source path(s) that are absent from the final tree: internal/gateway/, cmd/kscore-telemetry-gateway/
 
 Known gaps and limitations:
 
 - `CAP-OBS-004` — Zipkin tracing exporter: deprecation warning → OTLP.
 - `CAP-OBS-009` — TUI monitor (`kscore-monitor`).
-- `CAP-OBS-014` — FEATURES.md declares source path(s) absent from the final tree: internal/gateway/, cmd/kscore-telemetry-gateway/.
-- `CAP-OBS-017` — Adaptive sampling tied to error metrics.
-- `CAP-OBS-021` — Zipkin tracing exporter: do not freeze into the v1.0 surface.
-- `CAP-OBS-022` — Telemetry gateway.
+- `CAP-OBS-021` — Referenced code exists, but this backlog item describes work that had not landed: by the v1.0 contract freeze, `tracing.exporter: zipkin` is either removed (operators on OTLP) or documented as a non-frozen/experimental option exempt from the SemVer freeze; the O.
 
 ### Blueprints and runbooks
 
@@ -880,7 +836,7 @@ Known gaps and limitations:
 | `CAP-BLUE-015` | kscore-schedule CLI + ScheduleService | planned | Future | `FEATURES.md L611` |
 | `CAP-BLUE-016` | Maintenance windows + change-window awareness | planned | Future | `FEATURES.md L612` |
 | `CAP-BLUE-017` | Schedule + maintenance gRPC + REST APIs | planned | Future | `FEATURES.md L613` |
-| `CAP-BLUE-018` | Runbook conditional steps | partial | Future | `FEATURES.md L617` |
+| `CAP-BLUE-018` | Runbook conditional steps | planned | Future | `FEATURES.md L617` |
 | `CAP-BLUE-019` | Per-step approvals + delegations | planned | Future | `FEATURES.md L618` |
 | `CAP-BLUE-020` | Manual interventions | planned | Future | `FEATURES.md L619` |
 | `CAP-BLUE-021` | Runbook dry-run mode | planned | Future | `FEATURES.md L620` |
@@ -889,22 +845,17 @@ Known gaps and limitations:
 | `CAP-BLUE-024` | Saga checkpoint resume | planned | Future | `FEATURES.md L626` |
 | `CAP-BLUE-025` | Blueprint signature + signed bundles | planned | Future | `FEATURES.md L627` |
 | `CAP-BLUE-026` | Blueprint mirror for air-gap | planned | Future | `FEATURES.md L628` |
-| `CAP-BLUE-027` | Blueprint applied-runs store (durable) | partial | Future | `docs/project/ROADMAP.md L296` |
-| `CAP-BLUE-028` | Durable runbook execution store | partial | Future | `docs/project/ROADMAP.md L345` |
+| `CAP-BLUE-027` | Blueprint applied-runs store (durable) | planned | Future | `docs/project/ROADMAP.md L296` |
+| `CAP-BLUE-028` | Durable runbook execution store | planned | Future | `docs/project/ROADMAP.md L345` |
 | `CAP-BLUE-029` | Blueprint and runbook REST handler packages not mounted | planned | Future | `docs/project/ROADMAP.md L668` |
 | `CAP-BLUE-030` | Blueprint dependency cycle detected with cycle path in error | implemented | Future | `epics/15-blueprints-runbooks.md L98` |
 | `CAP-BLUE-031` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L1163` |
 
-Scope and status notes:
-
-- `CAP-BLUE-018` — F12: internal/runbook/ has a single Condition field; no switch, loop, parallel or sub-runbook step type.
-- `CAP-BLUE-029` — F5: the source heading states the capability is not mounted.
-
 Known gaps and limitations:
 
-- `CAP-BLUE-027` — Blueprint applied-runs store (durable).
-- `CAP-BLUE-028` — Durable runbook execution store.
-- `CAP-BLUE-029` — Blueprint and runbook REST handler packages not mounted.
+- `CAP-BLUE-027` — Referenced code exists, but this backlog item describes work that had not landed: Blueprint applied-runs store (durable).
+- `CAP-BLUE-028` — Referenced code exists, but this backlog item describes work that had not landed: Durable runbook execution store.
+- `CAP-BLUE-029` — Referenced code exists, but this backlog item describes work that had not landed: `pkg/api/server/options.go` (or equivalent registration site) mounts both `pkg/api/blueprint` and `pkg/api/runbook` handlers alongside the existing domain handlers. The orphaned-im.
 
 ### Plugin and module system
 
@@ -924,7 +875,7 @@ Known gaps and limitations:
 | `CAP-PLUG-012` | Plugin discovery | implemented | Future | `FEATURES.md L649` |
 | `CAP-PLUG-013` | Starlark SDK | partial | Future | `FEATURES.md L650` |
 | `CAP-PLUG-014` | kscore-module CLI | unknown | Future | `FEATURES.md L651` |
-| `CAP-PLUG-015` | Module test framework | partial | Future | `FEATURES.md L652` |
+| `CAP-PLUG-015` | Module test framework | implemented | Future | `FEATURES.md L652` |
 | `CAP-PLUG-016` | Module policy hooks | unknown | Future | `FEATURES.md L653` |
 | `CAP-PLUG-017` | WASM runtime | planned | Future | `FEATURES.md L657` |
 | `CAP-PLUG-018` | Rust SDK | planned | Future | `FEATURES.md L658` |
@@ -938,9 +889,9 @@ Known gaps and limitations:
 | `CAP-PLUG-026` | Module vulnerability scanning + SBOM generation | planned | Future | `FEATURES.md L669` |
 | `CAP-PLUG-027` | C++ SDK | planned | Future | `FEATURES.md L673` |
 | `CAP-PLUG-028` | Federated module registries | planned | Future | `FEATURES.md L674` |
-| `CAP-PLUG-029` | Module signing: cosign keyless / Rekor transparency / encrypted cosign keyfile interop | partial | Future | `docs/project/ROADMAP.md L1363` |
-| `CAP-PLUG-030` | Module registry publish authentication | partial | Future | `docs/project/ROADMAP.md L1371` |
-| `CAP-PLUG-031` | Starlark hard heap-bytes cap | partial | Future | `docs/project/ROADMAP.md L1379` |
+| `CAP-PLUG-029` | Module signing: cosign keyless / Rekor transparency / encrypted cosign keyfile interop | planned | Future | `docs/project/ROADMAP.md L1363` |
+| `CAP-PLUG-030` | Module registry publish authentication | planned | Future | `docs/project/ROADMAP.md L1371` |
+| `CAP-PLUG-031` | Starlark hard heap-bytes cap | planned | Future | `docs/project/ROADMAP.md L1379` |
 | `CAP-PLUG-032` | Module attempting fs.write outside allowed paths fails with clear error + audit entry | implemented | Future | `epics/14-plugin-module-system.md L153` |
 | `CAP-PLUG-033` | Re-running install with same lockfile produces identical resolution (reproducible) | implemented | Future | `epics/14-plugin-module-system.md L155` |
 | `CAP-PLUG-034` | Cosign signature mismatch causes load to fail | implemented | Future | `epics/14-plugin-module-system.md L156` |
@@ -952,10 +903,9 @@ Known gaps and limitations:
 
 - `CAP-PLUG-003` — Module test framework: injectable record/replay http/exec/secrets test hosts.
 - `CAP-PLUG-013` — Per-capability-call context propagation in the Starlark SDK.
-- `CAP-PLUG-015` — Module test framework: multi-file module tests via Starlark `load()`.
-- `CAP-PLUG-029` — Module signing: cosign keyless / Rekor transparency / encrypted cosign keyfile interop.
-- `CAP-PLUG-030` — Module registry publish authentication.
-- `CAP-PLUG-031` — Starlark hard heap-bytes cap.
+- `CAP-PLUG-029` — Referenced code exists, but this backlog item describes work that had not landed: a module signed by the real `cosign` CLI in keyless mode verifies through an extended trust policy with a Rekor inclusion check; `kscore-module sign` can load a cosign-encrypted `c.
+- `CAP-PLUG-030` — Referenced code exists, but this backlog item describes work that had not landed: `POST /publish` requires a valid credential (API key or mTLS); an unauthenticated publish is rejected 401/403; a publish under a namespace the credential does not own is rejected;.
+- `CAP-PLUG-031` — Referenced code exists, but this backlog item describes work that had not landed: a module exceeding `limits.memory` is terminated with a typed error before exhausting host memory; verified by a high-allocation test module.
 
 ### Multi-environment support
 
@@ -981,12 +931,16 @@ Known gaps and limitations:
 | `CAP-MULTI-018` | Advanced networking | planned | Future | `FEATURES.md L711` |
 | `CAP-MULTI-019` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L1335` |
 
+Scope and status notes:
+
+- `CAP-MULTI-001` — FEATURES.md declares source path(s) that are absent from the final tree: internal/platform/
+- `CAP-MULTI-002` — FEATURES.md declares source path(s) that are absent from the final tree: internal/hardware/
+- `CAP-MULTI-003` — FEATURES.md declares source path(s) that are absent from the final tree: internal/netutil/
+- `CAP-MULTI-011` — FEATURES.md declares source path(s) that are absent from the final tree: internal/k8s/
+
 Known gaps and limitations:
 
-- `CAP-MULTI-001` — FEATURES.md declares source path(s) absent from the final tree: internal/platform/.
-- `CAP-MULTI-002` — FEATURES.md declares source path(s) absent from the final tree: internal/hardware/.
-- `CAP-MULTI-003` — FEATURES.md declares source path(s) absent from the final tree: internal/netutil/.
-- `CAP-MULTI-011` — FEATURES.md declares source path(s) absent from the final tree: internal/k8s/.
+- `CAP-MULTI-001` — Native package repositories — APT, DNF/YUM.
 
 ### Specialized and extension domains
 
@@ -1010,32 +964,32 @@ Known gaps and limitations:
 | `CAP-SPEC-016` | Cross-platform expanded test matrix | planned | Future | `FEATURES.md L745` |
 | `CAP-SPEC-017` | UDP data diode | planned | Future | `FEATURES.md L746` |
 | `CAP-SPEC-018` | Per-agent NATS credentials with subject permissions | planned | v0.6 | `docs/project/ROADMAP.md L321` |
-| `CAP-SPEC-019` | Reactor engine + event lifecycle tracking | partial | Future | `docs/project/ROADMAP.md L444` |
-| `CAP-SPEC-020` | Backup orchestration features | partial | Future | `docs/project/ROADMAP.md L544` |
-| `CAP-SPEC-021` | Bootstrap phase handlers + durable checkpointer | partial | Future | `docs/project/ROADMAP.md L552` |
-| `CAP-SPEC-022` | Batch dispatcher: no orphan-job recovery | partial | Future | `docs/project/ROADMAP.md L576` |
-| `CAP-SPEC-023` | API key issuance: non-transactional | partial | Future | `docs/project/ROADMAP.md L584` |
-| `CAP-SPEC-024` | Dependency posture re-audit | partial | Future | `docs/project/ROADMAP.md L636` |
-| `CAP-SPEC-025` | RunbookGRPCServer not registered at boot | partial | Future | `docs/project/ROADMAP.md L660` |
-| `CAP-SPEC-026` | Blueprint publish: no path into the server catalog | partial | Future | `docs/project/ROADMAP.md L714` |
-| `CAP-SPEC-027` | Agent secret grants are config-only | partial | Future | `docs/project/ROADMAP.md L728` |
-| `CAP-SPEC-028` | Changie configuration: replacements for reference-link maintenance | partial | Future | `docs/project/ROADMAP.md L736` |
-| `CAP-SPEC-029` | Glob matching: no ** (double-star) | partial | Future | `docs/project/ROADMAP.md L991` |
-| `CAP-SPEC-030` | Migration journal: no per-table checkpoint resume | partial | Future | `docs/project/ROADMAP.md L998` |
-| `CAP-SPEC-031` | Rename source/v1x-backlog label to drop the version pin | partial | Future | `docs/project/ROADMAP.md L1005` |
-| `CAP-SPEC-032` | PROJECT-DETAILS.md lint cleanup | partial | Future | `docs/project/ROADMAP.md L1013` |
-| `CAP-SPEC-033` | Operations runbooks accuracy sweep | partial | Future | `docs/project/ROADMAP.md L1021` |
-| `CAP-SPEC-034` | Backup destinations: Backblaze B2 documentation + smoke test | partial | Future | `docs/project/ROADMAP.md L1069` |
+| `CAP-SPEC-019` | Reactor engine + event lifecycle tracking | unknown | Future | `docs/project/ROADMAP.md L444` |
+| `CAP-SPEC-020` | Backup orchestration features | unknown | Future | `docs/project/ROADMAP.md L544` |
+| `CAP-SPEC-021` | Bootstrap phase handlers + durable checkpointer | planned | Future | `docs/project/ROADMAP.md L552` |
+| `CAP-SPEC-022` | Batch dispatcher: no orphan-job recovery | planned | Future | `docs/project/ROADMAP.md L576` |
+| `CAP-SPEC-023` | API key issuance: non-transactional | planned | Future | `docs/project/ROADMAP.md L584` |
+| `CAP-SPEC-024` | Dependency posture re-audit | planned | Future | `docs/project/ROADMAP.md L636` |
+| `CAP-SPEC-025` | RunbookGRPCServer not registered at boot | planned | Future | `docs/project/ROADMAP.md L660` |
+| `CAP-SPEC-026` | Blueprint publish: no path into the server catalog | planned | Future | `docs/project/ROADMAP.md L714` |
+| `CAP-SPEC-027` | Agent secret grants are config-only | planned | Future | `docs/project/ROADMAP.md L728` |
+| `CAP-SPEC-028` | Changie configuration: replacements for reference-link maintenance | planned | Future | `docs/project/ROADMAP.md L736` |
+| `CAP-SPEC-029` | Glob matching: no ** (double-star) | planned | Future | `docs/project/ROADMAP.md L991` |
+| `CAP-SPEC-030` | Migration journal: no per-table checkpoint resume | planned | Future | `docs/project/ROADMAP.md L998` |
+| `CAP-SPEC-031` | Rename source/v1x-backlog label to drop the version pin | planned | Future | `docs/project/ROADMAP.md L1005` |
+| `CAP-SPEC-032` | PROJECT-DETAILS.md lint cleanup | planned | Future | `docs/project/ROADMAP.md L1013` |
+| `CAP-SPEC-033` | Operations runbooks accuracy sweep | planned | Future | `docs/project/ROADMAP.md L1021` |
+| `CAP-SPEC-034` | Backup destinations: Backblaze B2 documentation + smoke test | planned | Future | `docs/project/ROADMAP.md L1069` |
 | `CAP-SPEC-035` | Phase E1: required signed commits on main branch protection | partial | Future | `docs/project/ROADMAP.md L1093` |
-| `CAP-SPEC-036` | Promo video pipeline — remaining shots and polish | partial | Future | `docs/project/ROADMAP.md L1117` |
-| `CAP-SPEC-037` | Logging: context-aware threading of deep helpers | partial | Future | `docs/project/ROADMAP.md L1155` |
-| `CAP-SPEC-038` | Rate-limit: Retry-After HTTP-date format alternative | partial | Future | `docs/project/ROADMAP.md L1174` |
-| `CAP-SPEC-039` | Backup destinations: SFTP + GCS + Azure Blob + advanced S3 auth | partial | Future | `docs/project/ROADMAP.md L1206` |
-| `CAP-SPEC-040` | Backup encryption: AWS KMS + Vault key providers | partial | Future | `docs/project/ROADMAP.md L1214` |
-| `CAP-SPEC-041` | Weighted endpoint load distribution + K8s endpoint discovery | partial | Future | `docs/project/ROADMAP.md L1439` |
-| `CAP-SPEC-042` | Air-gap baseline | partial | Future | `docs/project/ROADMAP.md L1479` |
-| `CAP-SPEC-043` | Config: no per-endpoint TLS overrides | partial | Future | `docs/project/ROADMAP.md L1593` |
-| `CAP-SPEC-044` | macOS agent | partial | Future | `docs/project/ROADMAP.md L1624` |
+| `CAP-SPEC-036` | Promo video pipeline — remaining shots and polish | planned | Future | `docs/project/ROADMAP.md L1117` |
+| `CAP-SPEC-037` | Logging: context-aware threading of deep helpers | planned | Future | `docs/project/ROADMAP.md L1155` |
+| `CAP-SPEC-038` | Rate-limit: Retry-After HTTP-date format alternative | planned | Future | `docs/project/ROADMAP.md L1174` |
+| `CAP-SPEC-039` | Backup destinations: SFTP + GCS + Azure Blob + advanced S3 auth | planned | Future | `docs/project/ROADMAP.md L1206` |
+| `CAP-SPEC-040` | Backup encryption: AWS KMS + Vault key providers | planned | Future | `docs/project/ROADMAP.md L1214` |
+| `CAP-SPEC-041` | Weighted endpoint load distribution + K8s endpoint discovery | planned | Future | `docs/project/ROADMAP.md L1439` |
+| `CAP-SPEC-042` | Air-gap baseline | unknown | Future | `docs/project/ROADMAP.md L1479` |
+| `CAP-SPEC-043` | Config: no per-endpoint TLS overrides | planned | Future | `docs/project/ROADMAP.md L1593` |
+| `CAP-SPEC-044` | macOS agent | unknown | Future | `docs/project/ROADMAP.md L1624` |
 | `CAP-SPEC-045` | kscore-backup verify confirms integrity | implemented | Future | `epics/18-self-mgmt-files-ratelimit.md L121` |
 | `CAP-SPEC-046` | Restore over populated cluster requires --force | implemented | Future | `epics/18-self-mgmt-files-ratelimit.md L123` |
 | `CAP-SPEC-047` | Rejected requests counted in metric | implemented | Future | `epics/18-self-mgmt-files-ratelimit.md L137` |
@@ -1071,45 +1025,38 @@ Known gaps and limitations:
 
 Scope and status notes:
 
-- `CAP-SPEC-009` — F8: declared sources internal/airgap/ and cmd/kscore-transfer/ are absent from the tree.
-- `CAP-SPEC-018` — F5: the source states no per-subject permissions are configured anywhere.
+- `CAP-SPEC-008` — FEATURES.md declares source path(s) that are absent from the final tree: internal/proxy/, internal/protocols/, internal/vendors/
+- `CAP-SPEC-011` — FEATURES.md declares source path(s) that are absent from the final tree: internal/mcp/, cmd/kscore-mcp/
 
 Known gaps and limitations:
 
 - `CAP-SPEC-001` — File distribution: PUT-side resume.
 - `CAP-SPEC-002` — Backup + restore component adapters (storage/JetStream/etcd/config/secrets/cluster).
 - `CAP-SPEC-004` — File distribution: NATS Object Store + Git backends, mirror groups, conflict resolution.
-- `CAP-SPEC-008` — FEATURES.md declares source path(s) absent from the final tree: internal/proxy/, internal/protocols/, internal/vendors/.
-- `CAP-SPEC-009` — FEATURES.md declares source path(s) absent from the final tree: internal/airgap/, cmd/kscore-transfer/.
-- `CAP-SPEC-011` — FEATURES.md declares source path(s) absent from the final tree: internal/mcp/, cmd/kscore-mcp/.
-- `CAP-SPEC-018` — Per-agent NATS credentials with subject permissions.
-- `CAP-SPEC-019` — Reactor engine + event lifecycle tracking.
-- `CAP-SPEC-020` — Backup orchestration features.
-- `CAP-SPEC-021` — Bootstrap phase handlers + durable checkpointer.
-- `CAP-SPEC-022` — Batch dispatcher: no orphan-job recovery.
-- `CAP-SPEC-023` — API key issuance: non-transactional.
-- `CAP-SPEC-024` — Dependency posture re-audit.
-- `CAP-SPEC-025` — RunbookGRPCServer not registered at boot.
-- `CAP-SPEC-026` — Blueprint publish: no path into the server catalog.
-- `CAP-SPEC-027` — Agent secret grants are config-only.
-- `CAP-SPEC-028` — Changie configuration: `replacements` for reference-link maintenance.
-- `CAP-SPEC-029` — Glob matching: no `**` (double-star).
-- `CAP-SPEC-030` — Migration journal: no per-table checkpoint resume.
-- `CAP-SPEC-031` — Rename `source/v1x-backlog` label to drop the version pin.
-- `CAP-SPEC-032` — PROJECT-DETAILS.md lint cleanup.
-- `CAP-SPEC-033` — Operations runbooks accuracy sweep.
-- `CAP-SPEC-034` — Backup destinations: Backblaze B2 documentation + smoke test.
-- `CAP-SPEC-035` — Phase E1: required signed commits on `main` branch protection.
-- `CAP-SPEC-036` — Promo video pipeline — remaining shots and polish.
-- `CAP-SPEC-037` — Logging: context-aware threading of deep helpers.
-- `CAP-SPEC-038` — Rate-limit: `Retry-After` HTTP-date format alternative.
+- `CAP-SPEC-018` — Referenced code exists, but this backlog item describes work that had not landed: Per-agent NATS credentials with subject permissions.
+- `CAP-SPEC-021` — Referenced code exists, but this backlog item describes work that had not landed: `kscore-bootstrap --seed dev-seed.yaml` runs end-to-end on a fresh Linux host and lands at `StateVerified`; SIGKILL mid-Configuring then restart resumes at `StateConfiguring`.
+- `CAP-SPEC-022` — The backlog item's own text states this had not been built: Batch dispatcher: no orphan-job recovery.
+- `CAP-SPEC-023` — The backlog item's own text states this had not been built: API key issuance: non-transactional.
+- `CAP-SPEC-024` — Referenced code exists, but this backlog item describes work that had not landed: A timestamped re-audit lands in [`docs/project/SECURITY-GOVERNANCE.md`](SECURITY-GOVERNANCE.md) "Dependency posture" section with the new module count + license distribution + main.
+- `CAP-SPEC-025` — Referenced code exists, but this backlog item describes work that had not landed: `cmd/kscore-server/main.go` constructs a `runbook.Engine` from config + registers `RunbookGRPCServer`. Integration test verifies `RunbookService.ListRunbooks` returns 200 against a.
+- `CAP-SPEC-026` — Referenced code exists, but this backlog item describes work that had not landed: Blueprint publish: no path into the server catalog.
+- `CAP-SPEC-027` — Referenced code exists, but this backlog item describes work that had not landed: Agent secret grants are config-only.
+- `CAP-SPEC-028` — Referenced code exists, but this backlog item describes work that had not landed: `.changie.yaml` has a `replacements:` block that, when `make changelog-batch VERSION=v0.2.0` runs against a CHANGELOG.md currently pointing at `[Unreleased]: …compare/v0.1.0...HEAD.
+- `CAP-SPEC-029` — The backlog item's own text states this had not been built: Glob matching: no `**` (double-star).
+- `CAP-SPEC-030` — The backlog item's own text states this had not been built: Migration journal: no per-table checkpoint resume.
+- `CAP-SPEC-031` — Referenced code exists, but this backlog item describes work that had not landed: `source/v1x-backlog` is gone from `tools/trackerctl/config/labels.yaml`, `issues.go::labelNamesFor`, both test files, `ISSUE-TRACKING.md` §`source/v1x-backlog` table row, and the R.
+- `CAP-SPEC-032` — Referenced code exists, but this backlog item describes work that had not landed: `markdownlint-cli2 PROJECT-DETAILS.md` returns 0 errors. The carve-out is removed from `.markdownlint-cli2.yaml`'s `ignores` block. `make docs-lint` (with the file no longer carved.
+- `CAP-SPEC-033` — The backlog item's own text states this had not been built: Each runbook step is verified against a fresh `make e2e-up` topology; commands run as documented; outputs match.
+- `CAP-SPEC-034` — Referenced code exists, but this backlog item describes work that had not landed: B2 documented in `internal/backup/dest/dest.go` package comment + README; a smoke test exercises a real B2 bucket via the `s3://` path + B2 endpoint.
+- `CAP-SPEC-035` — contributor-key onboarding flow documented (probably in `CONTRIBUTING.md` or a new `docs/project/SIGNING-KEYS.md`); the `main` branch protection rule on Codeberg has `require_signe.
+- `CAP-SPEC-036` — Referenced code exists, but this backlog item describes work that had not landed: Scenario runs against an agent host with a `package` + `service` declaration once remote apply lands; `make promo` produces `dist/promo/keystone-30s.mp4` with crossfades; a stale t.
+- `CAP-SPEC-037` — Referenced code exists, but this backlog item describes work that had not landed: `tools/logaudit` (or `grep` audit) reports zero non-context `slog.*` calls outside an explicit allowList; allowList entries each name why the site can't take a ctx (e.g., process-w.
+- `CAP-SPEC-038` — Referenced code exists, but this backlog item describes work that had not landed: An operator flag selects between formats; tests cover both round-trips through a representative client.
 - `CAP-SPEC-038` — Rate-limit: configurable gRPC `retry-after-ms` trailer key.
-- `CAP-SPEC-039` — Backup destinations: SFTP + GCS + Azure Blob + advanced S3 auth.
-- `CAP-SPEC-040` — Backup encryption: AWS KMS + Vault key providers.
-- `CAP-SPEC-041` — Weighted endpoint load distribution + K8s endpoint discovery.
-- `CAP-SPEC-042` — Air-gap baseline.
-- `CAP-SPEC-043` — Config: no per-endpoint TLS overrides.
-- `CAP-SPEC-044` — macOS agent.
+- `CAP-SPEC-039` — Referenced code exists, but this backlog item describes work that had not landed: `kscore-backup create --dest sftp://host/path/foo.tar` succeeds; same for `gs://` and `azblob://`; `AWS_WEB_IDENTITY_TOKEN_FILE` produces a valid S3 client on EKS.
+- `CAP-SPEC-040` — Referenced code exists, but this backlog item describes work that had not landed: `kscore-backup create --key-provider=aws-kms:arn:...` writes an artifact whose age recipients are wrapped under the KMS key; restore unwraps via the same KMS. Same for `vault:trans.
+- `CAP-SPEC-041` — The backlog item's own text states this had not been built: Load measurably distributes proportionally to weights; `nats.urls = ["k8s://service-name"]` resolves through discovery.
+- `CAP-SPEC-043` — The backlog item's own text states this had not been built: Config: no per-endpoint TLS overrides.
 
 ### Operational runbooks
 
@@ -1136,8 +1083,8 @@ Known gaps and limitations:
 | `CAP-REL-002` | Soak-test infrastructure for fd / connection / goroutine leaks | planned | Future | `docs/project/ROADMAP.md L606` |
 | `CAP-REL-003` | Sustained-load profiling baseline | planned | Future | `docs/project/ROADMAP.md L614` |
 | `CAP-REL-004` | Security baseline expansion | planned | Future | `docs/project/ROADMAP.md L622` |
-| `CAP-REL-005` | Error-message docs URLs | partial | Future | `docs/project/ROADMAP.md L1029` |
-| `CAP-REL-006` | Release dry-run expansion | partial | Future | `docs/project/ROADMAP.md L1163` |
+| `CAP-REL-005` | Error-message docs URLs | planned | Future | `docs/project/ROADMAP.md L1029` |
+| `CAP-REL-006` | Release dry-run expansion | planned | Future | `docs/project/ROADMAP.md L1163` |
 | `CAP-REL-007` | All HA resilience tests (Epic 13) pass | implemented | Future | `epics/19-test-harden-release.md L111` |
 | `CAP-REL-008` | All performance SLOs met in CI | implemented | Future | `epics/19-test-harden-release.md L112` |
 | `CAP-REL-009` | Security baseline clean: 0 secrets, 0 known CVEs, 0 gosec high/critical | implemented | v0.6 | `epics/19-test-harden-release.md L113` |
@@ -1150,19 +1097,13 @@ Known gaps and limitations:
 | `CAP-REL-016` | v1.0.0 tag pushed; goreleaser produces release artifacts | planned | Future | `epics/19-test-harden-release.md L125` |
 | `CAP-REL-017` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L1484` |
 
-Scope and status notes:
-
-- `CAP-REL-002` — F5: open gate-v1.0 blocker.
-- `CAP-REL-003` — F5: open gate-v1.0 blocker.
-- `CAP-REL-004` — F5: open gate-v1.0 blocker.
-
 Known gaps and limitations:
 
-- `CAP-REL-002` — Soak-test infrastructure for fd / connection / goroutine leaks.
-- `CAP-REL-003` — Sustained-load profiling baseline.
-- `CAP-REL-004` — Security baseline expansion.
-- `CAP-REL-005` — Error-message docs URLs.
-- `CAP-REL-006` — Release dry-run expansion.
+- `CAP-REL-002` — Referenced code exists, but this backlog item describes work that had not landed: `make soak` runs the docker-compose topology under sustained load for ≥1 hour, asserts: (a) `runtime.NumGoroutine` flat ±5%; (b) per-process `lsof` count flat ±5%; (c) per-process.
+- `CAP-REL-003` — Referenced code exists, but this backlog item describes work that had not landed: `make profile-sustained` (or equivalent) runs the harness; per-domain profile files land next to `docs/project/PROFILING-BASELINE.md`'s baseline numbers; the doc gains a per-domain.
+- `CAP-REL-004` — Referenced code exists, but this backlog item describes work that had not landed: Each sub-bullet adds its own Make target + CI step + brief docs entry under `docs/project/SECURITY-GOVERNANCE.md` "Security Baseline Pipeline." `make security` (or equivalent umbre.
+- `CAP-REL-005` — The backlog item's own text states this had not been built: A `pkg/api/apierror` (or similar) helper produces "&lt;message>. See &lt;docs-url>" strings; the docs site has the matching slug pages; key user-facing errors (config validation, secrets.
+- `CAP-REL-006` — Referenced code exists, but this backlog item describes work that had not landed: Each sub-bullet adds its own check function in `scripts/release-smoke.sh` (or the container companion) and a row in `docs/project/SECURITY-GOVERNANCE.md` "Release Dry-Run Smoke.".
 
 ### Generation 1 planning artifacts
 
