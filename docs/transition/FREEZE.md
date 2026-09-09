@@ -125,15 +125,28 @@ in favour of matching the key to an address the account had *already* verified:
   the same export, since changing expiry rewrites the subkey binding signature
   and would otherwise have required a second upload.
 
-**Residual.** The two R02 commits `388b25990` and `98d7a2f1e` were authored with
-committer email `bot@keystone-core.io`, which remains unactivated, so those two
-display as unverified. They are still cryptographically signed, which is what
-the R02 acceptance criterion asks for. Every commit and tag from this point uses
-`keystone-bot@keystone-core.io` and binds to the key.
+**Residual: none observed.** The concern that commits authored under
+`bot@keystone-core.io` would display as unverified did not materialise.
+Codeberg reports all three signed R02 commits — `388b25990`, `98d7a2f1e`, and
+`0f1967f68` — as verified, with reason `keystone-bot / 23583C11192A9DF4`,
+including the two committed under the still-unactivated address. Forgejo
+matched the signature to the key's owner rather than requiring the committer
+address to be a bound email.
 
-`bot@keystone-core.io` was deliberately left on the key as a uid. If Codeberg
-ever fixes the 500 and the address is activated, it binds as well and those two
-commits gain verification with no further action.
+That was checked against a control rather than assumed: unsigned commits on
+this repository (`792940a57`, `a35bdaaf3`, `0a476caaa`) correctly report
+`verified: false`, `reason: gpg.error.not_signed_commit`.
+
+Note that the API omits the `verification` object entirely unless
+`?verification=true` is passed, so its absence from a default response is not
+evidence that a commit is unsigned:
+
+```text
+GET /repos/{owner}/{repo}/git/commits/{sha}?verification=true&files=false
+```
+
+`bot@keystone-core.io` was still deliberately left on the key as a uid. It
+costs nothing and keeps the older committer identity associated with the key.
 
 **R05 impact: cleared.** The archive tag must be created with tagger email
 `keystone-bot@keystone-core.io`.
