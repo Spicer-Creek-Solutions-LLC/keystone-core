@@ -6,6 +6,11 @@ its target audience, and plausible path to a sustainable business.
 
 ## Executive conclusion
 
+> **Decision update (2026-09-08):** the maintainer accepted a Generation 2
+> reboot. See [RFC 0001](../rfcs/0001-generation-2-reboot.md), the
+> [execution plan](REBOOT-EXECUTION-PLAN.md), and the
+> [architecture invariants](ARCHITECTURE-INVARIANTS.md).
+
 Keystone Core addresses a real operational problem and has a substantial
 technical foundation. It is worth continuing, but not on the current
 feature-driven path unchanged.

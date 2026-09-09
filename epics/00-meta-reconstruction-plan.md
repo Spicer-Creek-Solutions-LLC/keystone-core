@@ -1,5 +1,10 @@
 # Epic 00: Meta — Reconstruction Plan
 
+> **Generation 1 archive notice:** RFC 0001 accepts a Generation 2 reboot. This
+> plan remains evidence for the implementation being archived; it no longer
+> defines active sequencing. New work starts at
+> [`20-generation-2-reboot.md`](20-generation-2-reboot.md).
+
 ## Purpose
 
 This directory contains the implementation epics for rebuilding Keystone Core from scratch as an "advanced MVP" targeting **commercial-trial-ready, sysadmin-attractive** v1.0 — clusterable from day 1, Salt-Project-shaped UX, ~90% of daily sysadmin needs covered.
