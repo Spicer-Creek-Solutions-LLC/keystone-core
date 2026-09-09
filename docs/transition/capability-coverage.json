@@ -4,7 +4,8 @@
  "catalog": "docs/project/FUTURE-CAPABILITIES.md",
  "task": "R03",
  "source_item_count": 1064,
- "catalog_entry_count": 701,
+ "catalog_entry_count": 703,
+ "note": "A source item maps to exactly one entry in `entry`. `also_entries` appears only where RFC 0001 splits one archived description across its execution boundary, so the excluded half is retained as its own Future entry rather than falling outside the catalogue.",
  "relations": {
   "primary": "the catalog entry was created from this item",
   "refinement": "this item adds detail, a gap, or an implementation task to an existing entry",
@@ -1658,7 +1659,13 @@
    "kind": "capability-bullet",
    "text": "**Command execution engine** (timeout, working dir, env, user-switch, SIGTERM\u2192SIGKILL grace). Source: `internal/agent/executor.go`. *Reasoning: core remote-exec endpoint.*",
    "entry": "CAP-AGENT-005",
-   "relation": "primary"
+   "relation": "primary",
+   "also_entries": [
+    {
+     "entry": "CAP-AGENT-037",
+     "relation": "duplicate"
+    }
+   ]
   },
   "SRC-0106": {
    "file": "FEATURES.md",
@@ -2178,7 +2185,13 @@
    "kind": "capability-bullet",
    "text": "**`kscorectl exec run|async|status|list|cancel|output|script` CLI**. Source: `cmd/kscore-exec/`. *Reasoning: primary trial UX surface.*",
    "entry": "CAP-EXEC-014",
-   "relation": "primary"
+   "relation": "primary",
+   "also_entries": [
+    {
+     "entry": "CAP-EXEC-027",
+     "relation": "duplicate"
+    }
+   ]
   },
   "SRC-0666": {
    "file": "epics/07-remote-execution.md",
