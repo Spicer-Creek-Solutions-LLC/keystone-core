@@ -494,6 +494,10 @@ transition-check: ## Vet, lint and test the Generation 2 transition tool (its ow
 	# removes the root module, which means `go test ./...` at the root does not
 	# reach it and neither does golangci-lint. It gets its own target, wired
 	# into the same CI job as the other static gates.
+	@# A stray binary from `go build` inside the module would otherwise be
+	@# committable: clean-check only guards the repo root.
+	@! ls tools/transition/transition >/dev/null 2>&1 || { \
+		echo "transition-check: stray binary tools/transition/transition — remove it"; exit 1; }
 	cd tools/transition && gofmt -l . | tee /dev/stderr | (! read)
 	cd tools/transition && go vet ./...
 	cd tools/transition && CGO_ENABLED=1 go test -race -cover ./...
