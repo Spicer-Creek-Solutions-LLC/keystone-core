@@ -106,6 +106,8 @@ at the repo root.
 
 - [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) — approval-sized
   transition, architecture, implementation, and pilot tasks.
+- [`REBOOT-DEV-VM.md`](REBOOT-DEV-VM.md) — branch handoff and guarded resume
+  procedure for continuing the reboot from the development VM.
 - [`FUTURE-CAPABILITIES.md`](FUTURE-CAPABILITIES.md) — unversioned archive
   capability catalog; inclusion is not a delivery promise.
 - [`VERSIONING.md`](VERSIONING.md) — active reboot version policy followed by

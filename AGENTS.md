@@ -103,6 +103,7 @@ Use these files instead of expanding AGENTS with mutable detail:
 - Project overview/status: `README.md`
 - Accepted reboot decision: `docs/rfcs/0001-generation-2-reboot.md`
 - Reboot tasks and sequencing: `docs/project/REBOOT-EXECUTION-PLAN.md`
+- Reboot development-VM handoff: `docs/project/REBOOT-DEV-VM.md`
 - Generation 2 invariants/tests: `docs/project/{ARCHITECTURE-INVARIANTS,TESTING,REQUIREMENTS-TRACEABILITY}.md`
 - Uncommitted archive capability catalog: `docs/project/FUTURE-CAPABILITIES.md`
 - Active version policy plus retained Generation 1 gates: `docs/project/VERSIONING.md`

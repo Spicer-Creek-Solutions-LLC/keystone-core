@@ -5,6 +5,8 @@ workstreams. Before approval, each P/C workstream must be decomposed into the
 task dossier described below; a workstream paragraph is not itself sufficient
 implementation authority. The plan deliberately separates documentation,
 reversible local changes, remote forge mutations, and product implementation.
+To resume the transition from the development VM, follow the
+[reboot development handoff](REBOOT-DEV-VM.md).
 
 ## Program rules
 
