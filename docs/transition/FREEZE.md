@@ -28,14 +28,22 @@ below.
 
 ## The archive target
 
-`generation_1_final_sha` is the **merge commit that lands this R02 pull request
-on `main`** — the true final Generation 1 state of the branch.
+`generation_1_final_sha` is the **merge commit that landed the R02 freeze pull
+request (#259) on `main`** — the true final Generation 1 state of the branch:
 
-That SHA cannot be known from inside the commit it names, so `manifest.json`
-carries `generation_1_final_sha: null` here and a short postcondition commit
-records the value immediately after merge. R05 uses that recorded SHA as the
-exact archive target and re-verifies the tag object IDs below against this
-manifest.
+```text
+93eb147f7fcc559d31f2cce77d81e791f01673f8
+```
+
+That SHA could not be known from inside the commit it names, so the freeze
+commit carried `generation_1_final_sha: null` and this postcondition commit
+records the value. All four signed R02 commits — `388b25990`, `98d7a2f1e`,
+`0f1967f68`, `35e10d644` — are ancestors of it.
+
+R05 creates `archive/2026-09-pre-v0.6-reboot` and
+`archive-2026-09-pre-v0.6-reboot` at exactly this SHA, and re-verifies the tag
+object IDs below against this manifest. Only transition tasks R03–R10 follow
+it.
 
 ## Observed state at the snapshot cutoff
 

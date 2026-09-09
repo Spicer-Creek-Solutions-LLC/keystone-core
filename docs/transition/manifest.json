@@ -4,8 +4,8 @@
   "task": "R02",
   "generated_at": "2026-09-09T14:14:50Z",
   "snapshot_cutoff_utc": "2026-09-09T14:14:50Z",
-  "generation_1_final_sha": null,
-  "generation_1_final_sha_note": "Resolved to the merge commit that lands the R02 freeze pull request on main; recorded by the R02 postcondition commit.",
+  "generation_1_final_sha": "93eb147f7fcc559d31f2cce77d81e791f01673f8",
+  "generation_1_final_sha_note": "Resolved. This is the merge commit that landed the R02 freeze pull request (#259) on main at 2026-09-09T19:24:36+02:00, recorded by the R02 postcondition commit. It is the exact archive target for R05. Only transition tasks R03-R10 follow it; no Generation 1 feature work occurs after this SHA without a new maintainer decision.",
   "repository": {
     "forge": "codeberg.org",
     "id": 1749683,
@@ -471,6 +471,12 @@
       "future": "bot@keystone-core.io was deliberately left as a uid on the key. It costs nothing and keeps the older committer identity associated with the key if Codeberg's verification endpoint is ever fixed.",
       "r05_impact": "Cleared. The archive tag must be created with tagger email keystone-bot@keystone-core.io.",
       "verification_method": "GET /repos/{owner}/{repo}/git/commits/{sha}?verification=true - the verification object is omitted unless that query parameter is passed, so its absence is not evidence of an unsigned or unverified commit."
+    },
+    {
+      "recorded_at": "2026-09-09T17:25:18Z",
+      "subject": "generation_1_final_sha",
+      "change": "Set to 93eb147f7fcc559d31f2cce77d81e791f01673f8, the merge commit of pull request #259. All four signed R02 commits (388b25990, 98d7a2f1e, 0f1967f68, 35e10d644) are ancestors of it.",
+      "r05_impact": "R05 creates archive/2026-09-pre-v0.6-reboot and archive-2026-09-pre-v0.6-reboot at exactly this SHA, and re-verifies the v0.1.0 and v0.5.0 tag object IDs recorded in this manifest."
     }
   ]
 }
