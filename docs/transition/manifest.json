@@ -359,7 +359,7 @@
     "signer_identity": "Keystone-core Bot <bot@keystone-core.io>",
     "git_commit_signing": "verified (git commit -S -> %G? = G, git verify-commit good)",
     "git_tag_signing": "verified (git tag -s -> git tag -v good signature)",
-    "forge_verification": "NOT AVAILABLE",
+    "forge_verification": "AVAILABLE (resolved after cutoff - see post_snapshot_updates)",
     "forge_verification_detail": "At the snapshot cutoff the Codeberg account keystone-bot had no registered GPG key. Its verified addresses were keystone-bot@shawnbutts.com and keystone-bot@keystone-core.io; neither matches the key uid bot@keystone-core.io. Superseded after the cutoff - see post_snapshot_updates.",
     "impact": "R05 archive tag will be cryptographically signed but not forge-verified unless the key is registered first.",
     "generation_1_tags_signed": false
@@ -462,6 +462,14 @@
       "expected_on_resolution": "Forgejo computes signature verification from current key state at render time, so already-pushed signed commits are expected to display as verified retroactively without re-signing. Spot-check the R02 freeze commit to confirm.",
       "gates": "Blocks nothing before R05. R05's archive tag needs forge-visible verification.",
       "chosen_route": "Add bot@keystone-core.io to the account (route B) rather than adding a uid to the key, keeping one committer identity continuous with Generation 1 history."
+    },
+    {
+      "recorded_at": "2026-09-09T15:13:44Z",
+      "subject": "signing_preflight.forge_verification",
+      "change": "Resolved. Codeberg's HTTP 500 on email verification proved persistent, so route B was abandoned for route A: a second uid 'Keystone-core Bot <keystone-bot@keystone-core.io>' was added to the key and made primary, keeping the original bot@keystone-core.io uid. The key was deleted and re-added on Codeberg (now id 154525) because Forgejo reads a key's uid emails once at add time and offers no refresh. It now reports the bound email keystone-bot@keystone-core.io as verified. The git committer email was changed to match. The signing subkey expiry was extended from 2027-06-01 to 2029-09-08 in the same export.",
+      "residual": "The R02 commits 388b25990 and 98d7a2f1e were authored with committer email bot@keystone-core.io, which is still unactivated, so those two commits display as unverified. They remain cryptographically signed, which is what the R02 acceptance criterion requires. Commits and tags from this point use keystone-bot@keystone-core.io and bind to the key.",
+      "future": "bot@keystone-core.io was deliberately left as a uid on the key. If Codeberg ever fixes the 500 and the address is activated, it binds too and the earlier commits gain verification with no further action.",
+      "r05_impact": "Cleared. The archive tag must be created with tagger email keystone-bot@keystone-core.io."
     }
   ]
 }

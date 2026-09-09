@@ -105,28 +105,38 @@ RFC leans on it.
 
 ### Update after the snapshot
 
-The maintainer has since acted on this, so the state above is the cutoff record
-rather than the current one.
+Resolved after the cutoff. The state recorded above is the snapshot, not the
+current position.
 
-- **Done:** the GPG key is registered on the Codeberg account and its ownership
-  is verified — `key_id 7796A98BEA4F4647`, `verified: true`, with signing
-  subkey `23583C11192A9DF4` reporting `can_sign: true`.
-- **Pending:** `bot@keystone-core.io` has been added to the account but is
-  **not yet activated** — Codeberg returns HTTP 500 on the verification step.
-  Until it activates, Forgejo binds no email address to the key, so signed
-  commits still render as unverified.
+Codeberg's HTTP 500 on email verification proved persistent, so the original
+plan — add `bot@keystone-core.io` to the account and verify it — was abandoned
+in favour of matching the key to an address the account had *already* verified:
 
-The chosen route was to add the address to the account rather than add a
-matching uid to the key, which keeps one committer identity continuous with
-Generation 1 history.
+- a second uid, `Keystone-core Bot <keystone-bot@keystone-core.io>`, was added
+  to the key and made primary, **keeping** the original `bot@keystone-core.io`
+  uid;
+- the key was deleted and re-added on Codeberg — now id `154525` — because
+  Forgejo reads a key's uid emails once at add time and offers no refresh, so
+  a locally-added uid is invisible to it otherwise;
+- Codeberg now reports the bound email `keystone-bot@keystone-core.io` as
+  verified, where the previous registration had no bound email at all;
+- the git committer email was changed to match; and
+- the signing subkey expiry was extended from 2027-06-01 to **2029-09-08** in
+  the same export, since changing expiry rewrites the subkey binding signature
+  and would otherwise have required a second upload.
 
-Forgejo computes signature verification from current key state when it renders
-a commit, so once the address activates, commits already pushed are expected to
-display as verified retroactively — no re-signing or amending. Confirm that
-against the R02 freeze commit rather than assuming it.
+**Residual.** The two R02 commits `388b25990` and `98d7a2f1e` were authored with
+committer email `bot@keystone-core.io`, which remains unactivated, so those two
+display as unverified. They are still cryptographically signed, which is what
+the R02 acceptance criterion asks for. Every commit and tag from this point uses
+`keystone-bot@keystone-core.io` and binds to the key.
 
-Nothing here blocks R03 or R04. It becomes load-bearing at R05, where the
-archive tag's forge-visible verification is the point.
+`bot@keystone-core.io` was deliberately left on the key as a uid. If Codeberg
+ever fixes the 500 and the address is activated, it binds as well and those two
+commits gain verification with no further action.
+
+**R05 impact: cleared.** The archive tag must be created with tagger email
+`keystone-bot@keystone-core.io`.
 
 ## Gate results
 
