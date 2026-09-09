@@ -1,0 +1,8 @@
+kind: Docs
+body: |-
+  **Recorded `generation_1_final_sha` (R02 postcondition).** Sets the archive
+  target in `docs/transition/manifest.json` to `93eb147f7`, the merge commit
+  that landed the Generation 1 freeze on main. The freeze commit could not name
+  its own merge, so it carried `null` and promised this follow-up; R05 creates
+  the archive branch, the signed tag, and the offline bundle at exactly this
+  SHA.
