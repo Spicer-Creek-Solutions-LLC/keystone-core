@@ -101,6 +101,7 @@ Do not duplicate volatile inventories (epic counts, feature matrices, binary lis
 Use these files instead of expanding AGENTS with mutable detail:
 
 - Project overview/status: `README.md`
+- Reboot assessment evidence: `docs/project/PROJECT-REBOOT-REVIEW.md`
 - Accepted reboot decision: `docs/rfcs/0001-generation-2-reboot.md`
 - Reboot tasks and sequencing: `docs/project/REBOOT-EXECUTION-PLAN.md`
 - Reboot development-VM handoff: `docs/project/REBOOT-DEV-VM.md`

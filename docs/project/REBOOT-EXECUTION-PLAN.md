@@ -75,6 +75,8 @@ repository evidence.
 
 ### R01 — Decision and control documents
 
+**Status:** complete on `reboot-r01-control-docs`.
+
 **Goal:** make the reboot, NATS-first boundary, test policy, task ordering, and
 future-capability policy reviewable before changing the repository.
 

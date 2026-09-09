@@ -54,7 +54,7 @@ and pull requests. Detailed controls are normative in the execution plan.
 ### Repository transition
 
 - [x] R00 — Reboot assessment.
-- [ ] R01 — Decision and control documents. _(this planning PR)_
+- [x] R01 — Decision and control documents.
 - [ ] R02 — Freeze and reconcile Generation 1.
 - [ ] R03 — Complete archive capability catalog.
 - [ ] R04 — Build tracker-retirement tooling.
