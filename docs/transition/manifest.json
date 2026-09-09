@@ -360,7 +360,7 @@
     "git_commit_signing": "verified (git commit -S -> %G? = G, git verify-commit good)",
     "git_tag_signing": "verified (git tag -s -> git tag -v good signature)",
     "forge_verification": "NOT AVAILABLE",
-    "forge_verification_detail": "The Codeberg account keystone-bot has zero registered GPG keys, and its account email (keystone-bot@shawnbutts.com) does not match the key uid (bot@keystone-core.io). Signatures are cryptographically valid but Codeberg will display them as unverified until the key is registered and the uid email is added and confirmed on the account. Registering it is a forge mutation and is out of R02 scope.",
+    "forge_verification_detail": "At the snapshot cutoff the Codeberg account keystone-bot had no registered GPG key. Its verified addresses were keystone-bot@shawnbutts.com and keystone-bot@keystone-core.io; neither matches the key uid bot@keystone-core.io. Superseded after the cutoff - see post_snapshot_updates.",
     "impact": "R05 archive tag will be cryptographically signed but not forge-verified unless the key is registered first.",
     "generation_1_tags_signed": false
   },
@@ -452,5 +452,16 @@
       "data/",
       "*.db"
     ]
-  }
+  },
+  "post_snapshot_updates": [
+    {
+      "recorded_at": "2026-09-09T14:58:09Z",
+      "subject": "signing_preflight.forge_verification",
+      "change": "The GPG key is now registered on the Codeberg account and its ownership is verified (key_id 7796A98BEA4F4647, verified=true, signing subkey 23583C11192A9DF4 can_sign=true). The address bot@keystone-core.io was added to the account but is NOT yet activated: Codeberg returns HTTP 500 on the verification step. Until it activates, Forgejo binds no email to the key, so signed commits render as unverified.",
+      "remaining_blocker": "Activation of bot@keystone-core.io on the Codeberg account (Codeberg-side 500).",
+      "expected_on_resolution": "Forgejo computes signature verification from current key state at render time, so already-pushed signed commits are expected to display as verified retroactively without re-signing. Spot-check the R02 freeze commit to confirm.",
+      "gates": "Blocks nothing before R05. R05's archive tag needs forge-visible verification.",
+      "chosen_route": "Add bot@keystone-core.io to the account (route B) rather than adding a uid to the key, keeping one committer identity continuous with Generation 1 history."
+    }
+  ]
 }

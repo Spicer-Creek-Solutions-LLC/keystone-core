@@ -93,16 +93,40 @@ than accept a weaker archive tag.
   `git verify-commit` accepts it.
 - `git tag -s` produces a tag that `git tag -v` accepts.
 
-The gap: the Codeberg account `keystone-bot` has **no registered GPG keys**,
-and its account email (`keystone-bot@shawnbutts.com`) does not match the key
-uid (`bot@keystone-core.io`). Signatures are cryptographically valid, but
-Codeberg will display them as unverified until the key is registered and that
-uid address is added and confirmed on the account.
+The gap at the snapshot cutoff: the Codeberg account `keystone-bot` had **no
+registered GPG key**. Its two verified addresses were
+`keystone-bot@shawnbutts.com` and `keystone-bot@keystone-core.io`, neither of
+which matches the key uid `bot@keystone-core.io`. Signatures were
+cryptographically valid but would display as unverified.
 
 This does not block R02. It does mean R05's archive tag would be signed but not
 forge-verified, which weakens the visible integrity evidence exactly where the
-RFC leans on it. Registering the key is a forge mutation and therefore outside
-R02's scope; it needs a maintainer decision before R05.
+RFC leans on it.
+
+### Update after the snapshot
+
+The maintainer has since acted on this, so the state above is the cutoff record
+rather than the current one.
+
+- **Done:** the GPG key is registered on the Codeberg account and its ownership
+  is verified — `key_id 7796A98BEA4F4647`, `verified: true`, with signing
+  subkey `23583C11192A9DF4` reporting `can_sign: true`.
+- **Pending:** `bot@keystone-core.io` has been added to the account but is
+  **not yet activated** — Codeberg returns HTTP 500 on the verification step.
+  Until it activates, Forgejo binds no email address to the key, so signed
+  commits still render as unverified.
+
+The chosen route was to add the address to the account rather than add a
+matching uid to the key, which keeps one committer identity continuous with
+Generation 1 history.
+
+Forgejo computes signature verification from current key state when it renders
+a commit, so once the address activates, commits already pushed are expected to
+display as verified retroactively — no re-signing or amending. Confirm that
+against the R02 freeze commit rather than assuming it.
+
+Nothing here blocks R03 or R04. It becomes load-bearing at R05, where the
+archive tag's forge-visible verification is the point.
 
 ## Gate results
 
