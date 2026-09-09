@@ -95,6 +95,8 @@ branch. Merge R00 to `main` first, retain and retarget R01 to updated `main`
 
 ### R02 — Freeze and reconcile Generation 1
 
+**Status:** complete in commit `93eb147f7` (pull request #259).
+
 **Goal:** establish a known final Generation 1 commit.
 
 **Work:**
@@ -116,6 +118,8 @@ and `v0.5.0` tag object IDs; tag-signing key and signer identity preflight
 passes; no feature work occurs after that SHA without a new decision.
 
 ### R03 — Complete the archive capability catalog
+
+**Status:** complete on `reboot-r03-capability-catalog`.
 
 **Goal:** preserve every Generation 1 capability and limitation as discoverable
 future context.
