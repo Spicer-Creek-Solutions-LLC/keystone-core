@@ -5,9 +5,10 @@
 //
 // It does not regenerate the catalog. R03's generator ran once; what needs to
 // survive is the ability to prove the catalog's claims still hold — so that a
-// later hand edit, a source document gaining a heading, or a mistaken merge is
-// caught rather than silently weakening the archive record that R05 and R09
-// build on.
+// later hand edit of either artifact, or a mistaken merge, is caught rather
+// than silently weakening the archive record that R05 and R09 build on. The
+// archived sources are read at an immutable commit, so they cannot drift; what
+// can drift is the catalog and the coverage map that describe them.
 //
 // Checks, in order of what they protect:
 //
@@ -15,8 +16,9 @@
 //   - the coverage map invents nothing that is not in those sources;
 //   - every coverage entry names a catalog entry that exists;
 //   - no catalog entry is orphaned, and no identifier is used twice;
-//   - every entry's Source locator still resolves to a line in a real file; and
-//   - the catalog's own status taxonomy is self-consistent.
+//   - every entry's Source locator resolves, and agrees with the coverage map;
+//   - the declared totals match what the artifacts actually contain; and
+//   - the catalog's own status and scope vocabularies are self-consistent.
 package main
 
 import (
@@ -67,19 +69,32 @@ type coverage struct {
 	SourceItemCount   int `json:"source_item_count"`
 	CatalogEntryCount int `json:"catalog_entry_count"`
 	Sources           map[string]struct {
-		File    string `json:"file"`
-		Locator string `json:"locator"`
-		Entry   string `json:"entry"`
-		Also    []struct {
-			Entry string `json:"entry"`
+		File     string `json:"file"`
+		Locator  string `json:"locator"`
+		Entry    string `json:"entry"`
+		Relation string `json:"relation"`
+		Text     string `json:"text"`
+		Also     []struct {
+			Entry    string `json:"entry"`
+			Relation string `json:"relation"`
 		} `json:"also_entries"`
 	} `json:"sources"`
 }
 
+// The catalog documents these vocabularies about itself; an unrecognised value
+// means the table was hand-edited into a state the taxonomy does not define.
 var (
-	rowRe    = regexp.MustCompile(`^\| ` + "`" + `(CAP-[A-Z]+-\d+)` + "`" + ` \| (.*?) \| (\S+) \| (\S+) \| ` + "`" + `(.*?)` + "`" + ` \|$`)
-	bulletRe = regexp.MustCompile(`^- ` + "`" + `(CAP-[A-Z]+-\d+)` + "`" + ` — (.*)$`)
-	lineRe   = regexp.MustCompile(`^(.*?) L(\d+)$`)
+	validStatus = map[string]bool{"implemented": true, "partial": true, "planned": true, "unknown": true, "reference": true}
+	validScope  = map[string]bool{"v0.6": true, "Future": true}
+	validRel    = map[string]bool{"primary": true, "refinement": true, "duplicate": true, "domain-overview": true}
+)
+
+var (
+	rowRe         = regexp.MustCompile(`^\| ` + "`" + `(CAP-[A-Z]+-\d+)` + "`" + ` \| (.*?) \| (\S+) \| (\S+) \| ` + "`" + `(.*?)` + "`" + ` \|$`)
+	bulletRe      = regexp.MustCompile(`^- ` + "`" + `(CAP-[A-Z]+-\d+)` + "`" + ` — (.*)$`)
+	lineRe        = regexp.MustCompile(`^(.*?) L(\d+)$`)
+	totalsRe      = regexp.MustCompile(`\| implemented / partial / planned / unknown \| (\d+) / (\d+) / (\d+) / (\d+) \|`)
+	scopeTotalsRe = regexp.MustCompile("\\| `v0.6` / `Future` \\| (\\d+) / (\\d+) \\|")
 )
 
 // parseCatalog reads the rendered catalog into entries. Gap and note bullets
@@ -104,6 +119,9 @@ func parseCatalog(md string) ([]Entry, error) {
 			entries = append(entries, Entry{ID: m[1], Name: m[2], Status: m[3], Scope: m[4], Source: m[5]})
 			idx[m[1]] = len(entries) - 1
 			continue
+		}
+		if section != "" && strings.HasPrefix(line, "- ") && !bulletRe.MatchString(line) {
+			return nil, fmt.Errorf("malformed bullet in a %s block: %q", section, line)
 		}
 		if m := bulletRe.FindStringSubmatch(line); m != nil && section != "" {
 			i, ok := idx[m[1]]
@@ -231,6 +249,55 @@ func lsAtPin(root, dir string) ([]string, error) {
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+// checkVocabularies rejects a status or scope value the taxonomy does not
+// define, which is what a hand edit of the table looks like.
+func checkVocabularies(entries []Entry) []string {
+	var problems []string
+	for _, e := range entries {
+		if !validStatus[e.Status] {
+			problems = append(problems, fmt.Sprintf("%s has status %q, which the taxonomy does not define", e.ID, e.Status))
+		}
+		if !validScope[e.Scope] {
+			problems = append(problems, fmt.Sprintf("%s has scope %q, which the taxonomy does not define", e.ID, e.Scope))
+		}
+	}
+	return problems
+}
+
+// checkTotals reconciles the declared summary against the rows themselves. It
+// doubles as a checksum over the status column: changing one entry's status
+// without updating the table is caught here even though the row stays
+// structurally valid.
+func checkTotals(md string, entries []Entry) []string {
+	var problems []string
+	counted := map[string]int{}
+	scoped := map[string]int{}
+	for _, e := range entries {
+		counted[e.Status]++
+		scoped[e.Scope]++
+	}
+	if m := totalsRe.FindStringSubmatch(md); m != nil {
+		for i, k := range []string{"implemented", "partial", "planned", "unknown"} {
+			n, _ := strconv.Atoi(m[i+1])
+			if n != counted[k] {
+				problems = append(problems, fmt.Sprintf("the totals table declares %d %s entries; the catalog has %d", n, k, counted[k]))
+			}
+		}
+	} else {
+		problems = append(problems, "the totals table could not be read, so its declared counts cannot be reconciled")
+	}
+	if m := scopeTotalsRe.FindStringSubmatch(md); m != nil {
+		a, _ := strconv.Atoi(m[1])
+		b, _ := strconv.Atoi(m[2])
+		if a != scoped["v0.6"] || b != scoped["Future"] {
+			problems = append(problems, fmt.Sprintf("the totals table declares %d v0.6 and %d Future; the catalog has %d and %d", a, b, scoped["v0.6"], scoped["Future"]))
+		}
+	} else {
+		problems = append(problems, "the scope totals row could not be read, so its declared counts cannot be reconciled")
+	}
+	return problems
 }
 
 // checkInvariants enforces the taxonomy the catalog documents about itself.
@@ -366,6 +433,67 @@ func main() {
 			add("%s cites %s line %d, which is out of range", e.ID, m[1], n)
 		}
 	}
+
+	problems = append(problems, checkVocabularies(entries)...)
+
+	// A Source cell must agree with the coverage item that created the entry.
+	primaryOf := map[string]string{}
+	for _, s := range cov.Sources {
+		if s.Relation == "primary" {
+			primaryOf[s.Entry] = s.File + " " + s.Locator
+		}
+		if !validRel[s.Relation] {
+			add("coverage relation %q is not one of the documented relations", s.Relation)
+		}
+		for _, a := range s.Also {
+			if !validRel[a.Relation] {
+				add("coverage also_entries relation %q is not one of the documented relations", a.Relation)
+			}
+		}
+	}
+	for _, e := range entries {
+		want, ok := primaryOf[e.ID]
+		if !ok {
+			continue // entries backed only by duplicate or domain-overview items
+		}
+		got := strings.TrimSuffix(e.Source, " -")
+		if got != want && e.Source != strings.TrimSuffix(want, " -") {
+			add("%s cites %q but its primary coverage item is %q", e.ID, e.Source, want)
+		}
+	}
+
+	// A coverage item's recorded text must still match the line it cites, so a
+	// rewritten coverage map cannot quietly describe something the sources do
+	// not say.
+	norm := func(x string) string { return strings.Join(strings.Fields(x), " ") }
+	pinned := map[string][]string{}
+	for _, sc := range cov.Sources {
+		if sc.Locator == "-" || sc.Text == "" {
+			continue // changelog fragments carry a derived title, not a line
+		}
+		lines, ok := pinned[sc.File]
+		if !ok {
+			b, err := showAtPin(root, sc.File)
+			if err != nil {
+				add("coverage cites %s, which cannot be read at the pinned commit", sc.File)
+				pinned[sc.File] = nil
+				continue
+			}
+			lines = strings.Split(string(b), "\n")
+			pinned[sc.File] = lines
+		}
+		n, _ := strconv.Atoi(strings.TrimPrefix(sc.Locator, "L"))
+		if n < 1 || n > len(lines) {
+			add("coverage cites %s %s, which is out of range", sc.File, sc.Locator)
+			continue
+		}
+		want, got := norm(lines[n-1]), norm(sc.Text)
+		if got != "" && !strings.HasPrefix(want, got[:min(len(got), 60)]) && !strings.Contains(want, got[:min(len(got), 40)]) {
+			add("coverage text for %s %s does not match the line at the pinned commit", sc.File, sc.Locator)
+		}
+	}
+
+	problems = append(problems, checkTotals(string(md), entries)...)
 
 	problems = append(problems, checkInvariants(entries)...)
 

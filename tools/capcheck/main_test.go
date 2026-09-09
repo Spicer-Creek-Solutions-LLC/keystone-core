@@ -143,3 +143,49 @@ func TestEnumerateSourcesUnknownPin(t *testing.T) {
 		t.Fatal("expected an error when the pinned commit cannot be read")
 	}
 }
+
+func TestCheckVocabularies(t *testing.T) {
+	bad := []Entry{
+		{ID: "CAP-X-001", Name: "a", Status: "banana", Scope: "Future"},
+		{ID: "CAP-X-002", Name: "b", Status: "planned", Scope: "v9.9"},
+	}
+	got := checkVocabularies(bad)
+	if len(got) != 2 {
+		t.Fatalf("got %v, want two problems", got)
+	}
+	ok := []Entry{{ID: "CAP-X-003", Name: "c", Status: "reference", Scope: "v0.6"}}
+	if got := checkVocabularies(ok); len(got) != 0 {
+		t.Fatalf("well-formed entries reported problems: %v", got)
+	}
+}
+
+func TestCheckTotalsCatchesAFalsifiedSummary(t *testing.T) {
+	entries := []Entry{
+		{ID: "CAP-X-001", Status: "implemented", Scope: "v0.6"},
+		{ID: "CAP-X-002", Status: "planned", Scope: "Future"},
+	}
+	honest := "| implemented / partial / planned / unknown | 1 / 0 / 1 / 0 |\n| `v0.6` / `Future` | 1 / 1 |"
+	if got := checkTotals(honest, entries); len(got) != 0 {
+		t.Fatalf("honest totals reported problems: %v", got)
+	}
+	// A status changed without updating the summary is structurally valid but
+	// no longer adds up; that is the point of reconciling the table.
+	lying := "| implemented / partial / planned / unknown | 2 / 0 / 0 / 0 |\n| `v0.6` / `Future` | 1 / 1 |"
+	if got := checkTotals(lying, entries); len(got) == 0 {
+		t.Fatal("expected the falsified status totals to be caught")
+	}
+	badScope := "| implemented / partial / planned / unknown | 1 / 0 / 1 / 0 |\n| `v0.6` / `Future` | 600 / 103 |"
+	if got := checkTotals(badScope, entries); len(got) == 0 {
+		t.Fatal("expected the falsified scope totals to be caught")
+	}
+	if got := checkTotals("no totals here", entries); len(got) != 2 {
+		t.Fatalf("expected both unreadable-totals problems, got %v", got)
+	}
+}
+
+func TestParseCatalogRejectsMalformedBullet(t *testing.T) {
+	md := sampleCatalog + "\nKnown gaps and limitations:\n\n- `CAP-NATS-001` a gap with no em dash\n"
+	if _, err := parseCatalog(md); err == nil {
+		t.Fatal("expected a malformed bullet to be rejected rather than silently ignored")
+	}
+}
