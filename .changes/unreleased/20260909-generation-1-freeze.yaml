@@ -1,0 +1,25 @@
+kind: Docs
+body: |-
+  **Generation 1 freeze record and transition manifest (R02).** Establishes a
+  known final Generation 1 commit and records the observed repository state at
+  that point in `docs/transition/manifest.json` and `docs/transition/FREEZE.md`:
+  branch heads, tag object IDs, releases, issue and milestone counts, CI
+  contexts, repository settings, mirror state, retained paths, and generated
+  artifacts.
+
+  Records rather than repairs, which is the point. `security-licenses` is red
+  on main and stays red: go-licenses v2.0.1 under Go 1.27.1 aborts before
+  classifying anything, so it is a scanner failure rather than a licence
+  violation, and it is outside the freeze's scope to fix. The signing preflight
+  passes at the git level but the signing key is not registered on the Codeberg
+  account, so R05's archive tag would be valid yet display as unverified.
+
+  Also corrects three statements in `README.md` that were factually false about
+  the past: that v0.5.0 was pending a signing ceremony when it shipped unsigned
+  on 2026-06-27, that v0.1.x is the line to install, and that the
+  pre-reconstruction implementation is not preserved when `archive/v0-final`
+  holds it. Forward-looking framing is deliberately untouched; that is R08.
+
+  No remote forge state was changed. Ref protection, tracker retirement, and
+  disabling the nightly job that writes issue #232 each require their own
+  dry run and apply approval.

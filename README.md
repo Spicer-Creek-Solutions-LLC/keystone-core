@@ -36,7 +36,7 @@ One control plane, N agents, NATS as the transport, Postgres for durable state. 
 
 ## Quickstart
 
-> **v0.1.x — explicitly invited to install** (per [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md)). Until the v1.0 release ceremony, `.deb` / `.rpm` packages are operator-distributed rather than published to a public repo. Get the snapshot you've been sent onto the target host, then:
+> **v0.5.x — explicitly invited to install** (per [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md)). Until the v1.0 release ceremony, `.deb` / `.rpm` packages are operator-distributed rather than published to a public repo. Get the snapshot you've been sent onto the target host, then:
 
 ### Debian / Ubuntu
 
@@ -122,11 +122,11 @@ Project sponsor: **Spicer Creek Solutions LLC** ([`OWNERSHIP.md`](OWNERSHIP.md))
 
 > **Pre-1.0. Reconstruction approaching v1.0.**
 
-This repository was reset to a clean reconstruction baseline on 2026-05-05. The prior implementation — substantial but unshippable as a coherent first release — is not preserved in this repository. The current line starts fresh from the reconstruction baseline.
+This repository was reset to a clean reconstruction baseline on 2026-05-05. The prior implementation — substantial but unshippable as a coherent first release — is not part of the current line, but it is preserved in this repository at the annotated tag [`archive/v0-final`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive/v0-final) (commit `7d21b848a`). The current line starts fresh from the reconstruction baseline.
 
 The 19 reconstruction epics in [`epics/`](epics/) sequence dependency-ordered v1.0 work. Track current progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md). The versioning scheme — three milestone tiers `v0.1` → `v0.5` (external-tester ready, all Linux) → `v1.0` (all 19 epics + SemVer stability) — is in [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md).
 
-**The v0.5 external-tester gate is met.** Every item on the [`v0.5 gate checklist`](docs/project/VERSIONING.md#v05-gate--external-tester-ready-all-linux) is delivered: all major Linux families pass the cross-distro CI matrix; the network, storage, firewall, package, and security modules clear the external-tester bar; engine/module coverage is enforced at the v0.5 levels (≥85% / ≥80%); and the [state support matrix](docs/project/STATE-SUPPORT-MATRIX.md) and documentation site are live. The v0.5.0 release itself is pending the release-signing ceremony (see [`RELEASE-PLAYBOOK.md`](RELEASE-PLAYBOOK.md)).
+**The v0.5 external-tester gate is met.** Every item on the [`v0.5 gate checklist`](docs/project/VERSIONING.md#v05-gate--external-tester-ready-all-linux) is delivered: all major Linux families pass the cross-distro CI matrix; the network, storage, firewall, package, and security modules clear the external-tester bar; engine/module coverage is enforced at the v0.5 levels (≥85% / ≥80%); and the [state support matrix](docs/project/STATE-SUPPORT-MATRIX.md) and documentation site are live. `v0.5.0` was released on 2026-06-27. It ships **unsigned**, with `sha256sum -c` as the integrity check, under the [`RELEASE-PLAYBOOK.md`](RELEASE-PLAYBOOK.md) §6 carve-out that covers the line through `v0.7.x`; release signing begins at `v0.8`.
 
 ## What v1.0 commits to
 

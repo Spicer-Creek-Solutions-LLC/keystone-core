@@ -1,0 +1,456 @@
+{
+  "schema": "keystone-core/transition-manifest",
+  "schema_version": 1,
+  "task": "R02",
+  "generated_at": "2026-09-09T14:14:50Z",
+  "snapshot_cutoff_utc": "2026-09-09T14:14:50Z",
+  "generation_1_final_sha": null,
+  "generation_1_final_sha_note": "Resolved to the merge commit that lands the R02 freeze pull request on main; recorded by the R02 postcondition commit.",
+  "repository": {
+    "forge": "codeberg.org",
+    "id": 1749683,
+    "full_name": "Spicer-Creek-Solutions-LLC/keystone-core",
+    "default_branch": "main",
+    "description": "GitOps deploys it. We keep it running. A runtime operations control plane for Linux fleets \u2014 state, audit, events, secrets. v0.x pre-stable.",
+    "website": "https://docs.keystone-core.io",
+    "archived": false,
+    "is_mirror": false,
+    "has_issues": true,
+    "has_pull_requests": true,
+    "has_actions": true,
+    "stars": 2,
+    "forks": 0,
+    "merge_settings": {
+      "allow_merge_commits": true,
+      "allow_rebase": false,
+      "allow_rebase_explicit": true,
+      "allow_squash_merge": false,
+      "default_merge_style": "merge",
+      "default_delete_branch_after_merge": true
+    },
+    "branch_protection_readable": false,
+    "branch_protection_note": "GET /branch_protections requires admin scope; the bot token is not admin. Capture before-state at R06 with an admin-scoped credential."
+  },
+  "branch_heads": [
+    {
+      "name": "origin/main",
+      "sha": "792940a5715589102d32f7c5ca11c49c7c6423c7"
+    }
+  ],
+  "tags": [
+    {
+      "name": "archive/v0-final",
+      "object_type": "tag",
+      "tag_object_id": "2f3c81f6cb4592e7e909a14d8fb9695a1f33aae4",
+      "target_commit": "7d21b848a6d938c821cb36c3d00621c86253afeb",
+      "signed": false,
+      "tagger": "shawnbutts <dev1@shawnbutts.com> 1778012763 +0000"
+    },
+    {
+      "name": "v0.1.0",
+      "object_type": "tag",
+      "tag_object_id": "318c19f2c806580f4041911e644d4efc6143a7f2",
+      "target_commit": "8a48da100701839a23fd2da794ea548cdf0bfe0e",
+      "signed": false,
+      "tagger": "shawnbutts <dev1@shawnbutts.com> 1779926375 +0000"
+    },
+    {
+      "name": "v0.5.0",
+      "object_type": "tag",
+      "tag_object_id": "7003d8ddda6dfb12fc3d4cc6eff439ed8c919df2",
+      "target_commit": "0f4810cd1d3f51b770f4451b60fa449ea018b8b5",
+      "signed": false,
+      "tagger": "Keystone-core bot <bot@keystone-core.io> 1782587002 +0000"
+    }
+  ],
+  "releases": [
+    {
+      "tag": "v0.5.0",
+      "id": 10425107,
+      "name": "Keystone Core v0.5.0",
+      "draft": false,
+      "prerelease": false,
+      "published_at": "2026-06-27T21:11:23+02:00",
+      "asset_count": 20,
+      "assets": [
+        {
+          "name": "checksums.txt",
+          "size": 1734
+        },
+        {
+          "name": "keystone-core_0.5.0_darwin_amd64.tar.gz",
+          "size": 130123983
+        },
+        {
+          "name": "keystone-core_0.5.0_darwin_arm64.tar.gz",
+          "size": 121834814
+        },
+        {
+          "name": "keystone-core_0.5.0_linux_amd64.tar.gz",
+          "size": 167510966
+        },
+        {
+          "name": "keystone-core_0.5.0_linux_arm64.tar.gz",
+          "size": 153245703
+        },
+        {
+          "name": "keystone-core_0.5.0_windows_amd64.zip",
+          "size": 129940776
+        },
+        {
+          "name": "kscore-agent_0.5.0_linux_amd64.deb",
+          "size": 10781326
+        },
+        {
+          "name": "kscore-agent_0.5.0_linux_amd64.rpm",
+          "size": 11144311
+        },
+        {
+          "name": "kscore-agent_0.5.0_linux_arm64.deb",
+          "size": 9843120
+        },
+        {
+          "name": "kscore-agent_0.5.0_linux_arm64.rpm",
+          "size": 10094117
+        },
+        {
+          "name": "kscore-cli_0.5.0_linux_amd64.deb",
+          "size": 132807854
+        },
+        {
+          "name": "kscore-cli_0.5.0_linux_amd64.rpm",
+          "size": 137219817
+        },
+        {
+          "name": "kscore-cli_0.5.0_linux_arm64.deb",
+          "size": 121697924
+        },
+        {
+          "name": "kscore-cli_0.5.0_linux_arm64.rpm",
+          "size": 125045980
+        },
+        {
+          "name": "kscore-server_0.5.0_linux_amd64.deb",
+          "size": 24490114
+        },
+        {
+          "name": "kscore-server_0.5.0_linux_amd64.rpm",
+          "size": 25414974
+        },
+        {
+          "name": "kscore-server_0.5.0_linux_arm64.deb",
+          "size": 22207202
+        },
+        {
+          "name": "kscore-server_0.5.0_linux_arm64.rpm",
+          "size": 22903428
+        },
+        {
+          "name": "sbom-v0.5.0.cyclonedx.json",
+          "size": 4499232
+        },
+        {
+          "name": "sbom-v0.5.0.spdx.json",
+          "size": 6838942
+        }
+      ]
+    },
+    {
+      "tag": "v0.1.0",
+      "id": 9667643,
+      "name": "v0.1.0",
+      "draft": false,
+      "prerelease": false,
+      "published_at": "2026-05-28T02:03:08+02:00",
+      "asset_count": 20,
+      "assets": [
+        {
+          "name": "checksums.txt",
+          "size": 1734
+        },
+        {
+          "name": "keystone-core_0.1.0_darwin_amd64.tar.gz",
+          "size": 168590308
+        },
+        {
+          "name": "keystone-core_0.1.0_darwin_arm64.tar.gz",
+          "size": 157681685
+        },
+        {
+          "name": "keystone-core_0.1.0_linux_amd64.tar.gz",
+          "size": 164880175
+        },
+        {
+          "name": "keystone-core_0.1.0_linux_arm64.tar.gz",
+          "size": 150857083
+        },
+        {
+          "name": "keystone-core_0.1.0_windows_amd64.zip",
+          "size": 168520258
+        },
+        {
+          "name": "kscore-agent_0.1.0_linux_amd64.deb",
+          "size": 10791222
+        },
+        {
+          "name": "kscore-agent_0.1.0_linux_amd64.rpm",
+          "size": 11137397
+        },
+        {
+          "name": "kscore-agent_0.1.0_linux_arm64.deb",
+          "size": 9864186
+        },
+        {
+          "name": "kscore-agent_0.1.0_linux_arm64.rpm",
+          "size": 10135458
+        },
+        {
+          "name": "kscore-cli_0.1.0_linux_amd64.deb",
+          "size": 132500830
+        },
+        {
+          "name": "kscore-cli_0.1.0_linux_amd64.rpm",
+          "size": 136853396
+        },
+        {
+          "name": "kscore-cli_0.1.0_linux_arm64.deb",
+          "size": 121420848
+        },
+        {
+          "name": "kscore-cli_0.1.0_linux_arm64.rpm",
+          "size": 124832939
+        },
+        {
+          "name": "kscore-server_0.1.0_linux_amd64.deb",
+          "size": 22148628
+        },
+        {
+          "name": "kscore-server_0.1.0_linux_amd64.rpm",
+          "size": 22964281
+        },
+        {
+          "name": "kscore-server_0.1.0_linux_arm64.deb",
+          "size": 20077282
+        },
+        {
+          "name": "kscore-server_0.1.0_linux_arm64.rpm",
+          "size": 20725428
+        },
+        {
+          "name": "sbom-v0.1.0.cyclonedx.json",
+          "size": 5258926
+        },
+        {
+          "name": "sbom-v0.1.0.spdx.json",
+          "size": 7995726
+        }
+      ]
+    }
+  ],
+  "issues": {
+    "open_total": 106,
+    "open_total_paginated": 106,
+    "open_pull_requests": 0,
+    "open_without_milestone": [
+      232,
+      246
+    ],
+    "by_milestone": [
+      {
+        "id": 89201,
+        "title": "gate-v0.5",
+        "state": "open",
+        "open": 15,
+        "closed": 4
+      },
+      {
+        "id": 89204,
+        "title": "gate-v1.0",
+        "state": "open",
+        "open": 49,
+        "closed": 1
+      },
+      {
+        "id": 89207,
+        "title": "v0.x",
+        "state": "open",
+        "open": 40,
+        "closed": 7
+      },
+      {
+        "id": 89210,
+        "title": "v1.x",
+        "state": "open",
+        "open": 0,
+        "closed": 0
+      },
+      {
+        "id": 89213,
+        "title": "v2.x+",
+        "state": "open",
+        "open": 0,
+        "closed": 0
+      }
+    ]
+  },
+  "ci_contexts": [
+    "ci / build (amd64, linux) (push)",
+    "ci / dco-check (push)",
+    "ci / docs (push)",
+    "ci / e2e (push)",
+    "ci / integration (push)",
+    "ci / lint (push)",
+    "ci / openapi (push)",
+    "ci / proto (push)",
+    "ci / security (push)",
+    "ci / slo (push)",
+    "ci / smoke (push)",
+    "ci / test (push)",
+    "ci-full / build (amd64, darwin) (push)",
+    "ci-full / build (amd64, windows) (push)",
+    "ci-full / build (arm64, darwin) (push)",
+    "ci-full / build (arm64, linux) (push)",
+    "ci-full / build (arm64, windows) (push)",
+    "ci-full / deps-outdated (push)",
+    "ci-full / release-dry-run (push)"
+  ],
+  "issue_writing_automation": [
+    {
+      "source": ".forgejo/workflows/ci-full.yml",
+      "job": "deps-outdated",
+      "command": "make deps-outdated-issue",
+      "target_issue": 232,
+      "trigger": "schedule cron '0 5 * * *' (daily 05:00 UTC), plus push to main and workflow_dispatch",
+      "risk": "Mutates issue #232 updated_at nightly. R07 fails closed on updated_at, so the R02 snapshot drifts until R06 disables this job.",
+      "disabled_by": "R06"
+    }
+  ],
+  "mirror": {
+    "forge": "github.com",
+    "full_name": "Spicer-Creek-Solutions-LLC/keystone-core",
+    "default_branch": "main",
+    "pushed_at": "2026-09-08T21:21:29Z",
+    "archived": false,
+    "stars": 0,
+    "forks": 1,
+    "code_only": true,
+    "tags": [
+      {
+        "name": "v0.5.0",
+        "commit": "0f4810cd1d3f51b770f4451b60fa449ea018b8b5"
+      },
+      {
+        "name": "v0.1.0",
+        "commit": "8a48da100701839a23fd2da794ea548cdf0bfe0e"
+      },
+      {
+        "name": "archive/v0-final",
+        "commit": "7d21b848a6d938c821cb36c3d00621c86253afeb"
+      }
+    ],
+    "note": "Mirror lagged main at snapshot time; it had not yet received the R00/R01 merges."
+  },
+  "signing_preflight": {
+    "result": "pass_git_level",
+    "key_fingerprint": "18913D0E53BA40B100C3086A7796A98BEA4F4647",
+    "signing_subkey": "23583C11192A9DF4",
+    "signing_subkey_expires": "2027-06-01",
+    "primary_key_expires": "2036-05-29",
+    "signer_identity": "Keystone-core Bot <bot@keystone-core.io>",
+    "git_commit_signing": "verified (git commit -S -> %G? = G, git verify-commit good)",
+    "git_tag_signing": "verified (git tag -s -> git tag -v good signature)",
+    "forge_verification": "NOT AVAILABLE",
+    "forge_verification_detail": "The Codeberg account keystone-bot has zero registered GPG keys, and its account email (keystone-bot@shawnbutts.com) does not match the key uid (bot@keystone-core.io). Signatures are cryptographically valid but Codeberg will display them as unverified until the key is registered and the uid email is added and confirmed on the account. Registering it is a forge mutation and is out of R02 scope.",
+    "impact": "R05 archive tag will be cryptographically signed but not forge-verified unless the key is registered first.",
+    "generation_1_tags_signed": false
+  },
+  "gates": {
+    "policy": "R02 records gate results honestly; it does not fix unrelated failures.",
+    "environment": "local dev VM, go1.27.1 linux/amd64, tools rebuilt via make install-tools",
+    "passed": [
+      "lint",
+      "docs-lint",
+      "docs-links",
+      "docs-sync-check",
+      "clean-check",
+      "build",
+      "test-coverage",
+      "coverage-gate",
+      "slo",
+      "smoke",
+      "security-secrets",
+      "security-vulns",
+      "security-sast",
+      "openapi-lint",
+      "race-policy",
+      "goleak-policy"
+    ],
+    "failed": [
+      "security-licenses"
+    ],
+    "not_run_locally": {
+      "test-integration": "Postgres-gated, CI only",
+      "e2e-test": "Postgres/service-gated, CI only",
+      "ci-full cross-platform builds and release-dry-run": "push-to-main only"
+    },
+    "detail": {
+      "test-coverage": "CGO_ENABLED=1 go test -race ./... - 171 packages ok, 0 failures, total statement coverage 71.0%. 135 of 171 package results were reused from the Go test cache.",
+      "coverage-gate": "181 packages, 0 fails, 3 warns.",
+      "security-secrets": "gitleaks: 2864 commits scanned, no leaks found.",
+      "security-vulns": "govulncheck: findings only in required modules the code does not call.",
+      "security-sast": "gosec: 0 issues, 68 nosec annotations.",
+      "openapi-lint": "valid, 122 warnings."
+    }
+  },
+  "known_red_gates": [
+    {
+      "gate": "security-licenses",
+      "command": "go-licenses check --disallowed_types=forbidden,restricted,unknown --ignore=modernc.org/mathutil ./...",
+      "status": "RED on main",
+      "observed_locally": "exit 2 - 'Package testing / go/ast / go/parser does not have module info. Non go modules projects are no longer supported.' (google/go-licenses#128)",
+      "observed_in_ci": "ci / security (push) = failure on 82e1b9710, the merge commit that landed R00 on main. The same job reported success on the R00 and R01 pull-request runs (5ad5895d2, a35bdaaf3) and on the previous main tip 0a476caaa.",
+      "tooling": "go-licenses v2.0.1 built with go1.27.1 - exactly the version the Makefile pins. make install-tools considered the binary current and did not rebuild it, so this is not local toolchain drift.",
+      "likely_cause": "Per the Makefile note at install-tools, CI runners could pass while caching an older v1 binary; a runner resolving the pinned v2.0.1 under Go 1.27.1 fails to load stdlib module info. The pull-request runs and the push run therefore disagree.",
+      "disposition": "Recorded, not fixed. R02 preserves observed state and does not block archival on unrelated cleanup. This is a licence-scanning tooling failure, not a licence violation: no forbidden, restricted, or unknown licence was reported, because the scan aborted before classification.",
+      "action_required": "Maintainer decision. It does not affect the archive target or the integrity of any preserved ref."
+    }
+  ],
+  "retained_paths": {
+    "tracked_file_count": 1959,
+    "by_top_level": {
+      "internal": 1218,
+      "pkg": 203,
+      "docs": 116,
+      "cmd": 67,
+      "modules": 58,
+      ".changes": 53,
+      "test": 53,
+      "tools": 43,
+      "deploy": 35,
+      "assets": 31,
+      "<root>": 29,
+      "epics": 21,
+      "api": 13,
+      "scripts": 9,
+      ".forgejo": 8,
+      ".github": 1,
+      "testdata": 1
+    }
+  },
+  "generated_artifacts": {
+    "committed": [
+      "docs/project/CLI-REFERENCE.md",
+      "docs/project/CONFIGURATION-REFERENCE.md",
+      "docs/project/API-REFERENCE.md",
+      "docs/content/docs/modules/"
+    ],
+    "committed_generator": "make docs-sync (tools/gendocs/{cli,config,api,modules}); make docs-sync-check gates drift",
+    "untracked": [
+      "build/",
+      "dist/",
+      "docs/public/",
+      "data/",
+      "*.db"
+    ]
+  }
+}
