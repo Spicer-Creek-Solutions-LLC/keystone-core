@@ -73,6 +73,7 @@ type coverage struct {
 		Locator  string `json:"locator"`
 		Entry    string `json:"entry"`
 		Relation string `json:"relation"`
+		Kind     string `json:"kind"`
 		Text     string `json:"text"`
 		Also     []struct {
 			Entry    string `json:"entry"`
@@ -87,6 +88,8 @@ var (
 	validStatus = map[string]bool{"implemented": true, "partial": true, "planned": true, "unknown": true, "reference": true}
 	validScope  = map[string]bool{"v0.6": true, "Future": true}
 	validRel    = map[string]bool{"primary": true, "refinement": true, "duplicate": true, "domain-overview": true}
+	validKind   = map[string]bool{"capability-bullet": true, "roadmap-entry": true, "epic-checkbox": true,
+		"runbook-section": true, "details-section": true, "state-module": true, "changelog-fragment": true}
 )
 
 var (
@@ -436,21 +439,55 @@ func main() {
 
 	problems = append(problems, checkVocabularies(entries)...)
 
+	for _, e := range entries {
+		if strings.TrimSpace(e.Name) == "" {
+			add("%s has an empty capability name", e.ID)
+		}
+	}
+
 	// A Source cell must agree with the coverage item that created the entry.
+	primaryCount := map[string]int{}
 	primaryOf := map[string]string{}
 	for _, s := range cov.Sources {
 		if s.Relation == "primary" {
 			primaryOf[s.Entry] = s.File + " " + s.Locator
+			primaryCount[s.Entry]++
+		}
+		if !validKind[s.Kind] {
+			add("coverage kind %q is not one of the documented source kinds", s.Kind)
 		}
 		if !validRel[s.Relation] {
 			add("coverage relation %q is not one of the documented relations", s.Relation)
 		}
 		for _, a := range s.Also {
-			if !validRel[a.Relation] {
-				add("coverage also_entries relation %q is not one of the documented relations", a.Relation)
+			// also_entries exists only for the RFC 0001 execution-boundary split,
+			// which is a duplicate of an entry that already has its own primary.
+			if a.Relation != "duplicate" {
+				add("coverage also_entries relation for %s is %q; only \"duplicate\" is defined", a.Entry, a.Relation)
+			}
+			if s.Relation != "primary" {
+				add("coverage item %s %s carries also_entries but is not a primary", s.File, s.Locator)
 			}
 		}
 	}
+	// The coverage item an entry cites must not be a bare refinement. Demoting a
+	// primary would otherwise leave the entry looking merely unsourced rather
+	// than mis-sourced.
+	relationAt := map[string]string{}
+	entryAt := map[string]string{}
+	for _, s := range cov.Sources {
+		relationAt[s.File+" "+s.Locator] = s.Relation
+		entryAt[s.File+" "+s.Locator] = s.Entry
+	}
+	for _, e := range entries {
+		// domain-overview and duplicate are legitimate sole backings for an
+		// entry; a refinement is not, because a refinement by definition adds
+		// detail to an entry that some other item created.
+		if rel, ok := relationAt[e.Source]; ok && entryAt[e.Source] == e.ID && rel == "refinement" && primaryOf[e.ID] == "" {
+			add("%s cites %q, but that coverage item is recorded as a refinement and the entry has no primary", e.ID, e.Source)
+		}
+	}
+
 	for _, e := range entries {
 		want, ok := primaryOf[e.ID]
 		if !ok {

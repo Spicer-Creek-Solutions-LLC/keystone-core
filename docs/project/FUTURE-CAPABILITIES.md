@@ -72,7 +72,7 @@ rather than repeated here.
 |---|---|
 | Catalog entries | 703 |
 | Source items mapped | 1064 |
-| implemented / partial / planned / unknown | 251 / 55 / 266 / 91 |
+| implemented / partial / planned / unknown | 259 / 56 / 260 / 88 |
 | reference (non-capability entries) | 40 |
 | `v0.6` / `Future` | 50 / 653 |
 
@@ -106,7 +106,7 @@ rather than repeated here.
 | `CAP-FOUND-022` | Full security scanning suite | planned | Future | `FEATURES.md L78` |
 | `CAP-FOUND-023` | Goreleaser signing ceremony / multi-party release | planned | Future | `FEATURES.md L79` |
 | `CAP-FOUND-024` | Benchmark suite | planned | Future | `FEATURES.md L80` |
-| `CAP-FOUND-025` | Air-gapped repo packaging (kscore-bootstrap) | planned | Future | `FEATURES.md L81` |
+| `CAP-FOUND-025` | Air-gapped repo packaging (kscore-bootstrap) | implemented | Future | `FEATURES.md L81` |
 | `CAP-FOUND-026` | Rotation orchestrator | planned | Future | `docs/project/ROADMAP.md L504` |
 | `CAP-FOUND-027` | WASM module runtime | planned | Future | `docs/project/ROADMAP.md L1355` |
 | `CAP-FOUND-028` | K8s operator | planned | Future | `docs/project/ROADMAP.md L1431` |
@@ -124,10 +124,12 @@ Scope and status notes:
 - `CAP-FOUND-009` — Status established by hand audit of the v0.6 scope set: pkg/api/apierror/.
 - `CAP-FOUND-010` — Status established by hand audit of the v0.6 scope set: Makefile.
 - `CAP-FOUND-021` — Status established by hand audit of the v0.6 scope set: No VM harness exists in the tree; test/ has no vagrant, libvirt or qemu driver.
+- `CAP-FOUND-025` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-bootstrap/`.
 
 Known gaps and limitations:
 
 - `CAP-FOUND-015` — Hugo docs site.
+- `CAP-FOUND-020` — Native package repositories — APT, DNF/YUM.
 - `CAP-FOUND-023` — Release signing ceremony — signed tags + checksums + SBOMs.
 - `CAP-FOUND-026` — The backlog records this as outstanding work; the entry names no reference paths, so the archive shows what was wanted rather than what was built.
 - `CAP-FOUND-027` — The backlog records this as outstanding work; the entry names no reference paths, so the archive shows what was wanted rather than what was built.
@@ -196,7 +198,7 @@ Known gaps and limitations:
 | `CAP-STORE-012` | Schema versioning / golang-migrate | planned | Future | `FEATURES.md L131` |
 | `CAP-STORE-013` | Encryption at rest | planned | Future | `FEATURES.md L132` |
 | `CAP-STORE-014` | Multi-table transaction wrapper (Tx) | planned | Future | `FEATURES.md L133` |
-| `CAP-STORE-015` | Backup/restore as Store API methods | planned | Future | `FEATURES.md L134` |
+| `CAP-STORE-015` | Backup/restore as Store API methods | implemented | Future | `FEATURES.md L134` |
 | `CAP-STORE-016` | Query backends — Loki/Prometheus/Jaeger integration | planned | Future | `FEATURES.md L135` |
 | `CAP-STORE-017` | Cloud KMS for storage encryption keys | planned | Future | `FEATURES.md L136` |
 | `CAP-STORE-018` | Store interface fully wired for both backends; all sub-interfaces stub-or-real | implemented | Future | `epics/02-storage-layer.md L47` |
@@ -209,6 +211,7 @@ Scope and status notes:
 
 - `CAP-STORE-001` — Status established by hand audit of the v0.6 scope set: SQLite stores exist per domain, for example internal/webhook/outbound/store_sqlite.go and internal/gitops/rollback/store_sqlite.go.
 - `CAP-STORE-003` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `modernc.org/sqlite`.
+- `CAP-STORE-015` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-backup/`.
 
 Known gaps and limitations:
 
@@ -279,7 +282,7 @@ Known gaps and limitations:
 | `CAP-API-015` | gRPC ↔ REST mapping | unknown | Future | `FEATURES.md L184` |
 | `CAP-API-016` | MaintenanceService | planned | Future | `FEATURES.md L188` |
 | `CAP-API-017` | ScheduleService | planned | Future | `FEATURES.md L189` |
-| `CAP-API-018` | RunbookService gRPC | planned | Future | `FEATURES.md L190` |
+| `CAP-API-018` | RunbookService gRPC | partial | Future | `FEATURES.md L190` |
 | `CAP-API-019` | WebhookService | planned | Future | `FEATURES.md L191` |
 | `CAP-API-020` | GitOps webhook REST handlers wiring | planned | Future | `FEATURES.md L192` |
 | `CAP-API-021` | MirrorService / DiscoveryService | planned | Future | `FEATURES.md L193` |
@@ -311,10 +314,12 @@ Scope and status notes:
 
 Known gaps and limitations:
 
-- `CAP-API-001` — The proto and generated stubs exist, but nothing outside generated code implements its server interface and it is never registered on the gRPC server. RFC 0001 names this exact pattern -- package-level presence mistaken for production wiring -- as founding evidence for the reboot.
-- `CAP-API-016` — The proto and generated stubs exist, but nothing outside generated code implements its server interface and it is never registered on the gRPC server. RFC 0001 names this exact pattern -- package-level presence mistaken for production wiring -- as founding evidence for the reboot.
-- `CAP-API-017` — The proto and generated stubs exist, but nothing outside generated code implements its server interface and it is never registered on the gRPC server. RFC 0001 names this exact pattern -- package-level presence mistaken for production wiring -- as founding evidence for the reboot.
-- `CAP-API-019` — The proto and generated stubs exist, but nothing outside generated code implements its server interface and it is never registered on the gRPC server. RFC 0001 names this exact pattern -- package-level presence mistaken for production wiring -- as founding evidence for the reboot.
+- `CAP-API-001` — The proto and generated stubs exist, but nothing outside generated and test code implements its server interface and it is never registered on the gRPC server. RFC 0001 names this exact pattern -- package-level presence mistaken for production wiring -- as founding evidence for the reboot.
+- `CAP-API-016` — The proto and generated stubs exist, but nothing outside generated and test code implements its server interface and it is never registered on the gRPC server. RFC 0001 names this exact pattern -- package-level presence mistaken for production wiring -- as founding evidence for the reboot.
+- `CAP-API-017` — The proto and generated stubs exist, but nothing outside generated and test code implements its server interface and it is never registered on the gRPC server. RFC 0001 names this exact pattern -- package-level presence mistaken for production wiring -- as founding evidence for the reboot.
+- `CAP-API-018` — The proto and generated stubs exist, but it is never registered on the gRPC server. RFC 0001 names this exact pattern -- package-level presence mistaken for production wiring -- as founding evidence for the reboot.
+- `CAP-API-019` — The proto and generated stubs exist, but nothing outside generated and test code implements its server interface and it is never registered on the gRPC server. RFC 0001 names this exact pattern -- package-level presence mistaken for production wiring -- as founding evidence for the reboot.
+- `CAP-API-021` — The proto and generated stubs exist, but nothing outside generated and test code implements its server interface and it is never registered on the gRPC server. RFC 0001 names this exact pattern -- package-level presence mistaken for production wiring -- as founding evidence for the reboot.
 - `CAP-API-023` — gRPC-gateway annotation-driven REST + OpenAPI auto-gen.
 - `CAP-API-025` — The backlog item's own text states this had not been built: gRPC clients call `MaintenanceService.{Plan,Apply,Status}` and `ScheduleService.{Create,List,Run}`.
 - `CAP-API-026` — Referenced code exists, but this backlog item describes work that had not landed: encrypted-file backend reaps entries whose `Metadata["ttl_seconds"]` has elapsed since `UpdatedAt`; `GetSecret` on an expired path returns `ErrSecretNotFound` even without an expli.
@@ -430,7 +435,7 @@ Scope and status notes:
 - `CAP-EXEC-001` — Status established by hand audit of the v0.6 scope set: internal/controlplane/command_dispatcher.go.
 - `CAP-EXEC-007` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `expr-lang/expr`.
 - `CAP-EXEC-009` — Status established by hand audit of the v0.6 scope set: internal/controlplane/batch_dispatcher.go.
-- `CAP-EXEC-014` — FEATURES.md declares source path(s) that are absent from the final tree: cmd/kscore-exec/
+- `CAP-EXEC-014` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscorectl/`.
 - `CAP-EXEC-014` — Status established by hand audit of the v0.6 scope set: All seven subcommands exist under internal/cli/exec/; only the declared cmd/kscore-exec/ binary is stale, the commands having been folded into kscorectl.
 - `CAP-EXEC-014` — RFC 0001 admits run, status, output and cancel. The async, list and script subcommands named here involve batch fan-out and script execution, which the RFC places outside the first-release boundary; admitting them requires an RFC amendment.
 - `CAP-EXEC-019` — Status established by hand audit of the v0.6 scope set: Cancel persists CANCELLED server-side only; agent-side in-flight processes run to completion.
@@ -621,6 +626,7 @@ Known gaps and limitations:
 Scope and status notes:
 
 - `CAP-EVENT-006` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `google/cel-go`.
+- `CAP-EVENT-008` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-events/`.
 - `CAP-EVENT-009` — Catalogued twice; evidence for this capability sits on `CAP-SECRET-008`.
 
 Known gaps and limitations:
@@ -707,6 +713,10 @@ Known gaps and limitations:
 | `CAP-SECRET-023` | Secrets transit GenerateDataKey on the wire | planned | Future | `docs/project/ROADMAP.md L1318` |
 | `CAP-SECRET-024` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L758` |
 
+Scope and status notes:
+
+- `CAP-SECRET-009` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-secrets/`.
+
 Known gaps and limitations:
 
 - `CAP-SECRET-006` — Secrets transit batch API on the wire.
@@ -744,7 +754,7 @@ Known gaps and limitations:
 | `CAP-AUDIT-019` | Enforcement actions | planned | Future | `FEATURES.md L432` |
 | `CAP-AUDIT-020` | Pre/post-execution hooks | planned | Future | `FEATURES.md L433` |
 | `CAP-AUDIT-021` | Approval workflows for policy violations | planned | Future | `FEATURES.md L434` |
-| `CAP-AUDIT-022` | kscore-policy create\|update\|delete\|activate\|deactivate\|remediate\|monitor | planned | Future | `FEATURES.md L435` |
+| `CAP-AUDIT-022` | kscore-policy create\|update\|delete\|activate\|deactivate\|remediate\|monitor | partial | Future | `FEATURES.md L435` |
 | `CAP-AUDIT-023` | Policy persistence | planned | Future | `FEATURES.md L436` |
 | `CAP-AUDIT-024` | Continuous compliance scan scheduler | planned | Future | `FEATURES.md L440` |
 | `CAP-AUDIT-025` | CEL custom function library | planned | Future | `FEATURES.md L441` |
@@ -761,11 +771,14 @@ Scope and status notes:
 - `CAP-AUDIT-001` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `internal/audit/`.
 - `CAP-AUDIT-003` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `AuditFilter`.
 - `CAP-AUDIT-003` — Status established by hand audit of the v0.6 scope set: internal/audit/.
+- `CAP-AUDIT-005` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-audit/`.
 - `CAP-AUDIT-007` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `open-policy-agent/opa`, `v1/rego`.
 - `CAP-AUDIT-008` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `google/cel-go`.
 - `CAP-AUDIT-011` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `PolicySet`.
 - `CAP-AUDIT-012` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `Bindings`.
 - `CAP-AUDIT-016` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `PolicyService`.
+- `CAP-AUDIT-017` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-policy/`.
+- `CAP-AUDIT-022` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-policy/`.
 
 Known gaps and limitations:
 
@@ -795,7 +808,7 @@ Known gaps and limitations:
 | `CAP-GITOPS-011` | Rollback executors | partial | Future | `FEATURES.md L460` |
 | `CAP-GITOPS-012` | Approval workflow for rollback | unknown | Future | `FEATURES.md L461` |
 | `CAP-GITOPS-013` | Verification result storage + REST list/get | implemented | Future | `FEATURES.md L462` |
-| `CAP-GITOPS-014` | kscore-gitops CLI | unknown | Future | `FEATURES.md L463` |
+| `CAP-GITOPS-014` | kscore-gitops CLI | implemented | Future | `FEATURES.md L463` |
 | `CAP-GITOPS-015` | Multi-env promotion pipelines | planned | Future | `FEATURES.md L467` |
 | `CAP-GITOPS-016` | Promotion state machine + REST API | planned | Future | `FEATURES.md L468` |
 | `CAP-GITOPS-017` | Basic remediation strategies | planned | Future | `FEATURES.md L469` |
@@ -814,8 +827,9 @@ Known gaps and limitations:
 Scope and status notes:
 
 - `CAP-GITOPS-009` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `Verifier`.
-- `CAP-GITOPS-010` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `/api/v1/gitops/rollback`, `rollback`.
+- `CAP-GITOPS-010` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-gitops/`.
 - `CAP-GITOPS-013` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `/api/v1/gitops/verifications`.
+- `CAP-GITOPS-014` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-gitops/`.
 
 Known gaps and limitations:
 
@@ -849,7 +863,7 @@ Scope and status notes:
 
 - `CAP-HOOK-007` — FEATURES.md declares no source path; the capability is evidenced by `internal/webhook/outbound/circuit_breaker.go`.
 - `CAP-HOOK-010` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `/api/v1/webhooks/subscriptions`.
-- `CAP-HOOK-011` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `outbound`.
+- `CAP-HOOK-011` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-webhook/`.
 
 ### Clustering and high availability
 
@@ -957,7 +971,7 @@ Known gaps and limitations:
 | `CAP-BLUE-002` | Blueprint apply | unknown | Future | `FEATURES.md L595` |
 | `CAP-BLUE-003` | Blueprint feature flags + multi-instance namespacing (as:) | unknown | Future | `FEATURES.md L596` |
 | `CAP-BLUE-004` | Standard blueprint catalog (~6 v1.0) | implemented | Future | `FEATURES.md L597` |
-| `CAP-BLUE-005` | kscore-blueprint CLI | unknown | Future | `FEATURES.md L598` |
+| `CAP-BLUE-005` | kscore-blueprint CLI | implemented | Future | `FEATURES.md L598` |
 | `CAP-BLUE-006` | Blueprint storage | unknown | Future | `FEATURES.md L599` |
 | `CAP-BLUE-007` | Runbook YAML model | implemented | Future | `FEATURES.md L600` |
 | `CAP-BLUE-008` | Runbook step types (v1.0 subset) | unknown | Future | `FEATURES.md L601` |
@@ -977,7 +991,7 @@ Known gaps and limitations:
 | `CAP-BLUE-022` | Rollback step type with auto-compensation | planned | Future | `FEATURES.md L621` |
 | `CAP-BLUE-023` | Standard catalog expansion | planned | Future | `FEATURES.md L625` |
 | `CAP-BLUE-024` | Saga checkpoint resume | planned | Future | `FEATURES.md L626` |
-| `CAP-BLUE-025` | Blueprint signature + signed bundles | planned | Future | `FEATURES.md L627` |
+| `CAP-BLUE-025` | Blueprint signature + signed bundles | implemented | Future | `FEATURES.md L627` |
 | `CAP-BLUE-026` | Blueprint mirror for air-gap | planned | Future | `FEATURES.md L628` |
 | `CAP-BLUE-027` | Blueprint applied-runs store (durable) | planned | Future | `docs/project/ROADMAP.md L296` |
 | `CAP-BLUE-028` | Durable runbook execution store | planned | Future | `docs/project/ROADMAP.md L345` |
@@ -987,8 +1001,11 @@ Known gaps and limitations:
 
 Scope and status notes:
 
+- `CAP-BLUE-005` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-blueprint/`.
+- `CAP-BLUE-011` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-runbook/`.
 - `CAP-BLUE-012` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `pkg/saga`.
 - `CAP-BLUE-013` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `pkg/statemachine`.
+- `CAP-BLUE-025` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-blueprint/`.
 
 Known gaps and limitations:
 
@@ -1013,7 +1030,7 @@ Known gaps and limitations:
 | `CAP-PLUG-011` | Module audit logging | implemented | Future | `FEATURES.md L648` |
 | `CAP-PLUG-012` | Plugin discovery | implemented | Future | `FEATURES.md L649` |
 | `CAP-PLUG-013` | Starlark SDK | partial | Future | `FEATURES.md L650` |
-| `CAP-PLUG-014` | kscore-module CLI | unknown | Future | `FEATURES.md L651` |
+| `CAP-PLUG-014` | kscore-module CLI | implemented | Future | `FEATURES.md L651` |
 | `CAP-PLUG-015` | Module test framework | implemented | Future | `FEATURES.md L652` |
 | `CAP-PLUG-016` | Module policy hooks | unknown | Future | `FEATURES.md L653` |
 | `CAP-PLUG-017` | WASM runtime | planned | Future | `FEATURES.md L657` |
@@ -1021,7 +1038,7 @@ Known gaps and limitations:
 | `CAP-PLUG-019` | Go (TinyGo) SDK | planned | Future | `FEATURES.md L659` |
 | `CAP-PLUG-020` | OCI registry backend | planned | Future | `FEATURES.md L660` |
 | `CAP-PLUG-021` | S3/GCS/Azure storage backends | planned | Future | `FEATURES.md L661` |
-| `CAP-PLUG-022` | kscore-module mirror | planned | Future | `FEATURES.md L662` |
+| `CAP-PLUG-022` | kscore-module mirror | implemented | Future | `FEATURES.md L662` |
 | `CAP-PLUG-023` | kscore-module update | implemented | Future | `FEATURES.md L663` |
 | `CAP-PLUG-024` | SumDB transparency log | planned | Future | `FEATURES.md L667` |
 | `CAP-PLUG-025` | Fine-grained capability model | planned | Future | `FEATURES.md L668` |
@@ -1040,7 +1057,9 @@ Known gaps and limitations:
 
 Scope and status notes:
 
-- `CAP-PLUG-023` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `update`.
+- `CAP-PLUG-014` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-module/`.
+- `CAP-PLUG-022` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-module/`.
+- `CAP-PLUG-023` — FEATURES.md declares no source path; the capability is evidenced by `cmd/kscore-module/`.
 
 Known gaps and limitations:
 
@@ -1054,7 +1073,7 @@ Known gaps and limitations:
 
 | ID | Capability | Status | Scope | Source |
 |---|---|---|---|---|
-| `CAP-MULTI-001` | Platform detection | partial | Future | `FEATURES.md L682` |
+| `CAP-MULTI-001` | Platform detection | implemented | Future | `FEATURES.md L682` |
 | `CAP-MULTI-002` | Hardware introspection | planned | Future | `FEATURES.md L683` |
 | `CAP-MULTI-003` | Network interface detection | planned | Future | `FEATURES.md L684` |
 | `CAP-MULTI-004` | IPv6 dual-stack on all listeners | unknown | Future | `FEATURES.md L685` |
@@ -1080,10 +1099,6 @@ Scope and status notes:
 - `CAP-MULTI-002` — FEATURES.md declares source path(s) that are absent from the final tree: internal/hardware/
 - `CAP-MULTI-003` — FEATURES.md declares source path(s) that are absent from the final tree: internal/netutil/
 - `CAP-MULTI-011` — FEATURES.md declares source path(s) that are absent from the final tree: internal/k8s/
-
-Known gaps and limitations:
-
-- `CAP-MULTI-001` — Native package repositories — APT, DNF/YUM.
 
 ### Specialized and extension domains
 
@@ -1308,6 +1323,30 @@ Known gaps and limitations:
 | ID | Capability | Status | Scope | Source |
 |---|---|---|---|---|
 | `CAP-TRANS-001` | Generation 2 reboot transition record | implemented | v0.6 | `.changes/unreleased/20260909-generation-1-freeze.yaml` |
+
+## Known limitations of this catalog
+
+Two things a reader should not assume, both established by the independent
+verification this task required rather than discovered later.
+
+**The check proves form, not truth.** `make capability-catalog-check` confirms
+the catalog is well-formed, completely covered, and internally consistent. It
+cannot confirm that any individual status is *correct*. Reconciling the totals
+table catches a single status changed to a falsehood, because the counts stop
+adding up — but a compensating swap between two entries balances and passes, and
+a renamed capability passes. The statuses rest on the audit recorded in this
+task's commit history; CI protects them from drift, not from error.
+
+**`unknown` is a deliberate answer, not an unfinished one.** Where `FEATURES.md`
+declares no source path and quotes no identifier that resolves, the entry says
+`unknown` rather than guessing. A looser matching rule was tried and rejected
+during the audit: matching any single significant word of a capability name to a
+Go filename paired "Windows agent" and "macOS agent" with the same
+`internal/agent/agent.go`, and "Multi-region replication" with
+`internal/audit/multi.go`. It produced 182 matches, most of them wrong. A false
+`implemented` is a claim the archive cannot support; an `unknown` is an
+admission it cannot be settled from the sources. The remaining `unknown` entries
+are the second kind.
 
 ## Coverage
 

@@ -357,6 +357,14 @@
    "entry": "CAP-FOUND-020",
    "relation": "primary"
   },
+  "SRC-0533": {
+   "file": "docs/project/ROADMAP.md",
+   "locator": "L1109",
+   "kind": "roadmap-entry",
+   "text": "Native package repositories \u2014 APT, DNF/YUM",
+   "entry": "CAP-FOUND-020",
+   "relation": "refinement"
+  },
   "SRC-0021": {
    "file": "FEATURES.md",
    "locator": "L77",
@@ -6264,14 +6272,6 @@
    "text": "**Platform detection** (Linux distro via `/etc/os-release`; arch; package manager: apt/dnf/yum/pacman/zypper/apk; init system: systemd/sysv/openrc; virtualization: KVM/VMware/VBox/Xen/Hyper-V). Source",
    "entry": "CAP-MULTI-001",
    "relation": "primary"
-  },
-  "SRC-0533": {
-   "file": "docs/project/ROADMAP.md",
-   "locator": "L1109",
-   "kind": "roadmap-entry",
-   "text": "Native package repositories \u2014 APT, DNF/YUM",
-   "entry": "CAP-MULTI-001",
-   "relation": "refinement"
   },
   "SRC-0395": {
    "file": "FEATURES.md",
