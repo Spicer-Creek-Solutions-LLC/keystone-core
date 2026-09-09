@@ -1280,6 +1280,16 @@ entry — `primary`, `refinement`, `duplicate`, or `domain-overview`. It is the
 artifact to check against, rather than this file's prose, when verifying that
 nothing was dropped.
 
+`make capability-catalog-check` enforces that. It re-enumerates the archived
+sources at the pinned commit, confirms the coverage map accounts for every item
+and invents none, that every entry is reachable and uniquely identified, that
+every `Source` locator still resolves, and that the status taxonomy above holds
+— an entry cannot be `implemented` and carry a documented gap, cannot be
+`partial` without naming one, and cannot restate its own name as its gap. It
+does not regenerate the catalog: R03's generator ran once, and what has to
+survive is the ability to prove these claims rather than to reproduce the
+judgement behind them.
+
 Sources reconciled: `FEATURES.md`, `PROJECT-DETAILS.md`,
 [`ROADMAP.md`](ROADMAP.md), [`STATE-SUPPORT-MATRIX.md`](STATE-SUPPORT-MATRIX.md),
 `epics/00`–`epics/19`, `docs/runbooks/`, and the unreleased changelog fragments.

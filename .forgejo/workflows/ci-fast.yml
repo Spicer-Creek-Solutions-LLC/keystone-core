@@ -479,9 +479,20 @@ jobs:
     runs-on: docker
     steps:
       - uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 so the Generation 1 archive target is reachable.
+          # capability-catalog-check reads the archived sources at that commit
+          # rather than from the working tree, the same way dco-check needs
+          # history for `git log A..B`.
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false
       # make docs-lint runs markdownlint-cli2 via `npx --yes` (runner image
       # has npm/npx; rules + globs live in .markdownlint-cli2.yaml).
       - run: make docs-lint
+      - run: make capability-catalog-check
 
   proto:
     runs-on: docker

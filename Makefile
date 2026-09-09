@@ -56,7 +56,7 @@ export CGO_ENABLED := 0
 .PHONY: help \
         build build-all-platforms clean clean-all clean-check deps install-tools install-lychee install-hugo docs-site docs-links-site \
         promo promo-publish update-promo promo-check install-promo-tools \
-        test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check test-integration slo profile test-cross-distro check deps deps-outdated deps-outdated-issue \
+        test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check capability-catalog-check test-integration slo profile test-cross-distro check deps deps-outdated deps-outdated-issue \
         fmt lint lint-fix smoke test-packaging \
         proto proto-lint proto-breaking \
         openapi-lint \
@@ -488,6 +488,15 @@ openapi-lint: ## Lint api/openapi/openapi-spec.yaml via redocly
 # markdownlint-cli2 reads .markdownlint-cli2.yaml (rules + the docs/**/*.md
 # glob). docs-lint needs Node locally; docs-lint-container runs the same thing
 # in node:22-alpine for hosts without Node (CI runs docs-lint directly).
+
+capability-catalog-check: ## Verify the R03 capability catalog still covers the archived Generation 1 sources
+	# Validates docs/project/FUTURE-CAPABILITIES.md against
+	# docs/transition/capability-coverage.json and the Generation 1 sources as
+	# they stood at the archive target recorded in docs/transition/manifest.json.
+	# It does not regenerate the catalog: R03's generator ran once, and what has
+	# to survive is the ability to prove the claims still hold. Needs the pinned
+	# commit, so CI checks out with fetch-depth: 0.
+	go run ./tools/capcheck
 
 docs-lint: ## Lint Markdown docs via markdownlint-cli2 (.markdownlint-cli2.yaml)
 	@command -v npx >/dev/null || { \
