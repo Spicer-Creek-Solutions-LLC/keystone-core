@@ -136,6 +136,8 @@ all entries remain `Future / Unscheduled` unless RFC 0001 includes them.
 
 ### R04 — Build tracker-retirement tooling
 
+**Status:** complete on `reboot-r04-tracker-tooling`; the tool is `tools/transition`.
+
 **Goal:** make issue retirement safe, repeatable, and auditable.
 
 **Work:** extend `trackerctl` with dry-run default, explicit `--apply`, an exact

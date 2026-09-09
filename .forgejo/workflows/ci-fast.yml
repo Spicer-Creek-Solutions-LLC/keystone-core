@@ -115,6 +115,7 @@ jobs:
       # unless its target is on the allowList in tools/racegate/
       # main.go (currently only `slo`, for wall-clock SLO accuracy).
       # Per docs/project/TEST-POLICY.md.
+      - run: make transition-check
       - run: make race-policy
       # Epic 19 task 6 — goleak policy lint. Every package with a
       # //go:build integration test file must have a TestMain wrapping
