@@ -608,6 +608,27 @@
       "ci / test (push)": "failing intermittently. Tracked as issue #246, 'flaky test job \u2014 4 failures in 12 runs on identical-passing code', same shape as #234 (lint) and #6 (e2e). Passes locally and passed on the R05 pull-request run. Not a regression.",
       "ci-full / release-dry-run (push)": "was failing for the reason above; fixed in this task.",
       "ci / security (push)": "the security-licenses scanner failure recorded at R02 did not recur on this run."
+    },
+    "after": {
+      "verified_at": "2026-09-10T20:13:26Z",
+      "branch": "main",
+      "protected": true,
+      "required_approvals": 0,
+      "status_checks_enabled": true,
+      "required_contexts": [
+        "reboot-baseline / verify (pull_request)"
+      ],
+      "direct_push_denied": true,
+      "negative_probe": "DELETE /repos/{owner}/{repo}/branches/main returned 403; protection is live rather than merely configured",
+      "read_from": "GET /repos/{owner}/{repo}/branches/{branch}, which exposes status_check_contexts and required_approvals to a non-admin token"
+    },
+    "push_context_trap": {
+      "what_happened": "The first switch required both 'reboot-baseline / verify (pull_request)' and 'reboot-baseline / verify (push)'.",
+      "why_it_was_wrong": "The two never appear on the same commit. A pull-request head carries only the (pull_request) context and a push-to-main commit carries only the (push) one, so requiring both would have left every future pull request waiting forever on a context that cannot be reported for it.",
+      "consequence_avoided": "main would have become unmergeable -- the same failure R06 exists to prevent, reached from the opposite direction: not a required context whose workflow was deleted, but one whose trigger cannot fire on the thing being gated.",
+      "why_it_was_easy_to_hit": "The settings list offers both variants and they read as near-duplicates.",
+      "resolution": "The (push) entry was removed. Only the pull-request context is required, matching the arrangement the twelve legacy contexts used.",
+      "how_it_was_caught": "Reading status_check_contexts back through the branches API. Had that field been admin-only, as tag protection is, this would have surfaced as R07's pull request hanging with no explanation."
     }
   }
 }
