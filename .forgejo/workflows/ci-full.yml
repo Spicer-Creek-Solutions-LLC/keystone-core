@@ -25,9 +25,8 @@ name: ci-full
 
 # Email the repo owner when a run fails (or recovers). This workflow runs
 # unattended — nightly cron + push-to-main — so a failure (a freshly
-# published CVE, a toolchain/dep break, the deps-outdated issue step
-# hitting a token problem) would otherwise go unnoticed. Failure/recovery
-# only; successful runs send nothing. For scheduled runs the mail goes to
+# published CVE, or a toolchain/dep break) would otherwise go unnoticed.
+# Failure/recovery only; successful runs send nothing. For scheduled runs the mail goes to
 # the repository owner / org contact.
 enable-email-notifications: true
 
@@ -53,6 +52,18 @@ concurrency:
 # there is no second consumer to keep the field for.
 
 jobs:
+  # The `deps-outdated` job was removed by reboot task R06. It ran
+  # `make deps-outdated-issue` nightly, which created and updated tracking
+  # issue #232 through the Forgejo API — the only automation in this
+  # repository that writes to the issue tracker.
+  #
+  # It had to stop before R07 retires the Generation 1 tracker: R07 fails
+  # closed when an allowlisted issue's `updated_at` has moved since review,
+  # and a nightly writer meant the reviewed snapshot decayed every morning
+  # at 05:00 UTC.
+  #
+  # Issue automation returns in R09, generation-aware, with a negative test
+  # proving that closing #232 cannot cause a replacement to be created.
   # Epic 19 task 13 — release dry-run. Builds the full goreleaser
   # snapshot (5 archives, 12 nfpm packages, checksums.txt) and runs
   # scripts/release-smoke.sh which asserts artifact shape + linux-side
@@ -135,36 +146,3 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
         run: make build
 
-  # Dependency-freshness report. Lists direct go.mod deps with a newer
-  # release available (splitting low-risk minor/patch from review-worthy
-  # major bumps), so drift surfaces proactively — e.g. nats-server
-  # v2.14.0→v2.14.2 would have shown here before it bit us in e2e.
-  #
-  # Informational only (the tool always exits 0; no auto-bump — deps
-  # still change via reviewed PRs per the comparison-plan rule).
-  # Restricted to the nightly cron + manual dispatch so it doesn't add
-  # noise to every push-to-main run; the proxy lookups want fresh state
-  # anyway, which the nightly cadence provides.
-  #
-  # `deps-outdated-issue` also maintains a single tracking issue (create
-  # when deps drift, update each run, close when clear) so the findings
-  # surface as an issue notification instead of living only in this log.
-  # That needs issue-write, which on Forgejo comes from the runner's
-  # token scope / Authorized Integrations -- not from a `permissions:`
-  # block, which Forgejo ignores with a warning. Hence the token env
-  # alone. The issue sync is best-effort, so a token problem warns but never
-  # fails the job (it would instead show up via enable-email-notifications
-  # if the whole run went red for another reason).
-  deps-outdated:
-    runs-on: docker
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: false
-      - name: report outdated direct dependencies + sync tracking issue
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: make deps-outdated-issue

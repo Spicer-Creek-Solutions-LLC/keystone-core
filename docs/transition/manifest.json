@@ -555,5 +555,47 @@
       "not_a_secrets_rewrite": "gitleaks scans the full reachable history (2886 of 2904 non-merge commits; a replace-only commit was spot-checked directly) and reports no leaks. The rewrite removed working notes, not sensitive material.",
       "decision": "Not pushed to the forge. Maintainer decision, on the grounds that republishing ~2000 content-duplicate commits works against R08's minimal baseline while preserving nothing the current history and this bundle do not already hold."
     }
+  },
+  "ci_and_protection": {
+    "recorded_at": "2026-09-10T18:23:59Z",
+    "before": {
+      "branch": "main",
+      "protected": true,
+      "required_approvals": 0,
+      "status_checks_enabled": true,
+      "required_contexts": [
+        "ci / lint (pull_request)",
+        "ci / test (pull_request)",
+        "ci / slo (pull_request)",
+        "ci / integration (pull_request)",
+        "ci / smoke (pull_request)",
+        "ci / security (pull_request)",
+        "ci / e2e (pull_request)",
+        "ci / openapi (pull_request)",
+        "ci / docs (pull_request)",
+        "ci / proto (pull_request)",
+        "ci / build (amd64, linux) (pull_request)",
+        "ci / dco-check (pull_request)"
+      ],
+      "note": "All twelve required contexts come from .forgejo/workflows/ci-fast.yml. Nothing from ci-full.yml was ever required."
+    },
+    "after_intended": {
+      "required_contexts": [
+        "reboot-baseline / verify (pull_request)"
+      ],
+      "rationale": "A required context whose workflow R08 deletes can never be reported, and main would become permanently unmergeable. The new context is produced by a workflow that needs no Go toolchain, so it keeps working once the module is gone."
+    },
+    "risk_window": {
+      "description": "Between this switch and R08, the Generation 1 Go code still exists but is gated only by the minimal baseline. ci-fast.yml keeps running, so failures remain visible; they simply stop blocking a merge.",
+      "accepted_by": "maintainer, on the plan's own terms: R06's acceptance requires that legacy contexts no longer block"
+    },
+    "issue_automation_disabled": {
+      "removed": ".forgejo/workflows/ci-full.yml job `deps-outdated`",
+      "what_it_did": "ran `make deps-outdated-issue` on the nightly cron, creating and updating tracking issue #232 through the Forgejo API",
+      "why_it_had_to_stop": "R07 fails closed when an allowlisted issue's updated_at has moved since review; a nightly writer meant the reviewed snapshot decayed every morning at 05:00 UTC",
+      "returns_in": "R09, generation-aware, with a negative test proving that closing #232 cannot create a replacement"
+    },
+    "release_automation": "None to disable. ci-full.yml's release-dry-run publishes nothing, and real releases are the manual ceremony in RELEASE-PLAYBOOK.md. There are no workflows under .github/.",
+    "github_mirror": "Out of scope by maintainer decision. The mirror stopped syncing at 0a476caaa on 2026-09-06 and carries no workflows or protection of its own, so there is no second forge state to record."
   }
 }
