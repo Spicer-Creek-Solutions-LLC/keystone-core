@@ -1,0 +1,82 @@
+# The Generation 2 baseline gate.
+#
+# This exists so that removing the Generation 1 workflows in R08 cannot make
+# `main` unmergeable. A required status context whose workflow no longer exists
+# is never reported, and a branch that requires it can never be merged again —
+# recovering from that needs an admin protection-maintenance window, which is
+# exactly the situation R06 is here to avoid.
+#
+# So the order is: land this workflow, let a pull request produce its context so
+# the setting becomes selectable, switch `main`'s required checks to it, and only
+# then let R08 delete the old workflow files.
+#
+# It is deliberately minimal, and specifically it needs no Go toolchain. After
+# R08 the repository is planning and governance documents with no Go module, so
+# anything depending on `go` would stop working at precisely the moment this
+# gate becomes the only one. Markdown lint runs through `npx`, and the DCO check
+# is shell and git.
+#
+# `ci-fast.yml` keeps running until R08 removes it. Between now and then its
+# results are visible but no longer blocking, which is the deliberate trade
+# recorded in the R06 section of docs/project/REBOOT-EXECUTION-PLAN.md.
+name: reboot-baseline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: reboot-baseline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The PR head rather than the synthesized merge ref, so the DCO check
+          # reads the contributor's actual commits. fetch-depth: 0 so both the
+          # base and head SHAs are reachable for `git log A..B`.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+
+      # markdownlint-cli2 via npx: rules and globs live in
+      # .markdownlint-cli2.yaml. No Go, no project toolchain.
+      - name: markdown lint
+        run: make docs-lint
+
+      # Every non-merge commit on a pull request must carry a Signed-off-by
+      # trailer, per docs/project/DCO.md and AGENTS.md § 4. Skipped on push,
+      # where there is no base to diff against and a miss could not be fixed
+      # retroactively anyway.
+      - name: DCO sign-off on every pull-request commit
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          missing=()
+          while IFS= read -r sha; do
+            [ -z "$sha" ] && continue
+            if ! git log -1 --format=%B "$sha" \
+                 | grep -qE '^Signed-off-by: .+ <.+@.+>$'; then
+              missing+=("$sha")
+            fi
+          done < <(git log --no-merges --format=%H "$BASE_SHA..$HEAD_SHA")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::DCO check failed: ${#missing[@]} commit(s) missing 'Signed-off-by:' trailer"
+            echo
+            echo "See docs/project/DCO.md. To fix:"
+            echo "  git commit --amend --signoff       # last commit"
+            echo "  git rebase --signoff <base>        # a range"
+            echo
+            for sha in "${missing[@]}"; do
+              echo "  - $(git log -1 --format='%h %s' "$sha")"
+            done
+            exit 1
+          fi
+          total=$(git rev-list --no-merges --count "$BASE_SHA..$HEAD_SHA")
+          echo "DCO check passed: all ${total} non-merge commit(s) carry a Signed-off-by trailer."

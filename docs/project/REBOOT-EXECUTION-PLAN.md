@@ -194,6 +194,8 @@ match the R02 manifest.
 
 ### R06 — Prepare CI and branch protection
 
+**Status:** complete. `reboot-baseline` added and observed; issue-writing automation removed; required-context switch performed by the maintainer and verified through the branches API. GitHub mirror out of scope by maintainer decision.
+
 **Goal:** prevent removal of old workflows from making `main` unmergeable.
 
 **Work:** add and observe a minimal `reboot-baseline` workflow on a PR, then

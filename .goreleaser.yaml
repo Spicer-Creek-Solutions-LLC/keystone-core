@@ -23,6 +23,17 @@
 
 version: 2
 
+
+# Archive tags are not releases. R05 created `archive-2026-09-pre-v0.6-reboot`
+# to preserve the Generation 1 line, and Generation 0 carries `archive/v0-final`.
+# goreleaser derives the snapshot version from the most recent tag, so without
+# this it picks up an archive tag, fails to parse it as semver, and takes
+# release-dry-run down with it — which is exactly what happened on main after
+# R05 landed.
+git:
+  ignore_tags:
+    - "archive-*"
+    - "archive/*"
 project_name: keystone-core
 
 before:
