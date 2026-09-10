@@ -545,11 +545,13 @@
       "acceptance_impact": "R05's 'both forges resolve the refs' is met on Codeberg only."
     },
     "unique_history": {
-      "finding": "2172 commits are reachable only from local refs/replace/ mappings and from no ref on the forge.",
-      "detail": "The working clone carries 2173 refs/replace/ entries; none exist on origin. Their pre-rewrite originals are not ancestors of origin/main, archive/v0-final, v0.1.0, v0.5.0 or the new archive tag. They appear to predate the 2026-05-05 reconstruction baseline.",
-      "consequence": "The bundle is not a redundant copy of the forge. For these commits it is the only copy, which is why the off-VM copies matter more than they would for an ordinary mirror.",
-      "verification_note": "git clone --bare reads only heads and tags and reached 1093 of 3072 commits; --mirror is the correct verification for this bundle and preserves all 2185 refs.",
-      "open_question": "Whether these commits should also be pushed to the forge is a decision outside R05's scope and is recorded rather than taken."
+      "finding": "2172 commit objects are reachable only from local refs/replace/ mappings and from no ref on the forge. Their CONTENT, however, is not unique.",
+      "cause": "A git filter-repo run on 2026-02-20, evidenced by .git/filter-repo/{commit-map,ref-map,already_ran,suboptimal-issues}. It removed four commits whose only files were development scratch notes (CHECKPOINT.md, TUI_MONITOR_TEST_RESULTS.md, SESSION-SUMMARY.md) and the resulting hash change cascaded to every descendant.",
+      "evidence": "Across 120 sampled original/replacement pairs the trees are identical, and across 150 pairs the author name, author email, committer name, committer email and subject are identical. Only parentage differs. commit-map records 2173 rewritten, 16 unchanged and 4 removed.",
+      "correction": "An earlier revision of this record implied the bundle held ~2000 commits of otherwise-lost history. That overstated it. The commit objects are unique; the work they contain is preserved in the current history under different SHAs. What is genuinely unique to the pre-rewrite history is the four scratch-note commits and the old-to-new SHA mapping, both of which the bundle holds.",
+      "corrected_at": "2026-09-10T13:01:40Z",
+      "not_a_secrets_rewrite": "gitleaks scans the full reachable history (2886 of 2904 non-merge commits; a replace-only commit was spot-checked directly) and reports no leaks. The rewrite removed working notes, not sensitive material.",
+      "decision": "Not pushed to the forge. Maintainer decision, on the grounds that republishing ~2000 content-duplicate commits works against R08's minimal baseline while preserving nothing the current history and this bundle do not already hold."
     }
   }
 }
