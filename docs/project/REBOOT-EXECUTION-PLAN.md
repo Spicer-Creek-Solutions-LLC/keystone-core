@@ -166,6 +166,8 @@ target count and SHA-256 of the allowlist.
 
 ### R05 — Create immutable archive evidence
 
+**Status:** complete. Refs and bundle created; branch protection probe-verified, tag protection maintainer-applied and not independently verifiable by a non-admin token. GitHub mirror out of scope by maintainer decision.
+
 **Goal:** preserve the final Generation 1 state before any destructive-looking
 cleanup.
 
