@@ -534,8 +534,10 @@
       },
       "tag": {
         "intended": "protected tag pattern archive-2026-09-pre-v0.6-reboot with no allowed users",
-        "verification": "NOT INDEPENDENTLY VERIFIED. GET /tag_protections returns 403 for a non-admin token and the tag read exposes no protection flag, so this rests on the maintainer's UI configuration rather than on an observation recorded here.",
-        "delete_probe": "deliberately not performed: an unblocked delete would destroy the signed tag object, and recreating it would produce a different object id with a different signature and timestamp"
+        "verification": "Confirmed by the maintainer in the Codeberg UI on 2026-09-10T13:04:22Z. Still not independently observed by this credential: GET /tag_protections returns 403 for a non-admin token and the tag read exposes no protection flag. The distinction is kept because the branch protection above rests on two observed negative probes, and this rests on a human reading a settings page.",
+        "delete_probe": "deliberately not performed: an unblocked delete would destroy the signed tag object, and recreating it would produce a different object id with a different signature and timestamp",
+        "maintainer_confirmed": true,
+        "maintainer_confirmed_at": "2026-09-10T13:04:22Z"
       },
       "probe_design_note": "Two earlier probe designs produced no evidence and are recorded so a later auditor does not repeat them. Force-pushing the SAME sha reports 'Everything up-to-date' and never contacts the server. And --dry-run pushes report success even against a protected ref, because Forgejo enforces protection in the pre-receive hook, which a dry run does not reach. Only a real update or delete attempt against a different value is conclusive."
     },
