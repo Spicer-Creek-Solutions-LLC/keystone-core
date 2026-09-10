@@ -1,0 +1,10 @@
+kind: Fixed
+body: |-
+  **goreleaser no longer trips over archive tags.** Creating the Generation 1
+  archive tag in R05 broke `release-dry-run` on main: goreleaser derives the
+  snapshot version from the most recent tag, `git describe` started returning
+  `archive-2026-09-pre-v0.6-reboot`, and that is not semver.
+
+  `.goreleaser.yaml` now sets `git.ignore_tags` to `archive-*` and `archive/*`.
+  The second pattern also covers Generation 0's `archive/v0-final` — the same
+  landmine, already in the repository, waiting for whoever next tagged near it.

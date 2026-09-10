@@ -596,6 +596,18 @@
       "returns_in": "R09, generation-aware, with a negative test proving that closing #232 cannot create a replacement"
     },
     "release_automation": "None to disable. ci-full.yml's release-dry-run publishes nothing, and real releases are the manual ceremony in RELEASE-PLAYBOOK.md. There are no workflows under .github/.",
-    "github_mirror": "Out of scope by maintainer decision. The mirror stopped syncing at 0a476caaa on 2026-09-06 and carries no workflows or protection of its own, so there is no second forge state to record."
+    "github_mirror": "Out of scope by maintainer decision. The mirror stopped syncing at 0a476caaa on 2026-09-06 and carries no workflows or protection of its own, so there is no second forge state to record.",
+    "regression_caused_and_fixed": {
+      "what": "R05's archive tag broke ci-full / release-dry-run on main.",
+      "why": "goreleaser derives the snapshot version from the most recent tag. Creating archive-2026-09-pre-v0.6-reboot made `git describe --tags --abbrev=0` return it instead of v0.5.0, and it is not semver: 'failed to parse snapshot name ... invalid semantic version'.",
+      "fix": ".goreleaser.yaml now sets git.ignore_tags to ['archive-*', 'archive/*']. The second pattern also covers Generation 0's archive/v0-final, which was the same landmine waiting for anyone tagging near it.",
+      "verified": "make release-dry-run passes locally; goreleaser resolves current_tag=v0.5.0, previous_tag=v0.1.0.",
+      "note": "Caught by the push-to-main run, which is not and never was a required context. Once required checks drop to the baseline this class of signal remains visible but stops blocking, which is the trade recorded above."
+    },
+    "main_health_at_r06": {
+      "ci / test (push)": "failing intermittently. Tracked as issue #246, 'flaky test job \u2014 4 failures in 12 runs on identical-passing code', same shape as #234 (lint) and #6 (e2e). Passes locally and passed on the R05 pull-request run. Not a regression.",
+      "ci-full / release-dry-run (push)": "was failing for the reason above; fixed in this task.",
+      "ci / security (push)": "the security-licenses scanner failure recorded at R02 did not recur on this run."
+    }
   }
 }
