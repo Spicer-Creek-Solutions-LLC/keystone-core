@@ -116,6 +116,7 @@ Use these files instead of expanding AGENTS with mutable detail:
 - Active epic: `epics/20-generation-2-reboot.md`; Epics 00–19 are Generation 1
   evidence pending archive.
 - Issue tracker conventions (labels, milestones, tracker issues, ticket lifecycle): `docs/project/ISSUE-TRACKING.md`
+- Generation 1 tracker retirement tool (R04/R07, its own Go module): `tools/transition/README.md`
 - High-level design: `docs/project/DESIGN.md`
 - Policy & audit operator guide (audit-mode-only + enabling-enforcement migration): `docs/project/POLICY-AUDIT.md`
 - Governance / DCO / AI policy: `docs/project/{GOVERNANCE,DCO,AI-CONTRIBUTIONS,MAINTAINERS,RFC}.md`

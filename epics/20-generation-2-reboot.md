@@ -57,7 +57,7 @@ and pull requests. Detailed controls are normative in the execution plan.
 - [x] R01 — Decision and control documents.
 - [x] R02 — Freeze and reconcile Generation 1.
 - [x] R03 — Complete archive capability catalog.
-- [ ] R04 — Build tracker-retirement tooling.
+- [x] R04 — Build tracker-retirement tooling.
 - [ ] R05 — Create immutable archive evidence.
 - [ ] R06 — Prepare CI and branch protection.
 - [ ] R07 — Retire Generation 1 tracker state.

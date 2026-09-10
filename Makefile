@@ -56,7 +56,7 @@ export CGO_ENABLED := 0
 .PHONY: help \
         build build-all-platforms clean clean-all clean-check deps install-tools install-lychee install-hugo docs-site docs-links-site \
         promo promo-publish update-promo promo-check install-promo-tools \
-        test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check capability-catalog-check test-integration slo profile test-cross-distro check deps deps-outdated deps-outdated-issue \
+        test test-verbose test-coverage coverage-gate race-policy goleak-policy docs-sync docs-sync-check capability-catalog-check transition-check test-integration slo profile test-cross-distro check deps deps-outdated deps-outdated-issue \
         fmt lint lint-fix smoke test-packaging \
         proto proto-lint proto-breaking \
         openapi-lint \
@@ -488,6 +488,24 @@ openapi-lint: ## Lint api/openapi/openapi-spec.yaml via redocly
 # markdownlint-cli2 reads .markdownlint-cli2.yaml (rules + the docs/**/*.md
 # glob). docs-lint needs Node locally; docs-lint-container runs the same thing
 # in node:22-alpine for hosts without Node (CI runs docs-lint directly).
+
+transition-check: ## Vet, lint and test the Generation 2 transition tool (its own module)
+	# tools/transition is a separate Go module so it stays buildable after R08
+	# removes the root module, which means `go test ./...` at the root does not
+	# reach it and neither does golangci-lint. It gets its own target, wired
+	# into the same CI job as the other static gates.
+	@# A stray binary from `go build` inside the module would otherwise be
+	@# committable: clean-check only guards the repo root.
+	@! ls tools/transition/transition >/dev/null 2>&1 || { \
+		echo "transition-check: stray binary tools/transition/transition — remove it"; exit 1; }
+	cd tools/transition && gofmt -l . | tee /dev/stderr | (! read)
+	cd tools/transition && go vet ./...
+	cd tools/transition && CGO_ENABLED=1 go test -race -cover ./...
+	@if command -v golangci-lint >/dev/null; then \
+		cd tools/transition && golangci-lint run ./...; \
+	else \
+		echo "transition-check: golangci-lint not on PATH; run 'make install-tools'"; exit 1; \
+	fi
 
 capability-catalog-check: ## Verify the R03 capability catalog still covers the archived Generation 1 sources
 	# Validates docs/project/FUTURE-CAPABILITIES.md against
