@@ -1,0 +1,20 @@
+kind: Added
+body: |-
+  **Generation 1 archive evidence (R05).** Creates the immutable record of the
+  Generation 1 line before the clean baseline removes it: the protected branch
+  `archive/2026-09-pre-v0.6-reboot`, a signed annotated tag
+  `archive-2026-09-pre-v0.6-reboot`, and an offline all-refs bundle with its
+  SHA-256, all at `93eb147f7`.
+
+  The bundle is not a redundant copy of the forge. **2,172 commits are
+  reachable only from local `refs/replace/` mappings and from no ref on
+  Codeberg** — pre-rewrite originals that appear to predate the 2026-05-05
+  reconstruction baseline. For those, the bundle is the only copy, which is why
+  its off-machine custody matters more than an ordinary mirror's would.
+
+  Recorded honestly rather than tidily: branch protection is verified by two
+  real negative probes (a force-push rejected by the pre-receive hook, and an
+  API delete returning 403), while tag protection is **not** independently
+  verified, because a non-admin token cannot read tag protections and a delete
+  probe would destroy the signed object it tests. Two earlier probe designs that
+  produced no evidence are documented so the next auditor does not repeat them.

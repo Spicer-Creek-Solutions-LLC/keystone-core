@@ -478,5 +478,78 @@
       "change": "Set to 93eb147f7fcc559d31f2cce77d81e791f01673f8, the merge commit of pull request #259. All four signed R02 commits (388b25990, 98d7a2f1e, 0f1967f68, 35e10d644) are ancestors of it.",
       "r05_impact": "R05 creates archive/2026-09-pre-v0.6-reboot and archive-2026-09-pre-v0.6-reboot at exactly this SHA, and re-verifies the v0.1.0 and v0.5.0 tag object IDs recorded in this manifest."
     }
-  ]
+  ],
+  "archive": {
+    "recorded_at": "2026-09-10T11:23:00Z",
+    "target": "93eb147f7fcc559d31f2cce77d81e791f01673f8",
+    "branch": {
+      "name": "archive/2026-09-pre-v0.6-reboot",
+      "sha": "93eb147f7fcc559d31f2cce77d81e791f01673f8",
+      "pushed_to": "codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core"
+    },
+    "tag": {
+      "name": "archive-2026-09-pre-v0.6-reboot",
+      "tag_object_id": "d99de5715cc817fbcdb1654860cf92a33b1934d3",
+      "target": "93eb147f7fcc559d31f2cce77d81e791f01673f8",
+      "annotated": true,
+      "signed": true,
+      "signing_key": "18913D0E53BA40B100C3086A7796A98BEA4F4647",
+      "tagger": "Keystone-core bot <keystone-bot@keystone-core.io>"
+    },
+    "bundle": {
+      "filename": "keystone-core-generation-1-93eb147f7.bundle",
+      "sha256": "34989c1fb33a7028752263bf00c22c235ef9125bce89809674f1e9dc92610ac6",
+      "size_bytes": 84189066,
+      "refs": 2185,
+      "commits": 3072,
+      "custody": [
+        "dev VM ~/keystone-archive/",
+        "maintainer NAS",
+        "maintainer workstation"
+      ],
+      "custody_note": "The SHA-256 is the binding evidence; the locations are availability. Any copy can be checked against this digest.",
+      "verified_by": "git clone --mirror into a temporary directory",
+      "verification": {
+        "reaches_target": true,
+        "archive_tag_signature": "good",
+        "refs_preserved": 2185,
+        "commits_preserved": 3072
+      }
+    },
+    "historical_tags_reverified": {
+      "v0.1.0": "318c19f2c806580f4041911e644d4efc6143a7f2",
+      "v0.5.0": "7003d8ddda6dfb12fc3d4cc6eff439ed8c919df2",
+      "archive/v0-final": "2f3c81f6cb4592e7e909a14d8fb9695a1f33aae4",
+      "result": "all three match the values recorded at R02"
+    },
+    "protection": {
+      "status": "applied by the maintainer; branch verified by probe, tag unverifiable by this credential",
+      "verified_at": "2026-09-10T12:52:34Z",
+      "branch": {
+        "api_state": "protected=true, user_can_push=false, user_can_merge=false (GET /repos/{owner}/{repo}/branches/{branch})",
+        "control": "main reports the same on the same endpoint; an unprotected branch reports protected=false, so the reading distinguishes the two",
+        "negative_probe_update": "git push --force of a different commit was rejected: 'Forgejo: Not allowed to push to protected branch' (pre-receive hook declined)",
+        "negative_probe_delete": "DELETE /repos/{owner}/{repo}/branches/<archive> returned 403 {\"message\":\"branch protected\"}",
+        "refs_unchanged_after_probes": true
+      },
+      "tag": {
+        "intended": "protected tag pattern archive-2026-09-pre-v0.6-reboot with no allowed users",
+        "verification": "NOT INDEPENDENTLY VERIFIED. GET /tag_protections returns 403 for a non-admin token and the tag read exposes no protection flag, so this rests on the maintainer's UI configuration rather than on an observation recorded here.",
+        "delete_probe": "deliberately not performed: an unblocked delete would destroy the signed tag object, and recreating it would produce a different object id with a different signature and timestamp"
+      },
+      "probe_design_note": "Two earlier probe designs produced no evidence and are recorded so a later auditor does not repeat them. Force-pushing the SAME sha reports 'Everything up-to-date' and never contacts the server. And --dry-run pushes report success even against a protected ref, because Forgejo enforces protection in the pre-receive hook, which a dry run does not reach. Only a real update or delete attempt against a different value is conclusive."
+    },
+    "mirror": {
+      "status": "out of scope for R05 by maintainer decision",
+      "observed": "The GitHub mirror was last updated 2026-09-06 at 0a476caaa, which predates every reboot commit. It is not syncing, so the archive refs do not resolve there.",
+      "acceptance_impact": "R05's 'both forges resolve the refs' is met on Codeberg only."
+    },
+    "unique_history": {
+      "finding": "2172 commits are reachable only from local refs/replace/ mappings and from no ref on the forge.",
+      "detail": "The working clone carries 2173 refs/replace/ entries; none exist on origin. Their pre-rewrite originals are not ancestors of origin/main, archive/v0-final, v0.1.0, v0.5.0 or the new archive tag. They appear to predate the 2026-05-05 reconstruction baseline.",
+      "consequence": "The bundle is not a redundant copy of the forge. For these commits it is the only copy, which is why the off-VM copies matter more than they would for an ordinary mirror.",
+      "verification_note": "git clone --bare reads only heads and tags and reached 1093 of 3072 commits; --mirror is the correct verification for this bundle and preserves all 2185 refs.",
+      "open_question": "Whether these commits should also be pushed to the forge is a decision outside R05's scope and is recorded rather than taken."
+    }
+  }
 }
