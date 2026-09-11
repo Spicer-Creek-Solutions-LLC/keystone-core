@@ -65,7 +65,7 @@ The web host needs to:
 
 1. Serve every path under `https://go.keystone-core.io/keystone-core` from
    `site/keystone-core/index.html` — Go's resolver appends arbitrary
-   subpaths (`/tools/capcheck`, `/tools/transition`, …) and the same
+   subpaths (`/tools/capcheck`, …) and the same
    meta tag is the correct response for all of them.
 2. Serve HTTPS (Go's resolver requires HTTPS by default; HTTP-only
    triggers an `insecure` failure).

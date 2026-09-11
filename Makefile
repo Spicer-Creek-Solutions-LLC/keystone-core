@@ -6,13 +6,16 @@
 # Generation 2 code begins at P11, which reintroduces a Go module, a build and
 # the gates that go with it.
 #
-# Two developer tools survive, each in its own module so neither depends on a
-# root module that no longer exists:
+# One developer tool survives, in its own module so it does not depend on a root
+# module that no longer exists:
 #
 #   tools/capcheck    validates the archive capability catalog (permanent)
-#   tools/transition  retires Generation 1 tracker state (removed or adopted at R09)
+#
+# `tools/transition` retired the Generation 1 tracker and published the
+# Generation 2 planning state; R09 removed it. Its artifacts are in
+# docs/transition/.
 
-.PHONY: help docs-lint docs-lint-fix docs-links capability-catalog-check transition-check stray-binary-check check
+.PHONY: help docs-lint docs-lint-fix docs-links capability-catalog-check stray-binary-check check
 
 help: ## Show available targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -44,14 +47,5 @@ capability-catalog-check: stray-binary-check ## Verify the archive capability ca
 	# are gone from the tip. Needs full history: CI checks out fetch-depth 0.
 	cd tools/capcheck && go run . ../..
 
-transition-check: stray-binary-check ## Vet, lint and test the tracker-retirement tool
-	@# `gofmt -l . | (! read)` is a bashism: under dash, `read` without a
-	@# variable name is an error, so the negation succeeds whether or not
-	@# gofmt found anything. Compare the output directly instead.
-	@out="$$(cd tools/transition && gofmt -l .)"; \
-	if [ -n "$$out" ]; then echo "gofmt needs to run on:"; echo "$$out"; exit 1; fi
-	cd tools/transition && go vet ./...
-	cd tools/transition && CGO_ENABLED=1 go test -race -cover ./...
-
-check: docs-lint docs-links capability-catalog-check transition-check ## Run every gate
+check: docs-lint docs-links capability-catalog-check ## Run every gate
 	@echo "check: ok"

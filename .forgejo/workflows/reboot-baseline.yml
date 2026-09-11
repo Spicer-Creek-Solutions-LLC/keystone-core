@@ -7,8 +7,8 @@
 # avoided that.
 #
 # It needs no Go toolchain for the markdown and DCO checks, which is why it
-# survived the removal of the root module. The two surviving tool modules bring
-# their own Go, and are checked separately below.
+# survived the removal of the root module. The one surviving tool module brings
+# its own Go, and is checked separately below.
 name: reboot-baseline
 
 on:
@@ -60,17 +60,14 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           # From the surviving module rather than a hardcoded string, so the
-          # toolchain the gate uses cannot drift from the one the tools declare.
-          go-version-file: tools/transition/go.mod
+          # toolchain the gate uses cannot drift from the one the tool declares.
+          go-version-file: tools/capcheck/go.mod
           cache: false
 
       # The capability catalog reads its sources from the pinned Generation 1
       # commit, so it needs full history — hence fetch-depth 0 above.
       - name: capability catalog
         run: make capability-catalog-check
-
-      - name: transition tool
-        run: make transition-check
 
       # Every non-merge commit on a pull request must carry a Signed-off-by
       # trailer, per docs/project/DCO.md and AGENTS.md § 4. Skipped on push,

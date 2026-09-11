@@ -136,7 +136,7 @@ all entries remain `Future / Unscheduled` unless RFC 0001 includes them.
 
 ### R04 — Build tracker-retirement tooling
 
-**Status:** complete on `reboot-r04-tracker-tooling`; the tool is `tools/transition`.
+**Status:** complete on `reboot-r04-tracker-tooling`. The tool was `tools/transition`, removed at R09; its artifacts are in `docs/transition/`.
 
 **Goal:** make issue retirement safe, repeatable, and auditable.
 
@@ -250,7 +250,7 @@ issue exists until verification is green.
 
 ### R08 — Land the clean Generation 2 baseline
 
-**Status:** complete. 1,911 files removed, 79 remain. No root Go module, no build target, no installable claim. Two tool modules survive: `tools/capcheck` permanently, `tools/transition` until R09.
+**Status:** complete. 1,911 files removed, 79 remain. No root Go module, no build target, no installable claim. Two tool modules survived: `tools/capcheck` permanently, `tools/transition` until R09.
 
 **Goal:** make `main` an intentionally small planning and governance repository.
 
@@ -300,6 +300,16 @@ Generation 1 as current.
 
 **Acceptance:** every issue maps to a task below; no issue title is silently
 deduplicated against a closed Generation 1 issue; automation is generation-aware.
+
+**Status:** complete on `reboot-r09-planning-state`. Milestone `v0.6.0` and
+fourteen issues — a pinned reboot announcement (#268), the release tracker
+(#269), and twelve `P00`-`P11` epics (#270-#278, #280-#282). No leaf issues:
+`P00` is gated behind R10. Both archived releases carry an unsupported notice,
+bodies only, assets untouched. No automation was re-enabled because none
+survived R08; the negative test ran against the live tracker instead. Evidence
+in `docs/transition/r09/`. Outstanding maintainer actions, recorded in the
+manifest: pinning #268, deploying the docs page, and repairing the GitHub
+mirror.
 
 ### R10 — Independent transition audit
 

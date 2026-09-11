@@ -22,12 +22,14 @@ The Generation 1 implementation was archived at
 Generation 2 code begins at P11, which reintroduces a Go module, a build, and
 the gates that go with it.
 
-Two developer tools survive, each in its own module so neither depends on a root
+One developer tool survives, in its own module so it does not depend on a root
 module that no longer exists:
 
 - `tools/capcheck` — validates the archive capability catalog. Permanent.
-- `tools/transition` — retires Generation 1 tracker state. Removed or explicitly
-  adopted as Generation 2 maintenance tooling at R09.
+
+`tools/transition`, which retired the Generation 1 tracker and published the
+Generation 2 planning state, was removed at R09. It existed to mutate a tracker
+during a one-time transition; what it did is recorded in `docs/transition/`.
 
 Use `make` targets rather than raw tool invocations; `make check` runs every
 gate. Commit and push incrementally as meaningful progress is made.
@@ -122,7 +124,6 @@ Do not duplicate volatile inventories in this file. Those drift quickly.
 - Security policy and process: `SECURITY.md`, `docs/project/SECURITY-{GOVERNANCE,RELEASE}.md`
 - ADR templates: `docs/adr/`
 - Terminology: `docs/project/GLOSSARY.md`
-- Tracker-retirement tool: `tools/transition/README.md`
 - Development-VM handoff: `docs/project/REBOOT-DEV-VM.md`
 
 ### Generation 1 research
