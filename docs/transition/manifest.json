@@ -932,8 +932,8 @@
   "deferred": {
    "github_mirror": "CORRECTED 2026-09-11 (R10). This field previously read: 'Dead at 0a476caaa (2026-09-06), before any reboot commit, so it still presents Generation 1 as current. The maintainer is repairing the sync after the reboot completes.' False. The mirror had last pushed at 2026-09-11T12:52:01Z, before R09's own verification ran, and carries both archive refs. R05's 'both forges resolve the refs' acceptance was met at the time rather than deferred. The mirror trails Codeberg by one merge commit; syncing it is a maintainer action, since /push_mirrors requires admin and the bot holds no GitHub credential.",
    "docs_site_deployment": "deploy/docs/site/index.html is rewritten in the repository; deploying it to the docs.keystone-core.io host is a maintainer action.",
-   "announcement_pin": "POST /issues/268/pin returned 403: the bot is not an owner or an admin collaborator. A maintainer action.",
-   "repository_metadata": "PATCH /repos/... returns 403 for this token. Description, topics and website are maintainer actions; the maintainer elected to keep them, dropping only the 'v0.x pre-stable.' clause."
+   "announcement_pin": "RESOLVED 2026-09-11 (R10) by removing the claim rather than performing the action. POST /issues/268/pin returned 403: the bot is not an owner or an admin collaborator. R09 nonetheless wrote 'pinned' into ISSUE-TRACKING.md and the execution plan, because the plan called for a pin \u2014 not because one happened, and the 403 was in its own log at the time. The maintainer has decided not to pin #268, so the documentation no longer claims it is pinned.",
+   "repository_metadata": "PENDING maintainer action. PATCH /repos/... returns 403 for this token. The maintainer elected to keep the description, topics and website, and to drop only the trailing 'v0.x pre-stable.' clause. CORRECTED 2026-09-11 (R10): the previous wording described that decision in a way that read as though the edit had been made. It has not. Both forge descriptions still carry the full original text (R10 findings D-02, B-12)."
   }
  }
 }

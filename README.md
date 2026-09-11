@@ -78,9 +78,14 @@ Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and
 ([`DCO.md`](docs/project/DCO.md)) and AI-assisted work must be disclosed
 ([`AI-CONTRIBUTIONS.md`](docs/project/AI-CONTRIBUTIONS.md)).
 
-The issue tracker is empty by design: its 106 Generation 1 issues were closed as
-superseded, not completed, during the transition. Generation 2 issues are
-created as the work is accepted, not in advance.
+The issue tracker holds the Generation 2 planning state and nothing else: one
+`v0.6.0` milestone, twelve workstream epics for `P00`-`P11`, a release tracker
+and a reboot announcement. There are no leaf issues — the first workstream is
+gated behind the transition audit, so nothing has an approved dossier yet, and
+an issue is created only when the work it describes has been accepted.
+
+Its 106 Generation 1 issues were closed as superseded, not completed, during
+the transition. Nothing was deleted.
 
 ## Security
 

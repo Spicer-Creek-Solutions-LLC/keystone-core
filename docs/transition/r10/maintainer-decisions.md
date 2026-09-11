@@ -196,3 +196,36 @@ is relied upon precisely when it fails. The text now says there is no
 commitment, one maintainer, and no on-call rotation.
 
 **Owner:** assembling agent, in this task.
+
+## 7. `D-05`, `D-04`, `D-02` (High) — three false public claims
+
+**`D-05` — `README.md` said the issue tracker is empty by design.** It has held
+fourteen issues since R09 created them. Rewritten to describe what is there,
+including why there are no leaf issues. R09 filled the tracker and did not
+revisit the document that describes it.
+
+**`D-04` — the announcement is documented as pinned and is not.**
+
+**Decision: remove the claim rather than perform the pin.** The maintainer has
+decided not to pin `#268`. `ISSUE-TRACKING.md` and `REBOOT-EXECUTION-PLAN.md`
+no longer describe it as pinned.
+
+This one is worth naming precisely, because the cause is not carelessness.
+R09's plan called for a pinned announcement, the pin attempt returned 403, the
+403 was written to R09's own apply log — and "pinned" was nonetheless written
+into two documents and a pull-request description. An intention was recorded as
+an accomplishment while the evidence to the contrary sat in the same task's
+output. That is the same failure as a check that cannot fail, in a different
+register: in both cases something was treated as established without the one
+step that would have tested it.
+
+**`D-02` — the forge descriptions still advertise Generation 1.** The
+maintainer's decision, taken during R09, is to keep the description, topics and
+website and drop only the trailing `v0.x pre-stable.` clause. That decision
+stands. The finding is against the manifest, which phrased it in a way that read
+as though the edit had been made; it now says the action is pending. `PATCH
+/repos/...` returns 403 for this token, so the edit itself is a maintainer
+action on both forges.
+
+**Owner:** assembling agent for the documents; project maintainer for the forge
+description.

@@ -4,7 +4,7 @@
 
 The tracker holds the Generation 2 planning state and nothing else: one
 `v0.6.0` milestone, twelve workstream epics for `P00`-`P11`, a release tracker,
-and a pinned reboot announcement. All of it was created by reboot task R09, and
+and a reboot announcement (#268). All of it was created by reboot task R09, and
 the record of that operation — the reviewed plan with every issue body verbatim,
 the journal, and the verification report — is in
 [`../transition/r09/`](../transition/r09/).

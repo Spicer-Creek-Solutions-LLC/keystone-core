@@ -302,7 +302,7 @@ Generation 1 as current.
 deduplicated against a closed Generation 1 issue; automation is generation-aware.
 
 **Status:** complete on `reboot-r09-planning-state`. Milestone `v0.6.0` and
-fourteen issues — a pinned reboot announcement (#268), the release tracker
+fourteen issues — a reboot announcement (#268), the release tracker
 (#269), and twelve `P00`-`P11` epics (#270-#278, #280-#282). No leaf issues:
 `P00` is gated behind R10. Both archived releases carry an unsupported notice,
 bodies only, assets untouched. No automation was re-enabled because none
