@@ -5,52 +5,114 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Keystone Core — Documentation</title>
     <style>
+        :root {
+            color-scheme: light dark;
+            --fg: #222; --muted: #666; --bg: #fff;
+            --note-bg: #f4f4f0; --note-edge: #888; --link: #0353a4;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --fg: #e6e6e6; --muted: #a0a0a0; --bg: #16181c;
+                --note-bg: #24262b; --note-edge: #7a7a7a; --link: #79b8ff;
+            }
+        }
         body { font-family: system-ui, sans-serif; max-width: 640px;
                margin: 4em auto; padding: 0 1em; line-height: 1.5;
-               color: #222; }
+               color: var(--fg); background: var(--bg); }
         h1 { margin-bottom: 0.2em; }
-        .tagline { color: #666; margin-top: 0; }
-        .note { background: #f4f4f0; border-left: 3px solid #888;
+        h2 { margin-top: 1.8em; font-size: 1.15em; }
+        .tagline { color: var(--muted); margin-top: 0; }
+        .note { background: var(--note-bg); border-left: 3px solid var(--note-edge);
                 padding: 0.8em 1em; margin: 2em 0; font-size: 0.95em; }
-        a { color: #0353a4; }
-        code { background: #f4f4f0; padding: 0.1em 0.3em;
+        a { color: var(--link); }
+        code { background: var(--note-bg); padding: 0.1em 0.3em;
                border-radius: 3px; font-size: 0.9em; }
+        dl { margin: 0; }
+        dt { font-weight: 600; margin-top: 0.9em; }
+        dd { margin: 0.15em 0 0 0; color: var(--muted); }
+        footer { margin-top: 3em; font-size: 0.85em; color: var(--muted);
+                 border-top: 1px solid var(--note-edge); padding-top: 1em; }
     </style>
 </head>
 <body>
     <h1>Keystone Core</h1>
     <p class="tagline"><em>GitOps deploys it. We keep it running.</em></p>
 
-    <p>Keystone Core is the runtime operations control plane between
-    deployment tooling (GitOps/IaC) and day-2 operations.</p>
-
     <div class="note">
-        <strong>Documentation site coming with v0.5.</strong>
-        During v0.1.x (the current soft-launch line), documentation lives
-        as rendered Markdown in the source repository. A full Hugo-based
-        documentation site lands with the v0.5 external-tester milestone.
+        <strong>There is nothing to install.</strong>
+        In September 2026 the project accepted a reboot. The Generation&nbsp;1
+        implementation was archived rather than continued, and the repository
+        now holds planning, governance and transition evidence. The replacement
+        has not been written.
     </div>
 
-    <h2>Where to read documentation today</h2>
-    <ul>
-        <li><a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core">Source repository</a>
-            on Codeberg</li>
-        <li><a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/README.md">README</a>
-            &mdash; project overview, topology, quickstart</li>
-        <li><a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/GETTING-STARTED.md">Getting started</a>
-            &mdash; guided fresh-VM walkthrough</li>
-        <li><a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs">Full <code>docs/</code> tree</a>
-            &mdash; reference, runbooks, project docs, ADRs</li>
-    </ul>
+    <h2>Why</h2>
 
-    <h2>Releases</h2>
-    <p>See <a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/CHANGELOG.md">CHANGELOG.md</a>
-    for release notes. The release-signing flow is documented in
-    <a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/RELEASE-PLAYBOOK.md">RELEASE-PLAYBOOK.md</a>.</p>
+    <p>Not because it failed to work. Because its breadth outran the evidence
+    that any single operator journey worked end to end. Late fixes had found
+    enrollment credentials that were not retained, and state and blueprint
+    applies that did not reliably reach remote agents — cases where
+    package-level test coverage sat alongside missing production wiring. Adding
+    features would have preserved that risk rather than resolved it.</p>
 
-    <h2>Security</h2>
-    <p>Vulnerability reports go through the private channel described in
-    <a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/SECURITY.md">SECURITY.md</a>.
-    Do not file security issues publicly.</p>
+    <h2>Nothing was deleted</h2>
+
+    <p>The final Generation&nbsp;1 state is preserved on the protected branch
+    <code>archive/2026-09-pre-v0.6-reboot</code>, at the signed tag
+    <code>archive-2026-09-pre-v0.6-reboot</code>, and in an offline bundle held
+    by the maintainer. The <code>v0.1.0</code> and <code>v0.5.0</code> releases
+    remain published with their artifacts intact.</p>
+
+    <p><strong>They are unsupported.</strong> They receive no updates, including
+    security updates, and there is no supported release of Keystone Core at this
+    time.</p>
+
+    <h2>What Generation 2 is</h2>
+
+    <p>One promise, deliberately narrow: an operator can securely enroll a Linux
+    agent, target it, execute a bounded command over NATS, observe its durable
+    lifecycle, cancel it, and retrieve an auditable result.</p>
+
+    <p>Nothing else ships until that is demonstrably true — proven by black-box
+    tests driving production binaries across the real transport. State
+    management, blueprints, runbooks, plugins, secrets, GitOps, webhooks, policy
+    and clustering are Future candidates rather than commitments.</p>
+
+    <h2>Where to read</h2>
+
+    <p>Documentation lives as Markdown in the source repository. There is no
+    rendered site: the Hugo toolchain was part of Generation&nbsp;1 and was
+    removed with it. A documentation site returns when there is software to
+    document.</p>
+
+    <dl>
+        <dt><a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core">Source repository</a></dt>
+        <dd>on Codeberg</dd>
+
+        <dt><a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md">RFC 0001</a></dt>
+        <dd>the decision, its reasoning, and the alternatives that were rejected</dd>
+
+        <dt><a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md">Execution plan</a></dt>
+        <dd>every task, in order, with its acceptance criteria</dd>
+
+        <dt><a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/FUTURE-CAPABILITIES.md">Capability catalog</a></dt>
+        <dd>everything Generation&nbsp;1 had, with status, known gaps and archived source</dd>
+
+        <dt><a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/ROADMAP.md">Roadmap</a></dt>
+        <dd>Now, Next, Future&nbsp;/&nbsp;Unscheduled, Not Planned</dd>
+
+        <dt><a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/VERSIONING.md">Version policy</a></dt>
+        <dd>what the version numbers now mean</dd>
+
+        <dt><a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/transition/">Transition evidence</a></dt>
+        <dd>the archive manifest and the tracker-retirement record</dd>
+
+        <dt><a href="https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/SECURITY.md">Security policy</a></dt>
+        <dd>how to report a vulnerability, and what is and is not supported</dd>
+    </dl>
+
+    <footer>
+        Apache&nbsp;2.0. Published by reboot task R09.
+    </footer>
 </body>
 </html>

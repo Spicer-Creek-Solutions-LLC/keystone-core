@@ -1,695 +1,905 @@
 {
-  "schema": "keystone-core/transition-manifest",
-  "schema_version": 1,
-  "task": "R02",
-  "generated_at": "2026-09-09T14:14:50Z",
-  "snapshot_cutoff_utc": "2026-09-09T14:14:50Z",
-  "generation_1_final_sha": "93eb147f7fcc559d31f2cce77d81e791f01673f8",
-  "generation_1_final_sha_note": "Resolved. This is the merge commit that landed the R02 freeze pull request (#259) on main at 2026-09-09T19:24:36+02:00, recorded by the R02 postcondition commit. It is the exact archive target for R05. Only transition tasks R03-R10 follow it; no Generation 1 feature work occurs after this SHA without a new maintainer decision.",
-  "repository": {
-    "forge": "codeberg.org",
-    "id": 1749683,
-    "full_name": "Spicer-Creek-Solutions-LLC/keystone-core",
-    "default_branch": "main",
-    "description": "GitOps deploys it. We keep it running. A runtime operations control plane for Linux fleets \u2014 state, audit, events, secrets. v0.x pre-stable.",
-    "website": "https://docs.keystone-core.io",
-    "archived": false,
-    "is_mirror": false,
-    "has_issues": true,
-    "has_pull_requests": true,
-    "has_actions": true,
-    "stars": 2,
-    "forks": 0,
-    "merge_settings": {
-      "allow_merge_commits": true,
-      "allow_rebase": false,
-      "allow_rebase_explicit": true,
-      "allow_squash_merge": false,
-      "default_merge_style": "merge",
-      "default_delete_branch_after_merge": true
-    },
-    "branch_protection_readable": false,
-    "branch_protection_note": "GET /branch_protections requires admin scope; the bot token is not admin. Capture before-state at R06 with an admin-scoped credential."
+ "schema": "keystone-core/transition-manifest",
+ "schema_version": 1,
+ "task": "R02",
+ "generated_at": "2026-09-09T14:14:50Z",
+ "snapshot_cutoff_utc": "2026-09-09T14:14:50Z",
+ "generation_1_final_sha": "93eb147f7fcc559d31f2cce77d81e791f01673f8",
+ "generation_1_final_sha_note": "Resolved. This is the merge commit that landed the R02 freeze pull request (#259) on main at 2026-09-09T19:24:36+02:00, recorded by the R02 postcondition commit. It is the exact archive target for R05. Only transition tasks R03-R10 follow it; no Generation 1 feature work occurs after this SHA without a new maintainer decision.",
+ "repository": {
+  "forge": "codeberg.org",
+  "id": 1749683,
+  "full_name": "Spicer-Creek-Solutions-LLC/keystone-core",
+  "default_branch": "main",
+  "description": "GitOps deploys it. We keep it running. A runtime operations control plane for Linux fleets \u2014 state, audit, events, secrets. v0.x pre-stable.",
+  "website": "https://docs.keystone-core.io",
+  "archived": false,
+  "is_mirror": false,
+  "has_issues": true,
+  "has_pull_requests": true,
+  "has_actions": true,
+  "stars": 2,
+  "forks": 0,
+  "merge_settings": {
+   "allow_merge_commits": true,
+   "allow_rebase": false,
+   "allow_rebase_explicit": true,
+   "allow_squash_merge": false,
+   "default_merge_style": "merge",
+   "default_delete_branch_after_merge": true
   },
-  "branch_heads": [
-    {
-      "name": "origin/main",
-      "sha": "792940a5715589102d32f7c5ca11c49c7c6423c7"
-    }
-  ],
-  "tags": [
-    {
-      "name": "archive/v0-final",
-      "object_type": "tag",
-      "tag_object_id": "2f3c81f6cb4592e7e909a14d8fb9695a1f33aae4",
-      "target_commit": "7d21b848a6d938c821cb36c3d00621c86253afeb",
-      "signed": false,
-      "tagger": "shawnbutts <dev1@shawnbutts.com> 1778012763 +0000"
-    },
-    {
-      "name": "v0.1.0",
-      "object_type": "tag",
-      "tag_object_id": "318c19f2c806580f4041911e644d4efc6143a7f2",
-      "target_commit": "8a48da100701839a23fd2da794ea548cdf0bfe0e",
-      "signed": false,
-      "tagger": "shawnbutts <dev1@shawnbutts.com> 1779926375 +0000"
-    },
-    {
-      "name": "v0.5.0",
-      "object_type": "tag",
-      "tag_object_id": "7003d8ddda6dfb12fc3d4cc6eff439ed8c919df2",
-      "target_commit": "0f4810cd1d3f51b770f4451b60fa449ea018b8b5",
-      "signed": false,
-      "tagger": "Keystone-core bot <bot@keystone-core.io> 1782587002 +0000"
-    }
-  ],
-  "releases": [
-    {
-      "tag": "v0.5.0",
-      "id": 10425107,
-      "name": "Keystone Core v0.5.0",
-      "draft": false,
-      "prerelease": false,
-      "published_at": "2026-06-27T21:11:23+02:00",
-      "asset_count": 20,
-      "assets": [
-        {
-          "name": "checksums.txt",
-          "size": 1734
-        },
-        {
-          "name": "keystone-core_0.5.0_darwin_amd64.tar.gz",
-          "size": 130123983
-        },
-        {
-          "name": "keystone-core_0.5.0_darwin_arm64.tar.gz",
-          "size": 121834814
-        },
-        {
-          "name": "keystone-core_0.5.0_linux_amd64.tar.gz",
-          "size": 167510966
-        },
-        {
-          "name": "keystone-core_0.5.0_linux_arm64.tar.gz",
-          "size": 153245703
-        },
-        {
-          "name": "keystone-core_0.5.0_windows_amd64.zip",
-          "size": 129940776
-        },
-        {
-          "name": "kscore-agent_0.5.0_linux_amd64.deb",
-          "size": 10781326
-        },
-        {
-          "name": "kscore-agent_0.5.0_linux_amd64.rpm",
-          "size": 11144311
-        },
-        {
-          "name": "kscore-agent_0.5.0_linux_arm64.deb",
-          "size": 9843120
-        },
-        {
-          "name": "kscore-agent_0.5.0_linux_arm64.rpm",
-          "size": 10094117
-        },
-        {
-          "name": "kscore-cli_0.5.0_linux_amd64.deb",
-          "size": 132807854
-        },
-        {
-          "name": "kscore-cli_0.5.0_linux_amd64.rpm",
-          "size": 137219817
-        },
-        {
-          "name": "kscore-cli_0.5.0_linux_arm64.deb",
-          "size": 121697924
-        },
-        {
-          "name": "kscore-cli_0.5.0_linux_arm64.rpm",
-          "size": 125045980
-        },
-        {
-          "name": "kscore-server_0.5.0_linux_amd64.deb",
-          "size": 24490114
-        },
-        {
-          "name": "kscore-server_0.5.0_linux_amd64.rpm",
-          "size": 25414974
-        },
-        {
-          "name": "kscore-server_0.5.0_linux_arm64.deb",
-          "size": 22207202
-        },
-        {
-          "name": "kscore-server_0.5.0_linux_arm64.rpm",
-          "size": 22903428
-        },
-        {
-          "name": "sbom-v0.5.0.cyclonedx.json",
-          "size": 4499232
-        },
-        {
-          "name": "sbom-v0.5.0.spdx.json",
-          "size": 6838942
-        }
-      ]
-    },
-    {
-      "tag": "v0.1.0",
-      "id": 9667643,
-      "name": "v0.1.0",
-      "draft": false,
-      "prerelease": false,
-      "published_at": "2026-05-28T02:03:08+02:00",
-      "asset_count": 20,
-      "assets": [
-        {
-          "name": "checksums.txt",
-          "size": 1734
-        },
-        {
-          "name": "keystone-core_0.1.0_darwin_amd64.tar.gz",
-          "size": 168590308
-        },
-        {
-          "name": "keystone-core_0.1.0_darwin_arm64.tar.gz",
-          "size": 157681685
-        },
-        {
-          "name": "keystone-core_0.1.0_linux_amd64.tar.gz",
-          "size": 164880175
-        },
-        {
-          "name": "keystone-core_0.1.0_linux_arm64.tar.gz",
-          "size": 150857083
-        },
-        {
-          "name": "keystone-core_0.1.0_windows_amd64.zip",
-          "size": 168520258
-        },
-        {
-          "name": "kscore-agent_0.1.0_linux_amd64.deb",
-          "size": 10791222
-        },
-        {
-          "name": "kscore-agent_0.1.0_linux_amd64.rpm",
-          "size": 11137397
-        },
-        {
-          "name": "kscore-agent_0.1.0_linux_arm64.deb",
-          "size": 9864186
-        },
-        {
-          "name": "kscore-agent_0.1.0_linux_arm64.rpm",
-          "size": 10135458
-        },
-        {
-          "name": "kscore-cli_0.1.0_linux_amd64.deb",
-          "size": 132500830
-        },
-        {
-          "name": "kscore-cli_0.1.0_linux_amd64.rpm",
-          "size": 136853396
-        },
-        {
-          "name": "kscore-cli_0.1.0_linux_arm64.deb",
-          "size": 121420848
-        },
-        {
-          "name": "kscore-cli_0.1.0_linux_arm64.rpm",
-          "size": 124832939
-        },
-        {
-          "name": "kscore-server_0.1.0_linux_amd64.deb",
-          "size": 22148628
-        },
-        {
-          "name": "kscore-server_0.1.0_linux_amd64.rpm",
-          "size": 22964281
-        },
-        {
-          "name": "kscore-server_0.1.0_linux_arm64.deb",
-          "size": 20077282
-        },
-        {
-          "name": "kscore-server_0.1.0_linux_arm64.rpm",
-          "size": 20725428
-        },
-        {
-          "name": "sbom-v0.1.0.cyclonedx.json",
-          "size": 5258926
-        },
-        {
-          "name": "sbom-v0.1.0.spdx.json",
-          "size": 7995726
-        }
-      ]
-    }
-  ],
-  "issues": {
-    "open_total": 106,
-    "open_total_paginated": 106,
-    "open_pull_requests": 0,
-    "open_without_milestone": [
-      232,
-      246
-    ],
-    "by_milestone": [
-      {
-        "id": 89201,
-        "title": "gate-v0.5",
-        "state": "open",
-        "open": 15,
-        "closed": 4
-      },
-      {
-        "id": 89204,
-        "title": "gate-v1.0",
-        "state": "open",
-        "open": 49,
-        "closed": 1
-      },
-      {
-        "id": 89207,
-        "title": "v0.x",
-        "state": "open",
-        "open": 40,
-        "closed": 7
-      },
-      {
-        "id": 89210,
-        "title": "v1.x",
-        "state": "open",
-        "open": 0,
-        "closed": 0
-      },
-      {
-        "id": 89213,
-        "title": "v2.x+",
-        "state": "open",
-        "open": 0,
-        "closed": 0
-      }
-    ]
-  },
-  "ci_contexts": [
-    "ci / build (amd64, linux) (push)",
-    "ci / dco-check (push)",
-    "ci / docs (push)",
-    "ci / e2e (push)",
-    "ci / integration (push)",
-    "ci / lint (push)",
-    "ci / openapi (push)",
-    "ci / proto (push)",
-    "ci / security (push)",
-    "ci / slo (push)",
-    "ci / smoke (push)",
-    "ci / test (push)",
-    "ci-full / build (amd64, darwin) (push)",
-    "ci-full / build (amd64, windows) (push)",
-    "ci-full / build (arm64, darwin) (push)",
-    "ci-full / build (arm64, linux) (push)",
-    "ci-full / build (arm64, windows) (push)",
-    "ci-full / deps-outdated (push)",
-    "ci-full / release-dry-run (push)"
-  ],
-  "issue_writing_automation": [
-    {
-      "source": ".forgejo/workflows/ci-full.yml",
-      "job": "deps-outdated",
-      "command": "make deps-outdated-issue",
-      "target_issue": 232,
-      "trigger": "schedule cron '0 5 * * *' (daily 05:00 UTC), plus push to main and workflow_dispatch",
-      "risk": "Mutates issue #232 updated_at nightly. R07 fails closed on updated_at, so the R02 snapshot drifts until R06 disables this job.",
-      "disabled_by": "R06"
-    }
-  ],
-  "mirror": {
-    "forge": "github.com",
-    "full_name": "Spicer-Creek-Solutions-LLC/keystone-core",
-    "default_branch": "main",
-    "pushed_at": "2026-09-08T21:21:29Z",
-    "archived": false,
-    "stars": 0,
-    "forks": 1,
-    "code_only": true,
-    "tags": [
-      {
-        "name": "v0.5.0",
-        "commit": "0f4810cd1d3f51b770f4451b60fa449ea018b8b5"
-      },
-      {
-        "name": "v0.1.0",
-        "commit": "8a48da100701839a23fd2da794ea548cdf0bfe0e"
-      },
-      {
-        "name": "archive/v0-final",
-        "commit": "7d21b848a6d938c821cb36c3d00621c86253afeb"
-      }
-    ],
-    "note": "Mirror lagged main at snapshot time; it had not yet received the R00/R01 merges."
-  },
-  "signing_preflight": {
-    "result": "pass_git_level",
-    "key_fingerprint": "18913D0E53BA40B100C3086A7796A98BEA4F4647",
-    "signing_subkey": "23583C11192A9DF4",
-    "signing_subkey_expires": "2027-06-01",
-    "primary_key_expires": "2036-05-29",
-    "signer_identity": "Keystone-core Bot <bot@keystone-core.io>",
-    "git_commit_signing": "verified (git commit -S -> %G? = G, git verify-commit good)",
-    "git_tag_signing": "verified (git tag -s -> git tag -v good signature)",
-    "forge_verification": "AVAILABLE (resolved after cutoff - see post_snapshot_updates)",
-    "forge_verification_detail": "At the snapshot cutoff the Codeberg account keystone-bot had no registered GPG key. Its verified addresses were keystone-bot@shawnbutts.com and keystone-bot@keystone-core.io; neither matches the key uid bot@keystone-core.io. Superseded after the cutoff - see post_snapshot_updates.",
-    "impact": "R05 archive tag will be cryptographically signed but not forge-verified unless the key is registered first.",
-    "generation_1_tags_signed": false
-  },
-  "gates": {
-    "policy": "R02 records gate results honestly; it does not fix unrelated failures.",
-    "environment": "local dev VM, go1.27.1 linux/amd64, tools rebuilt via make install-tools",
-    "passed": [
-      "lint",
-      "docs-lint",
-      "docs-links",
-      "docs-sync-check",
-      "clean-check",
-      "build",
-      "test-coverage",
-      "coverage-gate",
-      "slo",
-      "smoke",
-      "security-secrets",
-      "security-vulns",
-      "security-sast",
-      "openapi-lint",
-      "race-policy",
-      "goleak-policy"
-    ],
-    "failed": [
-      "security-licenses"
-    ],
-    "not_run_locally": {
-      "test-integration": "Postgres-gated, CI only",
-      "e2e-test": "Postgres/service-gated, CI only",
-      "ci-full cross-platform builds and release-dry-run": "push-to-main only"
-    },
-    "detail": {
-      "test-coverage": "CGO_ENABLED=1 go test -race ./... - 171 packages ok, 0 failures, total statement coverage 71.0%. 135 of 171 package results were reused from the Go test cache.",
-      "coverage-gate": "181 packages, 0 fails, 3 warns.",
-      "security-secrets": "gitleaks: 2864 commits scanned, no leaks found.",
-      "security-vulns": "govulncheck: findings only in required modules the code does not call.",
-      "security-sast": "gosec: 0 issues, 68 nosec annotations.",
-      "openapi-lint": "valid, 122 warnings."
-    }
-  },
-  "known_red_gates": [
-    {
-      "gate": "security-licenses",
-      "command": "go-licenses check --disallowed_types=forbidden,restricted,unknown --ignore=modernc.org/mathutil ./...",
-      "status": "RED on main",
-      "observed_locally": "exit 2 - 'Package testing / go/ast / go/parser does not have module info. Non go modules projects are no longer supported.' (google/go-licenses#128)",
-      "observed_in_ci": "ci / security (push) = failure on 82e1b9710, the merge commit that landed R00 on main. The same job reported success on the R00 and R01 pull-request runs (5ad5895d2, a35bdaaf3) and on the previous main tip 0a476caaa.",
-      "tooling": "go-licenses v2.0.1 built with go1.27.1 - exactly the version the Makefile pins. make install-tools considered the binary current and did not rebuild it, so this is not local toolchain drift.",
-      "likely_cause": "Per the Makefile note at install-tools, CI runners could pass while caching an older v1 binary; a runner resolving the pinned v2.0.1 under Go 1.27.1 fails to load stdlib module info. The pull-request runs and the push run therefore disagree.",
-      "disposition": "Recorded, not fixed. R02 preserves observed state and does not block archival on unrelated cleanup. This is a licence-scanning tooling failure, not a licence violation: no forbidden, restricted, or unknown licence was reported, because the scan aborted before classification.",
-      "action_required": "Maintainer decision. It does not affect the archive target or the integrity of any preserved ref."
-    }
-  ],
-  "retained_paths": {
-    "tracked_file_count": 1959,
-    "by_top_level": {
-      "internal": 1218,
-      "pkg": 203,
-      "docs": 116,
-      "cmd": 67,
-      "modules": 58,
-      ".changes": 53,
-      "test": 53,
-      "tools": 43,
-      "deploy": 35,
-      "assets": 31,
-      "<root>": 29,
-      "epics": 21,
-      "api": 13,
-      "scripts": 9,
-      ".forgejo": 8,
-      ".github": 1,
-      "testdata": 1
-    }
-  },
-  "generated_artifacts": {
-    "committed": [
-      "docs/project/CLI-REFERENCE.md",
-      "docs/project/CONFIGURATION-REFERENCE.md",
-      "docs/project/API-REFERENCE.md",
-      "docs/content/docs/modules/"
-    ],
-    "committed_generator": "make docs-sync (tools/gendocs/{cli,config,api,modules}); make docs-sync-check gates drift",
-    "untracked": [
-      "build/",
-      "dist/",
-      "docs/public/",
-      "data/",
-      "*.db"
-    ]
-  },
-  "post_snapshot_updates": [
-    {
-      "recorded_at": "2026-09-09T14:58:09Z",
-      "subject": "signing_preflight.forge_verification",
-      "change": "The GPG key is now registered on the Codeberg account and its ownership is verified (key_id 7796A98BEA4F4647, verified=true, signing subkey 23583C11192A9DF4 can_sign=true). The address bot@keystone-core.io was added to the account but is NOT yet activated: Codeberg returns HTTP 500 on the verification step. Until it activates, Forgejo binds no email to the key, so signed commits render as unverified.",
-      "remaining_blocker": "Activation of bot@keystone-core.io on the Codeberg account (Codeberg-side 500).",
-      "expected_on_resolution": "Forgejo computes signature verification from current key state at render time, so already-pushed signed commits are expected to display as verified retroactively without re-signing. Spot-check the R02 freeze commit to confirm.",
-      "gates": "Blocks nothing before R05. R05's archive tag needs forge-visible verification.",
-      "chosen_route": "Add bot@keystone-core.io to the account (route B) rather than adding a uid to the key, keeping one committer identity continuous with Generation 1 history."
-    },
-    {
-      "recorded_at": "2026-09-09T15:13:44Z",
-      "subject": "signing_preflight.forge_verification",
-      "change": "Resolved. Codeberg's HTTP 500 on email verification proved persistent, so route B was abandoned for route A: a second uid 'Keystone-core Bot <keystone-bot@keystone-core.io>' was added to the key and made primary, keeping the original bot@keystone-core.io uid. The key was deleted and re-added on Codeberg (now id 154525) because Forgejo reads a key's uid emails once at add time and offers no refresh. It now reports the bound email keystone-bot@keystone-core.io as verified. The git committer email was changed to match. The signing subkey expiry was extended from 2027-06-01 to 2029-09-08 in the same export.",
-      "residual": "None observed. Codeberg reports all three signed R02 commits (388b25990, 98d7a2f1e, 0f1967f68) as verified with reason 'keystone-bot / 23583C11192A9DF4', including the two committed under the still-unactivated bot@keystone-core.io. Forgejo matched the signature to the key's owner rather than requiring the committer address to be a bound email. Verified against a control: unsigned commits on the same repository correctly report verified=false, reason gpg.error.not_signed_commit.",
-      "future": "bot@keystone-core.io was deliberately left as a uid on the key. It costs nothing and keeps the older committer identity associated with the key if Codeberg's verification endpoint is ever fixed.",
-      "r05_impact": "Cleared. The archive tag must be created with tagger email keystone-bot@keystone-core.io.",
-      "verification_method": "GET /repos/{owner}/{repo}/git/commits/{sha}?verification=true - the verification object is omitted unless that query parameter is passed, so its absence is not evidence of an unsigned or unverified commit."
-    },
-    {
-      "recorded_at": "2026-09-09T17:25:18Z",
-      "subject": "generation_1_final_sha",
-      "change": "Set to 93eb147f7fcc559d31f2cce77d81e791f01673f8, the merge commit of pull request #259. All four signed R02 commits (388b25990, 98d7a2f1e, 0f1967f68, 35e10d644) are ancestors of it.",
-      "r05_impact": "R05 creates archive/2026-09-pre-v0.6-reboot and archive-2026-09-pre-v0.6-reboot at exactly this SHA, and re-verifies the v0.1.0 and v0.5.0 tag object IDs recorded in this manifest."
-    }
-  ],
-  "archive": {
-    "recorded_at": "2026-09-10T11:23:00Z",
-    "target": "93eb147f7fcc559d31f2cce77d81e791f01673f8",
-    "branch": {
-      "name": "archive/2026-09-pre-v0.6-reboot",
-      "sha": "93eb147f7fcc559d31f2cce77d81e791f01673f8",
-      "pushed_to": "codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core"
-    },
-    "tag": {
-      "name": "archive-2026-09-pre-v0.6-reboot",
-      "tag_object_id": "d99de5715cc817fbcdb1654860cf92a33b1934d3",
-      "target": "93eb147f7fcc559d31f2cce77d81e791f01673f8",
-      "annotated": true,
-      "signed": true,
-      "signing_key": "18913D0E53BA40B100C3086A7796A98BEA4F4647",
-      "tagger": "Keystone-core bot <keystone-bot@keystone-core.io>"
-    },
-    "bundle": {
-      "filename": "keystone-core-generation-1-93eb147f7.bundle",
-      "sha256": "34989c1fb33a7028752263bf00c22c235ef9125bce89809674f1e9dc92610ac6",
-      "size_bytes": 84189066,
-      "refs": 2185,
-      "commits": 3072,
-      "custody": [
-        "dev VM ~/keystone-archive/",
-        "maintainer NAS",
-        "maintainer workstation"
-      ],
-      "custody_note": "The SHA-256 is the binding evidence; the locations are availability. Any copy can be checked against this digest.",
-      "verified_by": "git clone --mirror into a temporary directory",
-      "verification": {
-        "reaches_target": true,
-        "archive_tag_signature": "good",
-        "refs_preserved": 2185,
-        "commits_preserved": 3072
-      }
-    },
-    "historical_tags_reverified": {
-      "v0.1.0": "318c19f2c806580f4041911e644d4efc6143a7f2",
-      "v0.5.0": "7003d8ddda6dfb12fc3d4cc6eff439ed8c919df2",
-      "archive/v0-final": "2f3c81f6cb4592e7e909a14d8fb9695a1f33aae4",
-      "result": "all three match the values recorded at R02"
-    },
-    "protection": {
-      "status": "applied by the maintainer; branch verified by probe, tag unverifiable by this credential",
-      "verified_at": "2026-09-10T12:52:34Z",
-      "branch": {
-        "api_state": "protected=true, user_can_push=false, user_can_merge=false (GET /repos/{owner}/{repo}/branches/{branch})",
-        "control": "main reports the same on the same endpoint; an unprotected branch reports protected=false, so the reading distinguishes the two",
-        "negative_probe_update": "git push --force of a different commit was rejected: 'Forgejo: Not allowed to push to protected branch' (pre-receive hook declined)",
-        "negative_probe_delete": "DELETE /repos/{owner}/{repo}/branches/<archive> returned 403 {\"message\":\"branch protected\"}",
-        "refs_unchanged_after_probes": true
-      },
-      "tag": {
-        "intended": "protected tag pattern archive-2026-09-pre-v0.6-reboot with no allowed users",
-        "verification": "Confirmed by the maintainer in the Codeberg UI on 2026-09-10T13:04:22Z. Still not independently observed by this credential: GET /tag_protections returns 403 for a non-admin token and the tag read exposes no protection flag. The distinction is kept because the branch protection above rests on two observed negative probes, and this rests on a human reading a settings page.",
-        "delete_probe": "deliberately not performed: an unblocked delete would destroy the signed tag object, and recreating it would produce a different object id with a different signature and timestamp",
-        "maintainer_confirmed": true,
-        "maintainer_confirmed_at": "2026-09-10T13:04:22Z"
-      },
-      "probe_design_note": "Two earlier probe designs produced no evidence and are recorded so a later auditor does not repeat them. Force-pushing the SAME sha reports 'Everything up-to-date' and never contacts the server. And --dry-run pushes report success even against a protected ref, because Forgejo enforces protection in the pre-receive hook, which a dry run does not reach. Only a real update or delete attempt against a different value is conclusive."
-    },
-    "mirror": {
-      "status": "out of scope for R05 by maintainer decision",
-      "observed": "The GitHub mirror was last updated 2026-09-06 at 0a476caaa, which predates every reboot commit. It is not syncing, so the archive refs do not resolve there.",
-      "acceptance_impact": "R05's 'both forges resolve the refs' is met on Codeberg only."
-    },
-    "unique_history": {
-      "finding": "2172 commit objects are reachable only from local refs/replace/ mappings and from no ref on the forge. Their CONTENT, however, is not unique.",
-      "cause": "A git filter-repo run on 2026-02-20, evidenced by .git/filter-repo/{commit-map,ref-map,already_ran,suboptimal-issues}. It removed four commits whose only files were development scratch notes (CHECKPOINT.md, TUI_MONITOR_TEST_RESULTS.md, SESSION-SUMMARY.md) and the resulting hash change cascaded to every descendant.",
-      "evidence": "Across 120 sampled original/replacement pairs the trees are identical, and across 150 pairs the author name, author email, committer name, committer email and subject are identical. Only parentage differs. commit-map records 2173 rewritten, 16 unchanged and 4 removed.",
-      "correction": "An earlier revision of this record implied the bundle held ~2000 commits of otherwise-lost history. That overstated it. The commit objects are unique; the work they contain is preserved in the current history under different SHAs. What is genuinely unique to the pre-rewrite history is the four scratch-note commits and the old-to-new SHA mapping, both of which the bundle holds.",
-      "corrected_at": "2026-09-10T13:01:40Z",
-      "not_a_secrets_rewrite": "gitleaks scans the full reachable history (2886 of 2904 non-merge commits; a replace-only commit was spot-checked directly) and reports no leaks. The rewrite removed working notes, not sensitive material.",
-      "decision": "Not pushed to the forge. Maintainer decision, on the grounds that republishing ~2000 content-duplicate commits works against R08's minimal baseline while preserving nothing the current history and this bundle do not already hold."
-    }
-  },
-  "ci_and_protection": {
-    "recorded_at": "2026-09-10T18:23:59Z",
-    "before": {
-      "branch": "main",
-      "protected": true,
-      "required_approvals": 0,
-      "status_checks_enabled": true,
-      "required_contexts": [
-        "ci / lint (pull_request)",
-        "ci / test (pull_request)",
-        "ci / slo (pull_request)",
-        "ci / integration (pull_request)",
-        "ci / smoke (pull_request)",
-        "ci / security (pull_request)",
-        "ci / e2e (pull_request)",
-        "ci / openapi (pull_request)",
-        "ci / docs (pull_request)",
-        "ci / proto (pull_request)",
-        "ci / build (amd64, linux) (pull_request)",
-        "ci / dco-check (pull_request)"
-      ],
-      "note": "All twelve required contexts come from .forgejo/workflows/ci-fast.yml. Nothing from ci-full.yml was ever required."
-    },
-    "after_intended": {
-      "required_contexts": [
-        "reboot-baseline / verify (pull_request)"
-      ],
-      "rationale": "A required context whose workflow R08 deletes can never be reported, and main would become permanently unmergeable. The new context is produced by a workflow that needs no Go toolchain, so it keeps working once the module is gone."
-    },
-    "risk_window": {
-      "description": "Between this switch and R08, the Generation 1 Go code still exists but is gated only by the minimal baseline. ci-fast.yml keeps running, so failures remain visible; they simply stop blocking a merge.",
-      "accepted_by": "maintainer, on the plan's own terms: R06's acceptance requires that legacy contexts no longer block"
-    },
-    "issue_automation_disabled": {
-      "removed": ".forgejo/workflows/ci-full.yml job `deps-outdated`",
-      "what_it_did": "ran `make deps-outdated-issue` on the nightly cron, creating and updating tracking issue #232 through the Forgejo API",
-      "why_it_had_to_stop": "R07 fails closed when an allowlisted issue's updated_at has moved since review; a nightly writer meant the reviewed snapshot decayed every morning at 05:00 UTC",
-      "returns_in": "R09, generation-aware, with a negative test proving that closing #232 cannot create a replacement"
-    },
-    "release_automation": "None to disable. ci-full.yml's release-dry-run publishes nothing, and real releases are the manual ceremony in RELEASE-PLAYBOOK.md. There are no workflows under .github/.",
-    "github_mirror": "Out of scope by maintainer decision. The mirror stopped syncing at 0a476caaa on 2026-09-06 and carries no workflows or protection of its own, so there is no second forge state to record.",
-    "regression_caused_and_fixed": {
-      "what": "R05's archive tag broke ci-full / release-dry-run on main.",
-      "why": "goreleaser derives the snapshot version from the most recent tag. Creating archive-2026-09-pre-v0.6-reboot made `git describe --tags --abbrev=0` return it instead of v0.5.0, and it is not semver: 'failed to parse snapshot name ... invalid semantic version'.",
-      "fix": ".goreleaser.yaml now sets git.ignore_tags to ['archive-*', 'archive/*']. The second pattern also covers Generation 0's archive/v0-final, which was the same landmine waiting for anyone tagging near it.",
-      "verified": "make release-dry-run passes locally; goreleaser resolves current_tag=v0.5.0, previous_tag=v0.1.0.",
-      "note": "Caught by the push-to-main run, which is not and never was a required context. Once required checks drop to the baseline this class of signal remains visible but stops blocking, which is the trade recorded above."
-    },
-    "main_health_at_r06": {
-      "ci / test (push)": "failing intermittently. Tracked as issue #246, 'flaky test job \u2014 4 failures in 12 runs on identical-passing code', same shape as #234 (lint) and #6 (e2e). Passes locally and passed on the R05 pull-request run. Not a regression.",
-      "ci-full / release-dry-run (push)": "was failing for the reason above; fixed in this task.",
-      "ci / security (push)": "the security-licenses scanner failure recorded at R02 did not recur on this run."
-    },
-    "after": {
-      "verified_at": "2026-09-10T20:13:26Z",
-      "branch": "main",
-      "protected": true,
-      "required_approvals": 0,
-      "status_checks_enabled": true,
-      "required_contexts": [
-        "reboot-baseline / verify (pull_request)"
-      ],
-      "direct_push_denied": true,
-      "negative_probe": "DELETE /repos/{owner}/{repo}/branches/main returned 403; protection is live rather than merely configured",
-      "read_from": "GET /repos/{owner}/{repo}/branches/{branch}, which exposes status_check_contexts and required_approvals to a non-admin token"
-    },
-    "push_context_trap": {
-      "what_happened": "The first switch required both 'reboot-baseline / verify (pull_request)' and 'reboot-baseline / verify (push)'.",
-      "why_it_was_wrong": "The two never appear on the same commit. A pull-request head carries only the (pull_request) context and a push-to-main commit carries only the (push) one, so requiring both would have left every future pull request waiting forever on a context that cannot be reported for it.",
-      "consequence_avoided": "main would have become unmergeable -- the same failure R06 exists to prevent, reached from the opposite direction: not a required context whose workflow was deleted, but one whose trigger cannot fire on the thing being gated.",
-      "why_it_was_easy_to_hit": "The settings list offers both variants and they read as near-duplicates.",
-      "resolution": "The (push) entry was removed. Only the pull-request context is required, matching the arrangement the twelve legacy contexts used.",
-      "how_it_was_caught": "Reading status_check_contexts back through the branches API. Had that field been admin-only, as tag protection is, this would have surfaced as R07's pull request hanging with no explanation."
-    }
-  },
-  "tracker_retirement": {
-    "task": "R07",
-    "completed_at": "2026-09-11T00:21:55Z",
-    "result": "All 106 open issues retired as superseded rather than completed. All five milestones closed, none deleted. Three labels created. Zero open issues remain.",
-    "artifacts": [
-      "docs/transition/r07/snapshot.json",
-      "docs/transition/r07/allowlist.json",
-      "docs/transition/r07/journal.json",
-      "docs/transition/r07/verification-report.json"
-    ],
-    "allowlist_sha256": "93bb3f86842117cae4e6f05be19c4e3f740102e9695bc0118b76f5cb07fdc762",
-    "snapshot_sha256": "9ace87373af1f3cf1dbc161563ca07572e612cd74769cdc7095d37c767b33c30",
-    "project_board": "Step 9 of the apply sequence is not applicable: has_projects is false on this repository and the projects endpoint returns 404, so there is no roadmap board to archive.",
-    "no_collateral_evidence": "Exactly 106 issues carry status/superseded and generation/1. Of the 120 closed issues, the 14 that predate this task carry neither."
-  },
-  "clean_baseline": {
-    "task": "R08",
-    "completed_at": "2026-09-11T09:09:26Z",
-    "files_before": 1989,
-    "files_after": 79,
-    "files_deleted": 1911,
-    "removed": "Generation 1 code (internal, pkg, cmd, modules, test, api), the root Go module and its build and lint configuration, generated API/CLI/configuration references, runtime deployments, epics 00-19, runbooks, release records, the Hugo documentation site and its module, promo and release automation, seven tools including trackerctl, and 20 Generation 1 documents under docs/project.",
-    "retained": "Licence and governance, security policy and process, the reboot corpus, the capability catalog, transition evidence, ADR templates, epic 20, the logo, issue templates, the baseline CI workflow, and lint configuration.",
-    "rewritten": [
-      "README.md",
-      "AGENTS.md",
-      "SECURITY.md",
-      "CHANGELOG.md",
-      "CONTRIBUTING.md",
-      "Makefile",
-      "docs/README.md",
-      "docs/project/README.md",
-      "docs/project/ROADMAP.md",
-      "docs/project/VERSIONING.md",
-      "docs/project/ISSUE-TRACKING.md",
-      ".forgejo/workflows/reboot-baseline.yml"
-    ],
-    "surviving_modules": {
-      "tools/capcheck": "Permanent. Validates the capability catalog. Its own stdlib-only module, and it reads the archived sources from the pinned commit rather than the working tree, so the deletions do not affect it.",
-      "tools/transition": "Removed or explicitly adopted as Generation 2 maintenance tooling at R09, per the plan."
-    },
-    "decisions": {
-      "security_docs": "SECURITY-DESIGN and SECURITY-REVIEW removed as Generation 1 product documentation; SECURITY-GOVERNANCE and SECURITY-RELEASE retained as project process. Root SECURITY.md rewritten to advertise no supported version.",
-      "glossary": "Retained. P00-P09 need a vocabulary and starting from an empty one is worse.",
-      "hugo_site": "Removed, including its own Go module. Keeping it meant keeping a second module alive to render a site with no content, against the no-buildable-product-claim criterion.",
-      "vanity_imports": "Retained. The two surviving tool modules declare paths under go.keystone-core.io, so the namespace is in active use; removing the mapping would leave those paths pointing at nothing until P11.",
-      "changelog": "Reduced to a stub linking the archive and the two published releases. All 58 per-pull-request fragments removed with the changie configuration. The released sections are a public record; the fragments described work that no longer exists."
-    },
-    "acceptance": {
-      "no_buildable_product_claim": "No root go.mod (go build reports no main module), no build target, no installation instructions in README, SECURITY.md marks every version unsupported.",
-      "archive_links_resolve": "18 distinct archived paths referenced across the surviving documents; all resolve at the archive tag.",
-      "gates_pass": [
-        "docs-lint",
-        "docs-links",
-        "capability-catalog-check",
-        "transition-check",
-        "stray-binary-check"
-      ],
-      "rename_review": "git diff --find-renames reports no renames: every removal is a true deletion, nothing was silently relocated."
-    }
+  "branch_protection_readable": false,
+  "branch_protection_note": "GET /branch_protections requires admin scope; the bot token is not admin. Capture before-state at R06 with an admin-scoped credential."
+ },
+ "branch_heads": [
+  {
+   "name": "origin/main",
+   "sha": "792940a5715589102d32f7c5ca11c49c7c6423c7"
   }
+ ],
+ "tags": [
+  {
+   "name": "archive/v0-final",
+   "object_type": "tag",
+   "tag_object_id": "2f3c81f6cb4592e7e909a14d8fb9695a1f33aae4",
+   "target_commit": "7d21b848a6d938c821cb36c3d00621c86253afeb",
+   "signed": false,
+   "tagger": "shawnbutts <dev1@shawnbutts.com> 1778012763 +0000"
+  },
+  {
+   "name": "v0.1.0",
+   "object_type": "tag",
+   "tag_object_id": "318c19f2c806580f4041911e644d4efc6143a7f2",
+   "target_commit": "8a48da100701839a23fd2da794ea548cdf0bfe0e",
+   "signed": false,
+   "tagger": "shawnbutts <dev1@shawnbutts.com> 1779926375 +0000"
+  },
+  {
+   "name": "v0.5.0",
+   "object_type": "tag",
+   "tag_object_id": "7003d8ddda6dfb12fc3d4cc6eff439ed8c919df2",
+   "target_commit": "0f4810cd1d3f51b770f4451b60fa449ea018b8b5",
+   "signed": false,
+   "tagger": "Keystone-core bot <bot@keystone-core.io> 1782587002 +0000"
+  }
+ ],
+ "releases": [
+  {
+   "tag": "v0.5.0",
+   "id": 10425107,
+   "name": "Keystone Core v0.5.0",
+   "draft": false,
+   "prerelease": false,
+   "published_at": "2026-06-27T21:11:23+02:00",
+   "asset_count": 20,
+   "assets": [
+    {
+     "name": "checksums.txt",
+     "size": 1734
+    },
+    {
+     "name": "keystone-core_0.5.0_darwin_amd64.tar.gz",
+     "size": 130123983
+    },
+    {
+     "name": "keystone-core_0.5.0_darwin_arm64.tar.gz",
+     "size": 121834814
+    },
+    {
+     "name": "keystone-core_0.5.0_linux_amd64.tar.gz",
+     "size": 167510966
+    },
+    {
+     "name": "keystone-core_0.5.0_linux_arm64.tar.gz",
+     "size": 153245703
+    },
+    {
+     "name": "keystone-core_0.5.0_windows_amd64.zip",
+     "size": 129940776
+    },
+    {
+     "name": "kscore-agent_0.5.0_linux_amd64.deb",
+     "size": 10781326
+    },
+    {
+     "name": "kscore-agent_0.5.0_linux_amd64.rpm",
+     "size": 11144311
+    },
+    {
+     "name": "kscore-agent_0.5.0_linux_arm64.deb",
+     "size": 9843120
+    },
+    {
+     "name": "kscore-agent_0.5.0_linux_arm64.rpm",
+     "size": 10094117
+    },
+    {
+     "name": "kscore-cli_0.5.0_linux_amd64.deb",
+     "size": 132807854
+    },
+    {
+     "name": "kscore-cli_0.5.0_linux_amd64.rpm",
+     "size": 137219817
+    },
+    {
+     "name": "kscore-cli_0.5.0_linux_arm64.deb",
+     "size": 121697924
+    },
+    {
+     "name": "kscore-cli_0.5.0_linux_arm64.rpm",
+     "size": 125045980
+    },
+    {
+     "name": "kscore-server_0.5.0_linux_amd64.deb",
+     "size": 24490114
+    },
+    {
+     "name": "kscore-server_0.5.0_linux_amd64.rpm",
+     "size": 25414974
+    },
+    {
+     "name": "kscore-server_0.5.0_linux_arm64.deb",
+     "size": 22207202
+    },
+    {
+     "name": "kscore-server_0.5.0_linux_arm64.rpm",
+     "size": 22903428
+    },
+    {
+     "name": "sbom-v0.5.0.cyclonedx.json",
+     "size": 4499232
+    },
+    {
+     "name": "sbom-v0.5.0.spdx.json",
+     "size": 6838942
+    }
+   ]
+  },
+  {
+   "tag": "v0.1.0",
+   "id": 9667643,
+   "name": "v0.1.0",
+   "draft": false,
+   "prerelease": false,
+   "published_at": "2026-05-28T02:03:08+02:00",
+   "asset_count": 20,
+   "assets": [
+    {
+     "name": "checksums.txt",
+     "size": 1734
+    },
+    {
+     "name": "keystone-core_0.1.0_darwin_amd64.tar.gz",
+     "size": 168590308
+    },
+    {
+     "name": "keystone-core_0.1.0_darwin_arm64.tar.gz",
+     "size": 157681685
+    },
+    {
+     "name": "keystone-core_0.1.0_linux_amd64.tar.gz",
+     "size": 164880175
+    },
+    {
+     "name": "keystone-core_0.1.0_linux_arm64.tar.gz",
+     "size": 150857083
+    },
+    {
+     "name": "keystone-core_0.1.0_windows_amd64.zip",
+     "size": 168520258
+    },
+    {
+     "name": "kscore-agent_0.1.0_linux_amd64.deb",
+     "size": 10791222
+    },
+    {
+     "name": "kscore-agent_0.1.0_linux_amd64.rpm",
+     "size": 11137397
+    },
+    {
+     "name": "kscore-agent_0.1.0_linux_arm64.deb",
+     "size": 9864186
+    },
+    {
+     "name": "kscore-agent_0.1.0_linux_arm64.rpm",
+     "size": 10135458
+    },
+    {
+     "name": "kscore-cli_0.1.0_linux_amd64.deb",
+     "size": 132500830
+    },
+    {
+     "name": "kscore-cli_0.1.0_linux_amd64.rpm",
+     "size": 136853396
+    },
+    {
+     "name": "kscore-cli_0.1.0_linux_arm64.deb",
+     "size": 121420848
+    },
+    {
+     "name": "kscore-cli_0.1.0_linux_arm64.rpm",
+     "size": 124832939
+    },
+    {
+     "name": "kscore-server_0.1.0_linux_amd64.deb",
+     "size": 22148628
+    },
+    {
+     "name": "kscore-server_0.1.0_linux_amd64.rpm",
+     "size": 22964281
+    },
+    {
+     "name": "kscore-server_0.1.0_linux_arm64.deb",
+     "size": 20077282
+    },
+    {
+     "name": "kscore-server_0.1.0_linux_arm64.rpm",
+     "size": 20725428
+    },
+    {
+     "name": "sbom-v0.1.0.cyclonedx.json",
+     "size": 5258926
+    },
+    {
+     "name": "sbom-v0.1.0.spdx.json",
+     "size": 7995726
+    }
+   ]
+  }
+ ],
+ "issues": {
+  "open_total": 106,
+  "open_total_paginated": 106,
+  "open_pull_requests": 0,
+  "open_without_milestone": [
+   232,
+   246
+  ],
+  "by_milestone": [
+   {
+    "id": 89201,
+    "title": "gate-v0.5",
+    "state": "open",
+    "open": 15,
+    "closed": 4
+   },
+   {
+    "id": 89204,
+    "title": "gate-v1.0",
+    "state": "open",
+    "open": 49,
+    "closed": 1
+   },
+   {
+    "id": 89207,
+    "title": "v0.x",
+    "state": "open",
+    "open": 40,
+    "closed": 7
+   },
+   {
+    "id": 89210,
+    "title": "v1.x",
+    "state": "open",
+    "open": 0,
+    "closed": 0
+   },
+   {
+    "id": 89213,
+    "title": "v2.x+",
+    "state": "open",
+    "open": 0,
+    "closed": 0
+   }
+  ]
+ },
+ "ci_contexts": [
+  "ci / build (amd64, linux) (push)",
+  "ci / dco-check (push)",
+  "ci / docs (push)",
+  "ci / e2e (push)",
+  "ci / integration (push)",
+  "ci / lint (push)",
+  "ci / openapi (push)",
+  "ci / proto (push)",
+  "ci / security (push)",
+  "ci / slo (push)",
+  "ci / smoke (push)",
+  "ci / test (push)",
+  "ci-full / build (amd64, darwin) (push)",
+  "ci-full / build (amd64, windows) (push)",
+  "ci-full / build (arm64, darwin) (push)",
+  "ci-full / build (arm64, linux) (push)",
+  "ci-full / build (arm64, windows) (push)",
+  "ci-full / deps-outdated (push)",
+  "ci-full / release-dry-run (push)"
+ ],
+ "issue_writing_automation": [
+  {
+   "source": ".forgejo/workflows/ci-full.yml",
+   "job": "deps-outdated",
+   "command": "make deps-outdated-issue",
+   "target_issue": 232,
+   "trigger": "schedule cron '0 5 * * *' (daily 05:00 UTC), plus push to main and workflow_dispatch",
+   "risk": "Mutates issue #232 updated_at nightly. R07 fails closed on updated_at, so the R02 snapshot drifts until R06 disables this job.",
+   "disabled_by": "R06"
+  }
+ ],
+ "mirror": {
+  "forge": "github.com",
+  "full_name": "Spicer-Creek-Solutions-LLC/keystone-core",
+  "default_branch": "main",
+  "pushed_at": "2026-09-08T21:21:29Z",
+  "archived": false,
+  "stars": 0,
+  "forks": 1,
+  "code_only": true,
+  "tags": [
+   {
+    "name": "v0.5.0",
+    "commit": "0f4810cd1d3f51b770f4451b60fa449ea018b8b5"
+   },
+   {
+    "name": "v0.1.0",
+    "commit": "8a48da100701839a23fd2da794ea548cdf0bfe0e"
+   },
+   {
+    "name": "archive/v0-final",
+    "commit": "7d21b848a6d938c821cb36c3d00621c86253afeb"
+   }
+  ],
+  "note": "Mirror lagged main at snapshot time; it had not yet received the R00/R01 merges."
+ },
+ "signing_preflight": {
+  "result": "pass_git_level",
+  "key_fingerprint": "18913D0E53BA40B100C3086A7796A98BEA4F4647",
+  "signing_subkey": "23583C11192A9DF4",
+  "signing_subkey_expires": "2027-06-01",
+  "primary_key_expires": "2036-05-29",
+  "signer_identity": "Keystone-core Bot <bot@keystone-core.io>",
+  "git_commit_signing": "verified (git commit -S -> %G? = G, git verify-commit good)",
+  "git_tag_signing": "verified (git tag -s -> git tag -v good signature)",
+  "forge_verification": "AVAILABLE (resolved after cutoff - see post_snapshot_updates)",
+  "forge_verification_detail": "At the snapshot cutoff the Codeberg account keystone-bot had no registered GPG key. Its verified addresses were keystone-bot@shawnbutts.com and keystone-bot@keystone-core.io; neither matches the key uid bot@keystone-core.io. Superseded after the cutoff - see post_snapshot_updates.",
+  "impact": "R05 archive tag will be cryptographically signed but not forge-verified unless the key is registered first.",
+  "generation_1_tags_signed": false
+ },
+ "gates": {
+  "policy": "R02 records gate results honestly; it does not fix unrelated failures.",
+  "environment": "local dev VM, go1.27.1 linux/amd64, tools rebuilt via make install-tools",
+  "passed": [
+   "lint",
+   "docs-lint",
+   "docs-links",
+   "docs-sync-check",
+   "clean-check",
+   "build",
+   "test-coverage",
+   "coverage-gate",
+   "slo",
+   "smoke",
+   "security-secrets",
+   "security-vulns",
+   "security-sast",
+   "openapi-lint",
+   "race-policy",
+   "goleak-policy"
+  ],
+  "failed": [
+   "security-licenses"
+  ],
+  "not_run_locally": {
+   "test-integration": "Postgres-gated, CI only",
+   "e2e-test": "Postgres/service-gated, CI only",
+   "ci-full cross-platform builds and release-dry-run": "push-to-main only"
+  },
+  "detail": {
+   "test-coverage": "CGO_ENABLED=1 go test -race ./... - 171 packages ok, 0 failures, total statement coverage 71.0%. 135 of 171 package results were reused from the Go test cache.",
+   "coverage-gate": "181 packages, 0 fails, 3 warns.",
+   "security-secrets": "gitleaks: 2864 commits scanned, no leaks found.",
+   "security-vulns": "govulncheck: findings only in required modules the code does not call.",
+   "security-sast": "gosec: 0 issues, 68 nosec annotations.",
+   "openapi-lint": "valid, 122 warnings."
+  }
+ },
+ "known_red_gates": [
+  {
+   "gate": "security-licenses",
+   "command": "go-licenses check --disallowed_types=forbidden,restricted,unknown --ignore=modernc.org/mathutil ./...",
+   "status": "RED on main",
+   "observed_locally": "exit 2 - 'Package testing / go/ast / go/parser does not have module info. Non go modules projects are no longer supported.' (google/go-licenses#128)",
+   "observed_in_ci": "ci / security (push) = failure on 82e1b9710, the merge commit that landed R00 on main. The same job reported success on the R00 and R01 pull-request runs (5ad5895d2, a35bdaaf3) and on the previous main tip 0a476caaa.",
+   "tooling": "go-licenses v2.0.1 built with go1.27.1 - exactly the version the Makefile pins. make install-tools considered the binary current and did not rebuild it, so this is not local toolchain drift.",
+   "likely_cause": "Per the Makefile note at install-tools, CI runners could pass while caching an older v1 binary; a runner resolving the pinned v2.0.1 under Go 1.27.1 fails to load stdlib module info. The pull-request runs and the push run therefore disagree.",
+   "disposition": "Recorded, not fixed. R02 preserves observed state and does not block archival on unrelated cleanup. This is a licence-scanning tooling failure, not a licence violation: no forbidden, restricted, or unknown licence was reported, because the scan aborted before classification.",
+   "action_required": "Maintainer decision. It does not affect the archive target or the integrity of any preserved ref."
+  }
+ ],
+ "retained_paths": {
+  "tracked_file_count": 1959,
+  "by_top_level": {
+   "internal": 1218,
+   "pkg": 203,
+   "docs": 116,
+   "cmd": 67,
+   "modules": 58,
+   ".changes": 53,
+   "test": 53,
+   "tools": 43,
+   "deploy": 35,
+   "assets": 31,
+   "<root>": 29,
+   "epics": 21,
+   "api": 13,
+   "scripts": 9,
+   ".forgejo": 8,
+   ".github": 1,
+   "testdata": 1
+  }
+ },
+ "generated_artifacts": {
+  "committed": [
+   "docs/project/CLI-REFERENCE.md",
+   "docs/project/CONFIGURATION-REFERENCE.md",
+   "docs/project/API-REFERENCE.md",
+   "docs/content/docs/modules/"
+  ],
+  "committed_generator": "make docs-sync (tools/gendocs/{cli,config,api,modules}); make docs-sync-check gates drift",
+  "untracked": [
+   "build/",
+   "dist/",
+   "docs/public/",
+   "data/",
+   "*.db"
+  ]
+ },
+ "post_snapshot_updates": [
+  {
+   "recorded_at": "2026-09-09T14:58:09Z",
+   "subject": "signing_preflight.forge_verification",
+   "change": "The GPG key is now registered on the Codeberg account and its ownership is verified (key_id 7796A98BEA4F4647, verified=true, signing subkey 23583C11192A9DF4 can_sign=true). The address bot@keystone-core.io was added to the account but is NOT yet activated: Codeberg returns HTTP 500 on the verification step. Until it activates, Forgejo binds no email to the key, so signed commits render as unverified.",
+   "remaining_blocker": "Activation of bot@keystone-core.io on the Codeberg account (Codeberg-side 500).",
+   "expected_on_resolution": "Forgejo computes signature verification from current key state at render time, so already-pushed signed commits are expected to display as verified retroactively without re-signing. Spot-check the R02 freeze commit to confirm.",
+   "gates": "Blocks nothing before R05. R05's archive tag needs forge-visible verification.",
+   "chosen_route": "Add bot@keystone-core.io to the account (route B) rather than adding a uid to the key, keeping one committer identity continuous with Generation 1 history."
+  },
+  {
+   "recorded_at": "2026-09-09T15:13:44Z",
+   "subject": "signing_preflight.forge_verification",
+   "change": "Resolved. Codeberg's HTTP 500 on email verification proved persistent, so route B was abandoned for route A: a second uid 'Keystone-core Bot <keystone-bot@keystone-core.io>' was added to the key and made primary, keeping the original bot@keystone-core.io uid. The key was deleted and re-added on Codeberg (now id 154525) because Forgejo reads a key's uid emails once at add time and offers no refresh. It now reports the bound email keystone-bot@keystone-core.io as verified. The git committer email was changed to match. The signing subkey expiry was extended from 2027-06-01 to 2029-09-08 in the same export.",
+   "residual": "None observed. Codeberg reports all three signed R02 commits (388b25990, 98d7a2f1e, 0f1967f68) as verified with reason 'keystone-bot / 23583C11192A9DF4', including the two committed under the still-unactivated bot@keystone-core.io. Forgejo matched the signature to the key's owner rather than requiring the committer address to be a bound email. Verified against a control: unsigned commits on the same repository correctly report verified=false, reason gpg.error.not_signed_commit.",
+   "future": "bot@keystone-core.io was deliberately left as a uid on the key. It costs nothing and keeps the older committer identity associated with the key if Codeberg's verification endpoint is ever fixed.",
+   "r05_impact": "Cleared. The archive tag must be created with tagger email keystone-bot@keystone-core.io.",
+   "verification_method": "GET /repos/{owner}/{repo}/git/commits/{sha}?verification=true - the verification object is omitted unless that query parameter is passed, so its absence is not evidence of an unsigned or unverified commit."
+  },
+  {
+   "recorded_at": "2026-09-09T17:25:18Z",
+   "subject": "generation_1_final_sha",
+   "change": "Set to 93eb147f7fcc559d31f2cce77d81e791f01673f8, the merge commit of pull request #259. All four signed R02 commits (388b25990, 98d7a2f1e, 0f1967f68, 35e10d644) are ancestors of it.",
+   "r05_impact": "R05 creates archive/2026-09-pre-v0.6-reboot and archive-2026-09-pre-v0.6-reboot at exactly this SHA, and re-verifies the v0.1.0 and v0.5.0 tag object IDs recorded in this manifest."
+  },
+  {
+   "task": "R09",
+   "date": "2026-09-11",
+   "change": "The tracker is no longer empty. R07's snapshot and allowlist describe Generation 1 state only; the fourteen issues R09 created carry Generation 2 task markers and are outside every R07 artifact by construction."
+  }
+ ],
+ "archive": {
+  "recorded_at": "2026-09-10T11:23:00Z",
+  "target": "93eb147f7fcc559d31f2cce77d81e791f01673f8",
+  "branch": {
+   "name": "archive/2026-09-pre-v0.6-reboot",
+   "sha": "93eb147f7fcc559d31f2cce77d81e791f01673f8",
+   "pushed_to": "codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core"
+  },
+  "tag": {
+   "name": "archive-2026-09-pre-v0.6-reboot",
+   "tag_object_id": "d99de5715cc817fbcdb1654860cf92a33b1934d3",
+   "target": "93eb147f7fcc559d31f2cce77d81e791f01673f8",
+   "annotated": true,
+   "signed": true,
+   "signing_key": "18913D0E53BA40B100C3086A7796A98BEA4F4647",
+   "tagger": "Keystone-core bot <keystone-bot@keystone-core.io>"
+  },
+  "bundle": {
+   "filename": "keystone-core-generation-1-93eb147f7.bundle",
+   "sha256": "34989c1fb33a7028752263bf00c22c235ef9125bce89809674f1e9dc92610ac6",
+   "size_bytes": 84189066,
+   "refs": 2185,
+   "commits": 3072,
+   "custody": [
+    "dev VM ~/keystone-archive/",
+    "maintainer NAS",
+    "maintainer workstation"
+   ],
+   "custody_note": "The SHA-256 is the binding evidence; the locations are availability. Any copy can be checked against this digest.",
+   "verified_by": "git clone --mirror into a temporary directory",
+   "verification": {
+    "reaches_target": true,
+    "archive_tag_signature": "good",
+    "refs_preserved": 2185,
+    "commits_preserved": 3072
+   }
+  },
+  "historical_tags_reverified": {
+   "v0.1.0": "318c19f2c806580f4041911e644d4efc6143a7f2",
+   "v0.5.0": "7003d8ddda6dfb12fc3d4cc6eff439ed8c919df2",
+   "archive/v0-final": "2f3c81f6cb4592e7e909a14d8fb9695a1f33aae4",
+   "result": "all three match the values recorded at R02"
+  },
+  "protection": {
+   "status": "applied by the maintainer; branch verified by probe, tag unverifiable by this credential",
+   "verified_at": "2026-09-10T12:52:34Z",
+   "branch": {
+    "api_state": "protected=true, user_can_push=false, user_can_merge=false (GET /repos/{owner}/{repo}/branches/{branch})",
+    "control": "main reports the same on the same endpoint; an unprotected branch reports protected=false, so the reading distinguishes the two",
+    "negative_probe_update": "git push --force of a different commit was rejected: 'Forgejo: Not allowed to push to protected branch' (pre-receive hook declined)",
+    "negative_probe_delete": "DELETE /repos/{owner}/{repo}/branches/<archive> returned 403 {\"message\":\"branch protected\"}",
+    "refs_unchanged_after_probes": true
+   },
+   "tag": {
+    "intended": "protected tag pattern archive-2026-09-pre-v0.6-reboot with no allowed users",
+    "verification": "Confirmed by the maintainer in the Codeberg UI on 2026-09-10T13:04:22Z. Still not independently observed by this credential: GET /tag_protections returns 403 for a non-admin token and the tag read exposes no protection flag. The distinction is kept because the branch protection above rests on two observed negative probes, and this rests on a human reading a settings page.",
+    "delete_probe": "deliberately not performed: an unblocked delete would destroy the signed tag object, and recreating it would produce a different object id with a different signature and timestamp",
+    "maintainer_confirmed": true,
+    "maintainer_confirmed_at": "2026-09-10T13:04:22Z"
+   },
+   "probe_design_note": "Two earlier probe designs produced no evidence and are recorded so a later auditor does not repeat them. Force-pushing the SAME sha reports 'Everything up-to-date' and never contacts the server. And --dry-run pushes report success even against a protected ref, because Forgejo enforces protection in the pre-receive hook, which a dry run does not reach. Only a real update or delete attempt against a different value is conclusive."
+  },
+  "mirror": {
+   "status": "out of scope for R05 by maintainer decision",
+   "observed": "The GitHub mirror was last updated 2026-09-06 at 0a476caaa, which predates every reboot commit. It is not syncing, so the archive refs do not resolve there.",
+   "acceptance_impact": "R05's 'both forges resolve the refs' is met on Codeberg only."
+  },
+  "unique_history": {
+   "finding": "2172 commit objects are reachable only from local refs/replace/ mappings and from no ref on the forge. Their CONTENT, however, is not unique.",
+   "cause": "A git filter-repo run on 2026-02-20, evidenced by .git/filter-repo/{commit-map,ref-map,already_ran,suboptimal-issues}. It removed four commits whose only files were development scratch notes (CHECKPOINT.md, TUI_MONITOR_TEST_RESULTS.md, SESSION-SUMMARY.md) and the resulting hash change cascaded to every descendant.",
+   "evidence": "Across 120 sampled original/replacement pairs the trees are identical, and across 150 pairs the author name, author email, committer name, committer email and subject are identical. Only parentage differs. commit-map records 2173 rewritten, 16 unchanged and 4 removed.",
+   "correction": "An earlier revision of this record implied the bundle held ~2000 commits of otherwise-lost history. That overstated it. The commit objects are unique; the work they contain is preserved in the current history under different SHAs. What is genuinely unique to the pre-rewrite history is the four scratch-note commits and the old-to-new SHA mapping, both of which the bundle holds.",
+   "corrected_at": "2026-09-10T13:01:40Z",
+   "not_a_secrets_rewrite": "gitleaks scans the full reachable history (2886 of 2904 non-merge commits; a replace-only commit was spot-checked directly) and reports no leaks. The rewrite removed working notes, not sensitive material.",
+   "decision": "Not pushed to the forge. Maintainer decision, on the grounds that republishing ~2000 content-duplicate commits works against R08's minimal baseline while preserving nothing the current history and this bundle do not already hold."
+  }
+ },
+ "ci_and_protection": {
+  "recorded_at": "2026-09-10T18:23:59Z",
+  "before": {
+   "branch": "main",
+   "protected": true,
+   "required_approvals": 0,
+   "status_checks_enabled": true,
+   "required_contexts": [
+    "ci / lint (pull_request)",
+    "ci / test (pull_request)",
+    "ci / slo (pull_request)",
+    "ci / integration (pull_request)",
+    "ci / smoke (pull_request)",
+    "ci / security (pull_request)",
+    "ci / e2e (pull_request)",
+    "ci / openapi (pull_request)",
+    "ci / docs (pull_request)",
+    "ci / proto (pull_request)",
+    "ci / build (amd64, linux) (pull_request)",
+    "ci / dco-check (pull_request)"
+   ],
+   "note": "All twelve required contexts come from .forgejo/workflows/ci-fast.yml. Nothing from ci-full.yml was ever required."
+  },
+  "after_intended": {
+   "required_contexts": [
+    "reboot-baseline / verify (pull_request)"
+   ],
+   "rationale": "A required context whose workflow R08 deletes can never be reported, and main would become permanently unmergeable. The new context is produced by a workflow that needs no Go toolchain, so it keeps working once the module is gone."
+  },
+  "risk_window": {
+   "description": "Between this switch and R08, the Generation 1 Go code still exists but is gated only by the minimal baseline. ci-fast.yml keeps running, so failures remain visible; they simply stop blocking a merge.",
+   "accepted_by": "maintainer, on the plan's own terms: R06's acceptance requires that legacy contexts no longer block"
+  },
+  "issue_automation_disabled": {
+   "removed": ".forgejo/workflows/ci-full.yml job `deps-outdated`",
+   "what_it_did": "ran `make deps-outdated-issue` on the nightly cron, creating and updating tracking issue #232 through the Forgejo API",
+   "why_it_had_to_stop": "R07 fails closed when an allowlisted issue's updated_at has moved since review; a nightly writer meant the reviewed snapshot decayed every morning at 05:00 UTC",
+   "returns_in": "R09, generation-aware, with a negative test proving that closing #232 cannot create a replacement"
+  },
+  "release_automation": "None to disable. ci-full.yml's release-dry-run publishes nothing, and real releases are the manual ceremony in RELEASE-PLAYBOOK.md. There are no workflows under .github/.",
+  "github_mirror": "Out of scope by maintainer decision. The mirror stopped syncing at 0a476caaa on 2026-09-06 and carries no workflows or protection of its own, so there is no second forge state to record.",
+  "regression_caused_and_fixed": {
+   "what": "R05's archive tag broke ci-full / release-dry-run on main.",
+   "why": "goreleaser derives the snapshot version from the most recent tag. Creating archive-2026-09-pre-v0.6-reboot made `git describe --tags --abbrev=0` return it instead of v0.5.0, and it is not semver: 'failed to parse snapshot name ... invalid semantic version'.",
+   "fix": ".goreleaser.yaml now sets git.ignore_tags to ['archive-*', 'archive/*']. The second pattern also covers Generation 0's archive/v0-final, which was the same landmine waiting for anyone tagging near it.",
+   "verified": "make release-dry-run passes locally; goreleaser resolves current_tag=v0.5.0, previous_tag=v0.1.0.",
+   "note": "Caught by the push-to-main run, which is not and never was a required context. Once required checks drop to the baseline this class of signal remains visible but stops blocking, which is the trade recorded above."
+  },
+  "main_health_at_r06": {
+   "ci / test (push)": "failing intermittently. Tracked as issue #246, 'flaky test job \u2014 4 failures in 12 runs on identical-passing code', same shape as #234 (lint) and #6 (e2e). Passes locally and passed on the R05 pull-request run. Not a regression.",
+   "ci-full / release-dry-run (push)": "was failing for the reason above; fixed in this task.",
+   "ci / security (push)": "the security-licenses scanner failure recorded at R02 did not recur on this run."
+  },
+  "after": {
+   "verified_at": "2026-09-10T20:13:26Z",
+   "branch": "main",
+   "protected": true,
+   "required_approvals": 0,
+   "status_checks_enabled": true,
+   "required_contexts": [
+    "reboot-baseline / verify (pull_request)"
+   ],
+   "direct_push_denied": true,
+   "negative_probe": "DELETE /repos/{owner}/{repo}/branches/main returned 403; protection is live rather than merely configured",
+   "read_from": "GET /repos/{owner}/{repo}/branches/{branch}, which exposes status_check_contexts and required_approvals to a non-admin token"
+  },
+  "push_context_trap": {
+   "what_happened": "The first switch required both 'reboot-baseline / verify (pull_request)' and 'reboot-baseline / verify (push)'.",
+   "why_it_was_wrong": "The two never appear on the same commit. A pull-request head carries only the (pull_request) context and a push-to-main commit carries only the (push) one, so requiring both would have left every future pull request waiting forever on a context that cannot be reported for it.",
+   "consequence_avoided": "main would have become unmergeable -- the same failure R06 exists to prevent, reached from the opposite direction: not a required context whose workflow was deleted, but one whose trigger cannot fire on the thing being gated.",
+   "why_it_was_easy_to_hit": "The settings list offers both variants and they read as near-duplicates.",
+   "resolution": "The (push) entry was removed. Only the pull-request context is required, matching the arrangement the twelve legacy contexts used.",
+   "how_it_was_caught": "Reading status_check_contexts back through the branches API. Had that field been admin-only, as tag protection is, this would have surfaced as R07's pull request hanging with no explanation."
+  }
+ },
+ "tracker_retirement": {
+  "task": "R07",
+  "completed_at": "2026-09-11T00:21:55Z",
+  "result": "All 106 open issues retired as superseded rather than completed. All five milestones closed, none deleted. Three labels created. Zero open issues remain.",
+  "artifacts": [
+   "docs/transition/r07/snapshot.json",
+   "docs/transition/r07/allowlist.json",
+   "docs/transition/r07/journal.json",
+   "docs/transition/r07/verification-report.json"
+  ],
+  "allowlist_sha256": "93bb3f86842117cae4e6f05be19c4e3f740102e9695bc0118b76f5cb07fdc762",
+  "snapshot_sha256": "9ace87373af1f3cf1dbc161563ca07572e612cd74769cdc7095d37c767b33c30",
+  "project_board": "Step 9 of the apply sequence is not applicable: has_projects is false on this repository and the projects endpoint returns 404, so there is no roadmap board to archive.",
+  "no_collateral_evidence": "Exactly 106 issues carry status/superseded and generation/1. Of the 120 closed issues, the 14 that predate this task carry neither."
+ },
+ "clean_baseline": {
+  "task": "R08",
+  "completed_at": "2026-09-11T09:09:26Z",
+  "files_before": 1989,
+  "files_after": 79,
+  "files_deleted": 1911,
+  "removed": "Generation 1 code (internal, pkg, cmd, modules, test, api), the root Go module and its build and lint configuration, generated API/CLI/configuration references, runtime deployments, epics 00-19, runbooks, release records, the Hugo documentation site and its module, promo and release automation, seven tools including trackerctl, and 20 Generation 1 documents under docs/project.",
+  "retained": "Licence and governance, security policy and process, the reboot corpus, the capability catalog, transition evidence, ADR templates, epic 20, the logo, issue templates, the baseline CI workflow, and lint configuration.",
+  "rewritten": [
+   "README.md",
+   "AGENTS.md",
+   "SECURITY.md",
+   "CHANGELOG.md",
+   "CONTRIBUTING.md",
+   "Makefile",
+   "docs/README.md",
+   "docs/project/README.md",
+   "docs/project/ROADMAP.md",
+   "docs/project/VERSIONING.md",
+   "docs/project/ISSUE-TRACKING.md",
+   ".forgejo/workflows/reboot-baseline.yml"
+  ],
+  "surviving_modules": {
+   "tools/capcheck": "Permanent. Validates the capability catalog. Its own stdlib-only module, and it reads the archived sources from the pinned commit rather than the working tree, so the deletions do not affect it.",
+   "tools/transition": "Removed or explicitly adopted as Generation 2 maintenance tooling at R09, per the plan."
+  },
+  "decisions": {
+   "security_docs": "SECURITY-DESIGN and SECURITY-REVIEW removed as Generation 1 product documentation; SECURITY-GOVERNANCE and SECURITY-RELEASE retained as project process. Root SECURITY.md rewritten to advertise no supported version.",
+   "glossary": "Retained. P00-P09 need a vocabulary and starting from an empty one is worse.",
+   "hugo_site": "Removed, including its own Go module. Keeping it meant keeping a second module alive to render a site with no content, against the no-buildable-product-claim criterion.",
+   "vanity_imports": "Retained. The two surviving tool modules declare paths under go.keystone-core.io, so the namespace is in active use; removing the mapping would leave those paths pointing at nothing until P11.",
+   "changelog": "Reduced to a stub linking the archive and the two published releases. All 58 per-pull-request fragments removed with the changie configuration. The released sections are a public record; the fragments described work that no longer exists."
+  },
+  "acceptance": {
+   "no_buildable_product_claim": "No root go.mod (go build reports no main module), no build target, no installation instructions in README, SECURITY.md marks every version unsupported.",
+   "archive_links_resolve": "18 distinct archived paths referenced across the surviving documents; all resolve at the archive tag.",
+   "gates_pass": [
+    "docs-lint",
+    "docs-links",
+    "capability-catalog-check",
+    "transition-check",
+    "stray-binary-check"
+   ],
+   "rename_review": "git diff --find-renames reports no renames: every removal is a true deletion, nothing was silently relocated."
+  }
+ },
+ "planning_state_publication": {
+  "task": "R09",
+  "applied_at_utc": "2026-09-11T14:23:00Z",
+  "plan_sha256": "daf30adce4053044b06d2e78ca4c2e53b286c264874a05a2e1c63d7accc5faf3",
+  "source_document": "docs/project/REBOOT-EXECUTION-PLAN.md",
+  "source_sha256": "a745b20358342f80dd62eef90610ebd6486c31ba584d2df4f2bf36ca3880e704",
+  "milestone": {
+   "title": "v0.6.0",
+   "id": 142396,
+   "note": "The only Generation 2 milestone. No milestones are pre-allocated for later versions."
+  },
+  "labels_created": [
+   "generation/2",
+   "kind/tracker",
+   "kind/announcement"
+  ],
+  "labels_left_untouched": {
+   "kind/epic": "Already existed (id 1669613) from the Generation 1 tracker. Never rewritten: a label already in use carries meaning this task did not assign."
+  },
+  "issues": [
+   {
+    "task_id": "ANNOUNCE-reboot",
+    "kind": "announcement",
+    "number": 268,
+    "title": "Keystone Core has restarted: Generation 1 is archived, Generation 2 begins",
+    "milestone": null,
+    "pinned_requested": true,
+    "pinned": false
+   },
+   {
+    "task_id": "TRACKER-v0.6.0",
+    "kind": "tracker",
+    "number": 269,
+    "title": "v0.6.0 \u2014 release tracker",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   },
+   {
+    "task_id": "P00",
+    "kind": "epic",
+    "number": 270,
+    "title": "P00 \u2014 Product charter and canonical journeys",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   },
+   {
+    "task_id": "P01",
+    "kind": "epic",
+    "number": 271,
+    "title": "P01 \u2014 Threat model",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   },
+   {
+    "task_id": "P02",
+    "kind": "epic",
+    "number": 272,
+    "title": "P02 \u2014 NATS-native capability ADR",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   },
+   {
+    "task_id": "P03",
+    "kind": "epic",
+    "number": 273,
+    "title": "P03 \u2014 Enrollment and identity ADR",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   },
+   {
+    "task_id": "P04",
+    "kind": "epic",
+    "number": 274,
+    "title": "P04 \u2014 Subject authorization ADR and executable policy",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   },
+   {
+    "task_id": "P05",
+    "kind": "epic",
+    "number": 275,
+    "title": "P05 \u2014 Versioned encrypted protocol ADR",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   },
+   {
+    "task_id": "P06",
+    "kind": "epic",
+    "number": 276,
+    "title": "P06 \u2014 Delivery and job lifecycle ADR",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   },
+   {
+    "task_id": "P07",
+    "kind": "epic",
+    "number": 277,
+    "title": "P07 \u2014 Safe execution ADR",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   },
+   {
+    "task_id": "P08",
+    "kind": "epic",
+    "number": 278,
+    "title": "P08 \u2014 Persistence and audit ADR",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   },
+   {
+    "task_id": "P09",
+    "kind": "epic",
+    "number": 280,
+    "title": "P09 \u2014 Local operator API and authorization ADR",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   },
+   {
+    "task_id": "P10",
+    "kind": "epic",
+    "number": 281,
+    "title": "P10 \u2014 Acceptance-harness design",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   },
+   {
+    "task_id": "P11",
+    "kind": "epic",
+    "number": 282,
+    "title": "P11 \u2014 Repository skeleton and CI",
+    "milestone": "v0.6.0",
+    "pinned_requested": false,
+    "pinned": false
+   }
+  ],
+  "leaf_issues": {
+   "count": 0,
+   "reason": "P00's dependency gate is R10, which has not run, so no workstream has an approved dossier. No C-stage issues either: Stage C is gated behind Stage P acceptance."
+  },
+  "release_annotations": [
+   {
+    "tag": "v0.1.0",
+    "release_id": 9667643,
+    "change": "body only; the notice prepended above the original notes",
+    "assets_touched": false
+   },
+   {
+    "tag": "v0.5.0",
+    "release_id": 10425107,
+    "change": "body only; the notice prepended above the original notes",
+    "assets_touched": false
+   }
+  ],
+  "verification": {
+   "result": "pass",
+   "tracker_issues_checked": 134,
+   "highest_generation_1_issue": 246,
+   "title_collisions": 0,
+   "evidence": "docs/transition/r09/verification.txt"
+  },
+  "issue_automation": {
+   "re_enabled": false,
+   "reason": "Nothing to re-enable. The only tracker writer was the nightly deps-outdated job on issue 232; R06 disabled it and R08 deleted tools/depsoutdated with the root module. Re-creating a writer to satisfy a requirement about writers would have been backwards.",
+   "requirement_status": "Stands for whenever automation returns: generation-aware, apply and postcondition tests, and a negative test proving closure cannot create a replacement.",
+   "negative_test": {
+    "subject_issue": 232,
+    "closed_at": "2026-09-11T00:19:13Z",
+    "same_title_predecessors": [
+     160,
+     231
+    ],
+    "replacements_since_closure": 0,
+    "workflow_issue_writers": 0,
+    "note": "A replacement is an issue created after the archived one closed. The first run of this check compared titles alone and reported the two predecessors as replacements; the nightly job had recreated the issue weekly, which is what makes the test meaningful."
+   }
+  },
+  "artifacts": {
+   "publication-plan.json": "665e76211f92e11d5da158448d2866110f8c06bbbec286d402b9572acbfcacac",
+   "dry-run.txt": "b0c1c94a213dfb5742677171f3b3597ef573075feacaace9fe78095bc4c45986",
+   "apply.txt": "9bdc74efd298675ed5bb49877f49a390e6f0da675a46ee1784cac90ee9b880e4",
+   "journal.json": "97073e81bab1f04041e71ea453041465795077a5cd0f6df25a13bbb8e4c78ee9",
+   "verification.txt": "e8710998314fc9b285542988fcdf3be69166f90228ba52e144634071df406159"
+  },
+  "not_verified": {
+   "package_registry_landing_pages": "The token lacks read:package, so these were not checked. Recorded as unverified rather than claimed clean."
+  },
+  "deferred": {
+   "github_mirror": "Dead at 0a476caaa (2026-09-06), before any reboot commit, so it still presents Generation 1 as current. The maintainer is repairing the sync after the reboot completes.",
+   "docs_site_deployment": "deploy/docs/site/index.html is rewritten in the repository; deploying it to the docs.keystone-core.io host is a maintainer action.",
+   "announcement_pin": "POST /issues/268/pin returned 403: the bot is not an owner or an admin collaborator. A maintainer action.",
+   "repository_metadata": "PATCH /repos/... returns 403 for this token. Description, topics and website are maintainer actions; the maintainer elected to keep them, dropping only the 'v0.x pre-stable.' clause."
+  }
+ }
 }

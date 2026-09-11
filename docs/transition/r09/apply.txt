@@ -1,0 +1,37 @@
+tracker holds 120 issues; 0 carry a Generation 2 task marker
+
+
+labels:
+  label generation/2           created (id 2150524)
+  label kind/epic              already exists (id 1669613), left untouched
+  label kind/tracker           created (id 2150527)
+  label kind/announcement      created (id 2150530)
+
+milestone:
+  v0.6.0       created (id 142396)
+
+issues:
+  ANNOUNCE-reboot  created as #268
+  TRACKER-v0.6.0   created as #269
+  P00              created as #270
+  P01              created as #271
+  P02              created as #272
+  P03              created as #273
+  P04              created as #274
+  P05              created as #275
+  P06              created as #276
+  P07              created as #277
+  P08              created as #278
+  P09              created as #280
+  P10              created as #281
+  P11              created as #282
+
+pins:
+  ANNOUNCE-reboot  PIN FAILED on #268: POST /repos/Spicer-Creek-Solutions-LLC/keystone-core/issues/268/pin: 403 Forbidden: {"message":"user should be an owner or a collaborator with admin write of a repository","url":"https://codeberg.org/api/swagger"}
+
+
+release annotations:
+  v0.1.0   annotated
+  v0.5.0   annotated
+
+published: 14 issues exist, 2 releases annotated

@@ -1,0 +1,48 @@
+# R09 publication dry run
+# 2026-09-11T13:11:57Z — read-only, no changes made
+
+DRY RUN — no changes will be made
+publishing: 14 issues (12 epic, 1 tracker, 1 announcement, 1 pinned)
+milestone:        v0.6.0
+labels:           4
+release notices:  2
+plan sha256:      daf30adce4053044b06d2e78ca4c2e53b286c264874a05a2e1c63d7accc5faf3
+source sha256:    a745b20358342f80dd62eef90610ebd6486c31ba584d2df4f2bf36ca3880e704 (docs/project/REBOOT-EXECUTION-PLAN.md)
+forge:            https://codeberg.org Spicer-Creek-Solutions-LLC/keystone-core (id 1749683)
+
+tracker holds 120 issues; 0 carry a Generation 2 task marker
+
+
+labels:
+  label generation/2           would be created
+  label kind/epic              already exists (id 1669613), left untouched
+  label kind/tracker           would be created
+  label kind/announcement      would be created
+
+milestone:
+  v0.6.0       would be created
+
+issues:
+  ANNOUNCE-reboot  announcement would be created — Keystone Core has restarted: Generation 1 is archive…
+  TRACKER-v0.6.0   tracker      would be created — v0.6.0 — release tracker
+  P00              epic         would be created — P00 — Product charter and canonical journeys
+  P01              epic         would be created — P01 — Threat model
+  P02              epic         would be created — P02 — NATS-native capability ADR
+  P03              epic         would be created — P03 — Enrollment and identity ADR
+  P04              epic         would be created — P04 — Subject authorization ADR and executable pol…
+  P05              epic         would be created — P05 — Versioned encrypted protocol ADR
+  P06              epic         would be created — P06 — Delivery and job lifecycle ADR
+  P07              epic         would be created — P07 — Safe execution ADR
+  P08              epic         would be created — P08 — Persistence and audit ADR
+  P09              epic         would be created — P09 — Local operator API and authorization ADR
+  P10              epic         would be created — P10 — Acceptance-harness design
+  P11              epic         would be created — P11 — Repository skeleton and CI
+
+pins:
+  ANNOUNCE-reboot  would be pinned
+
+release annotations:
+  v0.1.0   would be annotated (body 2939 chars -> 3671, assets untouched)
+  v0.5.0   would be annotated (body 1554 chars -> 2286, assets untouched)
+
+14 issues would be published; pass --apply --expect-plan-sha256 daf30adce4053044b06d2e78ca4c2e53b286c264874a05a2e1c63d7accc5faf3 to perform it
