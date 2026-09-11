@@ -51,7 +51,7 @@ Local verification (use Make targets per AGENTS.md § 2):
 - [ ] `make test-integration` passes (if your change touches the integration surface)
 - [ ] `make lint` passes
 - [ ] `make docs-lint` passes (if your change touches Markdown under `docs/`)
-- [ ] Coverage targets per [`docs/project/COVERAGE-GATES.md`](../docs/project/COVERAGE-GATES.md)
+- [ ] Coverage targets per [`docs/project/COVERAGE-GATES.md`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/COVERAGE-GATES.md)
       met for any new package (critical >70%, CLI >40%)
 
 ## Required: docs

@@ -1,210 +1,92 @@
-<h1 align="center">
-  <img src="assets/logo.png" alt="Keystone Core logo" width="200"><br>
-  Keystone Core
-</h1>
+# Keystone Core
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-v0.x_pre--release-orange)](docs/project/VERSIONING.md)
+[![Status](https://img.shields.io/badge/Status-planning-lightgrey)](docs/project/VERSIONING.md)
 [![AI Contributions Welcome](https://img.shields.io/badge/AI_Contributions-Welcome-brightgreen)](docs/project/AI-CONTRIBUTIONS.md)
 
-**GitOps deploys it. We keep it running.**
+> **There is nothing to install here yet.** This repository currently holds
+> planning, governance and transition evidence. The implementation it used to
+> contain has been archived, and the replacement has not been written.
 
-Keystone Core is the runtime operations control plane between deployment tooling (GitOps/IaC) and day-2 operations. Where Argo CD, Flux, and Terraform answer *what should be deployed*, Keystone Core answers *what is happening right now, is it drifting, and what should we do about it?*
+Keystone Core intends to be the runtime operations control plane between
+deployment tooling and day-2 operations: GitOps and infrastructure-as-code
+describe what should be deployed, and Keystone Core answers what is actually
+happening on the fleet now.
 
-Inspired by Salt Project's UX, built on a modern Go stack with cloud-native primitives — clusterable from day 1, security-real from day 1.
+## What happened
 
-## Topology
+In September 2026 the project accepted a reboot. The Generation 1
+implementation — around 1,900 files, two public releases, a large feature
+surface — was archived rather than continued.
 
-```
-                   ┌────────────────────┐
-   Operators ─────▶│   kscore-server    │◀───── Postgres (state, audit, events)
-   (kscorectl /    │  gRPC :5397        │
-    REST /         │  REST :8080        │
-    kscore-*)      │  Webhooks :8081    │
-                   └─────────┬──────────┘
-                             │ NATS (commands, responses, events)
-            ┌────────────────┼────────────────┐
-            ▼                ▼                ▼
-      ┌──────────┐     ┌──────────┐     ┌──────────┐
-      │  kscore- │     │  kscore- │     │  kscore- │
-      │  agent   │     │  agent   │     │  agent   │
-      └──────────┘     └──────────┘     └──────────┘
-       (linux host)     (linux host)     (linux host)
-```
+It was not archived because it failed to work. It was archived because its
+breadth outran the evidence that any single operator journey worked end to end.
+Recent fixes had found enrollment credentials that were not retained, and state
+and blueprint applies that did not reliably reach remote agents — cases where
+package-level test coverage sat alongside missing production wiring. Adding
+more features would have preserved that risk rather than resolved it.
 
-One control plane, N agents, NATS as the transport, Postgres for durable state. Bootstrap PSK or join-token + SVID; commands are HMAC-signed; events fan out via JetStream; audit + policy go through the same bus.
+The decision, its reasoning and the alternatives that were rejected are in
+[RFC 0001](docs/rfcs/0001-generation-2-reboot.md).
 
-## Quickstart
+## Where Generation 1 went
 
-> **v0.5.x — explicitly invited to install** (per [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md)). Until the v1.0 release ceremony, `.deb` / `.rpm` packages are operator-distributed rather than published to a public repo. Get the snapshot you've been sent onto the target host, then:
+Nothing was deleted. The final state is preserved three ways:
 
-### Debian / Ubuntu
+| | |
+|---|---|
+| Branch | `archive/2026-09-pre-v0.6-reboot` |
+| Signed tag | `archive-2026-09-pre-v0.6-reboot` |
+| Offline bundle | held by the maintainer, SHA-256 in [`docs/transition/manifest.json`](docs/transition/manifest.json) |
 
-```bash
-sudo apt install -y ./kscore-server_*_linux_amd64.deb \
-                    ./kscore-cli_*_linux_amd64.deb \
-                    ./kscore-agent_*_linux_amd64.deb
-```
+Both refs are protected against update and deletion. The `v0.1.0` and `v0.5.0`
+releases remain published and unchanged, and are unsupported.
 
-### Rocky / RHEL
+Every capability that existed is catalogued in
+[`FUTURE-CAPABILITIES.md`](docs/project/FUTURE-CAPABILITIES.md) — 703 entries
+with their status, known gaps and archived source — so the reboot discards the
+code without discarding what was learned.
 
-```bash
-sudo dnf install -y ./kscore-server-*.x86_64.rpm \
-                    ./kscore-cli-*.x86_64.rpm \
-                    ./kscore-agent-*.x86_64.rpm
-```
+## What Generation 2 is
 
-The `kscore-server` postinst creates the `kscore` system user, lays down `/etc/kscore/`, generates a per-host HMAC secret, and enables + starts `kscore-server.service`. Smoke-check:
+One promise, deliberately narrow:
 
-```bash
-sleep 35  # past the 30s startup grace period
-curl -fsS http://127.0.0.1:8080/health/ready | jq '.ready, .components'
-kscorectl --version
-```
+> An operator can securely enroll a Linux agent, target it, execute a bounded
+> command over NATS, observe its durable lifecycle, cancel it, and retrieve an
+> auditable result.
 
-`kscore-agent` installs but **does not** auto-start — operator edits to `/etc/kscore/agent.yaml` (`agent.id`, `nats.urls`) are required first.
+Nothing else ships until that is demonstrably true — proven by black-box tests
+driving production binaries across the real transport, not by package tests.
+State management, blueprints, runbooks, plugins, secrets, GitOps, webhooks,
+policy and clustering are all Future candidates rather than commitments.
 
-For the full single-node walkthrough (package layout, what the postinst does, verification), see [`docs/runbooks/bootstrap-new-cluster.md`](docs/runbooks/bootstrap-new-cluster.md). For the guided fresh-VM tutorial (install → run a command → apply state → browse the audit log), see [`docs/project/GETTING-STARTED.md`](docs/project/GETTING-STARTED.md).
+## Where things are
 
-> **Developing on the source?** The contributor environment uses a docker-compose harness with Postgres + NATS + a 2-agent topology — see [`docs/project/DEVELOPMENT.md`](docs/project/DEVELOPMENT.md).
-
-## Documentation
-
-### Reference
-
-- [`docs/project/CLI-REFERENCE.md`](docs/project/CLI-REFERENCE.md) — every `kscore-*` binary + every subcommand (auto-generated via `make docs-sync`). Every `kscore-<name>` operator binary is also reachable as `kscorectl <name>` via plugin dispatch — `kscorectl module list` runs `kscore-module list` if the binary is on `PATH`.
-- [`docs/project/CONFIGURATION-REFERENCE.md`](docs/project/CONFIGURATION-REFERENCE.md) — every config key with type + description (auto-generated).
-- [`docs/project/API-REFERENCE.md`](docs/project/API-REFERENCE.md) — every gRPC RPC + REST endpoint (auto-generated, links to canonical proto/openapi sources).
-- [`docs/project/GETTING-STARTED.md`](docs/project/GETTING-STARTED.md) — the 30-minute fresh-VM walkthrough.
-
-### Project
-
-- [`FEATURES.md`](FEATURES.md) — feature inventory with version tags.
-- [`PROJECT-DETAILS.md`](PROJECT-DETAILS.md) — implementation reconstruction guide.
-- [`docs/project/DESIGN.md`](docs/project/DESIGN.md) — high-level architecture.
-- [`docs/project/PROBLEM-STATEMENT.md`](docs/project/PROBLEM-STATEMENT.md) — why this exists.
-- [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md) — the v0.x → v0.5 → v1.0 release ladder.
-- [`docs/project/ROADMAP.md`](docs/project/ROADMAP.md) — ranked backlog (gate-v0.5 / gate-v1.0 / v1.x / v2.x+).
-- [`epics/`](epics/) — the 19 reconstruction epics, in dependency order.
-
-### Operations
-
-- [`docs/runbooks/`](docs/runbooks/) — 12 operational runbooks (backup-restore, bootstrap-new-cluster, disaster-recovery, certificate-rotation, upgrade-cluster, performance-degradation, security-incident, troubleshooting, …). Carried from the prior implementation; in-flight rework noted in [`AGENTS.md`](AGENTS.md).
-- [`deploy/`](deploy/) — systemd unit files + Grafana dashboards bundled with the `.deb` / `.rpm` packages. See [`deploy/README.md`](deploy/README.md).
-
-### Releases
-
-- [`CHANGELOG.md`](CHANGELOG.md) — release notes, breaking changes, feature-by-epic mapping. Current line: `v0.x`.
-- [`RELEASE-PLAYBOOK.md`](RELEASE-PLAYBOOK.md) — end-to-end build / sign / publish ceremony; single-signer for v0.x / v1.0 / v1.1; multi-party from v1.2.
-- [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md) — the v0.1 → v0.5 → v0.9 → v1.0 ladder + gate checklists.
-
-### Governance + security
-
-- [`docs/project/GOVERNANCE.md`](docs/project/GOVERNANCE.md) — BDFL + maintainer model + RFC process.
-- [`docs/project/MAINTAINERS.md`](docs/project/MAINTAINERS.md) — current maintainers.
-- [`docs/project/SECURITY-GOVERNANCE.md`](docs/project/SECURITY-GOVERNANCE.md) — security policy, response, and the four-scan baseline pipeline.
-- [`docs/project/COVERAGE-GATES.md`](docs/project/COVERAGE-GATES.md) — per-package coverage gates.
-- [`docs/project/TEST-POLICY.md`](docs/project/TEST-POLICY.md) — race detector + goleak policy.
-- [`docs/project/HARDENING-BASELINE.md`](docs/project/HARDENING-BASELINE.md) — v1.0 hardening audit.
-- [`docs/project/PROFILING-BASELINE.md`](docs/project/PROFILING-BASELINE.md) — measured CPU/alloc baseline.
-- [`SECURITY.md`](SECURITY.md) — vulnerability reporting.
-
-## Public hosting
-
-- **Primary**: [`codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core)
-- **Mirror (code-only)**: [`github.com/Spicer-Creek-Solutions-LLC/keystone-core`](https://github.com/Spicer-Creek-Solutions-LLC/keystone-core)
-
-File issues, discussions, and contributions on Codeberg. The GitHub mirror exists for discoverability and is not where development happens.
-
-Project sponsor: **Spicer Creek Solutions LLC** ([`OWNERSHIP.md`](OWNERSHIP.md)).
-
-## Project status
-
-> **Pre-1.0. Reconstruction approaching v1.0.**
-
-This repository was reset to a clean reconstruction baseline on 2026-05-05. The prior implementation — substantial but unshippable as a coherent first release — is not part of the current line, but it is preserved in this repository at the annotated tag [`archive/v0-final`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive/v0-final) (commit `7d21b848a`). The current line starts fresh from the reconstruction baseline.
-
-The 19 reconstruction epics in [`epics/`](epics/) sequence dependency-ordered v1.0 work. Track current progress in [`epics/00-meta-reconstruction-plan.md`](epics/00-meta-reconstruction-plan.md). The versioning scheme — three milestone tiers `v0.1` → `v0.5` (external-tester ready, all Linux) → `v1.0` (all 19 epics + SemVer stability) — is in [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md).
-
-**The v0.5 external-tester gate is met.** Every item on the [`v0.5 gate checklist`](docs/project/VERSIONING.md#v05-gate--external-tester-ready-all-linux) is delivered: all major Linux families pass the cross-distro CI matrix; the network, storage, firewall, package, and security modules clear the external-tester bar; engine/module coverage is enforced at the v0.5 levels (≥85% / ≥80%); and the [state support matrix](docs/project/STATE-SUPPORT-MATRIX.md) and documentation site are live. `v0.5.0` was released on 2026-06-27. It ships **unsigned**, with `sha256sum -c` as the integrity check, under the [`RELEASE-PLAYBOOK.md`](RELEASE-PLAYBOOK.md) §6 carve-out that covers the line through `v0.7.x`; release signing begins at `v0.8`.
-
-## What v1.0 commits to
-
-The full success bar — all 19 epics complete, contracts frozen, SemVer stability begins — is in [`docs/project/VERSIONING.md`](docs/project/VERSIONING.md). The headline commitment: a coherent release that demonstrates one system can:
-
-- Manage heterogeneous Linux fleets via a single agent over NATS.
-- Run remote commands with rich targeting, batch concurrency, and streaming output.
-- Apply declarative state through 35 universal Linux modules with drift detection and remediation.
-- Run highly available out of the box — 3-node cluster, embedded etcd, leader election <3 s, failover <10 s.
-- Issue real identity from day 1 — embedded SPIFFE-shaped CA, mTLS, join tokens, API keys, JWT.
-- Broker secrets via encrypted-file or HashiCorp Vault backends.
-- Integrate with GitOps tooling — Argo CD / Flux / GitHub / GitLab webhooks for verification and rollback.
-- Be safely extensible through Cosign-signed Starlark modules with capability-based sandboxing.
-- Compose higher-level operations via blueprints, runbooks, and a saga coordinator.
-- Audit and observe every sensitive action — Prometheus metrics, OpenTelemetry traces, Grafana dashboards.
-- Self-manage — bootstrap from seed, back up, restore, rate-limit, distribute files.
-
-Full success criteria: [`docs/project/PROBLEM-STATEMENT.md`](docs/project/PROBLEM-STATEMENT.md).
-
-## What v0.x is *not*
-
-Keystone Core is on the `v0.x` line. SemVer permits breaking changes between v0.x releases; expect them. CLI shapes, state-file params, gRPC contracts, DB migrations — all fair game until v1.0.
-
-To keep the v1.0 timebox honest, the following are explicitly post-v1.0:
-
-- WASM module runtime, Windows agent, macOS agent
-- Kubernetes operator embedding
-- Full SPIRE integration
-- Policy *enforcement* — the `v0.x → v1.0` line is **audit-mode only**: policies evaluate + audit but never block (see [`docs/project/POLICY-AUDIT.md`](docs/project/POLICY-AUDIT.md))
-- Federation, NATS supercluster / leaf nodes
-- Web UI, blueprint marketplace, telemetry gateway
-- Hugo docs site — pre-Hugo, the reference docs live as Markdown in `docs/project/`.
-
-If you need any of these now, Keystone Core is not yet your tool.
-
-## Building from source
-
-Toolchain: Go 1.27.1+ (pinned in `go.mod`). The Makefile is the orchestrator — CI never runs raw `go test` / `go build`.
-
-```bash
-# Install dev tools (golangci-lint, gosec, govulncheck, gitleaks, go-licenses, …)
-make install-tools
-
-# Cross-platform builds (linux/amd64,arm64; darwin/amd64,arm64; windows/amd64,arm64)
-make build-all-platforms
-
-# Snapshot multi-arch tarballs
-make release-snapshot
-```
-
-## Test surface
-
-- `make test` — unit tests with `-race`.
-- `make test-coverage` — same with `-coverprofile`; gated by `make coverage-gate` (critical ≥70%, CLI ≥40%).
-- `make test-integration` — `-tags=integration`, against Postgres + embedded NATS. goleak active.
-- `make slo` — wall-clock SLO assertions (HA: cluster forms <10 s, leader <3 s; perf: command latency <100 ms, event throughput >10k/s, batch-10 <2 s).
-- `make e2e-test` — single-topology docker-compose: 11 scenarios covering infrastructure / registration / command / state / blueprint / module / secrets / audit / outbound webhook / GitOps webhook / rollback.
-- `make profile` — pprof against the perf SLO workload.
-- `make security-{secrets,vulns,sast,licenses}` — gitleaks / govulncheck / gosec / go-licenses.
-
-Each gate is enforceable via Make + runs in CI. The full policy lives in [`docs/project/TEST-POLICY.md`](docs/project/TEST-POLICY.md) and [`docs/project/COVERAGE-GATES.md`](docs/project/COVERAGE-GATES.md).
+- [RFC 0001](docs/rfcs/0001-generation-2-reboot.md) — the decision
+- [Execution plan](docs/project/REBOOT-EXECUTION-PLAN.md) — every task, in order
+- [Architecture invariants](docs/project/ARCHITECTURE-INVARIANTS.md) — 24 rules with stable identifiers
+- [Testing requirements](docs/project/TESTING.md) — what "shipped" means
+- [Capability catalog](docs/project/FUTURE-CAPABILITIES.md) — everything Generation 1 had
+- [Roadmap](docs/project/ROADMAP.md) — Now, Next, Future, Not Planned
+- [Transition evidence](docs/transition/) — the archive manifest and tracker-retirement record
+- [Epic 20](epics/20-generation-2-reboot.md) — the reboot's task list
 
 ## Contributing
 
-Contributions are welcome. During the v1.0 sprint the epics are tightly sequenced — please open an issue or short RFC to coordinate before opening a code PR. Issues, doc improvements, and feedback on the epic structure are always welcome without coordination.
+Read [`CONTRIBUTING.md`](CONTRIBUTING.md) and
+[`AGENTS.md`](AGENTS.md). Commits need a DCO sign-off
+([`DCO.md`](docs/project/DCO.md)) and AI-assisted work must be disclosed
+([`AI-CONTRIBUTIONS.md`](docs/project/AI-CONTRIBUTIONS.md)).
 
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — how to contribute, DCO sign-off, AI disclosure.
-- [`AGENTS.md`](AGENTS.md) — operational guidance for AI coding agents.
-- [`docs/project/AI-CONTRIBUTIONS.md`](docs/project/AI-CONTRIBUTIONS.md) — AI contribution policy.
-- [`docs/project/RFC.md`](docs/project/RFC.md) — propose larger changes via RFC.
-- [`SECURITY.md`](SECURITY.md) — security policy and reporting.
+The issue tracker is empty by design: its 106 Generation 1 issues were closed as
+superseded, not completed, during the transition. Generation 2 issues are
+created as the work is accepted, not in advance.
 
-### Transparency: AI use in this project
+## Security
 
-Keystone Core was originally bootstrapped with substantial AI assistance, and this reconstruction continues that practice openly. The objective is speed-to-foundation: get to a reviewable baseline quickly, then spend sustained human effort on correctness, scaling, and reliability.
+See [`SECURITY.md`](SECURITY.md). There is no supported release: the archived
+Generation 1 releases receive no security updates.
 
-Quality is enforced by process, not by origin. AI-assisted contributions are expected to meet the same standards as human-authored ones: readable design, reproducible builds, tests proportional to risk, security-minded changes, reviewable diffs. Maintainers are responsible for what gets merged. AI involvement must be disclosed in commits per [`docs/project/AI-CONTRIBUTIONS.md`](docs/project/AI-CONTRIBUTIONS.md).
+## Licence
 
-## License
-
-Apache License 2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+Apache 2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).

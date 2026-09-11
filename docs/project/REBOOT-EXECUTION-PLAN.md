@@ -250,6 +250,8 @@ issue exists until verification is green.
 
 ### R08 — Land the clean Generation 2 baseline
 
+**Status:** complete. 1,911 files removed, 79 remain. No root Go module, no build target, no installable claim. Two tool modules survive: `tools/capcheck` permanently, `tools/transition` until R09.
+
 **Goal:** make `main` an intentionally small planning and governance repository.
 
 Use a normal PR and deletion commit. Retain license, ownership, governance,

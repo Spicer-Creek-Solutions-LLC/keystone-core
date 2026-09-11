@@ -59,8 +59,8 @@ Repository sources:
 
 - [README](../../README.md#what-v10-commits-to)
 - [Problem Statement](PROBLEM-STATEMENT.md)
-- [High-Level Design](DESIGN.md)
-- [Feature Inventory](../../FEATURES.md)
+- [High-Level Design](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/DESIGN.md)
+- [Feature Inventory](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/FEATURES.md)
 
 ## Current state
 
@@ -85,11 +85,11 @@ This is substantially more than a concept or small prototype:
 Supporting repository evidence:
 
 - [Versioning and release gates](VERSIONING.md)
-- [v0.5 state support matrix](STATE-SUPPORT-MATRIX.md)
-- [Reconstruction progress](../../epics/00-meta-reconstruction-plan.md)
+- [v0.5 state support matrix](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/STATE-SUPPORT-MATRIX.md)
+- [Reconstruction progress](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/epics/00-meta-reconstruction-plan.md)
 - [Changelog](../../CHANGELOG.md)
-- [Testing policy](TEST-POLICY.md)
-- [Coverage gates](COVERAGE-GATES.md)
+- [Testing policy](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/TEST-POLICY.md)
+- [Coverage gates](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/COVERAGE-GATES.md)
 
 ### Readiness cautions
 
@@ -117,7 +117,7 @@ component tests had not exposed before the v0.5 release, including:
 
 The fixes are valuable, but their timing indicates that component breadth and
 test volume should not yet be equated with validated operator workflows. See the
-fragments under [`.changes/unreleased/`](../../.changes/unreleased/).
+fragments under [`.changes/unreleased/`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/.changes/unreleased).
 
 #### Status documentation has drifted
 

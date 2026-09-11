@@ -152,7 +152,7 @@ small compared to the maintenance benefits.
   [`../../OWNERSHIP.md`](../../OWNERSHIP.md) (SCS LLC owns
   `keystone-core.io`).
 - The provisioning context: see
-  [`../../docs/project/PUBLIC-LAUNCH-CHECKLIST.md`](../../docs/project/PUBLIC-LAUNCH-CHECKLIST.md)
+  [`https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/PUBLIC-LAUNCH-CHECKLIST.md`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/PUBLIC-LAUNCH-CHECKLIST.md)
   Phase B6 + F-phase for the domain-provisioning story.
 - The lychee exclusion that lets CI link-checking pass before the
   domain is live: see [`../../.lychee.toml`](../../.lychee.toml)
