@@ -31,7 +31,7 @@ September 2026 and its references, guides and runbooks went with it.
 
 ## Project
 
-- [`PROBLEM-STATEMENT.md`](PROBLEM-STATEMENT.md) — why this exists
+- [`PRODUCT-CHARTER.md`](PRODUCT-CHARTER.md) — why this exists, the seven canonical journeys, and the `v0.6.0` business gate
 - [`ROADMAP.md`](ROADMAP.md) — Now, Next, Future / Unscheduled, Not Planned
 - [`VERSIONING.md`](VERSIONING.md) — version policy and the `v0.6.0` gate
 - [`ISSUE-TRACKING.md`](ISSUE-TRACKING.md) — tracker conventions

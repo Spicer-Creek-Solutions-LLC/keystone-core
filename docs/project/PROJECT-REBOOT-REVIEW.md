@@ -58,7 +58,7 @@ coexistence with GitOps.
 Repository sources:
 
 - [README](../../README.md#what-v10-commits-to)
-- [Problem Statement](PROBLEM-STATEMENT.md)
+- [Problem Statement](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/PROBLEM-STATEMENT.md)
 - [High-Level Design](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/DESIGN.md)
 - [Feature Inventory](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/FEATURES.md)
 

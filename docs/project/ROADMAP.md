@@ -20,7 +20,8 @@ The Generation 2 reboot, tracked in
 - **Stage P — product and architecture foundation.** Product charter, threat
   model, and the NATS, enrollment, authorisation, protocol, delivery, execution,
   persistence, operator-API, acceptance-harness and repository-skeleton ADRs.
-  No production implementation starts until these are accepted.
+  No production implementation starts until these are accepted. The charter is
+  accepted: [`PRODUCT-CHARTER.md`](PRODUCT-CHARTER.md). P01 is next.
 - **Stage C — the first command-and-control release**, ending at `v0.6.0`.
 
 ## Next
