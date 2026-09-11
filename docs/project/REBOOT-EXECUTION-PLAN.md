@@ -324,6 +324,15 @@ baseline contents, CI enforcement, public links, and rollback instructions.
 unless the maintainer records a time-bounded risk acceptance with owner and
 expiry. This is the gate to implementation.
 
+**Status:** complete on `reboot-r10-transition-audit`. Four independent agents,
+none of which performed R05-R09, produced 80 findings: 1 Critical, 11 High, 18
+Medium, 11 Low, 39 pass or informational. All eleven High are resolved. The
+Critical — `docs.keystone-core.io` still serving the Generation 1 site — is
+risk-accepted to 2026-12-10, owner the project maintainer. Evidence, the four
+raw reports and the ten maintainer decisions are in `docs/transition/r10/`.
+Medium and Low findings remain open and listed. **The gate is clear; Stage P may
+begin.**
+
 ## Stage P — Product and architecture foundation
 
 No production implementation starts until P00-P11 are accepted. Each item is a

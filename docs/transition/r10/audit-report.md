@@ -1,10 +1,15 @@
 # R10 — Independent transition audit
 
-**Verdict: the gate is BLOCKED.** One Critical and ten distinct High findings
-are unresolved. Under the acceptance criterion in
+**Verdict: the gate is CLEAR, with one dated risk acceptance.** The audit found
+one Critical and ten distinct High findings. All eleven High are resolved. The
+Critical is risk-accepted until **2026-12-10** under the acceptance criterion in
 [`REBOOT-EXECUTION-PLAN.md`](../../project/REBOOT-EXECUTION-PLAN.md) § R10,
-implementation cannot begin until each is resolved or carries a maintainer
-risk acceptance naming an owner and an expiry.
+which permits exactly that provided an owner and an expiry are recorded. Both
+are, in [decision 10](maintainer-decisions.md).
+
+This section read "BLOCKED" when the audit was first assembled and is updated
+here rather than rewritten, so the sequence stays legible: the findings came
+first, the decisions second.
 
 **Preservation succeeded. The reset is incomplete, and the record of both is
 unreliable.** That split is the headline. Every artefact the transition was
@@ -150,7 +155,7 @@ on the gate:
 
 | Finding | Severity | Status |
 |---|---|---|
-| `D-01` docs site serves Generation 1 | Critical | **OPEN** — decision taken (deploy the R09 page); the deployment itself is outside the repository |
+| `D-01` docs site serves Generation 1 | Critical | **RISK-ACCEPTED** to 2026-12-10, owner: project maintainer — see decision 10 |
 | `A-05` bundle-uniqueness record wrong | High | Resolved — figures corrected |
 | `A-06` four commits not in the bundle | High | Resolved — removal confirmed deliberate, record corrected |
 | `B-11` mirror record false | High | Resolved in the record; mirror sync is a pending maintainer action and does not affect the gate |
@@ -162,12 +167,13 @@ on the gate:
 | `D-05` `README.md` says the tracker is empty | High | Resolved — rewritten |
 | `D-06` disclosure route dead-ends | High | Resolved — one address, `security@keystone-core.io` |
 
-**The gate does not clear yet.** Ten of eleven High findings are resolved. The
-Critical is not: the decision is taken and the page is written, but
-`docs.keystone-core.io` still serves the Generation 1 documentation site until
-the web host's document root is moved. Under R10's acceptance criterion the gate
-clears when that deployment happens, or when the maintainer records a
-time-bounded risk acceptance for it naming an owner and an expiry.
+**The gate is CLEAR.** All eleven High findings are resolved. The Critical is
+not fixed but is formally risk-accepted until **2026-12-10**, owner the project
+maintainer, which is what R10's acceptance criterion provides for. The terms and
+what is being accepted are in [decision 10](maintainer-decisions.md). On expiry
+the domain must be deployed, taken down, or re-accepted.
+
+Stage P may begin.
 
 Medium and Low findings are not gating and remain open. They are listed in the
 reconciliation table and include real work: `CONTRIBUTING.md`, `GOVERNANCE.md`,
