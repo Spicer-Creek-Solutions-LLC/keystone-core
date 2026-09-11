@@ -39,11 +39,19 @@ jobs:
         run: make docs-lint
 
       # lychee is fetched directly rather than through a Go toolchain, since
-      # there is no root module to install tools from any more.
+      # there is no root module to install tools from any more. The release
+      # tarball holds a directory, not a bare binary, so the member path and
+      # --strip-components matter; without them tar exits non-zero looking for
+      # a member that does not exist. Pinned rather than :latest so a new
+      # upstream release cannot change the layout under us.
       - name: install lychee
+        env:
+          LYCHEE_VERSION: v0.24.2
         run: |
-          curl -fsSL https://github.com/lycheeverse/lychee/releases/latest/download/lychee-x86_64-unknown-linux-gnu.tar.gz \
-            | tar -xz -C /usr/local/bin lychee
+          set -euo pipefail
+          curl -fsSL "https://github.com/lycheeverse/lychee/releases/download/${LYCHEE_VERSION}/lychee-x86_64-unknown-linux-gnu.tar.gz" \
+            | tar -xz -C /usr/local/bin --strip-components=1 lychee-x86_64-unknown-linux-gnu/lychee
+          lychee --version
 
       - name: link check
         run: make docs-links
