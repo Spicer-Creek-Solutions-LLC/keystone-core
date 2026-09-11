@@ -229,3 +229,38 @@ action on both forges.
 
 **Owner:** assembling agent for the documents; project maintainer for the forge
 description.
+
+## 8. `C-01` (High) — the link gate never saw `.forgejo/`
+
+**Decision: derive the file list from git rather than from a glob.**
+
+`make docs-links` now runs `git ls-files '*.md'` and pipes the result to lychee.
+The auditor's raw reports are excluded by pathspec, for the reason recorded in
+`.lychee.toml`.
+
+lychee's `**/*.md` does not descend into dot-directories. markdownlint's
+identical-looking glob does. Two gates were given what reads as the same
+instruction and silently disagreed about what "every tracked file" meant, which
+is how five tracked files came to have no link coverage at all — and how the
+stale pull-request template survived unnoticed.
+
+Adding `.forgejo/**/*.md` as a second pattern was rejected. It closes today's
+gap and leaves the class of defect in place: the next dot-directory anyone adds
+is silently uncovered again. Enumerating from git removes the assumption that
+two tools interpret one pattern the same way.
+
+**Verified rather than assumed.** A broken link was planted in
+`.forgejo/PROBE.md` and both gates were run against the same tree:
+
+| | Result |
+|---|---|
+| New git-derived list | 1 error — `.forgejo/NO-SUCH-FILE-R10-PROBE.md` not found |
+| Old `"**/*.md"` glob | 0 errors |
+
+The probe was then removed and the gate returns green. R09 shipped a glob fix
+without testing it, which is why this one was tested.
+
+One known limit: the file list is expanded by the shell via `xargs` rather than
+by lychee. At 43 tracked markdown files this is immaterial.
+
+**Owner:** assembling agent, in this task.

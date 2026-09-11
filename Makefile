@@ -30,8 +30,18 @@ docs-lint-fix: ## Auto-fix Markdown lint issues where possible
 	npx --yes markdownlint-cli2 --fix
 
 docs-links: ## Check internal relative links via lychee (offline)
+	# The file list comes from git, not from a glob. lychee's `**/*.md` does not
+	# descend into dot-directories, so `.forgejo/` was never link-checked - and
+	# markdownlint's identical-looking glob does descend, so the two gates
+	# silently disagreed about what "every tracked file" meant. Enumerating from
+	# git removes the assumption rather than patching this instance of it, and a
+	# dot-directory added later is covered without anyone remembering to.
 	@command -v lychee >/dev/null || { echo "ERROR: docs-links needs lychee on PATH"; exit 1; }
-	lychee --offline --config .lychee.toml --root-dir "$(CURDIR)" "**/*.md"
+	@command -v git >/dev/null || { echo "ERROR: docs-links needs git on PATH"; exit 1; }
+	@files="$$(git ls-files '*.md' ':!:docs/transition/r10/raw')"; \
+	if [ -z "$$files" ]; then echo "ERROR: docs-links matched no files"; exit 1; fi; \
+	echo "lychee: $$(echo "$$files" | wc -l) tracked markdown files"; \
+	echo "$$files" | xargs lychee --offline --config .lychee.toml --root-dir "$(CURDIR)"
 
 stray-binary-check: ## Fail if a `go build` left a binary inside a tool module
 	# `go build` inside a nested module drops a binary named after its directory,
