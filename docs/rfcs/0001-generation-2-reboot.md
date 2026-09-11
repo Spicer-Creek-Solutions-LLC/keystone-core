@@ -219,11 +219,34 @@ without creating product value.
 
 Before the clean-baseline PR merges, rollback means abandoning the transition
 branch. After merge, Git rollback means reverting the baseline commit or
-branching from the immutable Generation 1 tag. Forge mutations have their own
-before-state manifest and compensating procedure. Issue retirement is normally
-not reversed because the original content remains intact; reopening it requires
-an explicit maintainer decision. No archived ref or historical release is
-deleted during rollback.
+branching from the immutable Generation 1 tag.
+
+Every forge mutation records its before-state. Reversal is a maintainer
+decision taken against that record, not a pre-written procedure: the transition
+is a one-time sequence with no realistic trigger for automated reversal, and a
+runbook for an operation nobody intends to perform would drift out of date
+faster than it could be trusted. The before-states are in
+[`docs/transition/manifest.json`](../transition/manifest.json) —
+`ci_and_protection.before` for the CI and branch-protection switch,
+`tracker_retirement` with the reviewed snapshot in `docs/transition/r07/` for
+issue retirement, and `planning_state_publication` for the Generation 2
+planning state.
+
+Issue retirement is normally not reversed because the original content remains
+intact; reopening it requires an explicit maintainer decision. No archived ref
+or historical release is deleted during rollback.
+
+Recovery of Generation 1 itself does not depend on any of this. It rests on the
+protected branch, the signed tag and the offline bundle, each independently
+sufficient and each verified.
+
+### Amendments
+
+**2026-09-11 (task R10).** This section previously stated that forge mutations
+have "their own before-state manifest and compensating procedure". The
+before-state manifests exist; no compensating procedure was ever written. The
+claim is corrected rather than satisfied, for the reason given above. The
+decision this RFC records is unchanged.
 
 ## References
 
