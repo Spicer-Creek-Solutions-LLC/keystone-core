@@ -264,3 +264,28 @@ One known limit: the file list is expanded by the shell via `xargs` rather than
 by lychee. At 43 tracked markdown files this is immaterial.
 
 **Owner:** assembling agent, in this task.
+
+## 9. `D-14` (Medium) — R09 and R10 commits are unsigned
+
+**Decision: write the convention down; accept the R09 gap.**
+
+Nothing in this repository required commit signing. Not `AGENTS.md`, not
+`CONTRIBUTING.md`, not `DCO.md`, not `GOVERNANCE.md`, not RFC 0001. R02 to R08
+were signed by habit, R09 was not, and R10 is again. The finding exists because
+the habit was consistent enough that breaking it was noticeable, while no rule
+existed that could detect the break.
+
+`AGENTS.md` § 4 now states the rule, including the exemption that makes it
+workable: **forge merge commits are unsigned and are expected to be.** Both
+`47ae589b8` and `7ca552231` — the R08 and R09 merges, made by the maintainer
+through the web interface — carry no signature. Any rule without that exemption
+would have been violated on the day it was written.
+
+R09's commits stay unsigned. They are merged into `main`, and RFC 0001 commits
+to the repository history remaining continuous, which rules out rewriting them.
+
+Rejected: enforcing signing in CI, which would have to exempt the most common
+commit type on the repository and could do nothing about R09 either way; and a
+signed tag attesting to the end state, which the maintainer did not take up.
+
+**Owner:** assembling agent, in this task.

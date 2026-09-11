@@ -142,6 +142,42 @@ paths, `capability-catalog-check`, `stray-binary-check` and the DCO check all
 genuinely fail when they should, and that no gate is silently skipped when its
 tool is missing.
 
+## Status after maintainer decisions
+
+Nine decisions were taken against these findings and are recorded, with their
+reasoning, in [`maintainer-decisions.md`](maintainer-decisions.md). Their effect
+on the gate:
+
+| Finding | Severity | Status |
+|---|---|---|
+| `D-01` docs site serves Generation 1 | Critical | **OPEN** — decision taken (deploy the R09 page); the deployment itself is outside the repository |
+| `A-05` bundle-uniqueness record wrong | High | Resolved — figures corrected |
+| `A-06` four commits not in the bundle | High | Resolved — removal confirmed deliberate, record corrected |
+| `B-11` mirror record false | High | Resolved in the record; mirror sync is a pending maintainer action and does not affect the gate |
+| `C-01` link gate never saw `.forgejo/` | High | Resolved — file list derived from git, verified with a planted defect and a control |
+| `C-02` templates require deleted targets | High | Resolved — deleted |
+| `C-03` `SECURITY-GOVERNANCE.md` asserts absent controls | High | Resolved — deleted |
+| `D-02` forge descriptions | High | Resolved in the record; the forge edit is a pending maintainer action (`PATCH /repos/...` is 403) |
+| `D-04` announcement documented as pinned | High | Resolved — claim removed, maintainer elected not to pin |
+| `D-05` `README.md` says the tracker is empty | High | Resolved — rewritten |
+| `D-06` disclosure route dead-ends | High | Resolved — one address, `security@keystone-core.io` |
+
+**The gate does not clear yet.** Ten of eleven High findings are resolved. The
+Critical is not: the decision is taken and the page is written, but
+`docs.keystone-core.io` still serves the Generation 1 documentation site until
+the web host's document root is moved. Under R10's acceptance criterion the gate
+clears when that deployment happens, or when the maintainer records a
+time-bounded risk acceptance for it naming an owner and an expiry.
+
+Medium and Low findings are not gating and remain open. They are listed in the
+reconciliation table and include real work: `CONTRIBUTING.md`, `GOVERNANCE.md`,
+`MAINTAINERS.md` and `NOTICE` still describe Generation 1 (`D-15`, `D-16`,
+`D-19`); `.lychee.toml` still excludes paths that no longer exist (`C-10`,
+`D-20`); the capability catalog's Name column is unvalidated (`C-04`); link
+fragments are unchecked and one is already broken (`C-05`); CI runs neither
+`capcheck`'s tests nor `make check` (`C-07`); and the DCO check passes
+vacuously on an empty commit range (`C-08`).
+
 ## Reconciliation
 
 Every finding from every raw report, with its disposition. `NOTED` marks a pass
