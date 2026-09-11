@@ -63,7 +63,7 @@ and pull requests. Detailed controls are normative in the execution plan.
 - [x] R07 — Retire Generation 1 tracker state.
 - [x] R08 — Land the clean Generation 2 baseline.
 - [x] R09 — Publish Generation 2 planning state.
-- [ ] R10 — Independent transition audit.
+- [x] R10 — Independent transition audit. Gate clear; `D-01` risk-accepted to 2026-12-10.
 
 ### Product and architecture foundation
 

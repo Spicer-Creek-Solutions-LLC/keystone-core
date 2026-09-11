@@ -289,3 +289,43 @@ commit type on the repository and could do nothing about R09 either way; and a
 signed tag attesting to the end state, which the maintainer did not take up.
 
 **Owner:** assembling agent, in this task.
+
+## 10. `D-01` (Critical) — risk acceptance
+
+**The maintainer accepts this risk for 90 days rather than deploying now.**
+
+| | |
+|---|---|
+| Finding | `D-01` — `docs.keystone-core.io` serves the Generation 1 documentation site |
+| Severity | Critical |
+| Accepted | 2026-09-11 |
+| **Expires** | **2026-12-10** |
+| Owner | Project maintainer |
+| Action on expiry | Deploy `deploy/docs/site/index.html`, or take the domain down, or record a fresh acceptance |
+
+This is the mechanism R10's acceptance criterion provides: the gate clears on
+resolution *or* on a time-bounded risk acceptance naming an owner and an expiry.
+It is recorded rather than left informal, because an undated deferral is
+indistinguishable from having forgotten.
+
+**What is being accepted.** Until the document root moves, the project's own
+documentation domain presents Generation 1 as current software: 100 URLs
+including operational runbooks for cluster bootstrap, upgrade, certificate
+rotation and disaster recovery, written in the present tense, with no mention of
+the reboot. It is the `website` field on both forges.
+
+**Why the exposure is bounded.** The maintainer states that nobody is running
+`v0.1.0`, `v0.5.0` or any other release, and that the site has no users. The
+severity was assigned on the assumption of readers being misled; with no
+readers, the defect is in the accuracy of the public record rather than a live
+hazard to an operator. The severity is not reduced on the strength of that — the
+assembling agent does not lower severities on its own judgement, and traffic
+assumptions are the kind of thing that turn out to be wrong — but it is the
+reason a 90-day window is reasonable rather than reckless.
+
+**What is not affected.** Nothing about preservation. The archive branch, signed
+tag and offline bundle are intact and independently verified, and the `v0.1.0`
+and `v0.5.0` release pages already carry their unsupported notices.
+
+**Gate status: CLEAR.** With this acceptance recorded, R10 has no unresolved
+Critical or High finding. Stage P may begin.
