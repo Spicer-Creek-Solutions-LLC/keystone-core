@@ -1,0 +1,72 @@
+{
+ "plan_sha256": "daf30adce4053044b06d2e78ca4c2e53b286c264874a05a2e1c63d7accc5faf3",
+ "forge": {
+  "host": "https://codeberg.org",
+  "owner": "Spicer-Creek-Solutions-LLC",
+  "name": "keystone-core",
+  "repository_id": 1749683
+ },
+ "milestone_id": 142396,
+ "issues": {
+  "ANNOUNCE-reboot": {
+   "number": 268,
+   "pinned": false
+  },
+  "P00": {
+   "number": 270,
+   "pinned": false
+  },
+  "P01": {
+   "number": 271,
+   "pinned": false
+  },
+  "P02": {
+   "number": 272,
+   "pinned": false
+  },
+  "P03": {
+   "number": 273,
+   "pinned": false
+  },
+  "P04": {
+   "number": 274,
+   "pinned": false
+  },
+  "P05": {
+   "number": 275,
+   "pinned": false
+  },
+  "P06": {
+   "number": 276,
+   "pinned": false
+  },
+  "P07": {
+   "number": 277,
+   "pinned": false
+  },
+  "P08": {
+   "number": 278,
+   "pinned": false
+  },
+  "P09": {
+   "number": 280,
+   "pinned": false
+  },
+  "P10": {
+   "number": 281,
+   "pinned": false
+  },
+  "P11": {
+   "number": 282,
+   "pinned": false
+  },
+  "TRACKER-v0.6.0": {
+   "number": 269,
+   "pinned": false
+  }
+ },
+ "release_annotations": {
+  "v0.1.0": true,
+  "v0.5.0": true
+ }
+}

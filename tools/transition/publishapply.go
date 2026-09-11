@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // PubJournal records what a publish has already created. Creating an issue is
@@ -89,11 +90,13 @@ func (j *PubJournal) save() error {
 // pubIssueView is an existing tracker issue, with the body this tool needs in
 // order to read a task marker out of it.
 type pubIssueView struct {
-	Number int    `json:"number"`
-	State  string `json:"state"`
-	Title  string `json:"title"`
-	Body   string `json:"body"`
-	Labels []struct {
+	Number    int    `json:"number"`
+	State     string `json:"state"`
+	Title     string `json:"title"`
+	Body      string `json:"body"`
+	CreatedAt string `json:"created_at"`
+	ClosedAt  string `json:"closed_at"`
+	Labels    []struct {
 		Name string `json:"name"`
 	} `json:"labels"`
 	Milestone *struct {
@@ -504,7 +507,7 @@ func VerifyPublication(c *client, p *PubPlan, out *strings.Builder) []string {
 	// maintained #232 and R08 deleted the tool behind it, so the proof required
 	// here is that closing #232 has produced no replacement: no other issue
 	// carries its title, and no workflow can create one.
-	problems = append(problems, verifyNoReplacement(all, 232)...)
+	problems = append(problems, verifyNoReplacement(all, 232, out)...)
 
 	for _, r := range p.Releases {
 		var live apiRelease
@@ -526,11 +529,18 @@ func VerifyPublication(c *client, p *PubPlan, out *strings.Builder) []string {
 	return problems
 }
 
-// verifyNoReplacement proves that a closed issue has not been replaced by a
-// look-alike. It is the negative test the execution plan requires for issue
-// automation: automation that is generation-aware cannot recreate an archived
-// issue, and this is what "cannot" looks like from the outside.
-func verifyNoReplacement(all []pubIssueView, number int) []string {
+// verifyNoReplacement proves that closing an archived issue did not cause a
+// replacement to be created. It is the negative test the execution plan
+// requires for issue automation.
+//
+// A replacement is an issue that shares the archived one's title and was
+// created *after* it was closed. Comparing titles alone is wrong, and reported
+// two false positives the first time this ran: the nightly job had been
+// recreating this issue for months, so #160 and #231 share #232's title while
+// predating it entirely. That history is not noise — it is what makes the test
+// meaningful, because it shows the behaviour being ruled out actually happened,
+// on a roughly weekly cadence, right up until R06 disabled the job.
+func verifyNoReplacement(all []pubIssueView, number int, out *strings.Builder) []string {
 	var target *pubIssueView
 	for i, is := range all {
 		if is.Number == number {
@@ -545,15 +555,43 @@ func verifyNoReplacement(all []pubIssueView, number int) []string {
 	if target.State != "closed" {
 		problems = append(problems, fmt.Sprintf("negative test: issue #%d is %q, expected closed", number, target.State))
 	}
+
+	closedAt, err := time.Parse(time.RFC3339, target.ClosedAt)
+	if err != nil {
+		// Without a closure time there is no "after" to test against, and
+		// guessing one would make the test decorative.
+		return append(problems, fmt.Sprintf(
+			"negative test: issue #%d has no parsable closed_at (%q); cannot establish what would count as a replacement",
+			number, target.ClosedAt))
+	}
+
+	predecessors := 0
 	for _, is := range all {
 		if is.Number == number {
 			continue
 		}
-		if strings.EqualFold(strings.TrimSpace(is.Title), strings.TrimSpace(target.Title)) {
-			problems = append(problems, fmt.Sprintf(
-				"negative test: #%d has the same title as archived issue #%d; a replacement was created",
-				is.Number, number))
+		if !strings.EqualFold(strings.TrimSpace(is.Title), strings.TrimSpace(target.Title)) {
+			continue
 		}
+		created, cerr := time.Parse(time.RFC3339, is.CreatedAt)
+		if cerr != nil {
+			problems = append(problems, fmt.Sprintf(
+				"negative test: #%d shares issue #%d's title and has no parsable created_at (%q)",
+				is.Number, number, is.CreatedAt))
+			continue
+		}
+		if created.Before(closedAt) {
+			predecessors++
+			continue
+		}
+		problems = append(problems, fmt.Sprintf(
+			"negative test: #%d was created %s, after archived issue #%d closed %s, and shares its title; a replacement was created",
+			is.Number, created.UTC().Format(time.RFC3339), number, closedAt.UTC().Format(time.RFC3339)))
 	}
+
+	fmt.Fprintf(out, "  negative test: archived issue #%d closed %s; %d earlier issue(s) shared its title\n",
+		number, closedAt.UTC().Format(time.RFC3339), predecessors)
+	fmt.Fprintf(out, "  negative test: %d issue(s) with that title created since the closure\n",
+		len(problems))
 	return problems
 }

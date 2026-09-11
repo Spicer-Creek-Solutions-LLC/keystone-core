@@ -1,0 +1,13 @@
+# R09 publication verification
+# 2026-09-11T14:24:45Z
+
+  negative test: archived issue #232 closed 2026-09-11T00:19:13Z; 2 earlier issue(s) shared its title
+  negative test: 0 issue(s) with that title created since the closure
+  14 planned issues checked against 134 tracker issues
+  highest Generation 1 issue: #246; title collisions with planned issues: 0
+
+publish-verify: ok — every planned issue exists exactly once with its reviewed body,
+  none was deduplicated against a Generation 1 issue, no replacement was created
+  for archived issue #232, and both archived releases carry the notice.
+
+exit: 0

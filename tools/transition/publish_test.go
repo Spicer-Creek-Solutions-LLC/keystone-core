@@ -50,9 +50,15 @@ func newPubStub(t *testing.T) *pubStub {
 }
 
 // addG1 seeds a closed Generation 1 issue: no task marker, which is what makes
-// it a Generation 1 issue as far as this tool is concerned.
+// it a Generation 1 issue as far as this tool is concerned. It carries real
+// timestamps because the negative test judges a replacement by when it was
+// created relative to the closure, and an issue with no closed_at is a tracker
+// the check reports rather than passes.
 func (s *pubStub) addG1(n int, title string) *pubIssueView {
-	is := &pubIssueView{Number: n, State: "closed", Title: title, Body: "Generation 1 issue body."}
+	is := &pubIssueView{
+		Number: n, State: "closed", Title: title, Body: "Generation 1 issue body.",
+		CreatedAt: "2026-08-21T07:20:58Z", ClosedAt: "2026-09-11T02:19:13Z",
+	}
 	s.issues = append(s.issues, is)
 	if n >= s.nextNumber {
 		s.nextNumber = n + 1
@@ -104,7 +110,10 @@ func (s *pubStub) server() *httptest.Server {
 				Milestone int64   `json:"milestone"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
-			is := &pubIssueView{Number: s.nextNumber, State: "open", Title: body.Title, Body: body.Body}
+			is := &pubIssueView{
+				Number: s.nextNumber, State: "open", Title: body.Title, Body: body.Body,
+				CreatedAt: "2026-09-11T13:00:00Z",
+			}
 			s.nextNumber++
 			for _, id := range body.Labels {
 				for name, lid := range s.labels {
@@ -772,28 +781,64 @@ func TestVerifyCatchesATitleSharedWithAClosedGeneration1Issue(t *testing.T) {
 	}
 }
 
-func TestNegativeTestProvesArchivedIssue232HasNoReplacement(t *testing.T) {
-	title := "Dependency freshness: direct deps with updates available"
+func TestNegativeTestDistinguishesAPredecessorFromAReplacement(t *testing.T) {
+	const title = "Dependency freshness: direct deps with updates available"
 
-	clean := []pubIssueView{{Number: 232, State: "closed", Title: title}}
-	if got := verifyNoReplacement(clean, 232); len(got) != 0 {
-		t.Fatalf("a clean tracker reported %v", got)
+	// The real shape this was written against. The nightly job recreated the
+	// issue roughly weekly, so two closed issues share #232's title while
+	// predating it entirely. Reporting those as replacements is wrong, and is
+	// what the first live run of this check did.
+	history := []pubIssueView{
+		{Number: 160, State: "closed", Title: title, CreatedAt: "2026-06-05T07:22:01Z", ClosedAt: "2026-08-13T07:22:28Z"},
+		{Number: 231, State: "closed", Title: title, CreatedAt: "2026-08-14T07:20:40Z", ClosedAt: "2026-08-20T07:23:51Z"},
+		{Number: 232, State: "closed", Title: title, CreatedAt: "2026-08-21T07:20:58Z", ClosedAt: "2026-09-11T02:19:13Z"},
+	}
+	var out strings.Builder
+	if got := verifyNoReplacement(history, 232, &out); len(got) != 0 {
+		t.Fatalf("predecessors reported as replacements: %v", got)
+	}
+	if !strings.Contains(out.String(), "2 earlier issue(s) shared its title") {
+		t.Errorf("the predecessors were not reported as evidence:\n%s", out.String())
 	}
 
-	replaced := append([]pubIssueView(nil), clean...)
-	replaced = append(replaced, pubIssueView{Number: 268, State: "open", Title: title})
-	got := verifyNoReplacement(replaced, 232)
-	if !containsSubstring(got, "a replacement was created") {
+	// An issue created after the closure, sharing the title, is a replacement.
+	replaced := append([]pubIssueView(nil), history...)
+	replaced = append(replaced, pubIssueView{
+		Number: 290, State: "open", Title: title, CreatedAt: "2026-09-12T05:00:00Z"})
+	var out2 strings.Builder
+	if got := verifyNoReplacement(replaced, 232, &out2); !containsSubstring(got, "a replacement was created") {
 		t.Fatalf("got %v, want a replacement report", got)
 	}
 
-	reopened := []pubIssueView{{Number: 232, State: "open", Title: title}}
-	if got := verifyNoReplacement(reopened, 232); !containsSubstring(got, "expected closed") {
-		t.Fatalf("got %v, want a reopened report", got)
+	// A replacement created in the same second the issue closed still counts:
+	// "after it was closed" must not have an off-by-one hole at the boundary.
+	boundary := append([]pubIssueView(nil), history...)
+	boundary = append(boundary, pubIssueView{
+		Number: 291, State: "open", Title: title, CreatedAt: "2026-09-11T02:19:13Z"})
+	var out3 strings.Builder
+	if got := verifyNoReplacement(boundary, 232, &out3); !containsSubstring(got, "a replacement was created") {
+		t.Fatalf("got %v, want the boundary case reported as a replacement", got)
+	}
+}
+
+func TestNegativeTestReportsATrackerItCannotJudge(t *testing.T) {
+	const title = "Dependency freshness: direct deps with updates available"
+	var out strings.Builder
+
+	if got := verifyNoReplacement(nil, 232, &out); !containsSubstring(got, "not found") {
+		t.Errorf("got %v, want a missing-issue report", got)
 	}
 
-	if got := verifyNoReplacement(nil, 232); !containsSubstring(got, "not found") {
-		t.Fatalf("got %v, want a missing-issue report", got)
+	reopened := []pubIssueView{{Number: 232, State: "open", Title: title, CreatedAt: "2026-08-21T07:20:58Z"}}
+	if got := verifyNoReplacement(reopened, 232, &out); !containsSubstring(got, "expected closed") {
+		t.Errorf("got %v, want a reopened report", got)
+	}
+
+	// No closure time means there is no "after" to test against. Passing would
+	// make the check decorative, so it reports instead.
+	noClose := []pubIssueView{{Number: 232, State: "closed", Title: title, CreatedAt: "2026-08-21T07:20:58Z"}}
+	if got := verifyNoReplacement(noClose, 232, &out); !containsSubstring(got, "cannot establish") {
+		t.Errorf("got %v, want an unjudgeable-tracker report", got)
 	}
 }
 
