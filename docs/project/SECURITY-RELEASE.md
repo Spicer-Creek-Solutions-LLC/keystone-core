@@ -146,7 +146,7 @@ Vector: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
    - Do not reference CVE or vulnerability details in commits
 
 2. **Code Review**
-   - Security-focused review using [SECURITY-REVIEW.md](SECURITY-REVIEW.md)
+   - Security-focused review using [SECURITY-REVIEW.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/SECURITY-REVIEW.md)
    - Verify fix addresses root cause, not just symptoms
    - Check for regression in related code
 
@@ -257,7 +257,7 @@ This vulnerability was responsibly disclosed by [Reporter Name/Alias].
 
 [Brief description]. Users should upgrade immediately.
 
-See [security advisory](link) for details.
+See the linked security advisory for details.
 ```
 
 ## Release Process
@@ -265,7 +265,7 @@ See [security advisory](link) for details.
 {{% alert title="Offline Signing Ceremony Required" color="warning" %}}
 All releases — including security patch releases — must follow the offline
 multi-party signing ceremony defined in
-[RELEASE-PLAYBOOK.md](../../RELEASE-PLAYBOOK.md). Security patches use the
+[RELEASE-PLAYBOOK.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/RELEASE-PLAYBOOK.md). Security patches use the
 expedited process (Playbook Phase 14) which allows a reduced quorum of 2
 participants but does not relax signing or verification requirements.
 {{% /alert %}}
@@ -283,7 +283,8 @@ participants but does not relax signing or verification requirements.
 
 ### Release Steps
 
-Security patch releases follow `RELEASE-PLAYBOOK.md` Phase 14 (Emergency
+Security patch releases will follow the Generation 2 release process defined in
+Stage C (C13). Generation 1's playbook, archived, described this as Phase 14 (Emergency
 and Patch Releases). The process is identical to a standard release with
 these modifications:
 
@@ -413,8 +414,8 @@ When a vulnerability is in a dependency:
 
 ## References
 
-- [RELEASE-PLAYBOOK.md](../../RELEASE-PLAYBOOK.md) - Authoritative release process (multi-party signing ceremony)
+- [RELEASE-PLAYBOOK.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/RELEASE-PLAYBOOK.md) - Authoritative release process (multi-party signing ceremony)
 - [SECURITY.md](../../SECURITY.md) - Reporting vulnerabilities
-- [INCIDENT-RESPONSE.md](INCIDENT-RESPONSE.md) - Incident handling
+- [INCIDENT-RESPONSE.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/INCIDENT-RESPONSE.md) - Incident handling
 - [CVSS Calculator](https://www.first.org/cvss/calculator/3.1)
 - [CVE Program](https://www.cve.org/)

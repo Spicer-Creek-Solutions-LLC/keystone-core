@@ -1,129 +1,59 @@
-# docs/project/ — project documentation
+# Project documentation
 
-This directory holds the canonical project documentation: design,
-reference, security, governance, testing, and lifecycle. Files are
-named in upper-kebab-case so they sort naturally and read like a
-table of contents in a directory listing.
+Planning, governance and transition records for Keystone Core. There is no
+product documentation here: the Generation 1 implementation was archived in
+September 2026 and its references, guides and runbooks went with it.
 
-For the doc-tree front door (where-to-start by intent), see
-[`../README.md`](../README.md). For operational runbooks (day-2
-procedures), see [`../runbooks/`](../runbooks/). For formal
-architectural decision records, see [`../adr/`](../adr/).
+## The reboot
 
-## Operator entry points
-
-- [`GETTING-STARTED.md`](GETTING-STARTED.md) — guided ~30-minute
-  fresh-VM walkthrough: install → run a command → apply state →
-  browse the audit log.
-- [`GLOSSARY.md`](GLOSSARY.md) — terminology used throughout the
-  project (agent, blueprint, runbook, saga, …).
-
-## Reference (auto-generated — regenerate with `make docs-sync`)
-
-- [`CLI-REFERENCE.md`](CLI-REFERENCE.md) — every `kscore-*` binary +
-  every subcommand. Every `kscore-<name>` operator binary is also
-  reachable as `kscorectl <name>` via plugin dispatch.
-- [`CONFIGURATION-REFERENCE.md`](CONFIGURATION-REFERENCE.md) — every
-  config key in `server.yaml` and `agent.yaml`, with type +
-  description.
-- [`API-REFERENCE.md`](API-REFERENCE.md) — every gRPC RPC + REST
-  endpoint, with links to the canonical proto / OpenAPI sources.
-
-## Design + architecture
-
-- [`DESIGN.md`](DESIGN.md) — high-level architecture.
-- [`PROJECT-REBOOT-REVIEW.md`](PROJECT-REBOOT-REVIEW.md) — evidence behind the
-  accepted Generation 2 reboot.
 - [`../rfcs/0001-generation-2-reboot.md`](../rfcs/0001-generation-2-reboot.md) —
-  accepted reboot decision and boundaries.
-- [`ARCHITECTURE-INVARIANTS.md`](ARCHITECTURE-INVARIANTS.md) — normative
-  Generation 2 communication, NATS, execution, and validation constraints.
-- [`PROBLEM-STATEMENT.md`](PROBLEM-STATEMENT.md) — why this project
-  exists, what it is (and isn't).
-- [`COMPATIBILITY.md`](COMPATIBILITY.md) — supported platforms,
-  upstream version pins, deprecation policy.
+  the accepted decision, its reasoning, and the alternatives rejected
+- [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) — every transition and
+  foundation task, with its controls and acceptance criteria
+- [`PROJECT-REBOOT-REVIEW.md`](PROJECT-REBOOT-REVIEW.md) — the assessment the
+  decision rests on
+- [`REBOOT-DEV-VM.md`](REBOOT-DEV-VM.md) — resuming the transition on the
+  development VM
+- [`../transition/`](../transition/) — archive manifest, freeze record, and the
+  tracker-retirement evidence
 
-## Security
+## Generation 2 foundations
 
-- [`SECURITY-DESIGN.md`](SECURITY-DESIGN.md) — the security
-  architecture (identity, HMAC, audit, secrets).
-- [`SECURITY-GOVERNANCE.md`](SECURITY-GOVERNANCE.md) — the v1.0
-  four-scan baseline + vulnerability disclosure process.
-- [`SECURITY-RELEASE.md`](SECURITY-RELEASE.md) — security advisory +
-  release-coordination workflow.
-- [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md) — review checklist for
-  security-relevant changes.
-- [`HARDENING-BASELINE.md`](HARDENING-BASELINE.md) — the measured
-  v1.0 hardening posture.
-- [`POLICY-AUDIT.md`](POLICY-AUDIT.md) — the audit-mode-only policy
-  operator guide; enforcement-mode migration is **post-v1.0**.
+- [`ARCHITECTURE-INVARIANTS.md`](ARCHITECTURE-INVARIANTS.md) — 24 normative rules
+  with stable `ARCH-*` identifiers
+- [`TESTING.md`](TESTING.md) — what "shipped" means; black-box acceptance against
+  production binaries
+- [`REQUIREMENTS-TRACEABILITY.md`](REQUIREMENTS-TRACEABILITY.md) — each invariant
+  mapped to its planned evidence
+- [`FUTURE-CAPABILITIES.md`](FUTURE-CAPABILITIES.md) — 703 catalogued Generation 1
+  capabilities, none of them a commitment
+- [`../adr/`](../adr/) — ADR templates for the Stage P decisions
 
-The vulnerability-reporting entry point is [`../../SECURITY.md`](../../SECURITY.md)
-at the repo root.
+## Project
 
-## Governance + process
+- [`PROBLEM-STATEMENT.md`](PROBLEM-STATEMENT.md) — why this exists
+- [`ROADMAP.md`](ROADMAP.md) — Now, Next, Future / Unscheduled, Not Planned
+- [`VERSIONING.md`](VERSIONING.md) — version policy and the `v0.6.0` gate
+- [`ISSUE-TRACKING.md`](ISSUE-TRACKING.md) — tracker conventions
+- [`GLOSSARY.md`](GLOSSARY.md) — terminology
 
-- [`GOVERNANCE.md`](GOVERNANCE.md) — BDFL + maintainer model, RFC
-  process, **launch posture**.
-- [`MAINTAINERS.md`](MAINTAINERS.md) — current maintainers.
-- [`RFC.md`](RFC.md) — RFC procedure for design proposals.
-- [`DCO.md`](DCO.md) — Developer Certificate of Origin policy +
-  sign-off requirement.
-- [`AI-CONTRIBUTIONS.md`](AI-CONTRIBUTIONS.md) — AI-assisted
-  contribution policy.
-- [`ISSUE-TRACKING.md`](ISSUE-TRACKING.md) — labels, milestones,
-  tracker-issue conventions.
+## Governance and policy
 
-## Testing + quality
+- [`GOVERNANCE.md`](GOVERNANCE.md), [`MAINTAINERS.md`](MAINTAINERS.md),
+  [`RFC.md`](RFC.md)
+- [`DCO.md`](DCO.md), [`AI-CONTRIBUTIONS.md`](AI-CONTRIBUTIONS.md)
+- [`SECURITY-GOVERNANCE.md`](SECURITY-GOVERNANCE.md),
+  [`SECURITY-RELEASE.md`](SECURITY-RELEASE.md), and
+  [`../../SECURITY.md`](../../SECURITY.md)
 
-- [`TESTING.md`](TESTING.md) — Generation 2 production-process Docker, VM,
-  negative-security, durability, and release requirements.
-- [`REQUIREMENTS-TRACEABILITY.md`](REQUIREMENTS-TRACEABILITY.md) — invariant to
-  automated-evidence register.
-- [`TEST-POLICY.md`](TEST-POLICY.md) — `-race`, `goleak`, build tags,
-  the test target matrix.
-- [`COVERAGE-GATES.md`](COVERAGE-GATES.md) — per-package coverage
-  thresholds.
-- [`E2E-VM-TESTING.md`](E2E-VM-TESTING.md) — VM-based E2E testing
-  (all-in-one, HA, IPv6, performance).
-- [`PROFILING-BASELINE.md`](PROFILING-BASELINE.md) — measured CPU /
-  allocation baseline.
+## Generation 1 sources
 
-## Development + incident response
+Not in the working tree. Read them from the protected archive:
 
-- [`DEVELOPMENT.md`](DEVELOPMENT.md) — build, test, contribute. The
-  **Local Dev Topology** section covers the docker-compose dev
-  harness for ad-hoc iteration.
-- [`INCIDENT-RESPONSE.md`](INCIDENT-RESPONSE.md) — production
-  security-incident response (compromised agent, control plane,
-  data breach, supply chain).
-- [`RELEASE-INCIDENT.md`](RELEASE-INCIDENT.md) — what to do when a
-  *published* release reveals a critical problem (yank, fast
-  follow-up release, public communication). Companion to
-  [`../../RELEASE-PLAYBOOK.md`](../../RELEASE-PLAYBOOK.md) § 14.
+```bash
+git show archive-2026-09-pre-v0.6-reboot:docs/project/DESIGN.md
+git show archive-2026-09-pre-v0.6-reboot:docs/project/GETTING-STARTED.md
+git show archive-2026-09-pre-v0.6-reboot:docs/runbooks/README.md
+```
 
-## Project lifecycle
-
-- [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) — approval-sized
-  transition, architecture, implementation, and pilot tasks.
-- [`REBOOT-DEV-VM.md`](REBOOT-DEV-VM.md) — branch handoff and guarded resume
-  procedure for continuing the reboot from the development VM.
-- [`FUTURE-CAPABILITIES.md`](FUTURE-CAPABILITIES.md) — unversioned archive
-  capability catalog; inclusion is not a delivery promise.
-- [`VERSIONING.md`](VERSIONING.md) — active reboot version policy followed by
-  retained Generation 1 release evidence.
-- [`ROADMAP.md`](ROADMAP.md) — frozen Generation 1 ranked backlog and transition
-  notice; it must not generate new work.
-- [`PUBLIC-LAUNCH-CHECKLIST.md`](PUBLIC-LAUNCH-CHECKLIST.md) — retained
-  Generation 1 pre-launch evidence pending archive.
-- [`CODEBERG-SETTINGS-AUDIT.md`](CODEBERG-SETTINGS-AUDIT.md) — Generation 1
-  repository-setting snapshot; R02 and R06 produce transition snapshots.
-
-## Related directories
-
-- [`../runbooks/`](../runbooks/) — twelve operational runbooks for
-  day-2 procedures.
-- [`../adr/`](../adr/) — formal Architectural Decision Records +
-  template.
-- [`../../epics/20-generation-2-reboot.md`](../../epics/20-generation-2-reboot.md)
-  — active reboot epic; Epics 00–19 are Generation 1 evidence.
+They are research. RFC 0001 controls.

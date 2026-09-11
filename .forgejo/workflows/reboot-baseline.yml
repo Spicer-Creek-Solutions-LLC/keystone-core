@@ -1,24 +1,14 @@
 # The Generation 2 baseline gate.
 #
-# This exists so that removing the Generation 1 workflows in R08 cannot make
-# `main` unmergeable. A required status context whose workflow no longer exists
-# is never reported, and a branch that requires it can never be merged again —
-# recovering from that needs an admin protection-maintenance window, which is
-# exactly the situation R06 is here to avoid.
+# This is now the only gate. R06 added it and switched `main`'s required checks
+# to it; R08 removed the Generation 1 workflows it was built to outlive. A
+# required status context whose workflow no longer exists is never reported, and
+# a branch requiring it can never be merged again — sequencing it this way round
+# avoided that.
 #
-# So the order is: land this workflow, let a pull request produce its context so
-# the setting becomes selectable, switch `main`'s required checks to it, and only
-# then let R08 delete the old workflow files.
-#
-# It is deliberately minimal, and specifically it needs no Go toolchain. After
-# R08 the repository is planning and governance documents with no Go module, so
-# anything depending on `go` would stop working at precisely the moment this
-# gate becomes the only one. Markdown lint runs through `npx`, and the DCO check
-# is shell and git.
-#
-# `ci-fast.yml` keeps running until R08 removes it. Between now and then its
-# results are visible but no longer blocking, which is the deliberate trade
-# recorded in the R06 section of docs/project/REBOOT-EXECUTION-PLAN.md.
+# It needs no Go toolchain for the markdown and DCO checks, which is why it
+# survived the removal of the root module. The two surviving tool modules bring
+# their own Go, and are checked separately below.
 name: reboot-baseline
 
 on:
@@ -47,6 +37,29 @@ jobs:
       # .markdownlint-cli2.yaml. No Go, no project toolchain.
       - name: markdown lint
         run: make docs-lint
+
+      # lychee is fetched directly rather than through a Go toolchain, since
+      # there is no root module to install tools from any more.
+      - name: install lychee
+        run: |
+          curl -fsSL https://github.com/lycheeverse/lychee/releases/latest/download/lychee-x86_64-unknown-linux-gnu.tar.gz \
+            | tar -xz -C /usr/local/bin lychee
+
+      - name: link check
+        run: make docs-links
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+          cache: false
+
+      # The capability catalog reads its sources from the pinned Generation 1
+      # commit, so it needs full history — hence fetch-depth 0 above.
+      - name: capability catalog
+        run: make capability-catalog-check
+
+      - name: transition tool
+        run: make transition-check
 
       # Every non-merge commit on a pull request must carry a Signed-off-by
       # trailer, per docs/project/DCO.md and AGENTS.md § 4. Skipped on push,

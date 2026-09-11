@@ -259,7 +259,7 @@ license + why go-licenses can't classify it.
 #### Dependency posture (Phase B3 audit, 2026-05-23)
 
 49 direct dependencies + 154 indirect = 203 Go modules. Reviewed
-during the public-launch [Phase B3](PUBLIC-LAUNCH-CHECKLIST.md#phase-b--security-review):
+during the public-launch [Phase B3](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/PUBLIC-LAUNCH-CHECKLIST.md):
 
 **License distribution** (per `go-licenses` against the full tree):
 
@@ -337,7 +337,7 @@ archives, 12 nfpm packages, `checksums.txt`) and runs
 installability. CI's `release-dry-run` job runs the full smoke
 (including container install) on every PR; the offline release
 workstation runs the same command per
-[`RELEASE-PLAYBOOK.md`](../../RELEASE-PLAYBOOK.md) Phase 4.
+[`RELEASE-PLAYBOOK.md`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/RELEASE-PLAYBOOK.md) Phase 4.
 
 | Check | Where | What it proves |
 |-------|-------|----------------|
@@ -387,7 +387,7 @@ Tracked under the ROADMAP entry *"Release dry-run expansion"*:
 - `systemd-analyze verify` on the installed unit files; needs
   systemd in the container which inflates pull size.
 - Reproducibility check (two independent builds → identical
-  checksums); RELEASE-PLAYBOOK Phase 4 covers this manually for
+  checksums); the archived Generation 1 playbook covered this manually for
   v1.0 single-signer releases.
 
 ### Security PR Review Process
@@ -468,7 +468,7 @@ See [SECURITY-RELEASE.md](SECURITY-RELEASE.md) for detailed procedures.
 
 ### Cryptographic Standards Policy
 
-See [SECURITY-DESIGN.md](SECURITY-DESIGN.md) for approved algorithms.
+See [SECURITY-DESIGN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/SECURITY-DESIGN.md) for approved algorithms.
 
 **Requirements**:
 
@@ -691,8 +691,8 @@ review_date: 2025-02-15
 ## Related Documents
 
 - [SECURITY.md](../../SECURITY.md) - Vulnerability reporting and security assumptions
-- [SECURITY-DESIGN.md](SECURITY-DESIGN.md) - Security design principles
-- [SECURITY-REVIEW.md](SECURITY-REVIEW.md) - Security review process
+- [SECURITY-DESIGN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/SECURITY-DESIGN.md) - Security design principles
+- [SECURITY-REVIEW.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/SECURITY-REVIEW.md) - Security review process
 - [SECURITY-RELEASE.md](SECURITY-RELEASE.md) - Security release procedures
 
 ---

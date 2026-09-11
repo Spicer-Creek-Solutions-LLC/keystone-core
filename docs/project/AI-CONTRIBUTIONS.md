@@ -70,7 +70,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 Use one or both of these formats:
 
 ```
-🤖 Generated with [Tool Name](tool-url)
+🤖 Generated with `Tool Name` (link to the tool)
 
 Co-Authored-By: AI Name <noreply@domain.com>
 ```

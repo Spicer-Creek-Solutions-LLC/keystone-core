@@ -6,7 +6,7 @@ the public-facing documentation surface.
 The full Hugo site has now landed (the gate-v0.5
 ["Hugo docs site"](../../docs/project/ROADMAP.md) milestone): the Hugo
 source lives under [`../../docs/`](../../docs/) and renders with
-`make docs-site` (see [`docs/SITE.md`](../../docs/SITE.md)). The
+`make docs-site` (see [`docs/SITE.md`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/SITE.md)). The
 **branded placeholder** here remains the served page until the rendered
 site is actually deployed at `docs.keystone-core.io` — there is no
 hosting infrastructure for that domain yet (it is still aspirational; it

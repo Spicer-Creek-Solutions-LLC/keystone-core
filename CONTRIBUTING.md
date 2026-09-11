@@ -17,7 +17,7 @@ to discuss early than rewrite late.
 ## AI‑Assisted Contributions
 
 AI‑assisted contributions are welcome. Use whatever tools help you think and iterate. See
-[DEVELOPMENT.md](docs/project/DEVELOPMENT.md) for details and expectations.
+[AGENTS.md](AGENTS.md) for details and expectations.
 
 ## Compatibility Awareness
 
@@ -39,8 +39,11 @@ Keystone Core handles sensitive infrastructure operations. Security-conscious de
 
 **Before writing code:**
 
-- Review [SECURITY-DESIGN.md](docs/project/SECURITY-DESIGN.md) for design principles and cryptographic standards
-- Understand trust boundaries your code crosses (see `docs/concepts/threat-model.md`)
+- Generation 2's threat model is a Stage P deliverable (P01) and does not exist yet.
+  Until it does, raise security-relevant design questions in an RFC rather than
+  assuming a boundary. Generation 1's security design is archived at
+  [`SECURITY-DESIGN.md`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/SECURITY-DESIGN.md) and describes a
+  system that no longer exists.
 
 **During development:**
 
@@ -61,70 +64,26 @@ Keystone Core handles sensitive infrastructure operations. Security-conscious de
 
 **Reporting vulnerabilities:** See `SECURITY.md` for responsible disclosure procedures.
 
-**Release process:** Official releases follow a formal offline multi-party signing ceremony.
-If you are a maintainer involved in releases, see [RELEASE-PLAYBOOK.md](RELEASE-PLAYBOOK.md)
-for the complete process, key management, and quorum requirements.
+**Release process:** there is nothing to release. The first Generation 2 release is
+`v0.6.0`, and its packaging and signing ceremony are decided in Stage C (C13). Generation
+1's release playbook is archived at [RELEASE-PLAYBOOK.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/RELEASE-PLAYBOOK.md).
 
 ## Getting Started
 
 If you’re new:
 
 1. Read this file
-2. Skim [DEVELOPMENT.md](docs/project/DEVELOPMENT.md) for workflow details
+2. Skim [AGENTS.md](AGENTS.md) for workflow details
 3. Check open issues / discussions
 4. Ask questions if something is unclear
 5. Open a PR or RFC
 
 ## Changelog entries
 
-Per-PR changelog entries live as YAML fragments under
-[`.changes/unreleased/`](.changes/unreleased/), not inline in
-`CHANGELOG.md`'s `[Unreleased]` section. The fragments roll up into
-`CHANGELOG.md` at release time via `make changelog-batch
-VERSION=v0.x.y`. This pattern (powered by [changie](https://changie.dev))
-exists because concurrent PRs editing the same `CHANGELOG.md` section
-caused mechanical merge conflicts; fragments give each PR its own
-file, and `git` auto-merges trivially.
-
-### Per-PR workflow
-
-1. Make your code change in the usual way.
-2. Draft a fragment: `make changelog-new` (interactive — prompts for
-   kind + body). Commits the new file under `.changes/unreleased/`.
-3. Edit the generated `.yaml` if you want to fine-tune wording; the
-   `body:` field is a YAML literal block, multi-line is supported.
-4. Include the fragment in your PR alongside the code change.
-
-To preview the accumulated `[Unreleased]` section that your fragment
-will land in, run `make changelog-preview`.
-
-### Fragment shape
-
-```yaml
-kind: Changed        # Security | Added | Changed | Fixed | Docs
-body: |-
-  **Short title.** One-line summary of the change.
-  Continuation paragraphs are fine; indent them 2 spaces in the YAML
-  literal so they render as bullet continuations after the leading
-  `- ` is prepended at batch time.
-```
-
-The `body` becomes a single bullet under `### <kind>` in the rendered
-changelog. The `**Short title.**` convention mirrors the keep-a-changelog
-style used in the rest of `CHANGELOG.md`.
-
-### At release time
-
-Maintainers run `make changelog-batch VERSION=v0.x.y`, which:
-
-1. Aggregates every fragment under `.changes/unreleased/` into a new
-   `## [v0.x.y] — <date>` section at the top of `CHANGELOG.md`.
-2. Moves the consumed fragments to `.changes/v0.x.y/` for archive.
-3. Updates the file's internal index so `[Unreleased]` reads empty
-   until the next PR drops a new fragment.
-
-See [`.changie.yaml`](.changie.yaml) for the exact templates that
-govern output formatting.
+There are none. Per-pull-request changelog fragments were removed with the
+Generation 1 code they described, and there is nothing released to describe.
+The transition record lives in [`docs/transition/`](docs/transition/) and the
+task list in [epic 20](epics/20-generation-2-reboot.md).
 
 ## Questions?
 

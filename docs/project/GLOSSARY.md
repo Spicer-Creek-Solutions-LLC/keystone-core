@@ -10,7 +10,7 @@ The process by which an agent proves its identity and integrity to the control p
 
 ### Audit Mode
 
-The v0.x → v1.0 policy posture: policies evaluate and emit audit records but never block requests. Enforcement (blocking on violation) graduates in v1.x. See [`POLICY-AUDIT.md`](POLICY-AUDIT.md).
+The v0.x → v1.0 policy posture: policies evaluate and emit audit records but never block requests. Enforcement (blocking on violation) graduates in v1.x. See [`POLICY-AUDIT.md`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/POLICY-AUDIT.md).
 
 ### Authentication
 

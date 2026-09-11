@@ -111,7 +111,7 @@ Security-report cadences are tighter than the general-issue cadences above:
 - **Initial acknowledgement**: within ~72 hours.
 - **Severity assessment**: within ~1 week of acknowledgement.
 - **Fix / coordinated disclosure plan**: depends on severity (per the response-phase tree in
-  [`INCIDENT-RESPONSE.md`](INCIDENT-RESPONSE.md)); the reporter is kept in the loop throughout.
+  [`INCIDENT-RESPONSE.md`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/INCIDENT-RESPONSE.md)); the reporter is kept in the loop throughout.
 
 If a security report does not receive an acknowledgement within 72 hours, the reporter should
 escalate per the escalation path in [`../../SECURITY.md`](../../SECURITY.md).

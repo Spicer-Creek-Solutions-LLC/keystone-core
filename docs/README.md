@@ -1,76 +1,37 @@
-# Keystone Core — Documentation
+# Documentation
 
-This directory is the canonical home for Keystone Core's
-documentation. Until the Hugo doc site lands (planned for v0.5; see
-[`project/ROADMAP.md`](project/ROADMAP.md)), everything is rendered
-Markdown — organized by audience and intent rather than by tool.
+Keystone Core is between generations. The Generation 1 implementation was
+archived in September 2026, and Generation 2 has not been written, so there is
+no user documentation here yet — no install guide, no CLI reference, no
+runbooks.
 
-The top-level [`README.md`](../README.md) is the project front door
-(topology, quickstart, the public-hosting story). This file is the
-**doc-tree front door** — a where-to-start map for the directories
-below.
+What is here is the material that decides what gets built.
 
-## Where to start (by intent)
+- [`project/`](project/) — planning, governance and policy
+- [`rfcs/`](rfcs/) — accepted decisions, starting with
+  [RFC 0001](rfcs/0001-generation-2-reboot.md)
+- [`adr/`](adr/) — templates for the Stage P architecture decisions
+- [`transition/`](transition/) — archive manifest, freeze record and the
+  tracker-retirement evidence
 
-**I want to install Keystone Core on a fresh VM.**
-→ [`project/GETTING-STARTED.md`](project/GETTING-STARTED.md) — the
-guided ~30-minute tutorial. Or, for the dense reference walkthrough
-(package layout, postinst behavior, filesystem map), jump straight to
-[`runbooks/bootstrap-new-cluster.md`](runbooks/bootstrap-new-cluster.md).
+Start with the [README](../README.md) for what happened and why, or the
+[execution plan](project/REBOOT-EXECUTION-PLAN.md) for what happens next.
 
-**I want to develop on the source.**
-→ [`project/DEVELOPMENT.md`](project/DEVELOPMENT.md). Covers the
-docker-compose dev topology (`make e2e-up`), the build / test
-workflow, the contribution conventions, and where reference docs
-auto-generate from.
+## Generation 1 documentation
 
-**I'm responding to an incident or running an operation.**
-→ [`runbooks/`](runbooks/) — twelve scenario-specific procedures
-(bootstrap, upgrade, backup, restore, DR, certificate rotation,
-security incident, performance triage, …). See
-[`runbooks/README.md`](runbooks/README.md) for the index.
+Archived, not deleted. Every guide, reference and runbook is readable at the
+archive tag:
 
-**I need a reference (CLI flags, config keys, API endpoints).**
-→ The three auto-generated references under [`project/`](project/):
+```bash
+git show archive-2026-09-pre-v0.6-reboot:docs/project/GETTING-STARTED.md
+git show archive-2026-09-pre-v0.6-reboot:docs/project/CLI-REFERENCE.md
+git show archive-2026-09-pre-v0.6-reboot:docs/runbooks/README.md
+git show archive-2026-09-pre-v0.6-reboot:docs/project/DEVELOPMENT.md
+```
 
-- [`project/CLI-REFERENCE.md`](project/CLI-REFERENCE.md) — every
-  `kscore-*` binary + subcommand (auto-gen from `cmd/`)
-- [`project/CONFIGURATION-REFERENCE.md`](project/CONFIGURATION-REFERENCE.md)
-  — every config key (auto-gen from struct tags)
-- [`project/API-REFERENCE.md`](project/API-REFERENCE.md) — every
-  gRPC RPC + REST endpoint (auto-gen from `.proto` + OpenAPI)
+Or browse it on the forge under the
+[`archive-2026-09-pre-v0.6-reboot`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs)
+tag.
 
-All three regenerate via `make docs-sync`; edit the source and
-regenerate, don't hand-edit the references.
-
-**I'm trying to understand a design decision or a project policy.**
-→ [`project/README.md`](project/README.md) is the curated index of
-everything under `docs/project/` (design, security, governance,
-testing, lifecycle). [`adr/`](adr/) holds the formal Architectural
-Decision Records.
-
-## Directory map
-
-| Subtree | What's inside | Index |
-|---|---|---|
-| [`project/`](project/) | 30 markdown files: design, reference, security, governance, testing, lifecycle | [`project/README.md`](project/README.md) |
-| [`runbooks/`](runbooks/) | 12 operational runbooks for day-2 procedures | [`runbooks/README.md`](runbooks/README.md) |
-| [`adr/`](adr/) | Architectural Decision Records + template | [`adr/README.md`](adr/README.md) |
-
-## Doc surface conventions
-
-- Headline operator docs (`GETTING-STARTED.md`, the runbooks) are
-  pinned to **v0.1 reality**: the install path is `apt install` /
-  `dnf install` of the operator-distributed `.deb` / `.rpm` packages
-  followed by `kscorectl` for CLI interaction. They do **not** lean
-  on the docker-compose dev harness or grpcurl — those live in
-  [`project/DEVELOPMENT.md`](project/DEVELOPMENT.md) as contributor
-  tooling.
-- Each v0.x doc carries a scope note where v0.1 reality narrows the
-  full v1.0 surface. The Hugo site will eventually replace these
-  with proper versioned navigation; until then, the inline notes are
-  the source of truth.
-- The Hugo doc site is planned for v0.5 (see
-  [`project/ROADMAP.md`](project/ROADMAP.md) § Hugo docs site). Until
-  then, all paths in this tree are stable URLs you can deep-link from
-  external docs, issues, and discussions.
+It describes software that is no longer developed or supported, and it is
+research rather than guidance.

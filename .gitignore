@@ -103,8 +103,8 @@ tools/moddoc/moddoc
 # Build cache
 .cache/
 
-# Compiled binaries left by `go build` inside a nested tool module
-# (clean-check only guards the repo root).
-/tools/*/transition
-/tools/*/trackerctl
-/tools/*/promogen
+# A `go build` inside a nested tool module drops a binary named after its
+# directory. Ignore that shape generally rather than listing tools by hand —
+# the hand-written list missed capcheck the moment it became a module.
+/tools/capcheck/capcheck
+/tools/transition/transition

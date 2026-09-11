@@ -645,5 +645,51 @@
     "snapshot_sha256": "9ace87373af1f3cf1dbc161563ca07572e612cd74769cdc7095d37c767b33c30",
     "project_board": "Step 9 of the apply sequence is not applicable: has_projects is false on this repository and the projects endpoint returns 404, so there is no roadmap board to archive.",
     "no_collateral_evidence": "Exactly 106 issues carry status/superseded and generation/1. Of the 120 closed issues, the 14 that predate this task carry neither."
+  },
+  "clean_baseline": {
+    "task": "R08",
+    "completed_at": "2026-09-11T09:09:26Z",
+    "files_before": 1989,
+    "files_after": 79,
+    "files_deleted": 1911,
+    "removed": "Generation 1 code (internal, pkg, cmd, modules, test, api), the root Go module and its build and lint configuration, generated API/CLI/configuration references, runtime deployments, epics 00-19, runbooks, release records, the Hugo documentation site and its module, promo and release automation, seven tools including trackerctl, and 20 Generation 1 documents under docs/project.",
+    "retained": "Licence and governance, security policy and process, the reboot corpus, the capability catalog, transition evidence, ADR templates, epic 20, the logo, issue templates, the baseline CI workflow, and lint configuration.",
+    "rewritten": [
+      "README.md",
+      "AGENTS.md",
+      "SECURITY.md",
+      "CHANGELOG.md",
+      "CONTRIBUTING.md",
+      "Makefile",
+      "docs/README.md",
+      "docs/project/README.md",
+      "docs/project/ROADMAP.md",
+      "docs/project/VERSIONING.md",
+      "docs/project/ISSUE-TRACKING.md",
+      ".forgejo/workflows/reboot-baseline.yml"
+    ],
+    "surviving_modules": {
+      "tools/capcheck": "Permanent. Validates the capability catalog. Its own stdlib-only module, and it reads the archived sources from the pinned commit rather than the working tree, so the deletions do not affect it.",
+      "tools/transition": "Removed or explicitly adopted as Generation 2 maintenance tooling at R09, per the plan."
+    },
+    "decisions": {
+      "security_docs": "SECURITY-DESIGN and SECURITY-REVIEW removed as Generation 1 product documentation; SECURITY-GOVERNANCE and SECURITY-RELEASE retained as project process. Root SECURITY.md rewritten to advertise no supported version.",
+      "glossary": "Retained. P00-P09 need a vocabulary and starting from an empty one is worse.",
+      "hugo_site": "Removed, including its own Go module. Keeping it meant keeping a second module alive to render a site with no content, against the no-buildable-product-claim criterion.",
+      "vanity_imports": "Retained. The two surviving tool modules declare paths under go.keystone-core.io, so the namespace is in active use; removing the mapping would leave those paths pointing at nothing until P11.",
+      "changelog": "Reduced to a stub linking the archive and the two published releases. All 58 per-pull-request fragments removed with the changie configuration. The released sections are a public record; the fragments described work that no longer exists."
+    },
+    "acceptance": {
+      "no_buildable_product_claim": "No root go.mod (go build reports no main module), no build target, no installation instructions in README, SECURITY.md marks every version unsupported.",
+      "archive_links_resolve": "18 distinct archived paths referenced across the surviving documents; all resolve at the archive tag.",
+      "gates_pass": [
+        "docs-lint",
+        "docs-links",
+        "capability-catalog-check",
+        "transition-check",
+        "stray-binary-check"
+      ],
+      "rename_review": "git diff --find-renames reports no renames: every removal is a true deletion, nothing was silently relocated."
+    }
   }
 }

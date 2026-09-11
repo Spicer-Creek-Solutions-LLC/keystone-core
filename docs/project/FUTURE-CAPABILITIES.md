@@ -1359,7 +1359,7 @@ artifact to check against, rather than this file's prose, when verifying that
 nothing was dropped.
 
 Sources reconciled: `FEATURES.md`, `PROJECT-DETAILS.md`,
-[`ROADMAP.md`](ROADMAP.md), [`STATE-SUPPORT-MATRIX.md`](STATE-SUPPORT-MATRIX.md),
+[`ROADMAP.md`](ROADMAP.md), [`STATE-SUPPORT-MATRIX.md`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/STATE-SUPPORT-MATRIX.md),
 `epics/00`–`epics/19`, `docs/runbooks/`, and the unreleased changelog fragments.
 
 ## Not planned by default

@@ -1,222 +1,83 @@
-# Issue Tracking Conventions
+# Issue tracking
 
-How work is organised in the project's Forgejo issue tracker — a self-hosted Forgejo during
-reconstruction, moving to Codeberg at public launch (the GitHub repo stays a code-only mirror; issues
-live only on the canonical Forgejo). This document is the convention; the planning documents it
-references remain the content source of truth.
+## Current state
 
-> **Tooling note**: the `fj` CLI (forgejo-cli) can create/edit/search/close issues and manage labels,
-> but has **no** milestone or project commands — milestones and the roadmap board are managed via the
-> web UI or the REST API (or `tools/trackerctl`, which wraps the API). Point `fj` at the repo with
-> `-r <owner>/<repo>`, and pass `-H <base-url>` when the instance isn't plain HTTPS on the default
-> port (a self-hosted dev instance may serve plain HTTP on a custom port; a shell wrapper can inject
-> it). Codeberg needs no `-H`.
+The tracker is empty by design.
 
----
+Generation 1's 106 open issues were closed during reboot task R07 as
+**superseded, not completed** — closed because the project changed direction,
+not because the work was finished or judged unwanted. Their titles, bodies,
+labels, comments and milestone associations are all retained; the issues are
+closed and marked, not emptied. The record of that operation, including the
+reviewed allowlist and the verification evidence, is in
+[`../transition/r07/`](../transition/r07/).
 
-## 1. Principles
+Generation 2 issues are created as work is accepted, not in advance. That is the
+main lesson carried forward: the previous generation accumulated a backlog far
+larger than the evidence supporting it, and an issue is a commitment that
+something will be done.
 
-- **Documents own content; tickets own workflow state.** A ticket carries open/closed, assignee,
-  order, and links — not the authoritative description. The authoritative description lives in the
-  planning document the ticket was minted from (see §4). Tickets backlink to it; they do not
-  duplicate prose that would then drift.
-- **Just-in-time decomposition.** Only the active release and the next release are exploded into
-  leaf tickets. Everything beyond that exists as epic tracker issues (§3) or as entries in a
-  planning document — not as tickets. Leaf tickets for work two-plus releases out are noise: they
-  get rewritten before anyone touches them and they pollute search.
-- **Order is explicit.** Forgejo has no priority/rank field, and issue-number order is brittle.
-  Execution order lives in per-release tracker issues (§5). "Do the next ticket for vX.Y" resolves
-  to the first unchecked box in that release's tracker.
-- **Close-out keeps three artifacts in sync.** Code (PR), the planning document, and the ticket are
-  all updated in one ritual (§6).
+## Principles
 
----
+1. **An issue represents accepted work.** Ideas without acceptance belong in
+   [`FUTURE-CAPABILITIES.md`](FUTURE-CAPABILITIES.md), which carries no version,
+   date or ticket.
+2. **Nothing is filed speculatively.** A `Future / Unscheduled` capability gets
+   an issue only when it passes the promotion gate in
+   [`ROADMAP.md`](ROADMAP.md).
+3. **Closing is not deleting.** Issues, comments, labels, milestones and project
+   cards are never deleted. Superseded work is closed and labelled.
+4. **Identity is explicit.** Every Generation 2 issue carries a stable task
+   identifier in its body — for example `R08`, `P02`, `C05-A` — and matching is
+   done on that, never on a title. A closed Generation 1 issue must never
+   suppress or deduplicate a Generation 2 one.
 
-## 2. The tiers
+## Labels
 
-```
-priority-bucket milestone  (gate-v0.5, gate-v1.0, v0.x, v1.x, v2.x+)
-  └── epic tracker issue        kind/epic — ordered task list of its children, links to epics/NN-*.md
-        └── leaf ticket         one actionable unit of work
-  └── standalone leaf ticket    small items with no epic (most ROADMAP.md entries)
-bucket tracker issue            kind/release-tracker — ordered list of the epics + standalone tickets for one bucket
-```
+| Label | Meaning |
+|---|---|
+| `generation/1` | Belongs to the archived Generation 1 line |
+| `status/superseded` | Closed because the project changed direction |
+| `kind/rfc` | Decision record or request for comment |
+| `kind/epic` | A workstream tracker, not a unit of work |
+| `kind/feature`, `kind/bug`, `kind/chore`, `kind/docs` | Work type |
+| `area/*` | Subsystem |
 
-Forgejo has no native epic type; the "epic" and "release tracker" tiers are ordinary issues whose
-**body is a Markdown task list** referencing child issue numbers (`- [ ] #42 …`). Forgejo renders
-those as live links with a progress bar. Sub-issue / dependency links in the web UI are a welcome
-nicety but the task-list body is what the CLI can read, so it is authoritative for order.
+Existing labels are never rewritten or deleted. A label already in use carries
+meaning a later task did not assign and is not entitled to change.
 
----
+## Milestones
 
-## 3. When to create an epic tracker issue vs. leaf tickets
+All five Generation 1 milestones — `gate-v0.5`, `gate-v1.0`, `v0.x`, `v1.x`,
+`v2.x+` — are closed. They were closed, never deleted, so the grouping every
+archived issue referenced still resolves.
 
-- A roadmap **theme** or **feature** that is more than one actionable unit of work → an epic tracker
-  issue (`kind/epic`), body = ordered task list, linked to its `epics/NN-*.md` document once that
-  exists. Explode it into leaf tickets only when its release becomes active or next.
-- A small, self-contained unit (most `ROADMAP.md` entries) → a standalone leaf ticket, no epic.
-- Far-future work (two-plus releases out) → leave it as a `kind/epic` placeholder under the version
-  milestone with no leaf tickets, or just as a planning-document entry. Do not decompose it.
+Generation 2 uses a single `v0.6.0` milestone, created in R09. There are no
+pre-allocated milestones for later versions: a milestone for work nobody has
+committed to is a promise the project cannot keep.
 
----
+## Automation
 
-## 4. Labels
+There is currently **no automation that writes to the tracker.** The nightly
+dependency-freshness job that maintained a tracking issue was removed in R06,
+because a nightly writer made reviewed snapshots decay overnight and would have
+broken the fail-closed preconditions R07 depends on.
 
-Labels carry the axes that `fj issue search` can filter on (`-l/--labels`, `-s/--state`). Create
-them once with `fj repo labels create`.
+Issue automation returns in R09, and only if it is generation-aware and carries
+a negative test proving that closing an archived issue cannot cause a
+replacement to be created.
 
-### `source/*` — which planning document owns this work (drives the close-out ritual, §6)
+Forge write limits are real and tighter than they look. Comment creation is
+limited to roughly 16 per five minutes, and issue creation is tighter still.
+Any bulk tracker operation needs a journal, resumability, and a rate-limit
+budget — see [`../../tools/transition/README.md`](../../tools/transition/README.md)
+for a worked example.
 
-| Label | Origin document | On completion |
-| --- | --- | --- |
-| `source/v1x-backlog` | `docs/project/ROADMAP.md` | move the entry to a `### Done` block under its version |
-| `source/features` | `FEATURES.md` | update the feature's `(landed: …)` annotation |
-| `source/roadmap` | `PROJECT-DETAILS.md §6.2` or a roadmap doc | close; no doc edit beyond roadmap status |
-| `source/epic-task` | `epics/NN-*.md` | tick the task's acceptance criteria in the epic file (existing `AGENTS.md` workflow) |
-| `source/triage` | none — a bug or idea filed directly | close; add a regression test if it was a bug |
+## Ticket lifecycle
 
-### `kind/*` — the shape of the issue
-
-`kind/epic`, `kind/release-tracker`, `kind/feature`, `kind/bug`, `kind/chore`, `kind/docs`.
-
-### `area/*` — the part of the system
-
-`area/statemgmt`, `area/agent`, `area/nats`, `area/server`, `area/schema`, `area/bootstrap`,
-`area/cli`, `area/security`, `area/policy`, `area/observability`, … (add as needed; keep the set
-small).
-
-### `roadmap-backlog`
-
-Umbrella label on every issue minted from `ROADMAP.md`, so they are distinguishable from regular
-tracker traffic. Renamed from the original `v1x-backlog` to drop the version pin (the underlying
-document was renamed `V1X-BACKLOG.md` → `docs/project/ROADMAP.md` earlier). The paired source
-label `source/v1x-backlog` still carries the legacy name; renaming it is tracked as a v0.x
-ROADMAP entry. (Equivalent umbrella labels may be added for other bulk imports.)
-
-### Version
-
-Version is **not** a label and **not** part of the title — it is the **milestone**, where each
-milestone corresponds to a priority bucket (`gate-v0.5`, `gate-v1.0`, `v0.x`, `v1.x`, `v2.x+`).
-Re-slotting work between buckets is a milestone change, nothing else. (A version label may be
-added only if CLI filtering by bucket becomes necessary; the milestone is canonical.)
-
----
-
-## 5. Milestones, tracker issues, and the roadmap board
-
-- **One milestone per priority bucket** (`gate-v0.5`, `gate-v1.0`, `v0.x`, `v1.x`, `v2.x+`).
-  Defined in `tools/trackerctl/config/milestones.yaml` and applied by `trackerctl
-  sync-milestones`. The milestone gives the progress bar and an optional due date; every leaf
-  ticket and epic for that bucket is assigned to it. See `docs/project/VERSIONING.md` for what
-  each bucket means and what gates each milestone.
-- **One bucket tracker issue per priority bucket** — title `<bucket> — tracker`, label
-  `kind/release-tracker`, assigned to that milestone. Its body is an ordered checklist of the
-  bucket's leaf issues, **generated by `trackerctl gen-tracker --version <bucket>`** from
-  `tools/trackerctl/config/release-order.yaml` (the canonical execution order — entries listed there
-  first, anything unlisted appended in `ROADMAP.md` file order). Example:
-
-  ```markdown
-  Execution order for gate-v1.0. "Next item" = first unchecked box.
-
-  - [x] #9  Schema versioning via `golang-migrate`
-  - [ ] #10 Reactor engine + event lifecycle tracking      ← next
-  - [ ] #20 `state.apply.skip` event taxonomy + wiring
-  - [ ] #19 Replay protection on agent commands
-  ```
-
-  **Reprioritising = editing `release-order.yaml` and re-running `gen-tracker`** (it preserves ticked
-  boxes; the rest of the body is regenerated, so don't hand-edit it or keep notes there). Order
-  entries so every `Blocked by` target precedes its dependents. "Do the next `<bucket>` item" =
-  first unchecked box.
-- **One Forgejo Project ("Roadmap")** — board columns `Backlog / Next release / In progress / In
-  review / Done` — as a human-facing dashboard across milestones. Maintained via the web UI; not
-  driven by `fj`. The milestone + labels + tracker issues remain the machine-readable layer.
-
----
-
-## 6. Ticket lifecycle
-
-**Creating** a leaf ticket:
-
-1. Title = the feature/work name, no version prefix. For bulk imports, a stable greppable prefix is
-   fine (e.g. backlog entries keep their `####` heading text).
-2. Body = the originating document section copied verbatim (What / Why / Acceptance / References),
-   plus: a backlink to the document heading anchor, the epic/task it was deferred from (if any), and
-   `Blocked by #N` lines for each dependency.
-3. Apply labels: one `source/*`, one `kind/*`, one or more `area/*`, plus `roadmap-backlog` (or
-   the relevant umbrella). `fj issue create` cannot set labels at creation time — create, then
-   `fj issue edit <n> labels`.
-4. Assign the milestone (priority bucket) (web UI / API).
-5. Slot it into the execution order: add its title to `tools/trackerctl/config/release-order.yaml`
-   under the right priority bucket and re-run `trackerctl gen-tracker --version <bucket>`; add it
-   to the epic tracker's list too if it has a parent epic. (Most leaf issues, and the per-bucket
-   tracker itself, are created in bulk by `trackerctl gen-issues` / `gen-tracker` rather than one
-   at a time — this step is for issues added later.)
-
-**Picking up "the next bucket item"**:
-
-1. Open `<bucket> — tracker`; take the first unchecked box, say `#15`.
-2. Open `#15`; read Acceptance + References.
-3. Check `Blocked by` — if any referenced issue is still open, **stop and report**; do not proceed
-   out of order.
-4. If the work maps to an `epics/NN-*.md` task, follow the `AGENTS.md` epic-task workflow (present a
-   plan, get explicit approval) before writing code.
-5. Implement.
-
-**Closing out**:
-
-1. PR with `Closes #15` in the description (auto-closes the ticket on merge).
-2. Check the box in the release tracker (and the epic tracker, if any).
-3. Update the originating document per the `source/*` row in §4 — e.g. move a `ROADMAP.md` entry
-   to that version's `### Done` block with a "landed in PR #x" note.
-
-Three artifacts — code, planning document, ticket — one ritual. If you find them out of sync, the
-planning document wins on content and the ticket wins on state; reconcile toward those.
-
----
-
-## 7. First adoption
-
-Do not mint every backlog/feature/roadmap item at once. The full set of priority-bucket
-milestones (`gate-v0.5`, `gate-v1.0`, `v0.x`, `v1.x`, `v2.x+`, per `docs/project/VERSIONING.md`)
-exists in `tools/trackerctl/config/milestones.yaml` so they are visible and assignable — but
-creating *tickets* is gated separately: `trackerctl gen-issues --versions gate-v0.5` only
-decomposes that bucket. Bring up `gate-v0.5` first: run `trackerctl sync` (labels + milestones),
-then `trackerctl gen-issues --versions gate-v0.5` to mint the v0.5 blockers under `## gate-v0.5`,
-then `trackerctl gen-tracker --version gate-v0.5` to build the `gate-v0.5 — tracker`. Decompose
-`gate-v1.0` and the broader `v0.x` bucket when work starts on each (`gen-issues --versions
-gate-v1.0` then `gen-tracker --version gate-v1.0`, etc.).
-
----
-
-## 8. Tooling and the test → production cutover
-
-The label set, milestones, and the leaf issues are not hand-clicked — they are generated by
-`tools/trackerctl` from configuration in the repo:
-
-- `tools/trackerctl/config/labels.yaml` — the label set (`trackerctl sync-labels`).
-- `tools/trackerctl/config/milestones.yaml` — every priority-bucket milestone (`gate-v0.5`,
-  `gate-v1.0`, `v0.x`, `v1.x`, `v2.x+`) (`trackerctl sync-milestones`).
-- `docs/project/ROADMAP.md` — the leaf-issue source. `trackerctl gen-issues --versions <bucket>`
-  creates them (one bucket at a time); `trackerctl reconcile-issues` pushes any later edits
-  (re-slotting, label fixes) onto the already-created issues — it updates milestone + `source/*` /
-  `kind/*` / umbrella labels and never touches `area/*`.
-- `tools/trackerctl/config/release-order.yaml` — execution order per bucket (`trackerctl
-  gen-tracker --version <bucket>`, which creates/updates the `<bucket> — tracker` issue).
-
-All operations are idempotent and host-parameterized (`--host`, `--repo`, `--apply`,
-`FORGEJO_TOKEN`); `gen-issues` and `reconcile-issues` take `--versions` to scope to one or more
-buckets, `gen-tracker` takes `--version` for the tracker issue. See `tools/trackerctl/README.md`.
-
-**Cutover model: (b) clean regeneration.** When the project is announced, the production tracker is
-built by re-running `trackerctl` against the production Forgejo — not by migrating the internal test
-repo. Consequences:
-
-- The internal server is a rehearsal; it does not need to be kept pristine.
-- Issue numbers differ between servers. Nothing that must survive the cutover may hard-code `#N`.
-  Canonical execution order therefore lives in `config/release-order.yaml` (regenerable into the
-  tracker issue by `gen-tracker`), not in scattered issue bodies.
-- Anything created directly on the test server that should exist on prod must be reflected back into
-  the config files / backlog doc, or it will not be regenerated.
-- The Codeberg/GitHub mirrors carry git only — no labels, milestones, or issues — so the cutover
-  targets exactly one canonical Forgejo instance.
+1. Work is accepted — through an RFC, an epic task, or the roadmap promotion gate.
+2. An issue is created with its stable task identifier in the body.
+3. It is implemented on one branch, in one pull request, per
+   [`AGENTS.md`](../../AGENTS.md) §3.
+4. It closes when its acceptance criteria are met and the epic checkbox is
+   marked, or it closes as superseded with an explanation.
