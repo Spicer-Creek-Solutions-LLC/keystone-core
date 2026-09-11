@@ -1,0 +1,864 @@
+{
+ "schema": "keystone-core/tracker-allowlist",
+ "schema_version": 1,
+ "snapshot_hash": "9ace87373af1f3cf1dbc161563ca07572e612cd74769cdc7095d37c767b33c30",
+ "cutoff_utc": "2026-09-10T21:57:27Z",
+ "forge": {
+  "host": "https://codeberg.org",
+  "owner": "Spicer-Creek-Solutions-LLC",
+  "name": "keystone-core",
+  "repository_id": 1749683
+ },
+ "generation": "1",
+ "entries": [
+  {
+   "number": 17,
+   "identity": "d94fa27bc26545ed3ea330483e06997b973e8d3a01023cdb90ee086b009f597c",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:19+02:00",
+   "title": "`service` stdlib module — OpenRC / sysvinit / launchd backends",
+   "kind": "leaf"
+  },
+  {
+   "number": 18,
+   "identity": "9ab41662187530cfe8b5d356b9304e3226d2060f58adaa3c1aad6ef374533008",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:20+02:00",
+   "title": "`package` stdlib module — dnf, apk, zypper, pacman backends",
+   "kind": "leaf"
+  },
+  {
+   "number": 19,
+   "identity": "c13c9c78f7a02666b018b17859bc20c2a59ae648c3106a52c4f070868dc410e7",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:20+02:00",
+   "title": "`firewalld` stdlib module — whole-zone management, masquerade/forward-port, direct rules",
+   "kind": "leaf"
+  },
+  {
+   "number": 20,
+   "identity": "7cde5409c8bbe7ef05dc2688e86f66792df45f89ec87754a1aafa19b2cdea055",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:21+02:00",
+   "title": "`firewall` abstraction — deny action, IPv6 on iptables, chain/table overrides, service catalog expansion",
+   "kind": "leaf"
+  },
+  {
+   "number": 21,
+   "identity": "208f82fdcbaa785e069b035ad9ab76fa076acbfaa132d2957fdd4d75e0281fcd",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:21+02:00",
+   "title": "`security` stdlib module — AppArmor, SELinux file contexts / ports / modules / logins, absent semantics",
+   "kind": "leaf"
+  },
+  {
+   "number": 22,
+   "identity": "69442e9b9ce6fe84b411115d7294f8b9ee9aba6f83b2ed26722c11fa926e10f4",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:22+02:00",
+   "title": "`system` stdlib module — reboot disconnect-tolerance, cross-distro reboot detection, locale dual-file, absent semantics for reboot/locale",
+   "kind": "leaf"
+  },
+  {
+   "number": 23,
+   "identity": "d431368a5fd3e662a1a33f5528868b7be482a92847e4b20caebd3d2e04eab461",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:22+02:00",
+   "title": "`lvm` stdlib module — existing-VG PV-set mgmt, LV resize, metadata, thin/cache/snapshot",
+   "kind": "leaf"
+  },
+  {
+   "number": 24,
+   "identity": "d10719d58aefe5bb5529a376ed46ff9876c3962a7dfe2f69f5067408d763f857",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:23+02:00",
+   "title": "`disk` stdlib module — partition mgmt, resize, label/UUID, encryption, fstype catalog expansion",
+   "kind": "leaf"
+  },
+  {
+   "number": 25,
+   "identity": "89c5da9864afd0b621027ed0b79d50019d09894bce219c1d2a180356c9c5384a",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:23+02:00",
+   "title": "`network` stdlib module — boot-survive configuration, per-family addresses, DNS / NTP / domain mgmt",
+   "kind": "leaf"
+  },
+  {
+   "number": 26,
+   "identity": "5e4bc4b94214a6d155199c638937abe9f4f30c9bc418fa6b6eee344c2c57ab46",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:24+02:00",
+   "title": "`route` stdlib module — persistent configuration, route attributes, source-routing rules, multipath",
+   "kind": "leaf"
+  },
+  {
+   "number": 27,
+   "identity": "595cb935933c7d506279d90c81ee225b3c12475a5b199264f95b3a32bfdd35fe",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:24+02:00",
+   "title": "`bond` stdlib module — in-place attribute / member reconciliation, persistent configuration, slave attributes",
+   "kind": "leaf"
+  },
+  {
+   "number": 28,
+   "identity": "90d17074bc5d36215b8c0d22d4d76685b1680becddaeb80a4adfaec02ad167e7",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:25+02:00",
+   "title": "`bridge` stdlib module — in-place attribute / port reconciliation, per-port attributes, persistent configuration",
+   "kind": "leaf"
+  },
+  {
+   "number": 29,
+   "identity": "1b14a3ea81d9d8bbce8a24742bcd533a3c7d78a813bb9c02adcf96513aad0ba5",
+   "state": "open",
+   "updated_at": "2026-06-19T12:30:25+02:00",
+   "title": "`vlan` stdlib module — in-place attribute reconciliation, QinQ, VLAN ranges, persistent configuration",
+   "kind": "leaf"
+  },
+  {
+   "number": 34,
+   "identity": "a7eca7752523015b50dcd392945e1482da6045af270e24c7ca204c69fc0bcea5",
+   "state": "open",
+   "updated_at": "2026-09-10T00:47:23+02:00",
+   "title": "gate-v0.5 — release tracker",
+   "kind": "tracker"
+  },
+  {
+   "number": 36,
+   "identity": "06770f5624824832ac90144e24c6eac5d4ab02d2b85fd5fe5303354e151e059b",
+   "state": "open",
+   "updated_at": "2026-05-28T19:20:16+02:00",
+   "title": "Module system boot wiring (loader PolicyChecker/Hosts/trust-policy + runtime registration)",
+   "kind": "leaf"
+  },
+  {
+   "number": 37,
+   "identity": "0294b09273ebf8dc5fdce49db8a9e38456f5efc976293ab68ec06f9d2cac6c1b",
+   "state": "open",
+   "updated_at": "2026-05-28T19:24:43+02:00",
+   "title": "Cluster gRPC services boot registration (ClusterService/CoordinationService + mTLS listener)",
+   "kind": "leaf"
+  },
+  {
+   "number": 38,
+   "identity": "1b7e75a8b6d8cd522ac64c82559aa24d4e3564b876191d3b7325d3e07c62587b",
+   "state": "open",
+   "updated_at": "2026-05-28T19:24:43+02:00",
+   "title": "Fencing guard wired around server write paths",
+   "kind": "leaf"
+  },
+  {
+   "number": 39,
+   "identity": "35dd23eca5735ec7b22fb7198a43a75726fc1fc74e369799647858de98099b70",
+   "state": "open",
+   "updated_at": "2026-05-28T19:24:43+02:00",
+   "title": "Cluster leader-check boot wiring (kscore-server)",
+   "kind": "leaf"
+  },
+  {
+   "number": 40,
+   "identity": "597b0f89784808c976346805ace6a296f07626ca3d7351ca082986fa00787905",
+   "state": "open",
+   "updated_at": "2026-05-28T19:24:43+02:00",
+   "title": "HA E2E multi-process / iptables-partition form",
+   "kind": "leaf"
+  },
+  {
+   "number": 41,
+   "identity": "52900bdcf225667dc0cd591891836c732363b221525557b13116f8ed9459436b",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "Blueprint applied-runs store (durable)",
+   "kind": "leaf"
+  },
+  {
+   "number": 42,
+   "identity": "6b4793099f64ebc788cda6c2e6a46c1f28d11b0491c51130ff71bea139a682c1",
+   "state": "open",
+   "updated_at": "2026-05-28T19:20:49+02:00",
+   "title": "Remote / distributed blueprint apply wiring",
+   "kind": "leaf"
+  },
+  {
+   "number": 43,
+   "identity": "d64df53ce25528c072f221d0b5e9e24a5874fb2cbfc40963cd49e2ae1cc6f2b6",
+   "state": "open",
+   "updated_at": "2026-05-28T19:20:52+02:00",
+   "title": "Durable runbook execution store",
+   "kind": "leaf"
+  },
+  {
+   "number": 44,
+   "identity": "748bcb3eee87215bf58362f84257a7997fc62d9a1835ffc96a10596eab69106a",
+   "state": "open",
+   "updated_at": "2026-05-28T19:20:58+02:00",
+   "title": "Blueprint e2e real docker-compose convergence form",
+   "kind": "leaf"
+  },
+  {
+   "number": 45,
+   "identity": "3583cd06f5e28ceb4b976095738a1e893a04c0555f7e4ad2a475fc624d6269f1",
+   "state": "open",
+   "updated_at": "2026-05-28T19:21:04+02:00",
+   "title": "GitOps webhook receiver boot registration (kscore-server)",
+   "kind": "leaf"
+  },
+  {
+   "number": 46,
+   "identity": "a0f55b83346546a0a607749afc5e3ea5510d6dad9fdafc2a25047d52c7632562",
+   "state": "open",
+   "updated_at": "2026-05-28T19:21:07+02:00",
+   "title": "K8s rollout-undo client-go adapter + GitOps rollback boot wiring",
+   "kind": "leaf"
+  },
+  {
+   "number": 47,
+   "identity": "1b795e93722e77716302475dd0750d3ff9d362d6212c9a11ed123ec206a4357a",
+   "state": "open",
+   "updated_at": "2026-05-28T19:21:11+02:00",
+   "title": "Outbound webhook Manager boot wiring (kscore-server)",
+   "kind": "leaf"
+  },
+  {
+   "number": 48,
+   "identity": "18bbb40b37502a66591250e6db0ef8409334b4cafd30dc207d97588d367a99e3",
+   "state": "open",
+   "updated_at": "2026-05-28T19:21:23+02:00",
+   "title": "Pre-rotation signing-CA retention in the bootstrap trust bundle",
+   "kind": "leaf"
+  },
+  {
+   "number": 49,
+   "identity": "d53350416a01a1ed02513a5041e4ceb0d396bcc37fd573046849105d3c5378ea",
+   "state": "open",
+   "updated_at": "2026-05-28T19:21:25+02:00",
+   "title": "Agent-side cancel propagation (SIGTERM to in-flight commands)",
+   "kind": "leaf"
+  },
+  {
+   "number": 50,
+   "identity": "2d684fad1b6d93c2bf62ddf8c7f922c91f032c674690f140bac0cea0f39ba861",
+   "state": "open",
+   "updated_at": "2026-05-28T19:21:29+02:00",
+   "title": "Unified single + batch dispatch persistence",
+   "kind": "leaf"
+  },
+  {
+   "number": 51,
+   "identity": "fae62a29a6377fb9951c60b90f2fe635196086d60e6a5cdf2f9a92960be848d9",
+   "state": "open",
+   "updated_at": "2026-05-28T19:21:33+02:00",
+   "title": "Server-side target expression compile (proto extension)",
+   "kind": "leaf"
+  },
+  {
+   "number": 52,
+   "identity": "935c1502d9290653dd2387c225abdb98746b4f6b3f0882266158be710d89c5c5",
+   "state": "open",
+   "updated_at": "2026-05-28T19:21:38+02:00",
+   "title": "Batch job retention (DeleteBatchJobsBefore + cascading FK)",
+   "kind": "leaf"
+  },
+  {
+   "number": 53,
+   "identity": "c0b4799d1d5f8323f5f3f76570c4c97aaa8e5e514a5a5f35c9a051c5de552e10",
+   "state": "open",
+   "updated_at": "2026-05-28T19:21:45+02:00",
+   "title": "Replay protection on agent commands",
+   "kind": "leaf"
+  },
+  {
+   "number": 54,
+   "identity": "6ad72932abd7e54c02ff05e9a524166308f48e5d16bc3559fced7ac4e5665882",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "Schema versioning via `golang-migrate`",
+   "kind": "leaf"
+  },
+  {
+   "number": 55,
+   "identity": "0d3bcc8e30f2e5ec2185f7d988840184b3187e49827261874e3ea1e80a8ab691",
+   "state": "open",
+   "updated_at": "2026-05-28T19:21:50+02:00",
+   "title": "Reactor engine + event lifecycle tracking",
+   "kind": "leaf"
+  },
+  {
+   "number": 56,
+   "identity": "3eda6cab28b242e7c1384c886c3b775a2c68adc0bdc50297468ce1ff525bc443",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "Maintenance + Schedule gRPC",
+   "kind": "leaf"
+  },
+  {
+   "number": 57,
+   "identity": "c7f392813d8045f4254822f037f4aea9824ce154cc40379e8a877b421ad42a10",
+   "state": "open",
+   "updated_at": "2026-05-28T19:21:55+02:00",
+   "title": "Server-side heartbeat / metadata NATS subscriber → agent registry",
+   "kind": "leaf"
+  },
+  {
+   "number": 58,
+   "identity": "6b5fd412535301fab6096ff09eea0b32cd0ed761ffa50c58dbcc59809e781f7f",
+   "state": "open",
+   "updated_at": "2026-05-28T19:22:00+02:00",
+   "title": "`state.apply.skip` event taxonomy + wiring",
+   "kind": "leaf"
+  },
+  {
+   "number": 59,
+   "identity": "1d29b491a43b484ede6392b6234a7cd62408d384ae007b0e443769305f1cf126",
+   "state": "open",
+   "updated_at": "2026-05-28T19:22:04+02:00",
+   "title": "Salt-faithful `prereq` direction in statemgmt resolver",
+   "kind": "leaf"
+  },
+  {
+   "number": 60,
+   "identity": "2f3f7abeb54e67126fb72811841bfb8cca342eae62f76ec4edd055bfbb5543e4",
+   "state": "open",
+   "updated_at": "2026-05-28T19:22:10+02:00",
+   "title": "Full RBAC role/permission CRUD",
+   "kind": "leaf"
+  },
+  {
+   "number": 61,
+   "identity": "29895e48d2d84892f2ecc7b2c2d0c502184af0e72d0fe3773227ef5ab4daadc3",
+   "state": "open",
+   "updated_at": "2026-05-28T19:22:15+02:00",
+   "title": "Multi-table transaction wrapper",
+   "kind": "leaf"
+  },
+  {
+   "number": 62,
+   "identity": "ade341af897a415015d84f38be7fe39773f6a6c8ed9df31b3977631215aecb6f",
+   "state": "open",
+   "updated_at": "2026-05-28T19:22:32+02:00",
+   "title": "Rotation orchestrator",
+   "kind": "leaf"
+  },
+  {
+   "number": 63,
+   "identity": "e5e0647f5eb33eae8305108ed824e6fe6d895c92bf726e596cbf4dad506a6ed6",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "Vault AWS IAM auth method",
+   "kind": "leaf"
+  },
+  {
+   "number": 64,
+   "identity": "f8abb6bd171956ba3fad2f77d26ea0f50d8389be28d8b79f1e30aa8b3f96c87c",
+   "state": "open",
+   "updated_at": "2026-05-28T19:22:34+02:00",
+   "title": "Encrypted-file backend master-key rotation tooling",
+   "kind": "leaf"
+  },
+  {
+   "number": 65,
+   "identity": "bd674e50235c3f3f169a75f6421a890f25ce703446d6533872ed45dda163d87e",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "Encryption at rest (`KeyProvider`)",
+   "kind": "leaf"
+  },
+  {
+   "number": 66,
+   "identity": "ca831ade20a605294767aa227e6f64057d2e3e388124c185e46b1293fffa091e",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "File distribution: NATS Object Store + Git backends, mirror groups, conflict resolution",
+   "kind": "leaf"
+  },
+  {
+   "number": 67,
+   "identity": "a8ec261256adddb8f867c063216cc7dc883ef4b355812924fa00a8f4dbb547e2",
+   "state": "open",
+   "updated_at": "2026-05-28T19:22:38+02:00",
+   "title": "Backup orchestration features",
+   "kind": "leaf"
+  },
+  {
+   "number": 68,
+   "identity": "37bbab79392733578925cfdad00f6dd82c6fe5cb4f322cb9027cfb72097f9d67",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "Bootstrap phase handlers + durable checkpointer",
+   "kind": "leaf"
+  },
+  {
+   "number": 69,
+   "identity": "9a8920f2711eb927b347de7c65ef54afff4b2fb5fddab2a77fed17d54b96f407",
+   "state": "open",
+   "updated_at": "2026-05-28T19:22:43+02:00",
+   "title": "Backup + restore component adapters (storage/JetStream/etcd/config/secrets/cluster)",
+   "kind": "leaf"
+  },
+  {
+   "number": 70,
+   "identity": "cbec7f01448f780cdbac726fe1a49e9c56d0359565f9d2893bf343542159dd23",
+   "state": "open",
+   "updated_at": "2026-05-28T19:22:46+02:00",
+   "title": "Policy CRUD via gRPC (`CreatePolicy`/`UpdatePolicy`/`DeletePolicy`/`activate`/`deactivate`/`remediate`/`monitor`)",
+   "kind": "leaf"
+  },
+  {
+   "number": 71,
+   "identity": "fde85268d89c475cd4dc5cb3dda9d75886103ecc955df30886515cb69ccd17ea",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "Batch dispatcher: no orphan-job recovery",
+   "kind": "leaf"
+  },
+  {
+   "number": 72,
+   "identity": "6afd8a42bcb1fdda53edfbef7a593ff3988d9bac26241948d3363a5ce17141b8",
+   "state": "open",
+   "updated_at": "2026-05-28T19:22:52+02:00",
+   "title": "API key issuance: non-transactional",
+   "kind": "leaf"
+  },
+  {
+   "number": 73,
+   "identity": "60f1ea0325149ecd951c352bed809ee1f1a1d1115220f63dcc40ff1c2e036085",
+   "state": "open",
+   "updated_at": "2026-05-28T19:22:56+02:00",
+   "title": "Boostrap PSK consumption: in-memory tracking only",
+   "kind": "leaf"
+  },
+  {
+   "number": 74,
+   "identity": "e41829aaa5c6d2643de132e01ce1b70340c04e80d099302cd3451b75e78b9bed",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "Server boot-integration foundation (kscore-server lifecycle wiring)",
+   "kind": "leaf"
+  },
+  {
+   "number": 75,
+   "identity": "376506f5c50e2ed25a76059aaf284ec422779cc180d7935b13d452110e9535df",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "Soak-test infrastructure for fd / connection / goroutine leaks",
+   "kind": "leaf"
+  },
+  {
+   "number": 76,
+   "identity": "7ed7d2b37ef2475d691f4f0ee0f415ea75e2e3f27d0b227c5330bb14bd557569",
+   "state": "open",
+   "updated_at": "2026-05-28T19:23:03+02:00",
+   "title": "Sustained-load profiling baseline",
+   "kind": "leaf"
+  },
+  {
+   "number": 77,
+   "identity": "5a76ec2fb1be563860d9d0ce7c35bcd97f551673d44d0e9efc6d5a8d0d10005f",
+   "state": "open",
+   "updated_at": "2026-05-28T19:23:13+02:00",
+   "title": "Security baseline expansion",
+   "kind": "leaf"
+  },
+  {
+   "number": 78,
+   "identity": "a07599bbe9b6144243473696648de27d9d6da40116810634a5402413d4c28658",
+   "state": "open",
+   "updated_at": "2026-05-28T19:23:18+02:00",
+   "title": "Dependency posture re-audit",
+   "kind": "leaf"
+  },
+  {
+   "number": 80,
+   "identity": "9a5f0dba3e4c6413e0268a9d182f5e68e57c2941040b2d92a6a89cb4d33f1f5f",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "Policy enforcement (Enforce + Warn modes)",
+   "kind": "leaf"
+  },
+  {
+   "number": 81,
+   "identity": "f474b9449e3f382b6f9f59226db22f16cfce0650611f8f03f9f581617443878a",
+   "state": "open",
+   "updated_at": "2026-05-28T19:23:29+02:00",
+   "title": "Policy enforcement side-effects (Warn events + Enforce violation handlers)",
+   "kind": "leaf"
+  },
+  {
+   "number": 82,
+   "identity": "c6875acfbc03193749711818087fecf5bd1c197e157fa27a3bde547f256d12dc",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "RunbookGRPCServer not registered at boot",
+   "kind": "leaf"
+  },
+  {
+   "number": 83,
+   "identity": "7bd7f5b833052b2267fadfbfe17252a66b66b758f9f5cc5d0268b52c3713476a",
+   "state": "open",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "title": "Blueprint and runbook REST handler packages not mounted",
+   "kind": "leaf"
+  },
+  {
+   "number": 84,
+   "identity": "1fdcd322fed80f56da2135bf20a978cf7b2325cb40b0a57850481aefbf313584",
+   "state": "open",
+   "updated_at": "2026-05-28T19:23:35+02:00",
+   "title": "Zipkin tracing exporter: do not freeze into the v1.0 surface",
+   "kind": "leaf"
+  },
+  {
+   "number": 85,
+   "identity": "f4b96c89bb516f77d07db723ca9a5f77568c280799cac692e0cf4bf03f4ab565",
+   "state": "open",
+   "updated_at": "2026-09-10T00:47:23+02:00",
+   "title": "gate-v1.0 — release tracker",
+   "kind": "tracker"
+  },
+  {
+   "number": 91,
+   "identity": "bba0e226bc49c584e7216e7a15dc87faa53ffb692e1e97a5a2fa640492aaac38",
+   "state": "open",
+   "updated_at": "2026-06-19T12:37:30+02:00",
+   "title": "Phase D3: macOS dev-build sanity test",
+   "kind": "leaf"
+  },
+  {
+   "number": 92,
+   "identity": "1acf0a70959e80c94238d4a0d7dec8131a1a836147c99a7911848bcd0e452808",
+   "state": "open",
+   "updated_at": "2026-06-19T12:17:12+02:00",
+   "title": "Phase E1: required signed commits on `main` branch protection",
+   "kind": "leaf"
+  },
+  {
+   "number": 93,
+   "identity": "75e81cced778cb2198c0182c1484335a2f0586457ee422cd5dc9b182c8935877",
+   "state": "open",
+   "updated_at": "2026-06-19T12:17:13+02:00",
+   "title": "Release signing ceremony — signed tags + checksums + SBOMs",
+   "kind": "leaf"
+  },
+  {
+   "number": 94,
+   "identity": "2d161b14e3fec78478c0354f268121951cd818e5208cc04c1ffb72e7b67a5e14",
+   "state": "open",
+   "updated_at": "2026-06-19T12:17:13+02:00",
+   "title": "Native package repositories — APT, DNF/YUM",
+   "kind": "leaf"
+  },
+  {
+   "number": 95,
+   "identity": "4804cd127ebc06645befad2fec6b625a6c8d87cb06fd10f84d84897a5dcf1911",
+   "state": "open",
+   "updated_at": "2026-05-29T10:57:47+02:00",
+   "title": "Changie configuration: `replacements` for reference-link maintenance",
+   "kind": "leaf"
+  },
+  {
+   "number": 97,
+   "identity": "5209e8cba049166f2fecf4e570e7a58596c23cca3e7da1ad0906e0106d28072a",
+   "state": "open",
+   "updated_at": "2026-05-29T10:57:53+02:00",
+   "title": "Vault auto re-authentication on token expiry",
+   "kind": "leaf"
+  },
+  {
+   "number": 98,
+   "identity": "c60d202937fee656e154261ed347efbc2250fb6b214aec4606b3a2f3a3fedbf4",
+   "state": "open",
+   "updated_at": "2026-05-29T10:57:59+02:00",
+   "title": "Bootstrap protocol versioning",
+   "kind": "leaf"
+  },
+  {
+   "number": 99,
+   "identity": "0a43238c99743c8cedb473ae4be3553c9c605f1ead4c751747f8931929f51a93",
+   "state": "open",
+   "updated_at": "2026-05-29T10:58:06+02:00",
+   "title": "Direct signing-cert accessor on CAManager",
+   "kind": "leaf"
+  },
+  {
+   "number": 100,
+   "identity": "fcdf55be4a3528241e9ba660d45c4e178629aa09a1bb35736504e043c6bb4fc1",
+   "state": "open",
+   "updated_at": "2026-05-29T10:58:10+02:00",
+   "title": "Join-token \"any agent\" mode (AgentID-less binding)",
+   "kind": "leaf"
+  },
+  {
+   "number": 101,
+   "identity": "c3cf945cd45a91583bee0e2982fccdef6bcefe5dea142656dac14bcb5382f80e",
+   "state": "open",
+   "updated_at": "2026-05-29T10:58:15+02:00",
+   "title": "Live mid-execution stdout / stderr streaming",
+   "kind": "leaf"
+  },
+  {
+   "number": 102,
+   "identity": "a21803ffbe6d3134907f92f7187e4d57c484683f3ca42d459a87b0e3564353dc",
+   "state": "open",
+   "updated_at": "2026-05-29T10:58:18+02:00",
+   "title": "Eval-time observability for malformed targeting patterns",
+   "kind": "leaf"
+  },
+  {
+   "number": 103,
+   "identity": "80a22a92623a6db9ae7714e3a022f44c4a895f88f44aa9629056d50848b91fba",
+   "state": "open",
+   "updated_at": "2026-05-29T10:58:22+02:00",
+   "title": "`git` stdlib module — authentication, submodules, advanced clone",
+   "kind": "leaf"
+  },
+  {
+   "number": 104,
+   "identity": "e6a939857255cf2c216ed63e2fedd3166192e2d8c4167a4dab68f1497c0ea2cc",
+   "state": "open",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "title": "`link` stdlib module — relative-target normalisation",
+   "kind": "leaf"
+  },
+  {
+   "number": 105,
+   "identity": "0956e446e87d052f6621b035c78b1e63300aeeafe4bd38cb305c901afd089735",
+   "state": "open",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "title": "`cron` stdlib module — per-field schedule, cron.d, env lines",
+   "kind": "leaf"
+  },
+  {
+   "number": 106,
+   "identity": "bf3d9ba8a167e18280efbbc94c2ea3384429c98bc42da5bf8aa4c05759a3c2e1",
+   "state": "open",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "title": "`systemd_timer` stdlib module — generated service, user timers, more [Timer] knobs",
+   "kind": "leaf"
+  },
+  {
+   "number": 107,
+   "identity": "19b08bcb7354bcbc408264082f577774fa44542cb6d21b732b90a7586ad266a9",
+   "state": "open",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "title": "`config` stdlib module — more formats, separators, uncomment-aware updates",
+   "kind": "leaf"
+  },
+  {
+   "number": 108,
+   "identity": "2e32a43b6408139ddc5c8d03534148f7505c1162737151581ee74f350eb719c6",
+   "state": "open",
+   "updated_at": "2026-05-29T10:58:31+02:00",
+   "title": "`archive` stdlib module — absent state, clean mode, safe symlinks, more formats",
+   "kind": "leaf"
+  },
+  {
+   "number": 109,
+   "identity": "1692d1a4d9a0e86359c32eb2d7d09c68c4a27bff9a8057084727b6ee911071ec",
+   "state": "open",
+   "updated_at": "2026-05-29T10:58:36+02:00",
+   "title": "`at` stdlib module — replace-on-change, per-user queues, batch",
+   "kind": "leaf"
+  },
+  {
+   "number": 110,
+   "identity": "ead4d4ec01687fb45189658dd0c1688e4f255f3238a957dd51ca697ec9fdcbcb",
+   "state": "open",
+   "updated_at": "2026-05-29T10:58:40+02:00",
+   "title": "`x509` stdlib module — combined PEM, encrypted keys, more issuance options",
+   "kind": "leaf"
+  },
+  {
+   "number": 111,
+   "identity": "ecafa5f24edd81131811a7e044e066293343471b1543601a42d5a8ca91b9cf91",
+   "state": "open",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "title": "`mount` stdlib module — remount-on-change, escaping, swap, crypttab",
+   "kind": "leaf"
+  },
+  {
+   "number": 112,
+   "identity": "c94f431a254fd8b8495203779f0449640dd207c43906a58f6eaf623348990b2a",
+   "state": "open",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "title": "`swap` stdlib module — UUID sources, resize, fallocate, custom opts",
+   "kind": "leaf"
+  },
+  {
+   "number": 113,
+   "identity": "4bb78f4caffbdcee80d7b9f85313e4c37061740a26535e9a0b431e4b1a33cd3a",
+   "state": "open",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "title": "`ssh` stdlib module — key validation, options-set compare, whole-file management",
+   "kind": "leaf"
+  },
+  {
+   "number": 114,
+   "identity": "edd57dd065235523185b590639af1ac407be676c9b0bb2d3d3a0f06a685d8a19",
+   "state": "open",
+   "updated_at": "2026-05-29T10:58:45+02:00",
+   "title": "`iptables` stdlib module — structured rules, ordering, both-family, distro persistence",
+   "kind": "leaf"
+  },
+  {
+   "number": 115,
+   "identity": "4bc20fc18fde1b34c90d29442169a9bdbe78cfd98720bfc29dbf8da7bcafeefc",
+   "state": "open",
+   "updated_at": "2026-05-29T10:58:49+02:00",
+   "title": "`nftables` stdlib module — structured rules, ordering, table/chain management, comment matching",
+   "kind": "leaf"
+  },
+  {
+   "number": 116,
+   "identity": "fca73a52615aad10631c8550df76c408b704af7e5a0636f8bd94c39053f92a36",
+   "state": "open",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "title": "`langpkg` stdlib module — per-user/per-project installs, lockfiles, semver ranges, more ecosystems",
+   "kind": "leaf"
+  },
+  {
+   "number": 118,
+   "identity": "c14505947127d9b34bf2ab56696420033c4f797d087056a86518dfc064188287",
+   "state": "open",
+   "updated_at": "2026-05-29T10:59:00+02:00",
+   "title": "Percentage-based / rolling batch execution",
+   "kind": "leaf"
+  },
+  {
+   "number": 119,
+   "identity": "528a6794112fb62b8d0375786d85709de3d32a204c66c680e60b794c876ea612",
+   "state": "open",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "title": "Active dial-time circuit breaker eviction",
+   "kind": "leaf"
+  },
+  {
+   "number": 120,
+   "identity": "bc3544c76a263deff97a19f431c39e2baa4408940b051385a4d1cdd58a8f12f6",
+   "state": "open",
+   "updated_at": "2026-05-29T10:59:06+02:00",
+   "title": "Glob matching: no `**` (double-star)",
+   "kind": "leaf"
+  },
+  {
+   "number": 121,
+   "identity": "0e8d33f61e94e8521999ce75df0395eb0d2a8140e791b85c8023a3774908b3bf",
+   "state": "open",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "title": "Migration journal: no per-table checkpoint resume",
+   "kind": "leaf"
+  },
+  {
+   "number": 122,
+   "identity": "ab7c4dc47a19f98d777d41d1437bf78105aba4db1c55ff2c64d7972c911b74cb",
+   "state": "open",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "title": "Rename `source/v1x-backlog` label to drop the version pin",
+   "kind": "leaf"
+  },
+  {
+   "number": 123,
+   "identity": "fc97250d427ece6a11c3da3388430e96cdab328c8df0f6673d5f14014f89d966",
+   "state": "open",
+   "updated_at": "2026-05-29T10:59:12+02:00",
+   "title": "PROJECT-DETAILS.md lint cleanup",
+   "kind": "leaf"
+  },
+  {
+   "number": 124,
+   "identity": "3e5fec176e03cc39a771b563fd9c86f9491d460e6827d90cbb7ff99c76e1ed52",
+   "state": "open",
+   "updated_at": "2026-05-29T10:59:21+02:00",
+   "title": "Operations runbooks accuracy sweep",
+   "kind": "leaf"
+  },
+  {
+   "number": 125,
+   "identity": "d6b80c56f57c8eff62ca70d41a7f2644b0bbaee9468f1cf62acfde6ac58b79a2",
+   "state": "open",
+   "updated_at": "2026-05-29T10:59:28+02:00",
+   "title": "Error-message docs URLs",
+   "kind": "leaf"
+  },
+  {
+   "number": 126,
+   "identity": "08455a49ac0a07780c6f6b7c3c2d20ddc693bd5e304af70ccb6693d880e289f6",
+   "state": "open",
+   "updated_at": "2026-05-29T10:59:40+02:00",
+   "title": "kscore-events query subcommand (CEL post-filter)",
+   "kind": "leaf"
+  },
+  {
+   "number": 127,
+   "identity": "62c33f1e3d95131e0f569573776e59aa268479b887387a672e25aec18b82170c",
+   "state": "open",
+   "updated_at": "2026-05-29T10:59:41+02:00",
+   "title": "kscore-audit export `--redaction-config` file",
+   "kind": "leaf"
+  },
+  {
+   "number": 128,
+   "identity": "7445e8d47f4244066482f0447aa4a011a791329ba5f7b6f93598f6a05ac8c6ba",
+   "state": "open",
+   "updated_at": "2026-05-29T10:59:46+02:00",
+   "title": "kscore-cluster watch subcommand",
+   "kind": "leaf"
+  },
+  {
+   "number": 129,
+   "identity": "4151dee3472f662acf4e4801daf747e9fccf50a9581e2fa724ba207f3cc05882",
+   "state": "open",
+   "updated_at": "2026-05-29T10:59:55+02:00",
+   "title": "kscore-audit search subcommand",
+   "kind": "leaf"
+  },
+  {
+   "number": 130,
+   "identity": "9ba5552627f6d46abdb104de50f734583b95b841d650d12cdfebbb1435cfb805",
+   "state": "open",
+   "updated_at": "2026-05-29T11:00:06+02:00",
+   "title": "Backup destinations: Backblaze B2 documentation + smoke test",
+   "kind": "leaf"
+  },
+  {
+   "number": 131,
+   "identity": "8f0c15b3d3af8582d7722ad578a45c9ef6155cdd4d97825ed07bb7a07536dc14",
+   "state": "open",
+   "updated_at": "2026-05-29T11:00:14+02:00",
+   "title": "Zipkin tracing exporter: deprecation warning → OTLP",
+   "kind": "leaf"
+  },
+  {
+   "number": 132,
+   "identity": "3fecf03af1a6decb83036981629a41a6cc570f978a7fdcc6c242e2a3c387349b",
+   "state": "open",
+   "updated_at": "2026-09-10T00:47:23+02:00",
+   "title": "v0.x — release tracker",
+   "kind": "tracker"
+  },
+  {
+   "number": 213,
+   "identity": "e9bb202309ebec5d5ff761bfe171191b3384e3d4454419367c9bfd3d2908ffd2",
+   "state": "open",
+   "updated_at": "2026-06-19T18:11:57+02:00",
+   "title": "Raise enforced coverage gate to the v0.5 bar (engine \u003e=85% / module \u003e=80%)",
+   "kind": "leaf"
+  },
+  {
+   "number": 232,
+   "identity": "a13610d432d09f94ec9250aba9c8caaed80f0f7fd11c9136658f965f5693d1b0",
+   "state": "open",
+   "updated_at": "2026-09-10T20:25:04+02:00",
+   "title": "Dependency freshness: direct deps with updates available",
+   "kind": "leaf"
+  },
+  {
+   "number": 246,
+   "identity": "bc39665fe054e32ff6cc1507ebaf99c152daa9a4141103672ddaf353f39a719f",
+   "state": "open",
+   "updated_at": "2026-09-10T21:18:10+02:00",
+   "title": "ci(test): flaky test job — 4 failures in 12 runs on identical-passing code; investigate root cause",
+   "kind": "leaf"
+  }
+ ],
+ "entries_sha256": "93bb3f86842117cae4e6f05be19c4e3f740102e9695bc0118b76f5cb07fdc762"
+}

@@ -1,0 +1,1823 @@
+{
+ "schema": "keystone-core/tracker-snapshot",
+ "schema_version": 1,
+ "cutoff_utc": "2026-09-10T21:57:27Z",
+ "forge": {
+  "host": "https://codeberg.org",
+  "owner": "Spicer-Creek-Solutions-LLC",
+  "name": "keystone-core",
+  "repository_id": 1749683
+ },
+ "issues": [
+  {
+   "number": 17,
+   "state": "open",
+   "title": "`service` stdlib module — OpenRC / sysvinit / launchd backends",
+   "created_at": "2026-05-28T13:14:02+02:00",
+   "updated_at": "2026-06-19T12:30:19+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "d94fa27bc26545ed3ea330483e06997b973e8d3a01023cdb90ee086b009f597c"
+  },
+  {
+   "number": 18,
+   "state": "open",
+   "title": "`package` stdlib module — dnf, apk, zypper, pacman backends",
+   "created_at": "2026-05-28T13:14:04+02:00",
+   "updated_at": "2026-06-19T12:30:20+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "9ab41662187530cfe8b5d356b9304e3226d2060f58adaa3c1aad6ef374533008"
+  },
+  {
+   "number": 19,
+   "state": "open",
+   "title": "`firewalld` stdlib module — whole-zone management, masquerade/forward-port, direct rules",
+   "created_at": "2026-05-28T13:14:10+02:00",
+   "updated_at": "2026-06-19T12:30:20+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "c13c9c78f7a02666b018b17859bc20c2a59ae648c3106a52c4f070868dc410e7"
+  },
+  {
+   "number": 20,
+   "state": "open",
+   "title": "`firewall` abstraction — deny action, IPv6 on iptables, chain/table overrides, service catalog expansion",
+   "created_at": "2026-05-28T13:14:14+02:00",
+   "updated_at": "2026-06-19T12:30:21+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "7cde5409c8bbe7ef05dc2688e86f66792df45f89ec87754a1aafa19b2cdea055"
+  },
+  {
+   "number": 21,
+   "state": "open",
+   "title": "`security` stdlib module — AppArmor, SELinux file contexts / ports / modules / logins, absent semantics",
+   "created_at": "2026-05-28T13:14:21+02:00",
+   "updated_at": "2026-06-19T12:30:21+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "208f82fdcbaa785e069b035ad9ab76fa076acbfaa132d2957fdd4d75e0281fcd"
+  },
+  {
+   "number": 22,
+   "state": "open",
+   "title": "`system` stdlib module — reboot disconnect-tolerance, cross-distro reboot detection, locale dual-file, absent semantics for reboot/locale",
+   "created_at": "2026-05-28T13:22:22+02:00",
+   "updated_at": "2026-06-19T12:30:22+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "69442e9b9ce6fe84b411115d7294f8b9ee9aba6f83b2ed26722c11fa926e10f4"
+  },
+  {
+   "number": 23,
+   "state": "open",
+   "title": "`lvm` stdlib module — existing-VG PV-set mgmt, LV resize, metadata, thin/cache/snapshot",
+   "created_at": "2026-05-28T13:22:24+02:00",
+   "updated_at": "2026-06-19T12:30:22+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "d431368a5fd3e662a1a33f5528868b7be482a92847e4b20caebd3d2e04eab461"
+  },
+  {
+   "number": 24,
+   "state": "open",
+   "title": "`disk` stdlib module — partition mgmt, resize, label/UUID, encryption, fstype catalog expansion",
+   "created_at": "2026-05-28T13:28:17+02:00",
+   "updated_at": "2026-06-19T12:30:23+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "d10719d58aefe5bb5529a376ed46ff9876c3962a7dfe2f69f5067408d763f857"
+  },
+  {
+   "number": 25,
+   "state": "open",
+   "title": "`network` stdlib module — boot-survive configuration, per-family addresses, DNS / NTP / domain mgmt",
+   "created_at": "2026-05-28T13:28:19+02:00",
+   "updated_at": "2026-06-19T12:30:23+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "89c5da9864afd0b621027ed0b79d50019d09894bce219c1d2a180356c9c5384a"
+  },
+  {
+   "number": 26,
+   "state": "open",
+   "title": "`route` stdlib module — persistent configuration, route attributes, source-routing rules, multipath",
+   "created_at": "2026-05-28T13:28:23+02:00",
+   "updated_at": "2026-06-19T12:30:24+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "5e4bc4b94214a6d155199c638937abe9f4f30c9bc418fa6b6eee344c2c57ab46"
+  },
+  {
+   "number": 27,
+   "state": "open",
+   "title": "`bond` stdlib module — in-place attribute / member reconciliation, persistent configuration, slave attributes",
+   "created_at": "2026-05-28T13:40:25+02:00",
+   "updated_at": "2026-06-19T12:30:24+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "595cb935933c7d506279d90c81ee225b3c12475a5b199264f95b3a32bfdd35fe"
+  },
+  {
+   "number": 28,
+   "state": "open",
+   "title": "`bridge` stdlib module — in-place attribute / port reconciliation, per-port attributes, persistent configuration",
+   "created_at": "2026-05-28T13:46:19+02:00",
+   "updated_at": "2026-06-19T12:30:25+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "90d17074bc5d36215b8c0d22d4d76685b1680becddaeb80a4adfaec02ad167e7"
+  },
+  {
+   "number": 29,
+   "state": "open",
+   "title": "`vlan` stdlib module — in-place attribute reconciliation, QinQ, VLAN ranges, persistent configuration",
+   "created_at": "2026-05-28T13:46:21+02:00",
+   "updated_at": "2026-06-19T12:30:25+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "1b14a3ea81d9d8bbce8a24742bcd533a3c7d78a813bb9c02adcf96513aad0ba5"
+  },
+  {
+   "number": 34,
+   "state": "open",
+   "title": "gate-v0.5 — release tracker",
+   "created_at": "2026-05-28T13:53:29+02:00",
+   "updated_at": "2026-09-10T00:47:23+02:00",
+   "labels": [
+    "kind/release-tracker"
+   ],
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "a7eca7752523015b50dcd392945e1482da6045af270e24c7ca204c69fc0bcea5"
+  },
+  {
+   "number": 36,
+   "state": "open",
+   "title": "Module system boot wiring (loader PolicyChecker/Hosts/trust-policy + runtime registration)",
+   "created_at": "2026-05-28T15:17:37+02:00",
+   "updated_at": "2026-05-28T19:20:16+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "06770f5624824832ac90144e24c6eac5d4ab02d2b85fd5fe5303354e151e059b"
+  },
+  {
+   "number": 37,
+   "state": "open",
+   "title": "Cluster gRPC services boot registration (ClusterService/CoordinationService + mTLS listener)",
+   "created_at": "2026-05-28T15:17:38+02:00",
+   "updated_at": "2026-05-28T19:24:43+02:00",
+   "labels": [
+    "area/cluster",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "0294b09273ebf8dc5fdce49db8a9e38456f5efc976293ab68ec06f9d2cac6c1b"
+  },
+  {
+   "number": 38,
+   "state": "open",
+   "title": "Fencing guard wired around server write paths",
+   "created_at": "2026-05-28T15:17:39+02:00",
+   "updated_at": "2026-05-28T19:24:43+02:00",
+   "labels": [
+    "area/cluster",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "1b7e75a8b6d8cd522ac64c82559aa24d4e3564b876191d3b7325d3e07c62587b"
+  },
+  {
+   "number": 39,
+   "state": "open",
+   "title": "Cluster leader-check boot wiring (kscore-server)",
+   "created_at": "2026-05-28T15:17:43+02:00",
+   "updated_at": "2026-05-28T19:24:43+02:00",
+   "labels": [
+    "area/cluster",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "35dd23eca5735ec7b22fb7198a43a75726fc1fc74e369799647858de98099b70"
+  },
+  {
+   "number": 40,
+   "state": "open",
+   "title": "HA E2E multi-process / iptables-partition form",
+   "created_at": "2026-05-28T15:17:48+02:00",
+   "updated_at": "2026-05-28T19:24:43+02:00",
+   "labels": [
+    "area/cluster",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "597b0f89784808c976346805ace6a296f07626ca3d7351ca082986fa00787905"
+  },
+  {
+   "number": 41,
+   "state": "open",
+   "title": "Blueprint applied-runs store (durable)",
+   "created_at": "2026-05-28T15:34:01+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "52900bdcf225667dc0cd591891836c732363b221525557b13116f8ed9459436b"
+  },
+  {
+   "number": 42,
+   "state": "open",
+   "title": "Remote / distributed blueprint apply wiring",
+   "created_at": "2026-05-28T15:34:05+02:00",
+   "updated_at": "2026-05-28T19:20:49+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "6b4793099f64ebc788cda6c2e6a46c1f28d11b0491c51130ff71bea139a682c1"
+  },
+  {
+   "number": 43,
+   "state": "open",
+   "title": "Durable runbook execution store",
+   "created_at": "2026-05-28T15:34:06+02:00",
+   "updated_at": "2026-05-28T19:20:52+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "d64df53ce25528c072f221d0b5e9e24a5874fb2cbfc40963cd49e2ae1cc6f2b6"
+  },
+  {
+   "number": 44,
+   "state": "open",
+   "title": "Blueprint e2e real docker-compose convergence form",
+   "created_at": "2026-05-28T15:50:29+02:00",
+   "updated_at": "2026-05-28T19:20:58+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "748bcb3eee87215bf58362f84257a7997fc62d9a1835ffc96a10596eab69106a"
+  },
+  {
+   "number": 45,
+   "state": "open",
+   "title": "GitOps webhook receiver boot registration (kscore-server)",
+   "created_at": "2026-05-28T15:50:32+02:00",
+   "updated_at": "2026-05-28T19:21:04+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "3583cd06f5e28ceb4b976095738a1e893a04c0555f7e4ad2a475fc624d6269f1"
+  },
+  {
+   "number": 46,
+   "state": "open",
+   "title": "K8s rollout-undo client-go adapter + GitOps rollback boot wiring",
+   "created_at": "2026-05-28T15:50:36+02:00",
+   "updated_at": "2026-05-28T19:21:07+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "a0f55b83346546a0a607749afc5e3ea5510d6dad9fdafc2a25047d52c7632562"
+  },
+  {
+   "number": 47,
+   "state": "open",
+   "title": "Outbound webhook Manager boot wiring (kscore-server)",
+   "created_at": "2026-05-28T15:50:41+02:00",
+   "updated_at": "2026-05-28T19:21:11+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "1b795e93722e77716302475dd0750d3ff9d362d6212c9a11ed123ec206a4357a"
+  },
+  {
+   "number": 48,
+   "state": "open",
+   "title": "Pre-rotation signing-CA retention in the bootstrap trust bundle",
+   "created_at": "2026-05-28T15:50:47+02:00",
+   "updated_at": "2026-05-28T19:21:23+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "18bbb40b37502a66591250e6db0ef8409334b4cafd30dc207d97588d367a99e3"
+  },
+  {
+   "number": 49,
+   "state": "open",
+   "title": "Agent-side cancel propagation (SIGTERM to in-flight commands)",
+   "created_at": "2026-05-28T16:07:22+02:00",
+   "updated_at": "2026-05-28T19:21:25+02:00",
+   "labels": [
+    "area/agent",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "d53350416a01a1ed02513a5041e4ceb0d396bcc37fd573046849105d3c5378ea"
+  },
+  {
+   "number": 50,
+   "state": "open",
+   "title": "Unified single + batch dispatch persistence",
+   "created_at": "2026-05-28T16:07:23+02:00",
+   "updated_at": "2026-05-28T19:21:29+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "2d684fad1b6d93c2bf62ddf8c7f922c91f032c674690f140bac0cea0f39ba861"
+  },
+  {
+   "number": 51,
+   "state": "open",
+   "title": "Server-side target expression compile (proto extension)",
+   "created_at": "2026-05-28T16:07:24+02:00",
+   "updated_at": "2026-05-28T19:21:33+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "fae62a29a6377fb9951c60b90f2fe635196086d60e6a5cdf2f9a92960be848d9"
+  },
+  {
+   "number": 52,
+   "state": "open",
+   "title": "Batch job retention (DeleteBatchJobsBefore + cascading FK)",
+   "created_at": "2026-05-28T16:07:28+02:00",
+   "updated_at": "2026-05-28T19:21:38+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "935c1502d9290653dd2387c225abdb98746b4f6b3f0882266158be710d89c5c5"
+  },
+  {
+   "number": 53,
+   "state": "open",
+   "title": "Replay protection on agent commands",
+   "created_at": "2026-05-28T16:07:33+02:00",
+   "updated_at": "2026-05-28T19:21:45+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "c0b4799d1d5f8323f5f3f76570c4c97aaa8e5e514a5a5f35c9a051c5de552e10"
+  },
+  {
+   "number": 54,
+   "state": "open",
+   "title": "Schema versioning via `golang-migrate`",
+   "created_at": "2026-05-28T16:24:06+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "area/schema",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "6ad72932abd7e54c02ff05e9a524166308f48e5d16bc3559fced7ac4e5665882"
+  },
+  {
+   "number": 55,
+   "state": "open",
+   "title": "Reactor engine + event lifecycle tracking",
+   "created_at": "2026-05-28T16:24:07+02:00",
+   "updated_at": "2026-05-28T19:21:50+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "0d3bcc8e30f2e5ec2185f7d988840184b3187e49827261874e3ea1e80a8ab691"
+  },
+  {
+   "number": 56,
+   "state": "open",
+   "title": "Maintenance + Schedule gRPC",
+   "created_at": "2026-05-28T16:24:08+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "3eda6cab28b242e7c1384c886c3b775a2c68adc0bdc50297468ce1ff525bc443"
+  },
+  {
+   "number": 57,
+   "state": "open",
+   "title": "Server-side heartbeat / metadata NATS subscriber → agent registry",
+   "created_at": "2026-05-28T16:24:08+02:00",
+   "updated_at": "2026-05-28T19:21:55+02:00",
+   "labels": [
+    "area/nats",
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "c7f392813d8045f4254822f037f4aea9824ce154cc40379e8a877b421ad42a10"
+  },
+  {
+   "number": 58,
+   "state": "open",
+   "title": "`state.apply.skip` event taxonomy + wiring",
+   "created_at": "2026-05-28T16:24:13+02:00",
+   "updated_at": "2026-05-28T19:22:00+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "6b5fd412535301fab6096ff09eea0b32cd0ed761ffa50c58dbcc59809e781f7f"
+  },
+  {
+   "number": 59,
+   "state": "open",
+   "title": "Salt-faithful `prereq` direction in statemgmt resolver",
+   "created_at": "2026-05-28T16:40:32+02:00",
+   "updated_at": "2026-05-28T19:22:04+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "1d29b491a43b484ede6392b6234a7cd62408d384ae007b0e443769305f1cf126"
+  },
+  {
+   "number": 60,
+   "state": "open",
+   "title": "Full RBAC role/permission CRUD",
+   "created_at": "2026-05-28T16:40:33+02:00",
+   "updated_at": "2026-05-28T19:22:10+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "2f3f7abeb54e67126fb72811841bfb8cca342eae62f76ec4edd055bfbb5543e4"
+  },
+  {
+   "number": 61,
+   "state": "open",
+   "title": "Multi-table transaction wrapper",
+   "created_at": "2026-05-28T16:40:34+02:00",
+   "updated_at": "2026-05-28T19:22:15+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "29895e48d2d84892f2ecc7b2c2d0c502184af0e72d0fe3773227ef5ab4daadc3"
+  },
+  {
+   "number": 62,
+   "state": "open",
+   "title": "Rotation orchestrator",
+   "created_at": "2026-05-28T16:40:48+02:00",
+   "updated_at": "2026-05-28T19:22:32+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "ade341af897a415015d84f38be7fe39773f6a6c8ed9df31b3977631215aecb6f"
+  },
+  {
+   "number": 63,
+   "state": "open",
+   "title": "Vault AWS IAM auth method",
+   "created_at": "2026-05-28T16:40:56+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "e5e0647f5eb33eae8305108ed824e6fe6d895c92bf726e596cbf4dad506a6ed6"
+  },
+  {
+   "number": 64,
+   "state": "open",
+   "title": "Encrypted-file backend master-key rotation tooling",
+   "created_at": "2026-05-28T16:57:17+02:00",
+   "updated_at": "2026-05-28T19:22:34+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "f8abb6bd171956ba3fad2f77d26ea0f50d8389be28d8b79f1e30aa8b3f96c87c"
+  },
+  {
+   "number": 65,
+   "state": "open",
+   "title": "Encryption at rest (`KeyProvider`)",
+   "created_at": "2026-05-28T16:57:18+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "bd674e50235c3f3f169a75f6421a890f25ce703446d6533872ed45dda163d87e"
+  },
+  {
+   "number": 66,
+   "state": "open",
+   "title": "File distribution: NATS Object Store + Git backends, mirror groups, conflict resolution",
+   "created_at": "2026-05-28T16:57:19+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "area/nats",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "ca831ade20a605294767aa227e6f64057d2e3e388124c185e46b1293fffa091e"
+  },
+  {
+   "number": 67,
+   "state": "open",
+   "title": "Backup orchestration features",
+   "created_at": "2026-05-28T16:57:20+02:00",
+   "updated_at": "2026-05-28T19:22:38+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "a8ec261256adddb8f867c063216cc7dc883ef4b355812924fa00a8f4dbb547e2"
+  },
+  {
+   "number": 68,
+   "state": "open",
+   "title": "Bootstrap phase handlers + durable checkpointer",
+   "created_at": "2026-05-28T16:57:24+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "area/bootstrap",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "37bbab79392733578925cfdad00f6dd82c6fe5cb4f322cb9027cfb72097f9d67"
+  },
+  {
+   "number": 69,
+   "state": "open",
+   "title": "Backup + restore component adapters (storage/JetStream/etcd/config/secrets/cluster)",
+   "created_at": "2026-05-28T17:13:43+02:00",
+   "updated_at": "2026-05-28T19:22:43+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "9a8920f2711eb927b347de7c65ef54afff4b2fb5fddab2a77fed17d54b96f407"
+  },
+  {
+   "number": 70,
+   "state": "open",
+   "title": "Policy CRUD via gRPC (`CreatePolicy`/`UpdatePolicy`/`DeletePolicy`/`activate`/`deactivate`/`remediate`/`monitor`)",
+   "created_at": "2026-05-28T17:13:43+02:00",
+   "updated_at": "2026-05-28T19:22:46+02:00",
+   "labels": [
+    "area/policy",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "cbec7f01448f780cdbac726fe1a49e9c56d0359565f9d2893bf343542159dd23"
+  },
+  {
+   "number": 71,
+   "state": "open",
+   "title": "Batch dispatcher: no orphan-job recovery",
+   "created_at": "2026-05-28T17:13:44+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "fde85268d89c475cd4dc5cb3dda9d75886103ecc955df30886515cb69ccd17ea"
+  },
+  {
+   "number": 72,
+   "state": "open",
+   "title": "API key issuance: non-transactional",
+   "created_at": "2026-05-28T17:13:49+02:00",
+   "updated_at": "2026-05-28T19:22:52+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "6afd8a42bcb1fdda53edfbef7a593ff3988d9bac26241948d3363a5ce17141b8"
+  },
+  {
+   "number": 73,
+   "state": "open",
+   "title": "Boostrap PSK consumption: in-memory tracking only",
+   "created_at": "2026-05-28T17:13:54+02:00",
+   "updated_at": "2026-05-28T19:22:56+02:00",
+   "labels": [
+    "area/bootstrap",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "60f1ea0325149ecd951c352bed809ee1f1a1d1115220f63dcc40ff1c2e036085"
+  },
+  {
+   "number": 74,
+   "state": "open",
+   "title": "Server boot-integration foundation (kscore-server lifecycle wiring)",
+   "created_at": "2026-05-28T17:30:09+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "e41829aaa5c6d2643de132e01ce1b70340c04e80d099302cd3451b75e78b9bed"
+  },
+  {
+   "number": 75,
+   "state": "open",
+   "title": "Soak-test infrastructure for fd / connection / goroutine leaks",
+   "created_at": "2026-05-28T17:30:11+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "376506f5c50e2ed25a76059aaf284ec422779cc180d7935b13d452110e9535df"
+  },
+  {
+   "number": 76,
+   "state": "open",
+   "title": "Sustained-load profiling baseline",
+   "created_at": "2026-05-28T17:30:11+02:00",
+   "updated_at": "2026-05-28T19:23:03+02:00",
+   "labels": [
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "7ed7d2b37ef2475d691f4f0ee0f415ea75e2e3f27d0b227c5330bb14bd557569"
+  },
+  {
+   "number": 77,
+   "state": "open",
+   "title": "Security baseline expansion",
+   "created_at": "2026-05-28T17:30:13+02:00",
+   "updated_at": "2026-05-28T19:23:13+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "5a76ec2fb1be563860d9d0ce7c35bcd97f551673d44d0e9efc6d5a8d0d10005f"
+  },
+  {
+   "number": 78,
+   "state": "open",
+   "title": "Dependency posture re-audit",
+   "created_at": "2026-05-28T17:30:17+02:00",
+   "updated_at": "2026-05-28T19:23:18+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "a07599bbe9b6144243473696648de27d9d6da40116810634a5402413d4c28658"
+  },
+  {
+   "number": 80,
+   "state": "open",
+   "title": "Policy enforcement (Enforce + Warn modes)",
+   "created_at": "2026-05-28T17:46:38+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "area/policy",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "9a5f0dba3e4c6413e0268a9d182f5e68e57c2941040b2d92a6a89cb4d33f1f5f"
+  },
+  {
+   "number": 81,
+   "state": "open",
+   "title": "Policy enforcement side-effects (Warn events + Enforce violation handlers)",
+   "created_at": "2026-05-28T17:46:38+02:00",
+   "updated_at": "2026-05-28T19:23:29+02:00",
+   "labels": [
+    "area/policy",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "f474b9449e3f382b6f9f59226db22f16cfce0650611f8f03f9f581617443878a"
+  },
+  {
+   "number": 82,
+   "state": "open",
+   "title": "RunbookGRPCServer not registered at boot",
+   "created_at": "2026-05-28T17:46:42+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "c6875acfbc03193749711818087fecf5bd1c197e157fa27a3bde547f256d12dc"
+  },
+  {
+   "number": 83,
+   "state": "open",
+   "title": "Blueprint and runbook REST handler packages not mounted",
+   "created_at": "2026-05-28T17:46:48+02:00",
+   "updated_at": "2026-05-28T18:19:14+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "7bd7f5b833052b2267fadfbfe17252a66b66b758f9f5cc5d0268b52c3713476a"
+  },
+  {
+   "number": 84,
+   "state": "open",
+   "title": "Zipkin tracing exporter: do not freeze into the v1.0 surface",
+   "created_at": "2026-05-28T18:03:08+02:00",
+   "updated_at": "2026-05-28T19:23:35+02:00",
+   "labels": [
+    "area/observability",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "1fdcd322fed80f56da2135bf20a978cf7b2325cb40b0a57850481aefbf313584"
+  },
+  {
+   "number": 85,
+   "state": "open",
+   "title": "gate-v1.0 — release tracker",
+   "created_at": "2026-05-28T18:19:13+02:00",
+   "updated_at": "2026-09-10T00:47:23+02:00",
+   "labels": [
+    "kind/release-tracker"
+   ],
+   "milestone": "gate-v1.0",
+   "milestone_id": 89204,
+   "comments": 0,
+   "identity": "f4b96c89bb516f77d07db723ca9a5f77568c280799cac692e0cf4bf03f4ab565"
+  },
+  {
+   "number": 91,
+   "state": "open",
+   "title": "Phase D3: macOS dev-build sanity test",
+   "created_at": "2026-05-29T00:23:20+02:00",
+   "updated_at": "2026-06-19T12:37:30+02:00",
+   "labels": [
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "bba0e226bc49c584e7216e7a15dc87faa53ffb692e1e97a5a2fa640492aaac38"
+  },
+  {
+   "number": 92,
+   "state": "open",
+   "title": "Phase E1: required signed commits on `main` branch protection",
+   "created_at": "2026-05-29T00:23:42+02:00",
+   "updated_at": "2026-06-19T12:17:12+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "1acf0a70959e80c94238d4a0d7dec8131a1a836147c99a7911848bcd0e452808"
+  },
+  {
+   "number": 93,
+   "state": "open",
+   "title": "Release signing ceremony — signed tags + checksums + SBOMs",
+   "created_at": "2026-05-29T00:29:03+02:00",
+   "updated_at": "2026-06-19T12:17:13+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "75e81cced778cb2198c0182c1484335a2f0586457ee422cd5dc9b182c8935877"
+  },
+  {
+   "number": 94,
+   "state": "open",
+   "title": "Native package repositories — APT, DNF/YUM",
+   "created_at": "2026-05-29T00:29:04+02:00",
+   "updated_at": "2026-06-19T12:17:13+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "2d161b14e3fec78478c0354f268121951cd818e5208cc04c1ffb72e7b67a5e14"
+  },
+  {
+   "number": 95,
+   "state": "open",
+   "title": "Changie configuration: `replacements` for reference-link maintenance",
+   "created_at": "2026-05-29T00:39:20+02:00",
+   "updated_at": "2026-05-29T10:57:47+02:00",
+   "labels": [
+    "area/docs",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "4804cd127ebc06645befad2fec6b625a6c8d87cb06fd10f84d84897a5dcf1911"
+  },
+  {
+   "number": 97,
+   "state": "open",
+   "title": "Vault auto re-authentication on token expiry",
+   "created_at": "2026-05-29T00:39:25+02:00",
+   "updated_at": "2026-05-29T10:57:53+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "5209e8cba049166f2fecf4e570e7a58596c23cca3e7da1ad0906e0106d28072a"
+  },
+  {
+   "number": 98,
+   "state": "open",
+   "title": "Bootstrap protocol versioning",
+   "created_at": "2026-05-29T00:39:25+02:00",
+   "updated_at": "2026-05-29T10:57:59+02:00",
+   "labels": [
+    "area/bootstrap",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "c60d202937fee656e154261ed347efbc2250fb6b214aec4606b3a2f3a3fedbf4"
+  },
+  {
+   "number": 99,
+   "state": "open",
+   "title": "Direct signing-cert accessor on CAManager",
+   "created_at": "2026-05-29T01:09:44+02:00",
+   "updated_at": "2026-05-29T10:58:06+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "0a43238c99743c8cedb473ae4be3553c9c605f1ead4c751747f8931929f51a93"
+  },
+  {
+   "number": 100,
+   "state": "open",
+   "title": "Join-token \"any agent\" mode (AgentID-less binding)",
+   "created_at": "2026-05-29T01:09:45+02:00",
+   "updated_at": "2026-05-29T10:58:10+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "fcdf55be4a3528241e9ba660d45c4e178629aa09a1bb35736504e043c6bb4fc1"
+  },
+  {
+   "number": 101,
+   "state": "open",
+   "title": "Live mid-execution stdout / stderr streaming",
+   "created_at": "2026-05-29T01:09:46+02:00",
+   "updated_at": "2026-05-29T10:58:15+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "c3cf945cd45a91583bee0e2982fccdef6bcefe5dea142656dac14bcb5382f80e"
+  },
+  {
+   "number": 102,
+   "state": "open",
+   "title": "Eval-time observability for malformed targeting patterns",
+   "created_at": "2026-05-29T01:09:47+02:00",
+   "updated_at": "2026-05-29T10:58:18+02:00",
+   "labels": [
+    "area/observability",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "a21803ffbe6d3134907f92f7187e4d57c484683f3ca42d459a87b0e3564353dc"
+  },
+  {
+   "number": 103,
+   "state": "open",
+   "title": "`git` stdlib module — authentication, submodules, advanced clone",
+   "created_at": "2026-05-29T01:09:51+02:00",
+   "updated_at": "2026-05-29T10:58:22+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "80a22a92623a6db9ae7714e3a022f44c4a895f88f44aa9629056d50848b91fba"
+  },
+  {
+   "number": 104,
+   "state": "open",
+   "title": "`link` stdlib module — relative-target normalisation",
+   "created_at": "2026-05-29T01:15:12+02:00",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "e6a939857255cf2c216ed63e2fedd3166192e2d8c4167a4dab68f1497c0ea2cc"
+  },
+  {
+   "number": 105,
+   "state": "open",
+   "title": "`cron` stdlib module — per-field schedule, cron.d, env lines",
+   "created_at": "2026-05-29T01:15:12+02:00",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "0956e446e87d052f6621b035c78b1e63300aeeafe4bd38cb305c901afd089735"
+  },
+  {
+   "number": 106,
+   "state": "open",
+   "title": "`systemd_timer` stdlib module — generated service, user timers, more [Timer] knobs",
+   "created_at": "2026-05-29T01:25:29+02:00",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "bf3d9ba8a167e18280efbbc94c2ea3384429c98bc42da5bf8aa4c05759a3c2e1"
+  },
+  {
+   "number": 107,
+   "state": "open",
+   "title": "`config` stdlib module — more formats, separators, uncomment-aware updates",
+   "created_at": "2026-05-29T01:25:32+02:00",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "19b08bcb7354bcbc408264082f577774fa44542cb6d21b732b90a7586ad266a9"
+  },
+  {
+   "number": 108,
+   "state": "open",
+   "title": "`archive` stdlib module — absent state, clean mode, safe symlinks, more formats",
+   "created_at": "2026-05-29T01:25:36+02:00",
+   "updated_at": "2026-05-29T10:58:31+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "2e32a43b6408139ddc5c8d03534148f7505c1162737151581ee74f350eb719c6"
+  },
+  {
+   "number": 109,
+   "state": "open",
+   "title": "`at` stdlib module — replace-on-change, per-user queues, batch",
+   "created_at": "2026-05-29T01:25:44+02:00",
+   "updated_at": "2026-05-29T10:58:36+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "1692d1a4d9a0e86359c32eb2d7d09c68c4a27bff9a8057084727b6ee911071ec"
+  },
+  {
+   "number": 110,
+   "state": "open",
+   "title": "`x509` stdlib module — combined PEM, encrypted keys, more issuance options",
+   "created_at": "2026-05-29T01:56:15+02:00",
+   "updated_at": "2026-05-29T10:58:40+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "ead4d4ec01687fb45189658dd0c1688e4f255f3238a957dd51ca697ec9fdcbcb"
+  },
+  {
+   "number": 111,
+   "state": "open",
+   "title": "`mount` stdlib module — remount-on-change, escaping, swap, crypttab",
+   "created_at": "2026-05-29T01:56:16+02:00",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "ecafa5f24edd81131811a7e044e066293343471b1543601a42d5a8ca91b9cf91"
+  },
+  {
+   "number": 112,
+   "state": "open",
+   "title": "`swap` stdlib module — UUID sources, resize, fallocate, custom opts",
+   "created_at": "2026-05-29T01:56:17+02:00",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "c94f431a254fd8b8495203779f0449640dd207c43906a58f6eaf623348990b2a"
+  },
+  {
+   "number": 113,
+   "state": "open",
+   "title": "`ssh` stdlib module — key validation, options-set compare, whole-file management",
+   "created_at": "2026-05-29T01:56:18+02:00",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "4bb78f4caffbdcee80d7b9f85313e4c37061740a26535e9a0b431e4b1a33cd3a"
+  },
+  {
+   "number": 114,
+   "state": "open",
+   "title": "`iptables` stdlib module — structured rules, ordering, both-family, distro persistence",
+   "created_at": "2026-05-29T01:56:19+02:00",
+   "updated_at": "2026-05-29T10:58:45+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "edd57dd065235523185b590639af1ac407be676c9b0bb2d3d3a0f06a685d8a19"
+  },
+  {
+   "number": 115,
+   "state": "open",
+   "title": "`nftables` stdlib module — structured rules, ordering, table/chain management, comment matching",
+   "created_at": "2026-05-29T02:01:38+02:00",
+   "updated_at": "2026-05-29T10:58:49+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "4bc20fc18fde1b34c90d29442169a9bdbe78cfd98720bfc29dbf8da7bcafeefc"
+  },
+  {
+   "number": 116,
+   "state": "open",
+   "title": "`langpkg` stdlib module — per-user/per-project installs, lockfiles, semver ranges, more ecosystems",
+   "created_at": "2026-05-29T02:01:39+02:00",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "labels": [
+    "area/statemgmt",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "fca73a52615aad10631c8550df76c408b704af7e5a0636f8bd94c39053f92a36"
+  },
+  {
+   "number": 118,
+   "state": "open",
+   "title": "Percentage-based / rolling batch execution",
+   "created_at": "2026-05-29T02:11:56+02:00",
+   "updated_at": "2026-05-29T10:59:00+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "c14505947127d9b34bf2ab56696420033c4f797d087056a86518dfc064188287"
+  },
+  {
+   "number": 119,
+   "state": "open",
+   "title": "Active dial-time circuit breaker eviction",
+   "created_at": "2026-05-29T02:11:57+02:00",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "labels": [
+    "area/nats",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "528a6794112fb62b8d0375786d85709de3d32a204c66c680e60b794c876ea612"
+  },
+  {
+   "number": 120,
+   "state": "open",
+   "title": "Glob matching: no `**` (double-star)",
+   "created_at": "2026-05-29T02:12:02+02:00",
+   "updated_at": "2026-05-29T10:59:06+02:00",
+   "labels": [
+    "area/security",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "bc3544c76a263deff97a19f431c39e2baa4408940b051385a4d1cdd58a8f12f6"
+  },
+  {
+   "number": 121,
+   "state": "open",
+   "title": "Migration journal: no per-table checkpoint resume",
+   "created_at": "2026-05-29T02:42:23+02:00",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "labels": [
+    "area/schema",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "0e8d33f61e94e8521999ce75df0395eb0d2a8140e791b85c8023a3774908b3bf"
+  },
+  {
+   "number": 122,
+   "state": "open",
+   "title": "Rename `source/v1x-backlog` label to drop the version pin",
+   "created_at": "2026-05-29T02:42:24+02:00",
+   "updated_at": "2026-05-29T03:28:41+02:00",
+   "labels": [
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "ab7c4dc47a19f98d777d41d1437bf78105aba4db1c55ff2c64d7972c911b74cb"
+  },
+  {
+   "number": 123,
+   "state": "open",
+   "title": "PROJECT-DETAILS.md lint cleanup",
+   "created_at": "2026-05-29T02:42:25+02:00",
+   "updated_at": "2026-05-29T10:59:12+02:00",
+   "labels": [
+    "area/docs",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "fc97250d427ece6a11c3da3388430e96cdab328c8df0f6673d5f14014f89d966"
+  },
+  {
+   "number": 124,
+   "state": "open",
+   "title": "Operations runbooks accuracy sweep",
+   "created_at": "2026-05-29T02:42:25+02:00",
+   "updated_at": "2026-05-29T10:59:21+02:00",
+   "labels": [
+    "area/docs",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "3e5fec176e03cc39a771b563fd9c86f9491d460e6827d90cbb7ff99c76e1ed52"
+  },
+  {
+   "number": 125,
+   "state": "open",
+   "title": "Error-message docs URLs",
+   "created_at": "2026-05-29T02:42:30+02:00",
+   "updated_at": "2026-05-29T10:59:28+02:00",
+   "labels": [
+    "area/docs",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "d6b80c56f57c8eff62ca70d41a7f2644b0bbaee9468f1cf62acfde6ac58b79a2"
+  },
+  {
+   "number": 126,
+   "state": "open",
+   "title": "kscore-events query subcommand (CEL post-filter)",
+   "created_at": "2026-05-29T02:47:51+02:00",
+   "updated_at": "2026-05-29T10:59:40+02:00",
+   "labels": [
+    "area/cli",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "08455a49ac0a07780c6f6b7c3c2d20ddc693bd5e304af70ccb6693d880e289f6"
+  },
+  {
+   "number": 127,
+   "state": "open",
+   "title": "kscore-audit export `--redaction-config` file",
+   "created_at": "2026-05-29T02:47:52+02:00",
+   "updated_at": "2026-05-29T10:59:41+02:00",
+   "labels": [
+    "area/cli",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "62c33f1e3d95131e0f569573776e59aa268479b887387a672e25aec18b82170c"
+  },
+  {
+   "number": 128,
+   "state": "open",
+   "title": "kscore-cluster watch subcommand",
+   "created_at": "2026-05-29T02:58:10+02:00",
+   "updated_at": "2026-05-29T10:59:46+02:00",
+   "labels": [
+    "area/cli",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "7445e8d47f4244066482f0447aa4a011a791329ba5f7b6f93598f6a05ac8c6ba"
+  },
+  {
+   "number": 129,
+   "state": "open",
+   "title": "kscore-audit search subcommand",
+   "created_at": "2026-05-29T02:58:10+02:00",
+   "updated_at": "2026-05-29T10:59:55+02:00",
+   "labels": [
+    "area/cli",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "4151dee3472f662acf4e4801daf747e9fccf50a9581e2fa724ba207f3cc05882"
+  },
+  {
+   "number": 130,
+   "state": "open",
+   "title": "Backup destinations: Backblaze B2 documentation + smoke test",
+   "created_at": "2026-05-29T02:58:11+02:00",
+   "updated_at": "2026-05-29T11:00:06+02:00",
+   "labels": [
+    "area/server",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "9ba5552627f6d46abdb104de50f734583b95b841d650d12cdfebbb1435cfb805"
+  },
+  {
+   "number": 131,
+   "state": "open",
+   "title": "Zipkin tracing exporter: deprecation warning → OTLP",
+   "created_at": "2026-05-29T02:58:15+02:00",
+   "updated_at": "2026-05-29T11:00:14+02:00",
+   "labels": [
+    "area/observability",
+    "kind/feature",
+    "roadmap-backlog",
+    "source/v1x-backlog"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "8f0c15b3d3af8582d7722ad578a45c9ef6155cdd4d97825ed07bb7a07536dc14"
+  },
+  {
+   "number": 132,
+   "state": "open",
+   "title": "v0.x — release tracker",
+   "created_at": "2026-05-29T03:28:41+02:00",
+   "updated_at": "2026-09-10T00:47:23+02:00",
+   "labels": [
+    "kind/release-tracker"
+   ],
+   "milestone": "v0.x",
+   "milestone_id": 89207,
+   "comments": 0,
+   "identity": "3fecf03af1a6decb83036981629a41a6cc570f978a7fdcc6c242e2a3c387349b"
+  },
+  {
+   "number": 213,
+   "state": "open",
+   "title": "Raise enforced coverage gate to the v0.5 bar (engine \u003e=85% / module \u003e=80%)",
+   "created_at": "2026-06-19T12:17:34+02:00",
+   "updated_at": "2026-06-19T18:11:57+02:00",
+   "labels": null,
+   "milestone": "gate-v0.5",
+   "milestone_id": 89201,
+   "comments": 0,
+   "identity": "e9bb202309ebec5d5ff761bfe171191b3384e3d4454419367c9bfd3d2908ffd2"
+  },
+  {
+   "number": 232,
+   "state": "open",
+   "title": "Dependency freshness: direct deps with updates available",
+   "created_at": "2026-08-21T07:20:58+02:00",
+   "updated_at": "2026-09-10T20:25:04+02:00",
+   "labels": null,
+   "comments": 0,
+   "identity": "a13610d432d09f94ec9250aba9c8caaed80f0f7fd11c9136658f965f5693d1b0"
+  },
+  {
+   "number": 246,
+   "state": "open",
+   "title": "ci(test): flaky test job — 4 failures in 12 runs on identical-passing code; investigate root cause",
+   "created_at": "2026-09-05T14:39:38+02:00",
+   "updated_at": "2026-09-10T21:18:10+02:00",
+   "labels": null,
+   "comments": 0,
+   "identity": "bc39665fe054e32ff6cc1507ebaf99c152daa9a4141103672ddaf353f39a719f"
+  }
+ ],
+ "milestones": [
+  {
+   "id": 89201,
+   "title": "gate-v0.5",
+   "state": "open",
+   "open_issues": 15,
+   "closed_issues": 4
+  },
+  {
+   "id": 89204,
+   "title": "gate-v1.0",
+   "state": "open",
+   "open_issues": 49,
+   "closed_issues": 1
+  },
+  {
+   "id": 89207,
+   "title": "v0.x",
+   "state": "open",
+   "open_issues": 40,
+   "closed_issues": 7
+  },
+  {
+   "id": 89210,
+   "title": "v1.x",
+   "state": "open",
+   "open_issues": 0,
+   "closed_issues": 0
+  },
+  {
+   "id": 89213,
+   "title": "v2.x+",
+   "state": "open",
+   "open_issues": 0,
+   "closed_issues": 0
+  }
+ ],
+ "opened_after_cutoff": null,
+ "response_hash": "7d5cc38ca382501d981e717c054b40328328d111c3f62b5e9a1b49a0d2523288"
+}

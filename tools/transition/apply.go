@@ -172,6 +172,23 @@ func Apply(c *client, al *Allowlist, j *Journal, comment func(AllowEntry) string
 		}
 
 		if !st.Commented {
+			// A 500 on a comment POST is ambiguous: the comment may have been
+			// created before the response failed, and the journal would not know.
+			// Resuming blindly would leave two identical retirement notices on a
+			// public issue, so check first. Cheap, and only on resume.
+			already, err := hasRetirementComment(c, e.Number)
+			if err != nil {
+				return fmt.Errorf("issue #%d: checking for an existing retirement comment: %w", e.Number, err)
+			}
+			if already {
+				fmt.Fprintf(out, "  #%-5d retirement comment already present, not repeating\n", e.Number)
+				st.Commented = true
+				if err := j.set(e.Number, st); err != nil {
+					return err
+				}
+			}
+		}
+		if !st.Commented {
 			body := map[string]string{"body": comment(e)}
 			if err := c.do("POST", "/repos/"+c.repo+"/issues/"+strconv.Itoa(e.Number)+"/comments", body, nil); err != nil {
 				return fmt.Errorf("issue #%d: comment: %w", e.Number, err)
@@ -255,6 +272,27 @@ func Verify(c *client, al *Allowlist, snap *Snapshot, out *strings.Builder) []st
 	fmt.Fprintf(out, "  checked %d allowlisted and %d non-allowlisted issues\n",
 		len(al.Entries), len(snap.Issues)-len(al.Entries))
 	return problems
+}
+
+// retirementMarker is the first line of the retirement comment. It identifies
+// a comment this tool posted, so a resume can tell "already done" from "not yet".
+const retirementMarker = "**Superseded, not completed.**"
+
+// hasRetirementComment reports whether this tool has already commented on an
+// issue, regardless of what the journal believes.
+func hasRetirementComment(c *client, number int) (bool, error) {
+	var batch []struct {
+		Body string `json:"body"`
+	}
+	if err := c.do("GET", "/repos/"+c.repo+"/issues/"+strconv.Itoa(number)+"/comments", nil, &batch); err != nil {
+		return false, err
+	}
+	for _, cm := range batch {
+		if strings.Contains(cm.Body, retirementMarker) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func short(s string) string {

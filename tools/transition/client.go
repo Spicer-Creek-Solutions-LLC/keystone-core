@@ -28,10 +28,18 @@ const (
 	rateLimitMargin = 15 * time.Second
 )
 
-// rateLimitWindowRe matches the window Forgejo states in the body of its
-// issue-rate-limit response, e.g. "posted 5 issues in under 5 minutes". Forgejo
-// sends no Retry-After header for this limit, so the body is the only source.
-var rateLimitWindowRe = regexp.MustCompile(`in under (\d+) minute`)
+// rateLimitWindowRe matches the window Forgejo states in the body of a
+// rate-limit response. Forgejo sends no Retry-After header for these limits, so
+// the body is the only source — and it does not phrase them consistently:
+//
+//	issue creation:   "posted 5 issues in under 5 minutes"
+//	comment creation: "posted 16 comments in 5 minutes"
+//
+// The optional "under" matters. A pattern written for the first wording silently
+// fails to match the second, which leaves --max-wait inert and turns a routine
+// pause into a stopped run. That is exactly what happened on the first R07
+// apply, 16 comments in.
+var rateLimitWindowRe = regexp.MustCompile(`in (?:under )?(\d+) minute`)
 
 func parseRateLimitWindow(body []byte) (time.Duration, bool) {
 	m := rateLimitWindowRe.FindSubmatch(body)
@@ -80,11 +88,28 @@ func newClient(host, repo, token string, throttle, maxWait time.Duration) *clien
 	}
 }
 
-func retryableStatus(code int) bool {
-	return code == http.StatusTooManyRequests ||
-		code == http.StatusBadGateway ||
-		code == http.StatusServiceUnavailable ||
-		code == http.StatusGatewayTimeout
+// retryableStatus reports whether a status warrants another attempt for the
+// given request.
+//
+// 500 is retryable for everything except posting a comment. A 500 is ambiguous
+// — the write may have landed before the response failed — and for adding a
+// label or closing an issue that ambiguity is harmless, because both are
+// idempotent. Re-posting a comment is not: it would leave two identical
+// retirement notices on a public issue. Codeberg returned exactly this, an
+// empty-bodied 500 on a label POST, partway through the R07 apply.
+func retryableStatus(code int, method, path string) bool {
+	switch code {
+	case http.StatusTooManyRequests, http.StatusBadGateway,
+		http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		return true
+	case http.StatusInternalServerError:
+		return !isCommentPost(method, path)
+	}
+	return false
+}
+
+func isCommentPost(method, path string) bool {
+	return method == http.MethodPost && strings.HasSuffix(strings.SplitN(path, "?", 2)[0], "/comments")
 }
 
 func retryWait(resp *http.Response, attempt int) time.Duration {
@@ -174,7 +199,7 @@ func (c *client) do(method, path string, body, out any) error {
 				continue
 			}
 		}
-		if retryableStatus(resp.StatusCode) {
+		if retryableStatus(resp.StatusCode, method, path) {
 			lastErr = fmt.Errorf("%s %s: %s: %s", method, path, resp.Status, truncate(string(data), 200))
 			c.sleep(retryWait(resp, attempt))
 			continue

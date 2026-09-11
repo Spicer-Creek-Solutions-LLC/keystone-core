@@ -214,6 +214,8 @@ compatible with the available reviewer set.
 
 ### R07 — Retire Generation 1 tracker state
 
+**Status:** complete. All 106 open issues retired as superseded, five milestones closed, three labels created, zero open issues remaining. Evidence in `docs/transition/r07/`.
+
 **Goal:** close old planning state as superseded without erasing history.
 
 The 2026-09-08 inventory found 106 open issues and zero open pull requests. R02
