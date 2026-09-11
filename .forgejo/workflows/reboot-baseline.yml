@@ -46,7 +46,7 @@ jobs:
       # upstream release cannot change the layout under us.
       - name: install lychee
         env:
-          LYCHEE_VERSION: v0.24.2
+          LYCHEE_VERSION: lychee-v0.24.2
         run: |
           set -euo pipefail
           curl -fsSL "https://github.com/lycheeverse/lychee/releases/download/${LYCHEE_VERSION}/lychee-x86_64-unknown-linux-gnu.tar.gz" \
