@@ -1,0 +1,235 @@
+{
+ "schema": "keystone-core/publication-plan",
+ "schema_version": 1,
+ "task": "R09",
+ "generated_at": "2026-09-11T13:11:05Z",
+ "source_file": "docs/project/REBOOT-EXECUTION-PLAN.md",
+ "source_sha256": "a745b20358342f80dd62eef90610ebd6486c31ba584d2df4f2bf36ca3880e704",
+ "forge": {
+  "host": "https://codeberg.org",
+  "owner": "Spicer-Creek-Solutions-LLC",
+  "name": "keystone-core",
+  "repository_id": 1749683
+ },
+ "labels": [
+  {
+   "name": "generation/2",
+   "color": "16a34a",
+   "description": "Belongs to the Generation 2 line, which starts from RFC 0001."
+  },
+  {
+   "name": "kind/epic",
+   "color": "4338ca",
+   "description": "A workstream tracker, not a unit of work. Carries no acceptance criteria of its own."
+  },
+  {
+   "name": "kind/tracker",
+   "color": "b45309",
+   "description": "Roll-up issue for a release or milestone."
+  },
+  {
+   "name": "kind/announcement",
+   "color": "0f766e",
+   "description": "A statement of record, not work to be done."
+  }
+ ],
+ "milestone": {
+  "title": "v0.6.0",
+  "description": "The first completed Generation 2 release: secure enrollment, targeted bounded command execution over NATS, durable lifecycle, cancellation, and an auditable result — each proven by a black-box test against production binaries. The single Generation 2 milestone. Later versions get one when the work is accepted."
+ },
+ "issues": [
+  {
+   "task_id": "ANNOUNCE-reboot",
+   "kind": "announcement",
+   "title": "Keystone Core has restarted: Generation 1 is archived, Generation 2 begins",
+   "body": "\u003c!-- keystone-core-task: ANNOUNCE-reboot --\u003e\n\n**Keystone Core has restarted from a narrower base.**\n\nIn September 2026 the project accepted a reboot. The Generation 1 implementation — around 1,900 files, two public releases, a large feature surface — was archived rather than continued, and the repository now holds planning, governance and transition evidence. **There is nothing to install.**\n\n### Why\n\nNot because it failed to work. Because its breadth outran the evidence that any single operator journey worked end to end. Late fixes had found enrollment credentials that were not retained, and state and blueprint applies that did not reliably reach remote agents — cases where package-level test coverage sat alongside missing production wiring. Adding features would have preserved that risk rather than resolved it.\n\n### Nothing was deleted\n\n| | |\n|---|---|\n| Archive branch | `archive/2026-09-pre-v0.6-reboot` |\n| Signed tag | `archive-2026-09-pre-v0.6-reboot` |\n| Offline bundle | held by the maintainer, SHA-256 in the transition manifest |\n\nBoth refs are protected against update and deletion. The `v0.1.0` and `v0.5.0` releases remain published, with their artifacts intact, and are unsupported: they receive no updates, including security updates.\n\nThe 106 open Generation 1 issues were closed as **superseded, not completed** — closed because the project changed direction, not because the work was finished or judged unwanted. Their titles, bodies, comments, labels and milestones are retained.\n\n### What Generation 2 is\n\nOne promise, deliberately narrow:\n\n\u003e An operator can securely enroll a Linux agent, target it, execute a bounded\n\u003e command over NATS, observe its durable lifecycle, cancel it, and retrieve an\n\u003e auditable result.\n\nNothing else ships until that is demonstrably true. State management, blueprints, runbooks, plugins, secrets, GitOps, webhooks, policy and clustering are Future candidates rather than commitments. Every capability Generation 1 had is catalogued with its status, known gaps and archived source, so the reboot discards the code without discarding what was learned.\n\n### Where to read more\n\n- [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md) — the decision, its reasoning, and the alternatives rejected\n- [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) — every task, in order\n- [FUTURE-CAPABILITIES.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/FUTURE-CAPABILITIES.md) — the archive capability catalog\n- [VERSIONING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/VERSIONING.md) — what the version numbers now mean\n- [docs/transition/](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/transition/) — the archive manifest and the tracker-retirement record\n\nThis issue is a statement of record and is not work to be done. Questions and objections are welcome as comments.\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/announcement"
+   ],
+   "milestone": false,
+   "pinned": true
+  },
+  {
+   "task_id": "TRACKER-v0.6.0",
+   "kind": "tracker",
+   "title": "v0.6.0 — release tracker",
+   "body": "\u003c!-- keystone-core-task: TRACKER-v0.6.0 --\u003e\n\n**Release tracker for `v0.6.0`** — the first completed Generation 2 release.\n\n`v0.6.0` ships when one promise is demonstrably true:\n\n\u003e An operator can securely enroll a Linux agent, target it, execute a bounded\n\u003e command over NATS, observe its durable lifecycle, cancel it, and retrieve an\n\u003e auditable result.\n\nDemonstrably true means a black-box test drives the production CLI or API, crosses the production transport, executes in the intended agent process, and verifies the externally observable effect. Package tests support development; they do not satisfy acceptance.\n\nNothing else is in scope. Everything Generation 1 had is catalogued as a Future candidate rather than a commitment, and reaches this milestone only through the promotion gate.\n\n### Foundation workstreams\n\nNo implementation starts until all twelve are accepted. Each is a separate approval and pull request.\n\n| Workstream | Must follow |\n|---|---|\n| `P00` — Product charter and canonical journeys | R10 |\n| `P01` — Threat model | P00 |\n| `P02` — NATS-native capability ADR | P01 |\n| `P03` — Enrollment and identity ADR | P01, P02 |\n| `P04` — Subject authorization ADR and executable policy | P02, P03 |\n| `P05` — Versioned encrypted protocol ADR | P01–P04 |\n| `P06` — Delivery and job lifecycle ADR | P02, P04, P05 |\n| `P07` — Safe execution ADR | P00, P01 |\n| `P08` — Persistence and audit ADR | P01, P06 |\n| `P09` — Local operator API and authorization ADR | P00, P01 |\n| `P10` — Acceptance-harness design | P02–P09 |\n| `P11` — Repository skeleton and CI | P00–P10 |\n\n### Then the behaviour stages\n\nStage C (`C01`–`C16`) turns the accepted design into the release. It has no issues yet and will not get them until Stage P is accepted: each behaviour workstream splits into an acceptance-contract task and an implementation task, worked by different agents.\n\n- Every task, in order: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md)\n- Version policy: [VERSIONING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/VERSIONING.md)\n- Roadmap: [ROADMAP.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/ROADMAP.md)\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/tracker"
+   ],
+   "milestone": true,
+   "pinned": false
+  },
+  {
+   "task_id": "P00",
+   "kind": "epic",
+   "title": "P00 — Product charter and canonical journeys",
+   "body": "\u003c!-- keystone-core-task: P00 --\u003e\n\n**Task `P00` — Generation 2 workstream epic.**\n\nDefine target operator, fleet profile, problems, measurable success, explicit\nnon-goals, and exact CLI journeys for enroll, list/presence, run, status, output,\ncancel, and audit. Record the 60–90 day external validation plan and business\nevidence gate. Freeze the initial argv-only execution boundary from RFC 0001.\n\n**Must follow:** R10\n\n### This epic carries no leaf issues yet\n\nAn epic is a workstream, not a unit of work, and it has no acceptance criteria of its own. Leaf issues are created only once this workstream has a checked-in dossier and its plan has been approved — never in advance. The dossier must define depends-on task IDs and commit SHAs, allowed paths, exact outputs, applicable requirement IDs, acceptance cases with N/A rationale, validation commands, documentation changes, security reviewer, rollback, and handoff artifacts.\n\n- Full text of this workstream: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) § Stage P\n- Why the project rebooted: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md)\n- What \"shipped\" means here: [TESTING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/TESTING.md)\n- Workflow: [AGENTS.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/AGENTS.md) § 3\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/epic"
+   ],
+   "milestone": true,
+   "pinned": false,
+   "depends_on": "R10"
+  },
+  {
+   "task_id": "P01",
+   "kind": "epic",
+   "title": "P01 — Threat model",
+   "body": "\u003c!-- keystone-core-task: P01 --\u003e\n\n**Task `P01` — Generation 2 workstream epic.**\n\nModel operator, server service, agent, NATS operator, broker administrator,\nnetwork attacker, compromised agent, compromised service credential, malicious\ncommand author, and supply-chain attacker. Document assets, trust boundaries,\nmetadata leakage, denial/delay powers, key rotation, revocation, recovery, and\naccepted residual risk.\n\n**Must follow:** P00\n\n### This epic carries no leaf issues yet\n\nAn epic is a workstream, not a unit of work, and it has no acceptance criteria of its own. Leaf issues are created only once this workstream has a checked-in dossier and its plan has been approved — never in advance. The dossier must define depends-on task IDs and commit SHAs, allowed paths, exact outputs, applicable requirement IDs, acceptance cases with N/A rationale, validation commands, documentation changes, security reviewer, rollback, and handoff artifacts.\n\n- Full text of this workstream: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) § Stage P\n- Why the project rebooted: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md)\n- What \"shipped\" means here: [TESTING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/TESTING.md)\n- Workflow: [AGENTS.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/AGENTS.md) § 3\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/epic"
+   ],
+   "milestone": true,
+   "pinned": false,
+   "depends_on": "P00"
+  },
+  {
+   "task_id": "P02",
+   "kind": "epic",
+   "title": "P02 — NATS-native capability ADR",
+   "body": "\u003c!-- keystone-core-task: P02 --\u003e\n\n**Task `P02` — Generation 2 workstream epic.**\n\nSpecify accounts, system account, operator/JWT trust, service/agent principals,\nsubject grammar, publish/subscribe permissions, response permissions decision,\nJetStream streams and consumers, limits, advisories, headers, TLS, credential\nrotation, and deployment modes. Include an `Adopt/Evaluate/Defer/Reject` matrix\nfor every relevant NATS feature and the exact data-plane `$JS.API`/reply\nallowlist required by pull consumption and acknowledgements.\n\n**Must follow:** P01\n\n### This epic carries no leaf issues yet\n\nAn epic is a workstream, not a unit of work, and it has no acceptance criteria of its own. Leaf issues are created only once this workstream has a checked-in dossier and its plan has been approved — never in advance. The dossier must define depends-on task IDs and commit SHAs, allowed paths, exact outputs, applicable requirement IDs, acceptance cases with N/A rationale, validation commands, documentation changes, security reviewer, rollback, and handoff artifacts.\n\n- Full text of this workstream: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) § Stage P\n- Why the project rebooted: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md)\n- What \"shipped\" means here: [TESTING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/TESTING.md)\n- Workflow: [AGENTS.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/AGENTS.md) § 3\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/epic"
+   ],
+   "milestone": true,
+   "pinned": false,
+   "depends_on": "P01"
+  },
+  {
+   "task_id": "P03",
+   "kind": "epic",
+   "title": "P03 — Enrollment and identity ADR",
+   "body": "\u003c!-- keystone-core-task: P03 --\u003e\n\n**Task `P03` — Generation 2 workstream epic.**\n\nSpecify one-use token creation, bootstrap NATS credentials, agent-generated NATS\nand application keys, token subjects, server validation, permanent scoped\ncredentials, staged activation, fsync/rename, proof of permanent connection,\nrevocation, bootstrap expiry, reconnect, re-enrollment, rotation, clock\nassumptions, crash recovery at every edge, and disaster recovery.\n\n**Must follow:** P01, P02\n\n### This epic carries no leaf issues yet\n\nAn epic is a workstream, not a unit of work, and it has no acceptance criteria of its own. Leaf issues are created only once this workstream has a checked-in dossier and its plan has been approved — never in advance. The dossier must define depends-on task IDs and commit SHAs, allowed paths, exact outputs, applicable requirement IDs, acceptance cases with N/A rationale, validation commands, documentation changes, security reviewer, rollback, and handoff artifacts.\n\n- Full text of this workstream: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) § Stage P\n- Why the project rebooted: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md)\n- What \"shipped\" means here: [TESTING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/TESTING.md)\n- Workflow: [AGENTS.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/AGENTS.md) § 3\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/epic"
+   ],
+   "milestone": true,
+   "pinned": false,
+   "depends_on": "P01, P02"
+  },
+  {
+   "task_id": "P04",
+   "kind": "epic",
+   "title": "P04 — Subject authorization ADR and executable policy",
+   "body": "\u003c!-- keystone-core-task: P04 --\u003e\n\n**Task `P04` — Generation 2 workstream epic.**\n\nDefine the canonical subject grammar and a principal-by-subject permission\nmatrix. Produce generated NATS configuration/JWT fixtures and positive/negative\nacceptance cases. Prefer one exact `FilterSubject` per consumer; any multi-filter\nuse must account for its authorization behavior explicitly.\n\n**Must follow:** P02, P03\n\n### This epic carries no leaf issues yet\n\nAn epic is a workstream, not a unit of work, and it has no acceptance criteria of its own. Leaf issues are created only once this workstream has a checked-in dossier and its plan has been approved — never in advance. The dossier must define depends-on task IDs and commit SHAs, allowed paths, exact outputs, applicable requirement IDs, acceptance cases with N/A rationale, validation commands, documentation changes, security reviewer, rollback, and handoff artifacts.\n\n- Full text of this workstream: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) § Stage P\n- Why the project rebooted: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md)\n- What \"shipped\" means here: [TESTING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/TESTING.md)\n- Workflow: [AGENTS.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/AGENTS.md) § 3\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/epic"
+   ],
+   "milestone": true,
+   "pinned": false,
+   "depends_on": "P02, P03"
+  },
+  {
+   "task_id": "P05",
+   "kind": "epic",
+   "title": "P05 — Versioned encrypted protocol ADR",
+   "body": "\u003c!-- keystone-core-task: P05 --\u003e\n\n**Task `P05` — Generation 2 workstream epic.**\n\nDefine envelope canonicalization, version negotiation, job and correlation IDs,\nsignatures, recipient encryption, replay bounds, timestamps/nonces, headers,\npayload and output limits, forward compatibility, test vectors, and error codes.\nHeaders contain only routing-safe metadata—never secrets or plaintext commands.\nClassify enrollment, command, cancellation, result, lifecycle event, and presence\nmessages by signer, verifier, encryption recipient, replay key/window, maximum\nsize, durability, retention, headers, and accepted metadata leakage.\n\n**Must follow:** P01–P04\n\n### This epic carries no leaf issues yet\n\nAn epic is a workstream, not a unit of work, and it has no acceptance criteria of its own. Leaf issues are created only once this workstream has a checked-in dossier and its plan has been approved — never in advance. The dossier must define depends-on task IDs and commit SHAs, allowed paths, exact outputs, applicable requirement IDs, acceptance cases with N/A rationale, validation commands, documentation changes, security reviewer, rollback, and handoff artifacts.\n\n- Full text of this workstream: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) § Stage P\n- Why the project rebooted: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md)\n- What \"shipped\" means here: [TESTING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/TESTING.md)\n- Workflow: [AGENTS.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/AGENTS.md) § 3\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/epic"
+   ],
+   "milestone": true,
+   "pinned": false,
+   "depends_on": "P01–P04"
+  },
+  {
+   "task_id": "P06",
+   "kind": "epic",
+   "title": "P06 — Delivery and job lifecycle ADR",
+   "body": "\u003c!-- keystone-core-task: P06 --\u003e\n\n**Task `P06` — Generation 2 workstream epic.**\n\nDefine state machines for server and agent, durable boundaries, JetStream stream\nand pull-consumer configuration, ack and progress rules, publication deduplication,\nredelivery, application-ledger deduplication, cancellation races, server/agent\nrestart, retention, delivery failure, expiry, and `UNKNOWN` reconciliation when\na verified late result arrives.\n\n**Must follow:** P02, P04, P05\n\n### This epic carries no leaf issues yet\n\nAn epic is a workstream, not a unit of work, and it has no acceptance criteria of its own. Leaf issues are created only once this workstream has a checked-in dossier and its plan has been approved — never in advance. The dossier must define depends-on task IDs and commit SHAs, allowed paths, exact outputs, applicable requirement IDs, acceptance cases with N/A rationale, validation commands, documentation changes, security reviewer, rollback, and handoff artifacts.\n\n- Full text of this workstream: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) § Stage P\n- Why the project rebooted: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md)\n- What \"shipped\" means here: [TESTING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/TESTING.md)\n- Workflow: [AGENTS.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/AGENTS.md) § 3\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/epic"
+   ],
+   "milestone": true,
+   "pinned": false,
+   "depends_on": "P02, P04, P05"
+  },
+  {
+   "task_id": "P07",
+   "kind": "epic",
+   "title": "P07 — Safe execution ADR",
+   "body": "\u003c!-- keystone-core-task: P07 --\u003e\n\n**Task `P07` — Generation 2 workstream epic.**\n\nDefine safe argv-only execution, fixed environment and working directory,\nservice identity/privilege, duration/output/resource limits, process-group\ncancellation, signal escalation, executable resolution, audit redaction, and\nunsupported forms. Shell, stdin, scripts, pipelines, user/environment/directory\nselection, batches, and interactive sessions remain out of scope.\n\n**Must follow:** P00, P01\n\n### This epic carries no leaf issues yet\n\nAn epic is a workstream, not a unit of work, and it has no acceptance criteria of its own. Leaf issues are created only once this workstream has a checked-in dossier and its plan has been approved — never in advance. The dossier must define depends-on task IDs and commit SHAs, allowed paths, exact outputs, applicable requirement IDs, acceptance cases with N/A rationale, validation commands, documentation changes, security reviewer, rollback, and handoff artifacts.\n\n- Full text of this workstream: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) § Stage P\n- Why the project rebooted: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md)\n- What \"shipped\" means here: [TESTING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/TESTING.md)\n- Workflow: [AGENTS.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/AGENTS.md) § 3\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/epic"
+   ],
+   "milestone": true,
+   "pinned": false,
+   "depends_on": "P00, P01"
+  },
+  {
+   "task_id": "P08",
+   "kind": "epic",
+   "title": "P08 — Persistence and audit ADR",
+   "body": "\u003c!-- keystone-core-task: P08 --\u003e\n\n**Task `P08` — Generation 2 workstream epic.**\n\nDefine separate server and agent SQLite schemas/APIs, filesystem ownership and\nmodes, migration ordering, transaction boundaries, ledger retention, result\nstorage, output truncation, append-oriented audit, sensitive-data handling,\nbackup, corruption response, and future Postgres/tamper-evidence decision points.\nDo not introduce a shared mega-store interface.\n\n**Must follow:** P01, P06\n\n### This epic carries no leaf issues yet\n\nAn epic is a workstream, not a unit of work, and it has no acceptance criteria of its own. Leaf issues are created only once this workstream has a checked-in dossier and its plan has been approved — never in advance. The dossier must define depends-on task IDs and commit SHAs, allowed paths, exact outputs, applicable requirement IDs, acceptance cases with N/A rationale, validation commands, documentation changes, security reviewer, rollback, and handoff artifacts.\n\n- Full text of this workstream: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) § Stage P\n- Why the project rebooted: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md)\n- What \"shipped\" means here: [TESTING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/TESTING.md)\n- Workflow: [AGENTS.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/AGENTS.md) § 3\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/epic"
+   ],
+   "milestone": true,
+   "pinned": false,
+   "depends_on": "P01, P06"
+  },
+  {
+   "task_id": "P09",
+   "kind": "epic",
+   "title": "P09 — Local operator API and authorization ADR",
+   "body": "\u003c!-- keystone-core-task: P09 --\u003e\n\n**Task `P09` — Generation 2 workstream epic.**\n\nDefine a root-owned Unix-domain socket, mode and admin-group semantics,\npeer-credential attribution, full-admin authorization for the narrow first\nrelease, impersonation boundaries, stale-socket recovery, request limits, and\naudit identity. RBAC and remote operator access remain Future.\n\n**Must follow:** P00, P01\n\n### This epic carries no leaf issues yet\n\nAn epic is a workstream, not a unit of work, and it has no acceptance criteria of its own. Leaf issues are created only once this workstream has a checked-in dossier and its plan has been approved — never in advance. The dossier must define depends-on task IDs and commit SHAs, allowed paths, exact outputs, applicable requirement IDs, acceptance cases with N/A rationale, validation commands, documentation changes, security reviewer, rollback, and handoff artifacts.\n\n- Full text of this workstream: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) § Stage P\n- Why the project rebooted: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md)\n- What \"shipped\" means here: [TESTING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/TESTING.md)\n- Workflow: [AGENTS.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/AGENTS.md) § 3\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/epic"
+   ],
+   "milestone": true,
+   "pinned": false,
+   "depends_on": "P00, P01"
+  },
+  {
+   "task_id": "P10",
+   "kind": "epic",
+   "title": "P10 — Acceptance-harness design",
+   "body": "\u003c!-- keystone-core-task: P10 --\u003e\n\n**Task `P10` — Generation 2 workstream epic.**\n\nSpecify the isolated Docker topology, production NATS config generation, binary\npackaging, fault controls, external effect probes, negative identities, artifact\nretention, VM boundary, scale profile, and local/CI entry points. Map every\narchitecture invariant to planned evidence.\n\nDefine artifact classification and redaction. Seed private-key, token, command,\nand output canaries and scan artifacts before CI upload.\n\n**Must follow:** P02–P09\n\n### This epic carries no leaf issues yet\n\nAn epic is a workstream, not a unit of work, and it has no acceptance criteria of its own. Leaf issues are created only once this workstream has a checked-in dossier and its plan has been approved — never in advance. The dossier must define depends-on task IDs and commit SHAs, allowed paths, exact outputs, applicable requirement IDs, acceptance cases with N/A rationale, validation commands, documentation changes, security reviewer, rollback, and handoff artifacts.\n\n- Full text of this workstream: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) § Stage P\n- Why the project rebooted: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md)\n- What \"shipped\" means here: [TESTING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/TESTING.md)\n- Workflow: [AGENTS.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/AGENTS.md) § 3\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/epic"
+   ],
+   "milestone": true,
+   "pinned": false,
+   "depends_on": "P02–P09"
+  },
+  {
+   "task_id": "P11",
+   "kind": "epic",
+   "title": "P11 — Repository skeleton and CI",
+   "body": "\u003c!-- keystone-core-task: P11 --\u003e\n\n**Task `P11` — Generation 2 workstream epic.**\n\nIntroduce the Go module, Makefile, formatter/linter/test targets, minimal command\npackages, configuration conventions, ADR tooling, architecture/traceability\nlint, Docker harness shell, dependency updates, supply-chain scanning, and\n`0.0.0-dev+g\u003ccommit\u003e` version logic. No command-execution behavior lands here.\n\n**Must follow:** P00–P10\n\n### This epic carries no leaf issues yet\n\nAn epic is a workstream, not a unit of work, and it has no acceptance criteria of its own. Leaf issues are created only once this workstream has a checked-in dossier and its plan has been approved — never in advance. The dossier must define depends-on task IDs and commit SHAs, allowed paths, exact outputs, applicable requirement IDs, acceptance cases with N/A rationale, validation commands, documentation changes, security reviewer, rollback, and handoff artifacts.\n\n- Full text of this workstream: [REBOOT-EXECUTION-PLAN.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/REBOOT-EXECUTION-PLAN.md) § Stage P\n- Why the project rebooted: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md)\n- What \"shipped\" means here: [TESTING.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/project/TESTING.md)\n- Workflow: [AGENTS.md](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/AGENTS.md) § 3\n\n_Created by `tools/transition publish` (reboot task R09)._",
+   "labels": [
+    "generation/2",
+    "kind/epic"
+   ],
+   "milestone": true,
+   "pinned": false,
+   "depends_on": "P00–P10"
+  }
+ ],
+ "release_annotations": [
+  {
+   "tag": "v0.1.0",
+   "release_id": 9667643,
+   "notice": "\u003e **Archived and unsupported.**\n\u003e\n\u003e `v0.1.0` belongs to Generation 1, which the project archived in September 2026\n\u003e rather than continuing. It receives no updates, including security updates,\n\u003e and there is no supported release of Keystone Core at this time.\n\u003e\n\u003e The artifacts below are left in place deliberately — nothing about this\n\u003e release has been deleted or rewritten. The source it was built from is\n\u003e preserved at the protected tag `archive-2026-09-pre-v0.6-reboot`.\n\u003e\n\u003e The decision and its reasoning: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md).\n\u003e Generation 2 starts from a deliberately narrow promise and has not yet shipped.\n"
+  },
+  {
+   "tag": "v0.5.0",
+   "release_id": 10425107,
+   "notice": "\u003e **Archived and unsupported.**\n\u003e\n\u003e `v0.5.0` belongs to Generation 1, which the project archived in September 2026\n\u003e rather than continuing. It receives no updates, including security updates,\n\u003e and there is no supported release of Keystone Core at this time.\n\u003e\n\u003e The artifacts below are left in place deliberately — nothing about this\n\u003e release has been deleted or rewritten. The source it was built from is\n\u003e preserved at the protected tag `archive-2026-09-pre-v0.6-reboot`.\n\u003e\n\u003e The decision and its reasoning: [RFC 0001](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/branch/main/docs/rfcs/0001-generation-2-reboot.md).\n\u003e Generation 2 starts from a deliberately narrow promise and has not yet shipped.\n"
+  }
+ ],
+ "plan_sha256": "daf30adce4053044b06d2e78ca4c2e53b286c264874a05a2e1c63d7accc5faf3"
+}
