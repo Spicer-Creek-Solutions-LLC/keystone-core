@@ -10,8 +10,15 @@ config:
   MD060: false
 
 globs:
-  - "docs/**/*.md"
-  - "*.md" # repo-root markdown (README, AGENTS, FEATURES, CHANGELOG, etc.)
+  # Every tracked Markdown file. The narrower `docs/**` + `*.md` pair this
+  # replaced left ten files unlinted, the active epic and the issue templates
+  # among them, and nothing said so.
+  - "**/*.md"
+
+# Lint tracked project content only. Without this the glob also picks up
+# gitignored build output and local agent scratch files, so whether the gate
+# passes depends on what happens to be lying around in a working tree.
+gitignore: true
 
 ignores:
   # CLAUDE.md is a one-line `@AGENTS.md` Claude Code import directive — a

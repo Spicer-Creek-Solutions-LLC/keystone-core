@@ -1,54 +1,27 @@
 # Documentation site — `docs.keystone-core.io`
 
-This directory holds the static-site source for `docs.keystone-core.io`,
-the public-facing documentation surface.
+This directory holds the static-site source for `docs.keystone-core.io`, the
+project's public-facing page.
 
-The full Hugo site has now landed (the gate-v0.5
-["Hugo docs site"](../../docs/project/ROADMAP.md) milestone): the Hugo
-source lives under [`../../docs/`](../../docs/) and renders with
-`make docs-site` (see [`docs/SITE.md`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/SITE.md)). The
-**branded placeholder** here remains the served page until the rendered
-site is actually deployed at `docs.keystone-core.io` — there is no
-hosting infrastructure for that domain yet (it is still aspirational; it
-is excluded from the CI link gate in [`.lychee.toml`](../../.lychee.toml)
-for that reason).
+It is a single hand-written page, not a generated site. The Hugo toolchain that
+was going to render one belonged to Generation 1 and was removed with it in
+reboot task R08; there is no `make docs-site`, no theme, and no content tree. A
+documentation site returns when there is software to document — the repository
+currently holds planning, governance and transition evidence, and the canonical
+documentation is the Markdown in [`../../docs/`](../../docs/).
 
-## Publishing the real site
+[`site/index.html`](site/index.html) is the served page. Reboot task R09
+rewrote it into the reboot announcement: it states that there is nothing to
+install, why the project restarted, where Generation 1 was preserved, and what
+Generation 2 promises. It links only to files that exist on `main`.
 
-The published artifact is the **`make docs-site` output** (`docs/public/`,
-a build artifact — gitignored, not committed). The deploy step is:
+## Deploying
 
-1. `make install-hugo` (one-time: pinned Hugo Extended).
-2. `make docs-site` → renders `docs/public/`.
-3. Serve `docs/public/` at the root of the `docs.keystone-core.io`
-   virtual host (the same serving shape as the placeholder below).
-
-`make docs-links-site` link-checks the rendered output (CI gates both
-the build and the links on every PR). When the site goes live, swap the
-web host's document root from `deploy/docs/site/` (placeholder) to the
-generated `docs/public/`.
-
-## What's in here
-
-- [`site/index.html`](site/index.html) — the **placeholder** page
-  currently served at `docs.keystone-core.io`. Links visitors to the
-  canonical docs in the source repo. Retired once `docs/public/` is
-  deployed.
-
-## How the placeholder is meant to be deployed
-
-Same pattern as the Go vanity-import site under [`../vanity/`](../vanity/):
-
-1. The web host serves `deploy/docs/site/` at the root of the
-   `docs.keystone-core.io` virtual host.
-2. The site root resolves to `index.html` (the placeholder).
-3. Unknown subpaths fall back to `index.html` too — so visitors who
-   guess at deep URLs (e.g., `/cli`, `/getting-started`) still get
-   the placeholder pointing them at the real docs in the repo.
-
-The fallback rule (deep paths → index.html) intentionally mirrors how
-Hugo-generated sites will behave at v0.5: SPA-style routing keeps
-deep links working.
+The web host serves `deploy/docs/site/` at the root of the
+`docs.keystone-core.io` virtual host, with unknown subpaths falling back to
+`index.html` so that visitors who guess at deep URLs — or follow a link into
+the old Generation 1 documentation tree — land on the announcement rather than
+a 404.
 
 ### Caddy
 
@@ -80,42 +53,29 @@ server {
 }
 ```
 
-Plus the standard HTTP→HTTPS redirect block (same shape as the
-vanity-site nginx config in [`../vanity/README.md`](../vanity/README.md)).
+Plus the standard HTTP-to-HTTPS redirect block, the same shape as the
+vanity-site configuration in [`../vanity/README.md`](../vanity/README.md).
 
 ## Verifying
 
 ```bash
-curl -fsSL https://docs.keystone-core.io/ | grep -E 'Keystone Core|v0.5'
-# Should print the placeholder's heading + the v0.5 note.
-
+curl -fsSL https://docs.keystone-core.io/ | grep -E 'nothing to install'
 curl -fsSL https://docs.keystone-core.io/some/deep/path | grep -E 'Keystone Core'
-# Should also return the placeholder (fallback rule working).
 ```
 
-## When this gets replaced
+The second checks the fallback rule: a deep path that no longer exists must
+still return the announcement.
 
-The v0.5 ROADMAP entry "Hugo docs site" describes the eventual
-acceptance criteria:
+## A caveat worth knowing
 
-- `docs/` builds a Hugo site under `docs/public/` via `make docs-site`
-- Auto-generated CLI / config / API references regenerate via
-  `make docs-sync` into the Hugo content tree
-- Site mirrors `docs/project/` structure with per-page navigation
-- Hosted at `docs.keystone-core.io` (this URL)
-- `lychee` link-check covers the rendered site
-
-At that point this README gets rewritten to describe the Hugo
-toolchain + content tree, and `site/index.html` is replaced by
-Hugo's generated output.
+Nothing in CI checks this page. `make docs-links` globs `**/*.md` and runs
+`lychee --offline`, so it parses no HTML and resolves no external URL. That is
+how the previous placeholder came to announce a v0.5 documentation site and link
+to three files that had been deleted. If you edit the links here, check them by
+hand.
 
 ## Related
 
-- [`../vanity/`](../vanity/) — the parallel setup for the Go
-  vanity-import static site at `go.keystone-core.io`. Same deployment
-  pattern, different content.
-- [`../../docs/`](../../docs/) — the source Markdown docs that this
-  site (eventually) renders.
-- [`../../docs/project/ROADMAP.md`](../../docs/project/ROADMAP.md)
-  &mdash; the "Hugo docs site" gate-v0.5 entry that this placeholder
-  is interim coverage for.
+- [`../vanity/`](../vanity/) — the Go vanity-import site at
+  `go.keystone-core.io`, same deployment pattern, different content
+- [`../../docs/`](../../docs/) — the canonical Markdown documentation
