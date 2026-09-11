@@ -34,6 +34,10 @@ applicable requirement IDs, acceptance cases and N/A rationale, validation
 commands, documentation changes, security reviewer, rollback, and handoff
 artifacts.
 
+Dossiers live in [`docs/dossiers/`](../dossiers/), one file per task, named for
+the task identifier. A dossier is a boundary, not an approval: landing one does
+not authorize the work it describes.
+
 Each behavior workstream is split into at least two repository tasks:
 
 1. `Cxx-A` — an independent agent lands the black-box acceptance contract and
