@@ -630,5 +630,20 @@
       "resolution": "The (push) entry was removed. Only the pull-request context is required, matching the arrangement the twelve legacy contexts used.",
       "how_it_was_caught": "Reading status_check_contexts back through the branches API. Had that field been admin-only, as tag protection is, this would have surfaced as R07's pull request hanging with no explanation."
     }
+  },
+  "tracker_retirement": {
+    "task": "R07",
+    "completed_at": "2026-09-11T00:21:55Z",
+    "result": "All 106 open issues retired as superseded rather than completed. All five milestones closed, none deleted. Three labels created. Zero open issues remain.",
+    "artifacts": [
+      "docs/transition/r07/snapshot.json",
+      "docs/transition/r07/allowlist.json",
+      "docs/transition/r07/journal.json",
+      "docs/transition/r07/verification-report.json"
+    ],
+    "allowlist_sha256": "93bb3f86842117cae4e6f05be19c4e3f740102e9695bc0118b76f5cb07fdc762",
+    "snapshot_sha256": "9ace87373af1f3cf1dbc161563ca07572e612cd74769cdc7095d37c767b33c30",
+    "project_board": "Step 9 of the apply sequence is not applicable: has_projects is false on this repository and the projects endpoint returns 404, so there is no roadmap board to archive.",
+    "no_collateral_evidence": "Exactly 106 issues carry status/superseded and generation/1. Of the 120 closed issues, the 14 that predate this task carry neither."
   }
 }

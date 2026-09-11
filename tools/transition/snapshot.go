@@ -65,12 +65,27 @@ type Issue struct {
 	MilestoneID int64    `json:"milestone_id,omitempty"`
 	Comments    int      `json:"comments"`
 
+	// CommentBodies preserves the discussion itself, not just its size. Closing
+	// an issue does not delete its comments, so this is belt and braces — but
+	// the archive's promise is that the original content survives, and a record
+	// that only counts comments cannot demonstrate that.
+	CommentBodies []Comment `json:"comment_bodies,omitempty"`
+
 	// Identity is a fingerprint over the fields that cannot change without the
 	// issue becoming a different issue. Generation 1 issues carry no task ID in
 	// their bodies — they predate the convention — so identity is established
 	// here rather than read from the issue. Generation 2 issues will carry a
 	// task ID, and generation-aware matching compares against that.
 	Identity string `json:"identity"`
+}
+
+// Comment is one comment on an issue, as it stood at the cutoff.
+type Comment struct {
+	ID        int64  `json:"id"`
+	Author    string `json:"author"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	Body      string `json:"body"`
 }
 
 // Milestone records a milestone and its before-state, so R07 can close
@@ -130,6 +145,16 @@ type apiIssue struct {
 		ID    int64  `json:"id"`
 		Title string `json:"title"`
 	} `json:"milestone"`
+}
+
+type apiComment struct {
+	ID   int64 `json:"id"`
+	User *struct {
+		Login string `json:"login"`
+	} `json:"user"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	Body      string `json:"body"`
 }
 
 type apiMilestone struct {
@@ -200,6 +225,36 @@ func takeSnapshot(c *client, host string, now func() time.Time) (*Snapshot, erro
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read issues: %w", err)
+	}
+
+	// Comments are fetched separately, per the plan: the issue list does not
+	// carry bodies. Only issues that report a non-zero count are queried, so a
+	// tracker of generated issues with no discussion costs no extra requests.
+	for i := range snap.Issues {
+		if snap.Issues[i].Comments == 0 {
+			continue
+		}
+		n := snap.Issues[i].Number
+		cq := url.Values{}
+		err := c.getPaged("/repos/"+c.repo+"/issues/"+strconv.Itoa(n)+"/comments", cq, func(page int) (int, error) {
+			var batch []apiComment
+			if err := c.do("GET", "/repos/"+c.repo+"/issues/"+strconv.Itoa(n)+"/comments"+pageQuery(cq, page), nil, &batch); err != nil {
+				return 0, err
+			}
+			for _, cm := range batch {
+				author := ""
+				if cm.User != nil {
+					author = cm.User.Login
+				}
+				snap.Issues[i].CommentBodies = append(snap.Issues[i].CommentBodies, Comment{
+					ID: cm.ID, Author: author, CreatedAt: cm.CreatedAt, UpdatedAt: cm.UpdatedAt, Body: cm.Body,
+				})
+			}
+			return len(batch), nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("read comments for issue #%d: %w", n, err)
+		}
 	}
 
 	mq := url.Values{"state": {"all"}}

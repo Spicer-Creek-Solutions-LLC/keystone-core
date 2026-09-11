@@ -129,6 +129,9 @@ func run(cmd string, o opts) error {
 		return nil
 
 	case "apply":
+		if o.snapPath == "" {
+			return fmt.Errorf("apply: --snapshot <path> is required (milestone state comes from it)")
+		}
 		al, err := readAllowlist(o.allowPath)
 		if err != nil {
 			return err
@@ -152,10 +155,27 @@ func run(cmd string, o opts) error {
 		if err != nil {
 			return err
 		}
+		snapForMS, _, serr := readSnapshot(o.snapPath)
+		if serr != nil {
+			return fmt.Errorf("apply needs the snapshot for milestone state: %w", serr)
+		}
 		if !o.apply {
 			fmt.Fprintf(&out, "DRY RUN — no changes will be made\n%s\n\n", al.summary())
 		}
+		// Labels first: adding a label to an issue fails if the label is not
+		// defined, so this has to precede the per-issue work.
+		fmt.Fprint(&out, "labels:\n")
+		if err := EnsureLabels(c, transitionLabelSpecs, !o.apply, &out); err != nil {
+			return err
+		}
+		fmt.Fprint(&out, "\nissues:\n")
 		if err := Apply(c, al, j, supersededComment, !o.apply, &out); err != nil {
+			return err
+		}
+		// Milestones last: closing one before its issues would briefly show a
+		// closed milestone with open work inside it.
+		fmt.Fprint(&out, "\nmilestones:\n")
+		if err := CloseMilestones(c, snapForMS, !o.apply, &out); err != nil {
 			return err
 		}
 		cm, lb, cl := j.done()
@@ -180,6 +200,8 @@ func run(cmd string, o opts) error {
 			return err
 		}
 		problems := Verify(c, al, snap, &out)
+		problems = append(problems, VerifyLabels(c, al, transitionLabelSpecs)...)
+		problems = append(problems, VerifyMilestones(c, snap)...)
 		if len(problems) > 0 {
 			fmt.Fprintf(&out, "\n%d problem(s):\n", len(problems))
 			for _, p := range problems {

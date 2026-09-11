@@ -25,6 +25,8 @@ type stubForge struct {
 	comments   map[int][]string
 	labelPosts map[int][]string
 	closed     map[int]bool
+	labels     map[string]string // name -> description, the repo's label set
+	milestones map[int64]string  // id -> state
 	mutations  []string
 
 	// failAfter aborts the nth mutating request with a 500, to simulate an
@@ -38,6 +40,8 @@ func newStub(t *testing.T, issues ...*apiIssue) *stubForge {
 		t: t, repoID: 1749683,
 		issues: map[int]*apiIssue{}, comments: map[int][]string{},
 		labelPosts: map[int][]string{}, closed: map[int]bool{},
+		labels:     map[string]string{"kind/bug": "pre-existing, must not be touched"},
+		milestones: map[int64]string{89201: "open", 89210: "open"},
 	}
 	for _, is := range issues {
 		s.issues[is.Number] = is
@@ -87,13 +91,53 @@ func (s *stubForge) server() *httptest.Server {
 			}
 			_ = json.NewEncoder(w).Encode(open[lo:hi])
 
+		case rest[0] == "labels" && len(rest) == 1 && r.Method == http.MethodGet:
+			page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+			if page > 1 {
+				_ = json.NewEncoder(w).Encode([]apiLabel{})
+				return
+			}
+			var out []apiLabel
+			var i int64
+			for n, d := range s.labels {
+				i++
+				out = append(out, apiLabel{ID: i, Name: n, Description: d})
+			}
+			_ = json.NewEncoder(w).Encode(out)
+
+		case rest[0] == "labels" && len(rest) == 1 && r.Method == http.MethodPost:
+			var spec LabelSpec
+			_ = json.NewDecoder(r.Body).Decode(&spec)
+			if _, dup := s.labels[spec.Name]; dup {
+				s.t.Errorf("tool tried to create label %q, which already exists", spec.Name)
+			}
+			s.labels[spec.Name] = spec.Description
+			s.mutations = append(s.mutations, "label:"+spec.Name)
+			_ = json.NewEncoder(w).Encode(apiLabel{ID: 900, Name: spec.Name})
+
+		case rest[0] == "milestones" && len(rest) == 2 && r.Method == http.MethodPatch:
+			id, _ := strconv.ParseInt(rest[1], 10, 64)
+			var body map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			s.milestones[id] = body["state"]
+			s.mutations = append(s.mutations, fmt.Sprintf("milestone:%d:%s", id, body["state"]))
+			w.WriteHeader(http.StatusOK)
+
 		case rest[0] == "milestones" && r.Method == http.MethodGet:
 			page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 			if page > 1 {
 				_ = json.NewEncoder(w).Encode([]apiMilestone{})
 				return
 			}
-			_ = json.NewEncoder(w).Encode([]apiMilestone{{ID: 89201, Title: "gate-v0.5", State: "open", OpenIssues: 2}})
+			var ms []apiMilestone
+			for id, st := range s.milestones {
+				title := "gate-v0.5"
+				if id != 89201 {
+					title = "v1.x"
+				}
+				ms = append(ms, apiMilestone{ID: id, Title: title, State: st, OpenIssues: 2})
+			}
+			_ = json.NewEncoder(w).Encode(ms)
 
 		case rest[0] == "issues" && len(rest) == 2 && r.Method == http.MethodGet: // one issue
 			n, _ := strconv.Atoi(rest[1])
@@ -103,6 +147,33 @@ func (s *stubForge) server() *httptest.Server {
 				return
 			}
 			_ = json.NewEncoder(w).Encode(is)
+
+		case rest[0] == "issues" && len(rest) == 3 && rest[2] == "comments" && r.Method == http.MethodGet:
+			n, _ := strconv.Atoi(rest[1])
+			page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+			if page > 1 {
+				_ = json.NewEncoder(w).Encode([]apiComment{})
+				return
+			}
+			var out []apiComment
+			// Serve comments actually posted to this issue, so a resume can see
+			// its own earlier write. Fall back to synthetic bodies for issues
+			// that only carry a count, which is how pre-existing discussion is
+			// modelled.
+			bodies := s.comments[n]
+			for len(bodies) < s.issues[n].Comments {
+				bodies = append(bodies, fmt.Sprintf("discussion %d on issue %d", len(bodies)+1, n))
+			}
+			for k, b := range bodies {
+				out = append(out, apiComment{
+					ID: int64(1000 + k), CreatedAt: "2026-02-01T00:00:00Z", UpdatedAt: "2026-02-01T00:00:00Z",
+					Body: b,
+					User: &struct {
+						Login string `json:"login"`
+					}{Login: "someone"},
+				})
+			}
+			_ = json.NewEncoder(w).Encode(out)
 
 		case rest[0] == "issues" && len(rest) == 3 && rest[2] == "comments" && r.Method == http.MethodPost:
 			n, _ := strconv.Atoi(rest[1])
@@ -551,11 +622,202 @@ func TestParseExclude(t *testing.T) {
 }
 
 func TestRateLimitWindowParsing(t *testing.T) {
-	d, ok := parseRateLimitWindow([]byte(`{"message":"you have posted 5 issues in under 5 minutes"}`))
-	if !ok || d != 5*time.Minute {
-		t.Fatalf("got %v %v", d, ok)
+	// Forgejo phrases its two rate limits differently, and both must parse.
+	// The comment wording omits "under"; a pattern written only for the issue
+	// wording leaves --max-wait inert and stops a long apply mid-run.
+	cases := map[string]time.Duration{
+		`{"message":"you have posted 5 issues in under 5 minutes"}`:                                   5 * time.Minute,
+		`{"message":"CreateComment: \"keystone-bot\" posted 16 comments in 5 minutes: rate limited"}`: 5 * time.Minute,
+		`{"message":"posted 30 comments in 30 minutes"}`:                                              30 * time.Minute,
+	}
+	for body, want := range cases {
+		d, ok := parseRateLimitWindow([]byte(body))
+		if !ok || d != want {
+			t.Errorf("parseRateLimitWindow(%.48s…) = %v %v, want %v", body, d, ok, want)
+		}
 	}
 	if _, ok := parseRateLimitWindow([]byte("no window here")); ok {
 		t.Fatal("invented a window that was not stated")
+	}
+}
+
+func TestEnsureLabelsCreatesOnlyWhatIsMissing(t *testing.T) {
+	stub := newStub(t, issue(1, "one", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"))
+	c, _, _ := setup(t, stub)
+	var out strings.Builder
+	if err := EnsureLabels(c, transitionLabelSpecs, false, &out); err != nil {
+		t.Fatal(err)
+	}
+	for _, spec := range transitionLabelSpecs {
+		if _, ok := stub.labels[spec.Name]; !ok {
+			t.Errorf("label %s was not created", spec.Name)
+		}
+	}
+	// The pre-existing label must survive untouched; the stub fails the test if
+	// the tool tries to recreate one that exists.
+	if got := stub.labels["kind/bug"]; got != "pre-existing, must not be touched" {
+		t.Errorf("an existing label was modified: %q", got)
+	}
+	for _, m := range stub.mutations {
+		if m == "label:kind/bug" {
+			t.Fatal("the tool rewrote an existing label")
+		}
+	}
+}
+
+func TestEnsureLabelsIsIdempotent(t *testing.T) {
+	stub := newStub(t, issue(1, "one", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"))
+	c, _, _ := setup(t, stub)
+	var out strings.Builder
+	for i := 0; i < 3; i++ {
+		if err := EnsureLabels(c, transitionLabelSpecs, false, &out); err != nil {
+			t.Fatalf("run %d: %v", i, err)
+		}
+	}
+	n := 0
+	for _, m := range stub.mutations {
+		if strings.HasPrefix(m, "label:") {
+			n++
+		}
+	}
+	if n != len(transitionLabelSpecs) {
+		t.Fatalf("three runs created %d labels, want %d", n, len(transitionLabelSpecs))
+	}
+}
+
+func TestEnsureLabelsDryRunCreatesNothing(t *testing.T) {
+	stub := newStub(t, issue(1, "one", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"))
+	c, _, _ := setup(t, stub)
+	var out strings.Builder
+	if err := EnsureLabels(c, transitionLabelSpecs, true, &out); err != nil {
+		t.Fatal(err)
+	}
+	if len(stub.mutations) != 0 {
+		t.Fatalf("dry run created labels: %v", stub.mutations)
+	}
+	if !strings.Contains(out.String(), "would be created") {
+		t.Errorf("dry run did not report what it would do:\n%s", out.String())
+	}
+}
+
+func TestMilestonesAreClosedNeverDeleted(t *testing.T) {
+	stub := newStub(t, issue(1, "one", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"))
+	c, snap, _ := setup(t, stub)
+	var out strings.Builder
+	if err := CloseMilestones(c, snap, false, &out); err != nil {
+		t.Fatal(err)
+	}
+	for id, st := range stub.milestones {
+		if st != "closed" {
+			t.Errorf("milestone %d is %q, want closed", id, st)
+		}
+	}
+	for _, call := range c.calls {
+		if call.Method == http.MethodDelete {
+			t.Fatalf("a milestone was deleted rather than closed: %s", call.Path)
+		}
+	}
+	if problems := VerifyMilestones(c, snap); len(problems) != 0 {
+		t.Fatalf("verification failed after a clean close: %v", problems)
+	}
+}
+
+func TestMilestoneDryRunChangesNothing(t *testing.T) {
+	stub := newStub(t, issue(1, "one", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"))
+	c, snap, _ := setup(t, stub)
+	var out strings.Builder
+	if err := CloseMilestones(c, snap, true, &out); err != nil {
+		t.Fatal(err)
+	}
+	for id, st := range stub.milestones {
+		if st != "open" {
+			t.Errorf("dry run closed milestone %d", id)
+		}
+	}
+}
+
+func TestVerifyMilestonesFlagsADeletedMilestone(t *testing.T) {
+	stub := newStub(t, issue(1, "one", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"))
+	c, snap, _ := setup(t, stub)
+	var out strings.Builder
+	if err := CloseMilestones(c, snap, false, &out); err != nil {
+		t.Fatal(err)
+	}
+	// Something removes a milestone behind the tool's back. Verification must
+	// call that out rather than treat a missing milestone as closed.
+	delete(stub.milestones, 89201)
+	problems := VerifyMilestones(c, snap)
+	if len(problems) == 0 || !strings.Contains(problems[0], "never deleted") {
+		t.Fatalf("a deleted milestone was not flagged: %v", problems)
+	}
+}
+
+func TestSnapshotCapturesCommentBodies(t *testing.T) {
+	stub := newStub(t, issue(1, "one", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"))
+	stub.issues[1].Comments = 2
+	_, snap, _ := setup(t, stub)
+	if len(snap.Issues) != 1 {
+		t.Fatalf("got %d issues", len(snap.Issues))
+	}
+	if got := len(snap.Issues[0].CommentBodies); got != 2 {
+		t.Fatalf("captured %d comment bodies, want 2 — the archive must preserve discussion, not just count it", got)
+	}
+	if snap.Issues[0].CommentBodies[0].Body == "" {
+		t.Error("comment body is empty")
+	}
+}
+
+func TestRetryPolicyTreatsCommentPostsDifferently(t *testing.T) {
+	const comments = "/repos/o/r/issues/7/comments"
+	const labels = "/repos/o/r/issues/7/labels"
+	// A 500 is ambiguous. Retrying an idempotent write is harmless; re-posting a
+	// comment would leave two identical notices on a public issue.
+	if retryableStatus(500, http.MethodPost, comments) {
+		t.Error("a comment POST must not be retried on 500")
+	}
+	if !retryableStatus(500, http.MethodPost, labels) {
+		t.Error("a label POST should be retried on 500; adding a label is idempotent")
+	}
+	if !retryableStatus(500, http.MethodPatch, "/repos/o/r/issues/7") {
+		t.Error("closing an issue should be retried on 500; it is idempotent")
+	}
+	// Query strings must not defeat the suffix check.
+	if retryableStatus(500, http.MethodPost, comments+"?page=1") {
+		t.Error("a comment POST with a query string must still not be retried")
+	}
+	// The rate limit and gateway errors stay retryable for everything.
+	for _, code := range []int{429, 502, 503, 504} {
+		if !retryableStatus(code, http.MethodPost, comments) {
+			t.Errorf("%d should be retryable", code)
+		}
+	}
+	if retryableStatus(404, http.MethodPost, labels) {
+		t.Error("404 is not retryable")
+	}
+}
+
+func TestResumeDoesNotRepeatACommentTheJournalMissed(t *testing.T) {
+	stub := newStub(t, issue(1, "one", "2026-01-01T00:00:00Z", "2026-01-02T00:00:00Z"))
+	c, snap, raw := setup(t, stub)
+	al, _ := buildAllowlist(snap, raw, "1", nil)
+
+	// Simulate the ambiguous case: the comment landed, but the journal never
+	// recorded it because the response failed.
+	stub.comments[1] = []string{supersededComment(al.Entries[0])}
+	stub.issues[1].Comments = 1
+
+	j := &Journal{Steps: map[string]Step{}, path: filepath.Join(t.TempDir(), "j.json")}
+	var out strings.Builder
+	if err := Apply(c, al, j, supersededComment, false, &out); err != nil {
+		t.Fatal(err)
+	}
+	if got := len(stub.comments[1]); got != 1 {
+		t.Fatalf("issue has %d comments; the resume duplicated a retirement notice", got)
+	}
+	if !strings.Contains(out.String(), "already present") {
+		t.Errorf("resume did not report skipping the existing comment:\n%s", out.String())
+	}
+	if !stub.closed[1] {
+		t.Error("the issue was not closed after the resume")
 	}
 }

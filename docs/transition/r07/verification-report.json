@@ -1,0 +1,65 @@
+{
+  "schema": "keystone-core/tracker-retirement-report",
+  "schema_version": 1,
+  "verified_at": "2026-09-11T00:21:55Z",
+  "forge": {
+    "host": "https://codeberg.org",
+    "owner": "Spicer-Creek-Solutions-LLC",
+    "name": "keystone-core",
+    "repository_id": 1749683
+  },
+  "snapshot": {
+    "cutoff": "2026-09-10T21:57:27Z",
+    "sha256": "9ace87373af1f3cf1dbc161563ca07572e612cd74769cdc7095d37c767b33c30",
+    "open_issues_at_cutoff": 106,
+    "opened_after_cutoff": null,
+    "comment_bodies_captured": 0
+  },
+  "allowlist": {
+    "sha256": "93bb3f86842117cae4e6f05be19c4e3f740102e9695bc0118b76f5cb07fdc762",
+    "targets": 106,
+    "leaf": 103,
+    "tracker": 3,
+    "exclusions": "none; all open issues were retired"
+  },
+  "applied": {
+    "commented": 106,
+    "labelled": 106,
+    "closed": 106,
+    "labels_created": [
+      "status/superseded",
+      "generation/1",
+      "kind/rfc"
+    ],
+    "milestones_closed": [
+      "gate-v0.5",
+      "gate-v1.0",
+      "v0.x",
+      "v1.x",
+      "v2.x+"
+    ],
+    "order": "labels, then per issue comment then labels then close with leaves before trackers, then milestones last"
+  },
+  "postconditions": {
+    "open_issues_now": 0,
+    "closed_issues_now": 120,
+    "issues_carrying_status_superseded": 106,
+    "issues_carrying_generation_1": 106,
+    "pre_existing_closed_issues_with_a_transition_label": 0,
+    "note": "120 closed minus 106 retired leaves 14 issues that were already closed before this task. None of them carries a transition label, which is the evidence that the blast radius was the reviewed allowlist and nothing more."
+  },
+  "verification_caveat": "The tool's own 'nothing else moved' check was vacuous here and is recorded as such. Its snapshot contains only open issues, and every open issue was allowlisted, so it compared zero non-targets. The meaningful check is the label census above, run separately against all 120 closed issues.",
+  "interruptions": [
+    {
+      "stopped_after": 16,
+      "cause": "Codeberg rate-limits comment creation at 16 per 5 minutes. The client's window parser matched only the issue-creation wording, 'in under N minutes', while the comment limit is phrased 'in N minutes', so --max-wait was inert and the run gave up after five generic retries.",
+      "fix": "The pattern now accepts both wordings, with a test covering each."
+    },
+    {
+      "stopped_after": 37,
+      "cause": "An empty-bodied HTTP 500 from Codeberg on a label POST. 500 was not in the retryable set.",
+      "fix": "500 is now retryable for idempotent writes -- adding a label, closing an issue -- but deliberately not for posting a comment, where a 500 may mean the write landed and a blind retry would leave two identical notices on a public issue. For that case the tool now checks whether its own comment is already present before posting, so a resume can tell 'already done' from 'not yet' regardless of what the journal believes."
+    }
+  ],
+  "resumption": "Three runs, no duplicate comments, no issue left half-applied. The journal recorded 106 complete entries with none incomplete."
+}

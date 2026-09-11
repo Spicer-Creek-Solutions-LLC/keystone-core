@@ -1,0 +1,28 @@
+kind: Changed
+body: |-
+  **Generation 1 tracker retired (R07).** All 106 open issues are closed as
+  *superseded, not completed*, each carrying a comment that says so and links
+  the decision, the transition plan, the capability catalog and the archived
+  source — all pinned to the archive commit so they keep resolving after the
+  clean baseline lands. All five milestones are closed, never deleted. Three
+  labels created. Zero open issues remain.
+
+  Nothing was erased. Every title, body, label, comment and milestone
+  association survives; the issues are closed and marked, not emptied.
+
+  The run took three attempts and both failures were real. Codeberg rate-limits
+  comment creation at 16 per 5 minutes, and the client's window parser matched
+  only the issue-creation phrasing — so `--max-wait` was inert and the first run
+  gave up 16 issues in. The second stopped on an empty-bodied HTTP 500 from a
+  label POST. Both are fixed and tested, and 500 is now retried for idempotent
+  writes but deliberately not for comments, where a retry could post a duplicate
+  notice on a public issue.
+
+  The journal held throughout: three runs, no duplicate comments, no issue left
+  half-applied.
+
+  One verification caveat is recorded rather than glossed. The tool's own
+  "nothing else moved" check compared zero non-targets, because its snapshot
+  holds only open issues and every open issue was a target. The meaningful
+  evidence is a separate census: exactly 106 issues carry the transition labels,
+  and of the 120 closed issues the 14 that predate this task carry neither.
