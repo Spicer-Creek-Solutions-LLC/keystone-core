@@ -16,8 +16,15 @@
 //	apply      comment, label, close — dry run unless --apply is passed
 //	verify     confirm postconditions, and that nothing else moved
 //
-// Dry run is the default everywhere. `apply` without `--apply` reports what it
-// would do and touches nothing.
+// Task R09 publishes the Generation 2 planning state with three more, in the
+// same shape — compose, review a digest, apply, verify:
+//
+//	publish-plan    compose the milestone, labels, issue bodies and release notices
+//	publish         create them — dry run unless --apply is passed
+//	publish-verify  confirm postconditions, including the deduplication checks
+//
+// Dry run is the default everywhere. `apply` and `publish` without `--apply`
+// report what they would do and touch nothing.
 package main
 
 import (
@@ -38,6 +45,10 @@ func main() {
 		allowPath  = flag.String("allowlist", "", "path to the allowlist file (written by plan, read by apply/verify)")
 		journal    = flag.String("journal", "transition-journal.json", "apply progress journal, for resuming an interrupted run")
 		expectSHA  = flag.String("expect-allowlist-sha256", "", "refuse to apply unless the allowlist hashes to this reviewed value")
+		planPath   = flag.String("plan", "", "path to the publication plan (written by publish-plan, read by publish/publish-verify)")
+		expectPlan = flag.String("expect-plan-sha256", "", "refuse to publish unless the plan hashes to this reviewed value")
+		source     = flag.String("source", "docs/project/REBOOT-EXECUTION-PLAN.md", "execution plan the epic bodies are extracted from")
+		repoRoot   = flag.String("repo-root", ".", "working tree the issue bodies' in-repository links are resolved against")
 		generation = flag.String("generation", "1", "which generation's issues this allowlist retires")
 		exclude    = flag.String("exclude", "", "comma-separated issue numbers to leave alone, e.g. issues an automation still writes")
 		throttle   = flag.Duration("throttle", 0, "pause before each mutating request")
@@ -49,6 +60,7 @@ func main() {
 		host: *host, repo: *repo, apply: *apply, snapPath: *snapPath,
 		allowPath: *allowPath, journal: *journal, expectSHA: *expectSHA,
 		generation: *generation, exclude: *exclude, throttle: *throttle, maxWait: *maxWait,
+		planPath: *planPath, expectPlan: *expectPlan, source: *source, repoRoot: *repoRoot,
 	}); err != nil {
 		fmt.Fprintln(os.Stderr, "transition:", err)
 		os.Exit(1)
@@ -56,12 +68,14 @@ func main() {
 }
 
 type opts struct {
-	host, repo          string
-	apply               bool
-	snapPath, allowPath string
-	journal, expectSHA  string
-	generation, exclude string
-	throttle, maxWait   time.Duration
+	host, repo           string
+	apply                bool
+	snapPath, allowPath  string
+	journal, expectSHA   string
+	generation, exclude  string
+	throttle, maxWait    time.Duration
+	planPath, expectPlan string
+	source, repoRoot     string
 }
 
 func run(cmd string, o opts) error {
@@ -212,8 +226,17 @@ func run(cmd string, o opts) error {
 		fmt.Fprint(&out, "\nverify: ok — every allowlisted issue is closed and labelled, and nothing else moved\n")
 		return nil
 
+	case "publish-plan":
+		return runPublishPlan(c, o, &out)
+
+	case "publish":
+		return runPublish(c, o, &out)
+
+	case "publish-verify":
+		return runPublishVerify(c, o, &out)
+
 	default:
-		return fmt.Errorf("usage: transition [flags] snapshot|plan|apply|verify (flags precede the subcommand)")
+		return fmt.Errorf("usage: transition [flags] snapshot|plan|apply|verify|publish-plan|publish|publish-verify (flags precede the subcommand)")
 	}
 }
 
