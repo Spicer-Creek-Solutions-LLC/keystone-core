@@ -30,6 +30,11 @@ exclude = [
 ]
 
 exclude_path = [
+  # Verbatim auditor reports, committed exactly as written. Their relative
+  # links resolve against the repository root rather than against raw/, so the
+  # offline checker cannot follow them. Excluded rather than edited: they are
+  # evidence. This does not extend to anything this project authored.
+  "docs/transition/r10/raw",
   "docs/themes",
   "docs/node_modules",
   "docs/resources",

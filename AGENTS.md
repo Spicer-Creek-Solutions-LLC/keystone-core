@@ -68,6 +68,20 @@ Rules:
   - Example for Claude Code: `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`
   - Example for Codex: `Co-Authored-By: Codex <noreply@openai.com>`
 
+### Commit signing
+
+Author commits are GPG-signed (`git commit -S`). Merge commits created by the
+forge are not, and are not expected to be — the forge signs with nothing and the
+maintainer merges through the web interface.
+
+This was an unwritten habit until R10. Tasks R02 to R08 were signed, R09 was
+not, and nothing detected the lapse because no rule existed to check against.
+R09's commits are on `main` and stay unsigned: RFC 0001 commits to history
+remaining continuous, which rules out rewriting them.
+
+A convention strong enough that breaking it is a finding is strong enough to
+write down.
+
 ## 5) Engineering Quality Gates
 
 - Fix bugs encountered in the touched scope immediately.
@@ -121,7 +135,7 @@ Do not duplicate volatile inventories in this file. Those drift quickly.
 - Roadmap (`Now` / `Next` / `Future / Unscheduled` / `Not Planned`): `docs/project/ROADMAP.md`
 - Issue tracker conventions: `docs/project/ISSUE-TRACKING.md`
 - Governance / DCO / AI policy: `docs/project/{GOVERNANCE,DCO,AI-CONTRIBUTIONS,MAINTAINERS,RFC}.md`
-- Security policy and process: `SECURITY.md`, `docs/project/SECURITY-{GOVERNANCE,RELEASE}.md`
+- Security policy and process: `SECURITY.md`, `docs/project/SECURITY-RELEASE.md`
 - ADR templates: `docs/adr/`
 - Terminology: `docs/project/GLOSSARY.md`
 - Development-VM handoff: `docs/project/REBOOT-DEV-VM.md`

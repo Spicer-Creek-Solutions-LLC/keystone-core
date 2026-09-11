@@ -69,6 +69,8 @@ Maintainers are nominated and added per the process described in
 
 ## Contact
 
+- **Security vulnerabilities: email <security@keystone-core.io>.** Do not open
+  an issue. See [`SECURITY.md`](SECURITY.md).
 - For project / technical questions: open an issue at the Codeberg repository.
 - For ownership, governance, or legal questions: open an issue tagged
   `governance`, or contact a maintainer directly.

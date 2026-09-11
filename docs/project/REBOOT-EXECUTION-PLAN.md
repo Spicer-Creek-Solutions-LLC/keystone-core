@@ -302,14 +302,15 @@ Generation 1 as current.
 deduplicated against a closed Generation 1 issue; automation is generation-aware.
 
 **Status:** complete on `reboot-r09-planning-state`. Milestone `v0.6.0` and
-fourteen issues — a pinned reboot announcement (#268), the release tracker
+fourteen issues — a reboot announcement (#268), the release tracker
 (#269), and twelve `P00`-`P11` epics (#270-#278, #280-#282). No leaf issues:
 `P00` is gated behind R10. Both archived releases carry an unsupported notice,
 bodies only, assets untouched. No automation was re-enabled because none
 survived R08; the negative test ran against the live tracker instead. Evidence
 in `docs/transition/r09/`. Outstanding maintainer actions, recorded in the
-manifest: pinning #268, deploying the docs page, and repairing the GitHub
-mirror.
+manifest: pinning #268 and deploying the docs page. The line that also listed
+"repairing the GitHub mirror" was wrong — R10 found the mirror live and carrying
+both archive refs.
 
 ### R10 — Independent transition audit
 
