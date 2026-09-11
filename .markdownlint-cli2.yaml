@@ -21,6 +21,13 @@ globs:
 gitignore: true
 
 ignores:
+  # Verbatim auditor reports. These are evidence, not project prose: they are
+  # committed exactly as four independent agents wrote them, and editing them to
+  # satisfy a linter would defeat the point of keeping them. Deliberately narrow
+  # - it covers one directory of third-party artifacts, and nothing authored by
+  # this project. Note that an exclusion is how C-01 happened; this one is
+  # stated here so it is visible rather than emergent.
+  - "docs/transition/r10/raw/**"
   # CLAUDE.md is a one-line `@AGENTS.md` Claude Code import directive — a
   # leading H1 would break the import semantics, so MD041 will always fail.
   - "CLAUDE.md"
