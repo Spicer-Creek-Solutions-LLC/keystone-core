@@ -45,7 +45,11 @@ capability-catalog-check: stray-binary-check ## Verify the archive capability ca
 	cd tools/capcheck && go run . ../..
 
 transition-check: stray-binary-check ## Vet, lint and test the tracker-retirement tool
-	cd tools/transition && gofmt -l . | tee /dev/stderr | (! read)
+	@# `gofmt -l . | (! read)` is a bashism: under dash, `read` without a
+	@# variable name is an error, so the negation succeeds whether or not
+	@# gofmt found anything. Compare the output directly instead.
+	@out="$$(cd tools/transition && gofmt -l .)"; \
+	if [ -n "$$out" ]; then echo "gofmt needs to run on:"; echo "$$out"; exit 1; fi
 	cd tools/transition && go vet ./...
 	cd tools/transition && CGO_ENABLED=1 go test -race -cover ./...
 
