@@ -17,23 +17,20 @@ and is no longer developed. Do not deploy them.
 
 ## Reporting a vulnerability
 
-Report privately rather than through a public issue.
+Email <security@keystone-core.io>. Do not open a public issue.
 
-- Use the repository's private security-report route, or
-- email the maintainer listed in [`OWNERSHIP.md`](OWNERSHIP.md).
+That address is the only reporting channel. Include what you observed, how to
+reproduce it, and which commit or archived release it applies to.
 
-Include what you observed, how to reproduce it, and which commit or archived
-release it applies to.
-
-**What to expect.** Because nothing is supported, a report against an archived
+**What to expect.** The project has one maintainer and no on-call rotation, so
+there is no response-time commitment — a report is acknowledged when the
+maintainer reads it. Because nothing is supported, a report against an archived
 release will be acknowledged and recorded, but will not produce a patch. Reports
-against the current repository contents — the transition tooling in `tools/`, or
-the published documentation — are acted on.
+against the current repository contents — `tools/capcheck` or the published
+documentation — are acted on.
 
 The handling process, severity model and disclosure expectations are in
-[`docs/project/SECURITY-RELEASE.md`](docs/project/SECURITY-RELEASE.md), and the
-governance around them in
-[`docs/project/SECURITY-GOVERNANCE.md`](docs/project/SECURITY-GOVERNANCE.md).
+[`docs/project/SECURITY-RELEASE.md`](docs/project/SECURITY-RELEASE.md).
 
 ## Security posture of Generation 2
 

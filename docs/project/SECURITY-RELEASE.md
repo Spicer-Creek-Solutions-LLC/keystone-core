@@ -24,11 +24,14 @@ This document defines the process for handling security vulnerabilities and rele
 
 ### Reporting Channels
 
-| Channel | Use Case | Response Time |
-|---------|----------|---------------|
-| <security@keystone-core.io> | General security reports | 24 hours |
-| GitHub Security Advisories | Public disclosure ready | 24 hours |
-| HackerOne (if applicable) | Bug bounty reports | 24 hours |
+There is one channel: <security@keystone-core.io>.
+
+No response time is committed. The project has a single maintainer and no
+on-call rotation, and a published response window that nobody is rostered to
+meet is worse than none — it is relied upon precisely when it fails. A report is
+acknowledged when the maintainer reads it.
+
+There is no bug bounty and no GitHub Security Advisories process.
 
 ### Initial Response
 
@@ -406,11 +409,16 @@ When a vulnerability is in a dependency:
 
 ## Security Contacts
 
-| Role | Contact | Backup |
-|------|---------|--------|
-| Security Lead | <security-lead@keystone-core.io> | <security@keystone-core.io> |
-| Release Manager | <releases@keystone-core.io> | <engineering-leads@keystone-core.io> |
-| Communications | <comms@keystone-core.io> | <marketing@keystone-core.io> |
+All of the below are the project maintainer, reachable at
+<security@keystone-core.io>. The roles are retained because the process text
+refers to them; they are not separate people and do not have separate
+addresses.
+
+| Role | Contact |
+|------|---------|
+| Security Lead | <security@keystone-core.io> |
+| Release Manager | <security@keystone-core.io> |
+| Communications | <security@keystone-core.io> |
 
 ## References
 

@@ -1226,7 +1226,7 @@ Known gaps and limitations:
 - `CAP-SPEC-021` — Referenced code exists, but this backlog item describes work that had not landed: `kscore-bootstrap --seed dev-seed.yaml` runs end-to-end on a fresh Linux host and lands at `StateVerified`; SIGKILL mid-Configuring then restart resumes at `StateConfiguring`.
 - `CAP-SPEC-022` — The backlog item's own text states this had not been built: Batch dispatcher: no orphan-job recovery.
 - `CAP-SPEC-023` — The backlog item's own text states this had not been built: API key issuance: non-transactional.
-- `CAP-SPEC-024` — Referenced code exists, but this backlog item describes work that had not landed: A timestamped re-audit lands in [`docs/project/SECURITY-GOVERNANCE.md`](SECURITY-GOVERNANCE.md) "Dependency posture" section with the new module count + license distribution + main.
+- `CAP-SPEC-024` — Referenced code exists, but this backlog item describes work that had not landed: A timestamped re-audit lands in `docs/project/SECURITY-GOVERNANCE.md` "Dependency posture" section with the new module count + license distribution + main.
 - `CAP-SPEC-025` — Referenced code exists, but this backlog item describes work that had not landed: `cmd/kscore-server/main.go` constructs a `runbook.Engine` from config + registers `RunbookGRPCServer`. Integration test verifies `RunbookService.ListRunbooks` returns 200 against a.
 - `CAP-SPEC-026` — Referenced code exists, but this backlog item describes work that had not landed: Blueprint publish: no path into the server catalog.
 - `CAP-SPEC-027` — Referenced code exists, but this backlog item describes work that had not landed: Agent secret grants are config-only.

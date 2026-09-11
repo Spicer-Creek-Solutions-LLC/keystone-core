@@ -308,8 +308,9 @@ fourteen issues — a pinned reboot announcement (#268), the release tracker
 bodies only, assets untouched. No automation was re-enabled because none
 survived R08; the negative test ran against the live tracker instead. Evidence
 in `docs/transition/r09/`. Outstanding maintainer actions, recorded in the
-manifest: pinning #268, deploying the docs page, and repairing the GitHub
-mirror.
+manifest: pinning #268 and deploying the docs page. The line that also listed
+"repairing the GitHub mirror" was wrong — R10 found the mirror live and carrying
+both archive refs.
 
 ### R10 — Independent transition audit
 

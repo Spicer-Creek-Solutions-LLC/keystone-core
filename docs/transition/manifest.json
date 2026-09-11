@@ -348,7 +348,15 @@
     "commit": "7d21b848a6d938c821cb36c3d00621c86253afeb"
    }
   ],
-  "note": "Mirror lagged main at snapshot time; it had not yet received the R00/R01 merges."
+  "note": "Mirror lagged main at snapshot time; it had not yet received the R00/R01 merges.",
+  "observed": "CORRECTED 2026-09-11 (R10). This field previously read: 'The GitHub mirror was last updated 2026-09-06 at 0a476caaa, which predates every reboot commit. It is not syncing, so the archive refs do not resolve there.' That was false, and contradicted the pushed_at value recorded two fields above it in this same object. The mirror is live: it carries refs/heads/main, refs/heads/archive/2026-09-pre-v0.6-reboot at 93eb147f7 and refs/tags/archive-2026-09-pre-v0.6-reboot. Found independently by three R10 auditors (A-07, B-11, D-08).",
+  "verified_at_r10": {
+   "checked": "2026-09-11",
+   "method": "git ls-remote https://github.com/Spicer-Creek-Solutions-LLC/keystone-core",
+   "main": "47ae589b8",
+   "archive_branch": "93eb147f7",
+   "archive_tag_present": true
+  }
  },
  "signing_preflight": {
   "result": "pass_git_level",
@@ -482,6 +490,32 @@
    "task": "R09",
    "date": "2026-09-11",
    "change": "The tracker is no longer empty. R07's snapshot and allowlist describe Generation 1 state only; the fourteen issues R09 created carry Generation 2 task markers and are outside every R07 artifact by construction."
+  },
+  {
+   "task": "R10",
+   "date": "2026-09-11",
+   "change": "Three statements about the GitHub mirror were false and are corrected in place, with the superseded text quoted so the error remains legible. One of them contradicted a value two fields away in the same object, which nothing compared. The claim was also repeated in the R09 status line of REBOOT-EXECUTION-PLAN.md and in pull request #279, where a correction comment was added rather than the description edited."
+  },
+  {
+   "task": "R10",
+   "date": "2026-09-11",
+   "change": "The claim that the bundle preserves the four commits removed by git filter-repo on 2026-02-20 was false; they are in neither the bundle nor either forge. The maintainer confirms that removal was deliberate \u2014 they are TitanAnvil-era development checkpoints predating the project's rename \u2014 so the record is corrected to say they were intentionally removed and are not preserved. See docs/transition/r10/maintainer-decisions.md decision 2."
+  },
+  {
+   "task": "R10",
+   "date": "2026-09-11",
+   "change": "Corrected figures for what the bundle uniquely holds, superseding the R05 correction recorded earlier in this list.",
+   "measured_with": "git clone --mirror of the bundle, with GIT_NO_REPLACE_OBJECTS=1 so refs/replace does not substitute the replacement commit.",
+   "bundle_commit_objects_raw": 3268,
+   "bundle_commit_objects_rev_list_default": 3072,
+   "rev_list_note": "Both numbers are correct. 3072 is what `git rev-list --all --count` prints, because refs/replace substitution collapses a replaced commit into its replacement. 3268 is the raw object count from `git cat-file --batch-all-objects`. The earlier record gave 3072 without saying which it was.",
+   "refs_replace_entries": 2173,
+   "pre_rewrite_commit_objects_present": 197,
+   "refs_replace_entries_with_no_object": 1976,
+   "pre_rewrite_trees_absent_from_live_history": 197,
+   "finding": "The earlier correction described these commits as content-duplicates distinguished only by parentage. That is false. Every one of the 197 pre-rewrite commit objects the bundle holds has a tree that appears nowhere in live history, so the bundle is their sole custodian. The other 1976 refs/replace entries name an old commit whose object exists nowhere \u2014 in the bundle, in the working repository, or on either forge \u2014 so they are dangling references rather than preserved history.",
+   "supersedes": "The R05 correction recorded earlier in post_snapshot_updates.",
+   "audit_reference": "R10 finding A-05, re-measured by the assembling agent; working in docs/transition/r10/raw/assembler-verification-A05.md."
   }
  ],
  "archive": {
@@ -601,7 +635,7 @@
    "returns_in": "R09, generation-aware, with a negative test proving that closing #232 cannot create a replacement"
   },
   "release_automation": "None to disable. ci-full.yml's release-dry-run publishes nothing, and real releases are the manual ceremony in RELEASE-PLAYBOOK.md. There are no workflows under .github/.",
-  "github_mirror": "Out of scope by maintainer decision. The mirror stopped syncing at 0a476caaa on 2026-09-06 and carries no workflows or protection of its own, so there is no second forge state to record.",
+  "github_mirror": "Out of scope by maintainer decision, which stands. The rationale previously recorded here \u2014 that the mirror had stopped syncing and so there was 'no second forge state to record' \u2014 was false. R10 found the mirror live and carrying both archive refs, so a second forge state did exist and was not recorded. The decision to leave it out of scope was the maintainer's; the reason given for it was not accurate.",
   "regression_caused_and_fixed": {
    "what": "R05's archive tag broke ci-full / release-dry-run on main.",
    "why": "goreleaser derives the snapshot version from the most recent tag. Creating archive-2026-09-pre-v0.6-reboot made `git describe --tags --abbrev=0` return it instead of v0.5.0, and it is not semver: 'failed to parse snapshot name ... invalid semantic version'.",
@@ -896,7 +930,7 @@
    "package_registry_landing_pages": "The token lacks read:package, so these were not checked. Recorded as unverified rather than claimed clean."
   },
   "deferred": {
-   "github_mirror": "Dead at 0a476caaa (2026-09-06), before any reboot commit, so it still presents Generation 1 as current. The maintainer is repairing the sync after the reboot completes.",
+   "github_mirror": "CORRECTED 2026-09-11 (R10). This field previously read: 'Dead at 0a476caaa (2026-09-06), before any reboot commit, so it still presents Generation 1 as current. The maintainer is repairing the sync after the reboot completes.' False. The mirror had last pushed at 2026-09-11T12:52:01Z, before R09's own verification ran, and carries both archive refs. R05's 'both forges resolve the refs' acceptance was met at the time rather than deferred. The mirror trails Codeberg by one merge commit; syncing it is a maintainer action, since /push_mirrors requires admin and the bot holds no GitHub credential.",
    "docs_site_deployment": "deploy/docs/site/index.html is rewritten in the repository; deploying it to the docs.keystone-core.io host is a maintainer action.",
    "announcement_pin": "POST /issues/268/pin returned 403: the bot is not an owner or an admin collaborator. A maintainer action.",
    "repository_metadata": "PATCH /repos/... returns 403 for this token. Description, topics and website are maintainer actions; the maintainer elected to keep them, dropping only the 'v0.x pre-stable.' clause."

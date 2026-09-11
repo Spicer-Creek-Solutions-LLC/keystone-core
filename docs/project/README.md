@@ -42,8 +42,7 @@ September 2026 and its references, guides and runbooks went with it.
 - [`GOVERNANCE.md`](GOVERNANCE.md), [`MAINTAINERS.md`](MAINTAINERS.md),
   [`RFC.md`](RFC.md)
 - [`DCO.md`](DCO.md), [`AI-CONTRIBUTIONS.md`](AI-CONTRIBUTIONS.md)
-- [`SECURITY-GOVERNANCE.md`](SECURITY-GOVERNANCE.md),
-  [`SECURITY-RELEASE.md`](SECURITY-RELEASE.md), and
+- [`SECURITY-RELEASE.md`](SECURITY-RELEASE.md) and
   [`../../SECURITY.md`](../../SECURITY.md)
 
 ## Generation 1 sources

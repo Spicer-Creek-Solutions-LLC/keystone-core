@@ -121,7 +121,7 @@ Do not duplicate volatile inventories in this file. Those drift quickly.
 - Roadmap (`Now` / `Next` / `Future / Unscheduled` / `Not Planned`): `docs/project/ROADMAP.md`
 - Issue tracker conventions: `docs/project/ISSUE-TRACKING.md`
 - Governance / DCO / AI policy: `docs/project/{GOVERNANCE,DCO,AI-CONTRIBUTIONS,MAINTAINERS,RFC}.md`
-- Security policy and process: `SECURITY.md`, `docs/project/SECURITY-{GOVERNANCE,RELEASE}.md`
+- Security policy and process: `SECURITY.md`, `docs/project/SECURITY-RELEASE.md`
 - ADR templates: `docs/adr/`
 - Terminology: `docs/project/GLOSSARY.md`
 - Development-VM handoff: `docs/project/REBOOT-DEV-VM.md`
