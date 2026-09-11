@@ -73,10 +73,10 @@ RFC.
 
 | Non-goal | Resolves to |
 |---|---|
-| Declarative state management and drift remediation | `CAP-STATE-006` |
+| Declarative state management and drift remediation | `CAP-STATE-001`, `CAP-STATE-006` |
 | Blueprints | `CAP-BLUE-001`, `CAP-BLUE-002` |
-| Runbooks | `CAP-API-018` |
-| Secret brokering | `CAP-SECRET-001`, `CAP-SECRET-002` |
+| Runbooks | `CAP-BLUE-007`, `CAP-BLUE-011`, `CAP-API-018` |
+| Secret brokering | `CAP-SECRET-003`, `CAP-SECRET-001`, `CAP-SECRET-002` |
 | GitOps webhooks and verification workflows | `CAP-API-020`, `CAP-EVENT-019` |
 | Clustering and high availability | `CAP-API-007`, `CAP-NATS-002` |
 | Policy enforcement | `CAP-EVENT-022` |
@@ -130,12 +130,14 @@ Two actors, so two invocations.
 
 ```
 keystone enroll create --agent-name <name>
-keystone-agent enroll --token <token> ‡
+keystone-agent enroll --token-file <path> ‡
 ```
 
-**Exit:** `0` on success. `10` if the operator is not authorized to create a
-token. `keystone-agent enroll` exits `0` once the permanent identity is active,
-non-zero if the token is spent, expired or invalid.
+**Exit:** `keystone enroll create` exits `0` on success, `10` if the operator is
+not authorized to create a token, `1` on local or usage error.
+`keystone-agent enroll` exits `0` once the permanent identity is active and
+bootstrap access is revoked, `10` if the token is spent, expired or invalid, `1`
+on local or usage error.
 
 **Observable effect:** a one-use token is issued and printed once; the agent
 holds a permanent scoped credential at mode `0600`; bootstrap access is revoked
@@ -143,7 +145,14 @@ and the revocation is verified; the agent appears in § 5.2.
 
 **Invariants:** `ARCH-NATS-004`, `ARCH-NATS-002`, `ARCH-COMM-001`.
 
-‡ Connection arguments are fixed by P03 (enrollment and identity).
+**Token handling is a constraint, not a convenience.** The one-use token must
+not be supplied in a form that exposes it in process listings or shell history,
+which rules out passing it as a bare argument value. `--token-file` is the
+surface P00 fixes; whether P03 also accepts the token on standard input, and the
+file's required mode and lifetime, are P03's to decide.
+
+‡ Connection arguments and the token's transport are fixed by P03 (enrollment
+and identity).
 
 ### 5.2 List and presence
 
@@ -171,12 +180,19 @@ shell anywhere on this path (§ 6).
 
 **Exit:** `0` when the job reached a terminal state and its result was
 retrieved. `10` denied, `11` agent not present, `12` deadline exceeded, `13`
-`UNKNOWN`.
+`UNKNOWN`, `14` cancelled while the invocation was waiting.
 
-**Observable effect:** the command executes exactly once on the named agent and
-on no other host; the server performs no equivalent action; a job identifier,
-the remote exit status, and captured output are returned; the lifecycle is
-durably recorded before execution begins.
+**Observable effect:** the named agent makes **at most one automatic execution
+attempt**, and no other host executes the command; the server performs no
+equivalent action; the lifecycle is durably recorded before the process starts.
+When execution occurs, a job identifier, the remote exit status and captured
+output are returned.
+
+Redelivery of a known job identifier may resume result delivery but never starts
+a second attempt (`ARCH-JOB-003`). A job that is denied, never reaches its agent,
+is cancelled before start, or ends `UNKNOWN` may execute zero times. The protocol
+documents at-least-once *delivery* and never claims exactly-once *execution*
+(`ARCH-JOB-001`).
 
 **Invariants:** `ARCH-JOB-002`, `ARCH-JOB-003`, `ARCH-EXEC-001`,
 `ARCH-TEST-001`, `ARCH-NATS-009`.
@@ -289,7 +305,10 @@ An independent security review precedes any alpha reaching a partner, per
 
 1. at least three external design partners completed the core journey without
    maintainer assistance;
-2. sustained real-fleet use is demonstrated as defined in § 7; and
+2. at least two of those three partners meet the sustained real-fleet use
+   definition in § 7 — one partner continuing to use it is an anecdote, and
+   requiring all three lets a single partner's unrelated circumstances veto
+   real evidence; and
 3. there is concrete evidence of willingness to pay — a signed agreement, an
    invoice paid, or a written commitment naming a budget. An expression of
    interest is not evidence.
