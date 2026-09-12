@@ -35,7 +35,7 @@ September 2026 and its references, guides and runbooks went with it.
 - [`ROADMAP.md`](ROADMAP.md) — Now, Next, Future / Unscheduled, Not Planned
 - [`VERSIONING.md`](VERSIONING.md) — version policy and the `v0.6.0` gate
 - [`ISSUE-TRACKING.md`](ISSUE-TRACKING.md) — tracker conventions
-- [`GLOSSARY.md`](GLOSSARY.md) — terminology
+- [`GLOSSARY.md`](GLOSSARY.md) — terminology already decided, and what is not yet defined
 
 ## Governance and policy
 
