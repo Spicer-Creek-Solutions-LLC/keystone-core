@@ -36,6 +36,7 @@ September 2026 and its references, guides and runbooks went with it.
 - [`VERSIONING.md`](VERSIONING.md) — version policy and the `v0.6.0` gate
 - [`ISSUE-TRACKING.md`](ISSUE-TRACKING.md) — tracker conventions
 - [`GLOSSARY.md`](GLOSSARY.md) — terminology already decided, and what is not yet defined
+- [`DEFECT-LEDGER.md`](DEFECT-LEDGER.md) — recurring agent defects, their countermeasures, and whether each held
 
 ## Governance and policy
 
