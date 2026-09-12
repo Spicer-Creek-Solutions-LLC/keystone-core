@@ -34,8 +34,11 @@ is not a status.
 | `Held` | Recurred, the countermeasure caught it |
 | `Failed` | Recurred *despite* the countermeasure — the countermeasure is wrong or unusable |
 
-`Failed` is the most valuable value in the table. Two entries below carry it,
-and both are cases where writing a lesson down did not prevent the repeat.
+`Failed` is the most valuable value in the table. Two entries carry it, for
+different reasons: `DL-3` because writing the lesson down did not prevent the
+repeat, and `DL-6` because the countermeasure was too narrow to cover the form
+the defect took. Both are evidence about the countermeasure, not about the
+defect being unavoidable.
 
 ## Entries
 
@@ -46,7 +49,7 @@ and both are cases where writing a lesson down did not prevent the repeat.
 | `DL-3` | A factual claim never compared with its source | `Failed` |
 | `DL-4` | The record and the branch go unchecked | `Proposed` |
 | `DL-5` | A check verified only against fixtures | `Adopted` |
-| `DL-6` | Shell-hostile command construction | `Held` |
+| `DL-6` | Shell-hostile command construction | `Failed` |
 | `DL-7` | A demonstration that did not demonstrate | `Proposed` |
 
 ### `DL-1` — A check that cannot fail, mistaken for evidence
@@ -69,19 +72,18 @@ fail it, so "it passed" and "it cannot fail" were indistinguishable.
 
 **Countermeasure.** Plant a defect that violates exactly the property, confirm
 the check reports it, restore, confirm it passes. Record which checks fired: one
-that fires on every defect is not discriminating. **Assert that the planted
-defect actually landed, and that the reported failure names the thing you
-mutated** — see `DL-7`, which is how that gap was found; without those two
-assertions this countermeasure has a silent failure mode of its own. Normative
-for dossiers in
+that fires on every defect is not discriminating. Normative for dossiers in
 [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) § "Required task
 dossier".
 
 **Status: `Adopted`.** First applied in P00, where it immediately found `AC-5`
-passing the defect it existed to catch, and it has since surfaced nine
-defective checks — see `DL-2`. The mutation-landed and targeted-failure
-assertions were added after `DL-7` and have not yet been tested by events; the
-rest of the countermeasure has.
+passing the defect it existed to catch, and it has since surfaced nine defective
+checks — see `DL-2`.
+
+**This countermeasure is incomplete on its own.** `DL-7` records a silent
+failure mode in the planting step and carries the assertions that close it.
+Those assertions are `Proposed` and are deliberately *not* folded in here: a
+proven measure and an untested extension cannot share one status value.
 
 ### `DL-2` — An acceptance property expressed as pattern-matching over prose
 
@@ -219,6 +221,12 @@ the relationship the requirement actually asks about, and test that.
 recurred four or more times across Generation 1 sessions. A lint piped through
 `tail` while gating on its exit status, which yields the exit status of `tail`.
 
+And commit `5449b3f90`, pushed while `docs-lint` was red. `make check` ran,
+reported `MD031`, and the commit and push that followed it in the same command
+sequence proceeded anyway, because nothing made the sequence stop. The
+countermeasure as written covered pipelines and did not cover sequences, so it
+did not prevent this. Fixed in `09b565a97`.
+
 *No repository reference:* both are defects in commands an agent runs, caught
 before anything was committed, so there is no artifact to cite. They are recorded because they recur. Note that the first countermeasure is a
 **prescribed practice, not an observable fact**: a commit object does not record
@@ -229,11 +237,16 @@ captures `PIPESTATUS` rather than piping a gated command.
 **Root cause.** The command looks right and the failure is silent.
 
 **Countermeasure.** Write commit messages to a file and use `git commit -F`.
-Never pipe a command whose exit status is the gate; capture it, or check
-`PIPESTATUS`.
+Never pipe a command whose exit status is the gate: capture it, or check
+`PIPESTATUS`. **And never let a gate be followed by the action it gates in a
+sequence that can continue past it** — join them with `&&`, run under `set -e`,
+or capture the status and branch on it explicitly. A gate that runs and is then
+ignored is worse than no gate, because its output looks like evidence.
 
-**Status: `Held`.** Both recurred and were caught by the countermeasure rather
-than by review.
+**Status: `Failed`.** The first two recurred and were caught. The third —
+`5449b3f90` — recurred *because* the countermeasure did not cover command
+sequences, and was caught by reading the output rather than by any control. The
+widened countermeasure above is untested by events.
 
 ### `DL-7` — A demonstration that did not demonstrate
 
@@ -262,11 +275,14 @@ thing it exists to detect, one level up.
    after and fail if unchanged.
 2. The reported failure **names the thing you mutated**. A defect planted in
    `DL-5` that reports `DL-6` is a planting bug, not a finding.
-3. The mutation created the **intended** defect, not merely some change.
-   Replacing a countermeasure's first sentence leaves the rest in place, so the
-   document still passes and the run looks like a check that does not fire.
-   Assertion 1 passes in that case; only the check firing on the right target
-   distinguishes it.
+3. The mutated document **actually has the defect**, verified by inspecting it
+   directly — parse the mutated text and assert the broken property, without
+   consulting the checker. Replacing a countermeasure's first sentence leaves
+   the rest in place: assertion 1 passes, no defect exists, and the run is
+   indistinguishable from a check that does not fire. **The checker under
+   demonstration cannot establish that its own input is defective** — treating
+   "it fired" as proof of that is circular, and was how this entry was first
+   written.
 
 **Status: `Proposed`.**
 
