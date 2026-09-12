@@ -66,34 +66,70 @@ Requiring "at least one enumerated exit code" still passed a paragraph where a
 vague "non-zero" sat beside exact codes. `AC-1` claims *exact* exit codes, so
 the check was weaker than the case. Hardened to reject the word outright.
 
+## Round 3 — second independent review
+
+Codex re-reviewed `b1ff567d0`, confirmed the first five findings resolved, and
+raised three more.
+
+| Finding | Charter fix | Mechanized? |
+|---|---|---|
+| `G1` — "when execution occurs … output are returned" conflated execution with result retrieval; a job may execute once and lose its result, which is `UNKNOWN` (`ARCH-JOB-004`) | Job identifier returned for every accepted job; remote status and output only when a terminal result is retrieved; the execute-then-lose case named | **No** — semantic |
+| `G2` — Run's `0` ("terminal and retrieved") overlapped `12` and `14`, which are also terminal with retrievable results | `0` is normal remote completion including a non-zero remote status; control-plane outcomes take precedence and are mutually exclusive | **No** — semantic |
+| `G3` — `agents list`, status, output, cancel and audit omitted the globally applicable `1` and `10` | A **Global codes** rule: `0` and `1` apply to every command, `10` wherever authorization is evaluated (P09 decides where), journeys list only journey-specific codes | Yes — `AC-1` |
+
+Replanting `G3` (deleting the Global codes paragraph) fires
+`AC-1 no global-codes statement`. `G1` and `G2` are semantic precision and are
+not mechanized; see limits.
+
+### The `G2` fix broke the `AC-1` check
+
+Fixing `G2` required the phrase "including when that status is **non-zero**",
+describing the *remote command's* status. `AC-1` had been hardened in round 2 to
+reject the bare token `non-zero`, so the correct charter failed its own check —
+a false positive.
+
+The check matched a **token** rather than the **property**. It could not tell
+"keystone exits non-zero" (the vagueness `AC-1` forbids) from "the remote status
+is non-zero" (the precision `AC-1` wants). Scoped to match only where `non-zero`
+describes keystone's own exit. Both directions re-verified: the charter passes,
+and the round-2 `F3a` defect is still caught.
+
 ## The pattern this produced
 
-Three checks in this task were weaker than the case they claimed to enforce:
-`AC-5` skipped malformed rows, `AC-1` accepted an `**Exit:**` heading as proof
-of an exact exit code, and `AC-1` then accepted "non-zero" beside exact codes.
-All three passed defects they existed to catch. **Two of the three surfaced
-only because a human reviewer's finding was replanted as a mechanical defect** —
-the demonstration alone did not find them, and neither did the original review
-alone.
+Four checks in this task were wrong, in two directions:
 
-Generalizable: *a check that silently skips or loosely matches its input cannot
-fail on that input.* Parse structurally, and treat vague or unparseable as
-failure rather than as absence of evidence.
+- `AC-5` skipped malformed rows — passed the defect it existed to catch.
+- `AC-1` accepted an `**Exit:**` heading as proof of an exact exit code.
+- `AC-1` then accepted a vague `non-zero` sitting beside exact codes.
+- `AC-1` then rejected a *correct* charter, because it matched the token
+  `non-zero` rather than the property "vague about keystone's own exit".
+
+The first three were too loose; the fourth too tight. All four tested a proxy
+rather than the claim. **Three of the four surfaced only because an independent
+reviewer's finding was replanted as a mechanical defect** — the demonstration
+alone did not find them, and the review alone produced no durable check.
+
+Generalizable: *a check that silently skips, loosely matches, or matches a
+token instead of a property cannot be trusted in either direction.* Parse
+structurally, express the property, and verify both that the defect fails and
+that the correct document passes.
 
 ## Known limits
 
-`AC-1` verifies that every exit code a journey *states* is defined in the
-exit-code table. It cannot detect a code that is **missing but applicable** —
-`F3b`, Run omitting `14`, was found by review and remains a review property.
-Mechanizing it would require a per-journey expected-code set, which is a
-specification P00 does not have and should not invent.
+Stated rather than papered over. A case that cannot fail on something should
+say what.
 
-`AC-4` verifies that every cited capability exists and is `Future`-marked. It
-cannot verify *correspondence* — that the cited entries are the right ones for
-the non-goal. `F4` was a correspondence failure and was found by review.
+| Case | Cannot detect | Found instead by |
+|---|---|---|
+| `AC-1` | An exit code that is **missing but applicable** to a journey | Review (`F3b`) |
+| `AC-1` | Whether exit conditions **overlap** or state precedence | Review (`G2`) |
+| `AC-2` | A claim that **contradicts** an invariant's substance, beyond the one literal phrase `ARCH-JOB-001` names | Review (`F1`, `G1`) |
+| `AC-4` | **Correspondence** — whether cited capabilities are the right ones | Review (`F4`) |
 
-Both limits are stated rather than papered over. A case that cannot fail on
-something should say what.
+Mechanizing the first would need a per-journey expected-code set; the second and
+third would need a formal semantics of the invariants. P00 has neither and
+should not invent them. Every one of these was caught by a human reviewer, which
+is the argument for keeping both controls rather than either alone.
 
 ## Reproducing
 
@@ -121,6 +157,11 @@ def sect(n):
 tbl = re.search(r"### Exit codes\n(.*?)(?=\n### )", C, re.S)
 TABLE_CODES = set(re.findall(r"^\| `(\d+)` \|", tbl.group(1), re.M)) if tbl else set()
 if not TABLE_CODES: fails.append("AC-1 no exit-code table")
+# Journey sections enumerate only journey-specific codes, so the charter must
+# say which codes are global - otherwise a section listing `0` alone is
+# indistinguishable from a section that forgot `1` and `10`.
+if not re.search(r"\*\*Global codes\.\*\*", C):
+    fails.append("AC-1 no global-codes statement; per-journey lists are then incomplete by construction")
 
 names = ["5.1 Enroll","5.2 List and presence","5.3 Run","5.4 Status","5.5 Output","5.6 Cancel","5.7 Audit"]
 for n in names:
@@ -139,8 +180,12 @@ for n in names:
         if not codes: fails.append(f"AC-1 {n}: exit paragraph enumerates no code")
         # "at least one code present" still certifies a vague "non-zero" sitting
         # beside exact ones. AC-1 claims EXACT exit codes, so vagueness fails.
-        if para and re.search(r"non-zero|nonzero", para.group(1), re.I):
-            fails.append(f"AC-1 {n}: exit paragraph says 'non-zero' instead of an exact code")
+        # Reject "non-zero" only where it describes KEYSTONE's own exit, not
+        # where it describes the remote command's status. Matching the bare
+        # token flagged "including when that status is non-zero", which is the
+        # precise statement AC-1 wants, not the vagueness it forbids.
+        if para and re.search(r"exits? non-?zero|non-?zero (?:if|when|on)\b", para.group(1), re.I):
+            fails.append(f"AC-1 {n}: exit paragraph gives 'non-zero' as a keystone exit instead of an exact code")
         for c in sorted(codes - TABLE_CODES):
             fails.append(f"AC-1 {n}: exit code {c} not defined in the exit-code table")
     if "**Observable effect:**" not in b: fails.append(f"AC-1 {n}: no observable effect")

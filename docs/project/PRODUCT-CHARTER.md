@@ -113,9 +113,15 @@ the remote command's own exit status.
 | `13` | `UNKNOWN` — the control plane cannot prove whether execution occurred |
 | `14` | The job was cancelled |
 
-Codes `10` to `14` exist so the operator can distinguish denial, offline,
-timeout, unknown and cancellation without parsing output, which
+Codes `11` to `14` exist so the operator can distinguish offline, timeout,
+unknown and cancellation without parsing output, which
 `TESTING.md` § Feature acceptance contract requires of the Diagnostics case.
+
+**Global codes.** `0` and `1` apply to every `keystone` command. `10` applies to
+every command whose invocation is subject to operator authorization; P09 defines
+where that is evaluated, and P00 does not presume it. The journey sections below
+enumerate only the outcomes **specific to that journey**, so the full set for any
+command is the global codes plus the ones its section lists.
 
 A remote command that exits non-zero is a **successful** `keystone run`: the job
 completed and its result was retrieved. The remote status appears in the result.
@@ -161,7 +167,7 @@ keystone agents list
 ```
 
 **Exit:** `0` whether or not any agent is present; an empty fleet is not an
-error.
+error and has no distinct code. No journey-specific codes beyond the global set.
 
 **Observable effect:** each enrolled agent is listed with its identifier and
 current presence state. Presence is reported as observed, never inferred from
@@ -178,15 +184,21 @@ keystone run --agent <agent-id> [--timeout <duration>] -- <argv>...
 Everything after `--` is the command's argv, passed as a vector. There is no
 shell anywhere on this path (§ 6).
 
-**Exit:** `0` when the job reached a terminal state and its result was
-retrieved. `10` denied, `11` agent not present, `12` deadline exceeded, `13`
-`UNKNOWN`, `14` cancelled while the invocation was waiting.
+**Exit:** `0` when the remote command ran to completion and its status was
+retrieved, **including when that status is non-zero**. Control-plane outcomes
+take precedence over `0`, and are mutually exclusive: `11` agent not present,
+`12` deadline exceeded, `13` `UNKNOWN`, `14` cancelled. A cancelled or timed-out
+job may still hold a durable partial result; it exits `14` or `12` regardless,
+because the control-plane outcome is what the operator must act on.
 
 **Observable effect:** the named agent makes **at most one automatic execution
 attempt**, and no other host executes the command; the server performs no
 equivalent action; the lifecycle is durably recorded before the process starts.
-When execution occurs, a job identifier, the remote exit status and captured
-output are returned.
+A job identifier is returned for every accepted job. **When a terminal result
+is retrieved**, the remote exit status and captured output are returned with it.
+Execution having occurred is not itself proof that a result was retrieved: a job
+may execute once and lose its result, which is reported `UNKNOWN`
+(`ARCH-JOB-004`), not as a completed run.
 
 Redelivery of a known job identifier may resume result delivery but never starts
 a second attempt (`ARCH-JOB-003`). A job that is denied, never reaches its agent,
@@ -248,7 +260,8 @@ never contradicts it silently.
 keystone audit --job <job-id>
 ```
 
-**Exit:** `0` when the correlated records are returned.
+**Exit:** `0` when the correlated records are returned. No journey-specific
+codes beyond the global set.
 
 **Observable effect:** the correlated lifecycle records for the job — actor,
 target, action, result and correlation identifier — are returned in order.
