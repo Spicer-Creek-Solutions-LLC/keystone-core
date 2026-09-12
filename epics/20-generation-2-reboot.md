@@ -106,7 +106,7 @@ workstream depends on. Detailed controls are normative in the execution plan.
 Not workstreams. Each is a single repository task correcting documentation that
 a workstream depends on, and each names the workstream it unblocks.
 
-- [ ] G01 — Terminology baseline. Rebuilds `GLOSSARY.md` for Generation 2.
+- [x] G01 — Terminology baseline. Rebuilds `GLOSSARY.md` for Generation 2.
   Unblocks P01, which depends on terms the Generation 1 glossary defined
   wrongly or not at all.
 

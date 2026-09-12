@@ -19,9 +19,8 @@ terminology".
 
 ### Attestation
 
-Evidence that an agent is the identity it claims to be. In Generation 2 the only
-accepted evidence is the one-use enrollment token and the permanent scoped
-credential that replaces it (`ARCH-NATS-004`).
+Evidence that an agent is the identity it claims to be. What evidence
+Generation 2 accepts, and how it is verified, is P03's to decide.
 
 ### Authentication
 
@@ -45,9 +44,11 @@ key exchange, authentication, encryption, and message authentication.
 
 ### Credential
 
-Secret material used to authenticate. In Generation 2 an agent holds separate
-credentials for NATS transport identity, envelope signing, and payload
-encryption; `ARCH-NATS-006` forbids reusing one as another.
+Secret material used to authenticate. Distinct from key material used to sign
+or encrypt, which is not a credential merely by being secret: `ARCH-NATS-006`
+requires NATS transport identity, envelope signing and payload encryption to use
+**separate keys**, and forbids reusing an NKey seed as a Keystone signing or
+encryption key.
 
 ### Defense in Depth
 
@@ -91,10 +92,12 @@ TLS in which both parties present certificates.
 
 ### One-use token
 
-The enrollment credential. Issued by the operator, valid for a single
-enrollment, short-lived by design, and never a substitute for the permanent
-identity it bootstraps. The charter forbids supplying it in a form that exposes
-it in process listings or shell history.
+The enrollment credential. Requested by the operator through
+`keystone enroll create`, valid for a single enrollment, short-lived by design,
+and never a substitute for the permanent identity it bootstraps. The charter
+forbids supplying it to the agent in a form that exposes it in process listings
+or shell history. Who issues and validates it, and its exact lifetime, are
+P03's.
 
 ### TLS (Transport Layer Security)
 
@@ -112,6 +115,7 @@ Enumerating these for Generation 2 is P01's job.
 ### Trust Domain
 
 An administrative boundary within which identities are issued and validated.
+Naming Generation 2's trust domains is P01's job.
 
 ### X.509
 
@@ -216,9 +220,11 @@ observed and never inferred from the fact that an agent enrolled.
 
 ### Cancellation
 
-Operator-initiated termination of a running job. Cancellation and timeout
-terminate the complete process group or platform-equivalent job object, not only
-the immediate child (`ARCH-EXEC-002`).
+Operator-initiated termination of a job. A job cancelled **before execution
+starts** never runs; a job cancelled **while running** has its complete process
+group or platform-equivalent job object terminated, not only its immediate child
+(`ARCH-EXEC-002`). Both reach a terminal cancelled state, and the charter gives
+both exit `14`.
 
 ### Process tree
 
@@ -238,11 +244,15 @@ no interactive session. Widening it requires an RFC amendment, not an ADR
 
 ### Acceptance
 
-Proof that a feature works, in the specific sense
+Proof that an **operator-visible runtime feature** works, in the specific sense
 [`TESTING.md`](TESTING.md) requires: a black-box test that invokes the
 production CLI or API, crosses the production transport, executes in the
 intended agent process, and verifies the externally observable effect. Package
 tests support development; they do not close acceptance.
+
+Planning and documentation tasks cross no transport and execute in no agent.
+They are accepted against their own stated cases, which their dossier records
+together with what those cases cannot detect.
 
 ### Generation 0, 1, 2
 
@@ -269,6 +279,20 @@ Two names, by scope:
 Generation 1 used a different split, in which OS-run names took a `kscore`
 prefix. Generation 2 does not; RFC 0001 breaks Generation 1's CLIs, so
 continuity was available but not owed.
+
+## Reader aids
+
+These terms carry no Keystone-specific decision. They are defined because the
+documents that use them assume the reader knows them, and are listed here so
+that a term with no project authority behind it is visibly an aid rather than
+an accidental leftover — which is how Generation 1's vocabulary survived.
+
+Cipher Suite, Defense in Depth, Encryption at Rest, Encryption in Transit,
+Fail Secure (Fail Closed), HMAC, Key Derivation Function (KDF), mTLS, TLS,
+X.509, Zero Trust, CA (Certificate Authority), Token.
+
+Every other term is either used elsewhere in the repository or cites the
+decision that establishes it.
 
 ## Not yet defined
 
