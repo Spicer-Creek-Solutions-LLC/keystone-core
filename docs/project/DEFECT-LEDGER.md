@@ -184,6 +184,7 @@ the artifact converges while the record around it drifts.
    ```
    git log --format='%h %G? sob=%(trailers:key=Signed-off-by,valueonly) cab=%(trailers:key=Co-Authored-By,valueonly)' main..HEAD
    ```
+
 3. **Never `git merge` into a task branch — rebase.**
    [`AGENTS.md`](../../AGENTS.md) § 4 exempts *forge-created* merge commits
    only; a merge an agent makes locally is an agent commit.
