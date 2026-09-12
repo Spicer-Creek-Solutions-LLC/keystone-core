@@ -169,8 +169,10 @@ finished with them.
 ### Agent
 
 The Keystone process running on a managed host. It exposes no inbound
-application listener; all of its communication crosses NATS
-(`ARCH-COMM-001`).
+application listener, and all of its **application** communication with the
+server — enrollment, commands, cancellation, results, events, presence —
+crosses NATS (`ARCH-COMM-001`). The invariant governs that traffic, not every
+packet the host sends.
 
 ### Server
 
@@ -251,8 +253,9 @@ intended agent process, and verifies the externally observable effect. Package
 tests support development; they do not close acceptance.
 
 Planning and documentation tasks cross no transport and execute in no agent.
-They are accepted against their own stated cases, which their dossier records
-together with what those cases cannot detect.
+They are accepted against their own stated cases, together with what those
+cases cannot detect — recorded in the task's dossier where one is required, and
+in the pull request where the task is a supporting task that has none.
 
 ### Generation 0, 1, 2
 
@@ -282,17 +285,36 @@ continuity was available but not owed.
 
 ## Reader aids
 
-These terms carry no Keystone-specific decision. They are defined because the
-documents that use them assume the reader knows them, and are listed here so
-that a term with no project authority behind it is visibly an aid rather than
-an accidental leftover — which is how Generation 1's vocabulary survived.
+**The definitions below are not Keystone decisions.** They are general terms,
+defined because the documents that use them assume the reader knows them. Some
+also note where Generation 2 applies the term, or which task will decide its
+Keystone-specific meaning; those notes are context, not authority, and a term
+does not leave this list by acquiring one.
 
-Cipher Suite, Defense in Depth, Encryption at Rest, Encryption in Transit,
-Fail Secure (Fail Closed), HMAC, Key Derivation Function (KDF), mTLS, TLS,
-X.509, Zero Trust, CA (Certificate Authority), Token.
+- Attestation
+- CA (Certificate Authority)
+- Cipher Suite
+- Defense in Depth
+- Encryption at Rest
+- Encryption in Transit
+- Fail Secure (Fail Closed)
+- HMAC (Hash-based Message Authentication Code)
+- Key Derivation Function (KDF)
+- mTLS (Mutual TLS)
+- TLS (Transport Layer Security)
+- Token
+- Trust Boundary
+- Trust Domain
+- X.509
+- Zero Trust
 
-Every other term is either used elsewhere in the repository or cites the
-decision that establishes it.
+Listing them is the point: a term with no project authority behind it is
+visibly an aid rather than an accidental leftover, which is how Generation 1's
+vocabulary survived.
+
+Every other term is either used elsewhere in the current documents or cites an
+**accepted** decision that establishes it. A pointer to a decision a later task
+will make is not authority — it is the absence of one.
 
 ## Not yet defined
 
