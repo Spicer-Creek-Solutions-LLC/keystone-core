@@ -41,10 +41,16 @@ countermeasure failed has since been revised, so **no entry currently carries
 `Failed`** — which would leave a ledger of seven defects showing no failures at
 all.
 
-So every entry also carries **`Last recurrence`**, which records when the defect
-last occurred and is never edited away. A recurrence is a fact about the world;
-a status is a claim about the countermeasure in force today. Editing the second
-must not erase the first.
+So every entry also carries **`Last recurrence`**: the latest occasion the
+defect is known to have occurred. A recurrence is a fact about the world; a
+status is a claim about the countermeasure in force today, and editing the
+second must not erase the first.
+
+The field is **never cleared**. It is replaced only by a *later* occurrence,
+which is why it says "last" rather than "most recent since the countermeasure
+changed". `None` means the defect has not occurred at all — not that it has not
+occurred lately, and not that a revision reset the count. An entry listing
+instances cannot carry `None`.
 
 ## Entries
 
@@ -208,7 +214,10 @@ the artifact converges while the record around it drifts.
    current head, and name what the checks read. Evidence has a dependency graph,
    and a later commit can invalidate it silently.
 
-**Last recurrence.** None; no instance since the entry was written.
+**Last recurrence.** Pull request #287 — a locally-created merge commit with
+no signature and no trailers, alongside four stale claims in the description.
+Fixed at `a2dfd383a`. The entry was written *because* of that occurrence, which
+is why it cannot carry `None`.
 
 **Status: `Proposed`.**
 
