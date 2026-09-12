@@ -34,22 +34,28 @@ is not a status.
 | `Held` | Recurred, the countermeasure caught it |
 | `Failed` | Recurred *despite* the countermeasure — the countermeasure is wrong or unusable |
 
-`Failed` is the most valuable value in the table. Two entries carry it, for
-different reasons: `DL-3` because writing the lesson down did not prevent the
-repeat, and `DL-6` because the countermeasure was too narrow to cover the form
-the defect took. Both are evidence about the countermeasure, not about the
-defect being unavoidable.
+**The status describes the current countermeasure, which means it can be
+laundered.** Revise a countermeasure after it fails and the entry becomes
+`Proposed`, and the record of the failure disappears. Every entry here whose
+countermeasure failed has since been revised, so **no entry currently carries
+`Failed`** — which would leave a ledger of seven defects showing no failures at
+all.
+
+So every entry also carries **`Last recurrence`**, which records when the defect
+last occurred and is never edited away. A recurrence is a fact about the world;
+a status is a claim about the countermeasure in force today. Editing the second
+must not erase the first.
 
 ## Entries
 
 | ID | Defect class | Status |
 |---|---|---|
-| `DL-1` | A check that cannot fail, mistaken for evidence | `Adopted` |
+| `DL-1` | A check that cannot fail, mistaken for evidence | `Proposed` |
 | `DL-2` | An acceptance property expressed as pattern-matching over prose | `Adopted` |
-| `DL-3` | A factual claim never compared with its source | `Failed` |
+| `DL-3` | A factual claim never compared with its source | `Proposed` |
 | `DL-4` | The record and the branch go unchecked | `Proposed` |
 | `DL-5` | A check verified only against fixtures | `Adopted` |
-| `DL-6` | Shell-hostile command construction | `Failed` |
+| `DL-6` | Shell-hostile command construction | `Proposed` |
 | `DL-7` | A demonstration that did not demonstrate | `Proposed` |
 
 ### `DL-1` — A check that cannot fail, mistaken for evidence
@@ -72,18 +78,21 @@ fail it, so "it passed" and "it cannot fail" were indistinguishable.
 
 **Countermeasure.** Plant a defect that violates exactly the property, confirm
 the check reports it, restore, confirm it passes. Record which checks fired: one
-that fires on every defect is not discriminating. Normative for dossiers in
-[`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) § "Required task
-dossier".
+that fires on every defect is not discriminating. **And apply `DL-7`'s three
+assertions to the planting step itself** — without them this procedure cannot
+tell a check that does not fire from a plant that missed. Normative for
+dossiers in [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md)
+§ "Required task dossier".
 
-**Status: `Adopted`.** First applied in P00, where it immediately found `AC-5`
-passing the defect it existed to catch, and it has since surfaced nine defective
-checks — see `DL-2`.
+**Last recurrence.** This pull request — the planting step missed its target and
+the procedure as written could not distinguish that from a check that does not
+fire. Recorded as `DL-7`.
 
-**This countermeasure is incomplete on its own.** `DL-7` records a silent
-failure mode in the planting step and carries the assertions that close it.
-Those assertions are `Proposed` and are deliberately *not* folded in here: a
-proven measure and an untested extension cannot share one status value.
+**Status: `Proposed`.** The core measure found `AC-5` in P00 and has surfaced
+nine defective checks since, but it recurred as above, and the assertions in
+`DL-7` that close the hole are part of the countermeasure a reader should follow
+and are untested by events. Linking to a separate entry does not erase the
+recurrence, and the strengthened whole has not yet been tried.
 
 ### `DL-2` — An acceptance property expressed as pattern-matching over prose
 
@@ -120,9 +129,12 @@ document exists for the same reason. When a case false-positives, preserve the
 property and fix the matching — do not substitute a narrower property and call
 it a restatement.
 
-**Status: `Adopted`.** Previously `Failed`: "parse structurally, not by regex
-over prose" was recorded after P00 and a prose-regex check was written in G01
-two tasks later. It now holds because G01's reader-aids list was converted to a
+**Last recurrence.** G01, where a prose-regex check was written two tasks after
+the lesson was recorded.
+
+**Status: `Adopted`.** The countermeasure changed after that recurrence from
+"remember to parse structurally" to "make the document carry the structure", and
+has held since — G02's acceptance checks read an entry table for this reason. It now holds because G01's reader-aids list was converted to a
 markdown list that the check parses as list items — the document changed, not
 only the intention.
 
@@ -156,9 +168,11 @@ unresolvable for every reader but you. For anything in a control document listed
 in [`AGENTS.md`](../../AGENTS.md) § 7, treat the claim as load-bearing: it
 licenses the next agent to act, and that agent has no reason to doubt it.
 
-**Status: `Failed`.** Adopted mid-session, applied to a document body, and four
-stale claims shipped in the same pull request's description hours later. The
-practice is correct; its scope was too narrow. See `DL-4`.
+**Last recurrence.** P01's pull request, where four stale claims shipped in a
+description hours after the practice was adopted for document bodies.
+
+**Status: `Proposed`.** The countermeasure was widened with concrete checks after
+that recurrence and is untested by events.
 
 ### `DL-4` — The record and the branch go unchecked
 
@@ -194,6 +208,8 @@ the artifact converges while the record around it drifts.
    current head, and name what the checks read. Evidence has a dependency graph,
    and a later commit can invalidate it silently.
 
+**Last recurrence.** None; no instance since the entry was written.
+
 **Status: `Proposed`.**
 
 ### `DL-5` — A check verified only against fixtures
@@ -213,6 +229,8 @@ an artifact, as [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) requires
 before any apply. A same-value match is not evidence of a relationship: state
 the relationship the requirement actually asks about, and test that.
 
+**Last recurrence.** R09; none since.
+
 **Status: `Adopted`.**
 
 ### `DL-6` — Shell-hostile command construction
@@ -227,14 +245,20 @@ sequence proceeded anyway, because nothing made the sequence stop. The
 countermeasure as written covered pipelines and did not cover sequences, so it
 did not prevent this. Fixed in `09b565a97`.
 
-*No repository reference:* both are defects in commands an agent runs, caught
-before anything was committed, so there is no artifact to cite. They are recorded because they recur. Note that the first countermeasure is a
+*No repository reference (first two instances only):* both are defects in
+commands an agent runs, caught before anything was committed, so there is no
+artifact to cite. The third instance is committed and cited above. They are recorded because they recur. Note that the first countermeasure is a
 **prescribed practice, not an observable fact**: a commit object does not record
 how its message was supplied, so "written with `git commit -F`" cannot be
 verified from history. The second is observable — [`Makefile`](../../Makefile)
 captures `PIPESTATUS` rather than piping a gated command.
 
-**Root cause.** The command looks right and the failure is silent.
+**Root cause.** Two distinct causes under one class. In the first two the
+failure is **silent** — the shell substitutes or the exit status is swallowed,
+and nothing is printed. In the third the failure was **loud and not
+propagated**: `MD031` was printed, and the sequence continued to the commit and
+push anyway. A gate whose result nothing acts on is the same defect as a gate
+that reports nothing.
 
 **Countermeasure.** Write commit messages to a file and use `git commit -F`.
 Never pipe a command whose exit status is the gate: capture it, or check
@@ -243,10 +267,13 @@ sequence that can continue past it** — join them with `&&`, run under `set -e`
 or capture the status and branch on it explicitly. A gate that runs and is then
 ignored is worse than no gate, because its output looks like evidence.
 
-**Status: `Failed`.** The first two recurred and were caught. The third —
-`5449b3f90` — recurred *because* the countermeasure did not cover command
-sequences, and was caught by reading the output rather than by any control. The
-widened countermeasure above is untested by events.
+**Last recurrence.** `5449b3f90` on this pull request, pushed while `docs-lint`
+was red.
+
+**Status: `Proposed`.** The first two instances were caught by the countermeasure
+in force at the time. The third was not — it recurred because that countermeasure
+covered pipelines and not sequences — and the widened version above is untested
+by events.
 
 ### `DL-7` — A demonstration that did not demonstrate
 
@@ -283,6 +310,13 @@ thing it exists to detect, one level up.
    demonstration cannot establish that its own input is defective** — treating
    "it fired" as proof of that is circular, and was how this entry was first
    written.
+
+**Last recurrence.** This pull request, twice. First the mutation that landed
+on the wrong entry, which is the instance above. Then, while re-running the
+demonstrations after that fix, a mutation that replaced only a countermeasure's
+first sentence — it changed the document, so the assertion then in force
+passed, but created no defect. That second occurrence is why the third
+assertion exists and why it does not rely on the checker.
 
 **Status: `Proposed`.**
 
