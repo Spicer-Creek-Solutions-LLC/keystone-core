@@ -67,7 +67,7 @@ and pull requests. Detailed controls are normative in the execution plan.
 
 ### Product and architecture foundation
 
-- [ ] P00 — Product charter and canonical journeys.
+- [x] P00 — Product charter and canonical journeys. Charter accepted; argv-only boundary frozen.
 - [ ] P01 — Threat model.
 - [ ] P02 — NATS-native capability ADR.
 - [ ] P03 — Enrollment and identity ADR.

@@ -130,7 +130,7 @@ Do not duplicate volatile inventories in this file. Those drift quickly.
 - Archive capability catalog (`CAP-*` ids): `docs/project/FUTURE-CAPABILITIES.md`
 - Transition evidence — archive manifest, freeze record, tracker retirement: `docs/transition/`
 - Reboot assessment evidence: `docs/project/PROJECT-REBOOT-REVIEW.md`
-- Why this project exists: `docs/project/PROBLEM-STATEMENT.md`
+- Why this project exists (normative for Generation 2): `docs/project/PRODUCT-CHARTER.md`
 - Version policy: `docs/project/VERSIONING.md`
 - Roadmap (`Now` / `Next` / `Future / Unscheduled` / `Not Planned`): `docs/project/ROADMAP.md`
 - Issue tracker conventions: `docs/project/ISSUE-TRACKING.md`
