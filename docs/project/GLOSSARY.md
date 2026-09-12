@@ -285,8 +285,9 @@ continuity was available but not owed.
 
 ## Reader aids
 
-**The definitions below are not Keystone decisions.** They are general terms,
-defined because the documents that use them assume the reader knows them. Some
+**The terms listed below are defined earlier in this document, and those
+definitions are not Keystone decisions.** They are general terms, defined
+because the documents that use them assume the reader knows them. Some entries
 also note where Generation 2 applies the term, or which task will decide its
 Keystone-specific meaning; those notes are context, not authority, and a term
 does not leave this list by acquiring one.
