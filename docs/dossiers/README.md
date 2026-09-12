@@ -21,7 +21,14 @@ workstreams still split into `Cxx-A` and `Cxx-I` under separate approvals.
 |---|---|
 | `Pxx` and `Cxx` workstreams | Required before any implementation approval |
 | `Rxx` repository-transition tasks | Not used; the R stage closed at R10 |
-| Control-document tasks | Not required; the amendment is itself the authorization |
+| `Gxx` supporting tasks | Not required; cases and limitations go in the pull request |
+| Control-document tasks | Not required; the amendment records the change |
+
+**A dossier is not the approval, and neither is the artifact a task produces.**
+Program rule 1 and [`AGENTS.md`](../../AGENTS.md) § 3 require a presented plan
+and an explicit maintainer approval for *every* repository task. A task that
+needs no dossier still needs that approval; "no dossier" narrows what must be
+written down beforehand, never who has to agree to the work.
 
 ## Required fields
 
