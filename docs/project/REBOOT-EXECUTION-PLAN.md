@@ -38,6 +38,22 @@ Dossiers live in [`docs/dossiers/`](../dossiers/), one file per task, named for
 the task identifier. A dossier is a boundary, not an approval: landing one does
 not authorize the work it describes.
 
+**Every acceptance case is demonstrated failing before it is accepted.** For
+each case, plant a defect that violates exactly that case, record the check
+reporting the failure, restore, and record it passing. Record which cases fired
+for each defect: a case that fires on every defect is not discriminating and
+must be tightened. The record lands with the work as
+`docs/dossiers/<TASK>-acceptance-evidence.md`. A case that cannot fail is not
+evidence.
+
+**This is a floor, not sufficiency.** Each dossier states, per case, what that
+case cannot detect and what would find it instead. P00's demonstrated-failing
+suite still passed three severity-1 semantic defects that independent review
+caught, and four of its own checks were found wrong — three too loose, one too
+tight. A green acceptance suite does not discharge the independent reviewer
+required by rule 6, and a dossier that presents its cases as complete coverage
+repeats the defect this rule exists to prevent.
+
 Each behavior workstream is split into at least two repository tasks:
 
 1. `Cxx-A` — an independent agent lands the black-box acceptance contract and
