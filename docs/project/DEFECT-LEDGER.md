@@ -23,6 +23,10 @@ the fix and says so, rather than a reference that cannot be resolved.
 
 ## Status values
 
+Exactly one value per entry. Where a countermeasure has changed, the current
+value is recorded and the history goes in the entry's prose — a compound status
+is not a status.
+
 | Status | Meaning |
 |---|---|
 | `Proposed` | Countermeasure defined, not yet tested by events |
@@ -38,8 +42,8 @@ and both are cases where writing a lesson down did not prevent the repeat.
 | ID | Defect class | Status |
 |---|---|---|
 | `DL-1` | A check that cannot fail, mistaken for evidence | `Adopted` |
-| `DL-2` | An acceptance property expressed as pattern-matching over prose | `Failed`, then `Adopted` |
-| `DL-3` | A claim nothing contradicts that is untrue | `Failed` |
+| `DL-2` | An acceptance property expressed as pattern-matching over prose | `Adopted` |
+| `DL-3` | A factual claim never compared with its source | `Failed` |
 | `DL-4` | The record and the branch go unchecked | `Proposed` |
 | `DL-5` | A check verified only against fixtures | `Adopted` |
 | `DL-6` | Shell-hostile command construction | `Held` |
@@ -65,13 +69,19 @@ fail it, so "it passed" and "it cannot fail" were indistinguishable.
 
 **Countermeasure.** Plant a defect that violates exactly the property, confirm
 the check reports it, restore, confirm it passes. Record which checks fired: one
-that fires on every defect is not discriminating. Normative for dossiers in
+that fires on every defect is not discriminating. **Assert that the planted
+defect actually landed, and that the reported failure names the thing you
+mutated** — see `DL-7`, which is how that gap was found; without those two
+assertions this countermeasure has a silent failure mode of its own. Normative
+for dossiers in
 [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) § "Required task
 dossier".
 
 **Status: `Adopted`.** First applied in P00, where it immediately found `AC-5`
-passing the defect it existed to catch. It has since surfaced nine further
-defective checks — see `DL-2`.
+passing the defect it existed to catch, and it has since surfaced nine
+defective checks — see `DL-2`. The mutation-landed and targeted-failure
+assertions were added after `DL-7` and have not yet been tested by events; the
+rest of the countermeasure has.
 
 ### `DL-2` — An acceptance property expressed as pattern-matching over prose
 
@@ -80,8 +90,10 @@ defective checks — see `DL-2`.
 presence of an `**Exit:**` heading as proof of an exact exit code, then accepted
 a vague "non-zero" beside exact ones; `AC-3` accepted a `P\d\d` reference as
 authority, so "is P03's to decide" — a pointer to a decision *not yet made* —
-satisfied a rule demanding the decision that establishes the term; `AC-1` in
-P01 checked actor presence while claiming to check motivations too. Too tight:
+satisfied a rule demanding the decision that establishes the term; `AC-3`'s
+search corpus included [`FUTURE-CAPABILITIES.md`](FUTURE-CAPABILITIES.md), so a
+term's presence in the catalogue of what the project decided *not* to do
+counted as authority for defining it as current; `AC-1` in P01 checked actor presence while claiming to check motivations too. Too tight:
 `AC-1` rejected a correct charter because it matched the token `non-zero`
 without distinguishing the remote command's status from Keystone's own exit;
 `AC-3` rejected correctly-classified terms whose headings carried expansions the
@@ -106,13 +118,13 @@ document exists for the same reason. When a case false-positives, preserve the
 property and fix the matching — do not substitute a narrower property and call
 it a restatement.
 
-**Status: `Failed`, then `Adopted`.** "Parse structurally, not by regex over
-prose" was recorded after P00 and a prose-regex check was written in G01 two
-tasks later. It now holds because G01's reader-aids list was converted to a
+**Status: `Adopted`.** Previously `Failed`: "parse structurally, not by regex
+over prose" was recorded after P00 and a prose-regex check was written in G01
+two tasks later. It now holds because G01's reader-aids list was converted to a
 markdown list that the check parses as list items — the document changed, not
 only the intention.
 
-### `DL-3` — A claim nothing contradicts that is untrue
+### `DL-3` — A factual claim never compared with its source
 
 **Instances.** `GLOSSARY.md` described JetStream as providing "exactly-once
 message delivery", the claim `ARCH-JOB-001` forbids; the same claim had already
@@ -126,10 +138,13 @@ says nothing about attestation evidence (fixed in `dd48d8e57`).
 [`AGENTS.md`](../../AGENTS.md) § 3 contradict; it merged, and was then
 reproduced verbatim in a later pull request description (fixed in `557b62a29`).
 
-**Root cause.** Nothing in the repository disagreed with the statement, so no
-gate, no acceptance case and no diff review could detect it. A citation that
-*resolves* is not a citation that *supports the claim*, and verifying the first
-is a different operation from verifying the second.
+**Root cause.** Not that nothing contradicted the claim — `ARCH-JOB-001`
+contradicted the exactly-once claim and [`AGENTS.md`](../../AGENTS.md) § 3
+contradicted the self-authorization claim, and semantic review caught both. The
+defect is that **the claim was never compared with the text it cites or the rule
+that governs it**. Nothing automated performs that comparison, and a diff review
+does not either: the diff shows the claim, not the source it is wrong about. A
+citation that *resolves* is not a citation that *supports the claim*.
 
 **Countermeasure.** Before recording a factual claim, check it. Read the cited
 text and confirm it says what you are about to say it says — `git show <ref>` or
@@ -163,8 +178,12 @@ the artifact converges while the record around it drifts.
 
 1. Re-read the description against the current diff — counts, file names,
    criteria, dependencies.
-2. `git log --format='%h %G? %s' main..HEAD` and confirm every commit is `G` and
-   carries `Signed-off-by` and `Co-Authored-By`.
+2. Confirm every commit is signed **and** carries both trailers. `%G?` alone
+   shows only the signature, so check the trailers explicitly:
+
+   ```
+   git log --format='%h %G? sob=%(trailers:key=Signed-off-by,valueonly) cab=%(trailers:key=Co-Authored-By,valueonly)' main..HEAD
+   ```
 3. **Never `git merge` into a task branch — rebase.**
    [`AGENTS.md`](../../AGENTS.md) § 4 exempts *forge-created* merge commits
    only; a merge an agent makes locally is an agent commit.
@@ -200,11 +219,11 @@ recurred four or more times across Generation 1 sessions. A lint piped through
 `tail` while gating on its exit status, which yields the exit status of `tail`.
 
 *No repository reference:* both are defects in commands an agent runs, caught
-before anything was committed, so there is no artifact to cite. They are
-recorded because they recur, and because the countermeasure is visible in
-current practice — every commit in this repository since is written with
-`git commit -F`, and [`Makefile`](../../Makefile) captures `PIPESTATUS` rather
-than piping a gated command.
+before anything was committed, so there is no artifact to cite. They are recorded because they recur. Note that the first countermeasure is a
+**prescribed practice, not an observable fact**: a commit object does not record
+how its message was supplied, so "written with `git commit -F`" cannot be
+verified from history. The second is observable — [`Makefile`](../../Makefile)
+captures `PIPESTATUS` rather than piping a gated command.
 
 **Root cause.** The command looks right and the failure is silent.
 
@@ -236,10 +255,17 @@ present. A mutation that misses its target produces a clean run that is
 indistinguishable from a passing document — the demonstration becomes the very
 thing it exists to detect, one level up.
 
-**Countermeasure.** Assert the mutation landed before trusting the result:
-`re.subn` and require `n == 1`, or compare the document before and after and
-fail if unchanged. Then assert the failure names the entry you mutated — a
-defect planted in `DL-5` that reports `DL-6` is a planting bug, not a finding.
+**Countermeasure.** Three assertions, and the third is the one that matters:
+
+1. The mutation landed — `re.subn` requiring `n == 1`, or compare before and
+   after and fail if unchanged.
+2. The reported failure **names the thing you mutated**. A defect planted in
+   `DL-5` that reports `DL-6` is a planting bug, not a finding.
+3. The mutation created the **intended** defect, not merely some change.
+   Replacing a countermeasure's first sentence leaves the rest in place, so the
+   document still passes and the run looks like a check that does not fire.
+   Assertion 1 passes in that case; only the check firing on the right target
+   distinguishes it.
 
 **Status: `Proposed`.**
 
