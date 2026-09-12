@@ -42,7 +42,10 @@ content. A field with nothing to say says so and gives the reason.
 4. **Requirement IDs** — which `ARCH-*` identifiers apply, and whether the task
    satisfies or merely registers them.
 5. **Acceptance cases** — the [`TESTING.md`](../project/TESTING.md) feature
-   table, each case marked applicable or `N/A` with a per-case reason.
+   table, each case marked applicable or `N/A` with a per-case reason; the
+   task's own cases; and, for each, what it **cannot** detect. Every case is
+   demonstrated failing before it is accepted, recorded in
+   `<TASK>-acceptance-evidence.md` alongside the dossier.
 6. **Validation commands** — what is run, and what it actually covers.
 7. **Documentation changes**.
 8. **Security reviewer** — named, or an argued statement that none is required.
@@ -59,4 +62,5 @@ title, per [`ISSUE-TRACKING.md`](../project/ISSUE-TRACKING.md) § Principles.
 
 | Task | Dossier | State |
 |---|---|---|
-| P00 — Product charter and canonical journeys | [P00.md](P00.md) | Awaiting P00 plan approval |
+| P00 — Product charter and canonical journeys | [P00.md](P00.md) | Complete — charter accepted |
+| P01 — Threat model | [P01.md](P01.md) | Awaiting P01 plan approval |
