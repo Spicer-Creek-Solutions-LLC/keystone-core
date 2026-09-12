@@ -38,9 +38,13 @@ Dossiers live in [`docs/dossiers/`](../dossiers/), one file per task, named for
 the task identifier. A dossier is a boundary, not an approval: landing one does
 not authorize the work it describes.
 
-**Every acceptance case is demonstrated failing before it is accepted.** For
-each case, plant a defect that violates exactly that case, record the check
-reporting the failure, restore, and record it passing. Record which cases fired
+**Every applicable acceptance case is demonstrated failing before it is
+accepted.** For each case marked applicable, and for each task-specific case,
+plant a defect that violates exactly that case, record the check reporting the
+failure, restore, and record it passing. A case marked `N/A` is exempt — there
+is no defect to plant — and instead requires a per-case rationale that the
+independent reviewer checks, since a wrongly waived case is invisible to every
+demonstration. Record which cases fired
 for each defect: a case that fires on every defect is not discriminating and
 must be tightened. The record lands with the work as
 `docs/dossiers/<TASK>-acceptance-evidence.md`. A case that cannot fail is not
