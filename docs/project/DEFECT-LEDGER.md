@@ -48,9 +48,14 @@ second must not erase the first.
 
 The field is **never cleared**. It is replaced only by a *later* occurrence,
 which is why it says "last" rather than "most recent since the countermeasure
-changed". `None` means the defect has not occurred at all — not that it has not
-occurred lately, and not that a revision reset the count. An entry listing
-instances cannot carry `None`.
+changed".
+
+**There is no `None`.** An entry only belongs here if the defect has occurred —
+that is the first rule in § "What belongs here" — so every entry has an
+occurrence to record, and an empty field means the entry has not been kept up to
+date rather than that nothing happened. Whether the occurrence left a commit to
+cite is a separate question, answered by the instance's own reference or its
+justified exemption.
 
 ## Entries
 
@@ -214,10 +219,16 @@ the artifact converges while the record around it drifts.
    current head, and name what the checks read. Evidence has a dependency graph,
    and a later commit can invalidate it silently.
 
-**Last recurrence.** Pull request #287 — a locally-created merge commit with
-no signature and no trailers, alongside four stale claims in the description.
-Fixed at `a2dfd383a`. The entry was written *because* of that occurrence, which
-is why it cannot carry `None`.
+**Last recurrence.** Pull request #289 — two stale acceptance statements in this
+pull request's own description, found in review: `AC-1` claiming four required
+fields where there were five, and `AC-3`'s limitation still describing a
+recurrence as a `Failed` status one commit after that model was replaced.
+
+Before that, #287: a locally-created merge commit with no signature and no
+trailers, alongside four stale claims in the description, fixed at `a2dfd383a`.
+**This entry has now recurred on the pull request that documents it**, which is
+the clearest evidence available that its countermeasure is `Proposed` rather
+than working.
 
 **Status: `Proposed`.**
 
