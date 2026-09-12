@@ -1,373 +1,355 @@
 # Glossary
 
-This glossary defines security, infrastructure, and domain-specific terminology used throughout the Keystone Core documentation and codebase.
+Terminology for Generation 2, normative where it restates an accepted decision.
 
-## Security Terms
+**This glossary defines only what is already decided** — by
+[RFC 0001](../rfcs/0001-generation-2-reboot.md), the accepted
+[product charter](PRODUCT-CHARTER.md), and
+[`ARCHITECTURE-INVARIANTS.md`](ARCHITECTURE-INVARIANTS.md). A term whose meaning
+a pending ADR owns is listed in § "Not yet defined" with the task that owns it,
+rather than given a definition here that the ADR would then have to contradict.
+
+It is therefore deliberately incomplete. That is the honest state of a project
+whose architecture decisions are in progress.
+
+Generation 1 terminology was removed rather than corrected; see § "Removed
+terminology".
+
+## Security and identity
 
 ### Attestation
 
-The process by which an agent proves its identity and integrity to the control plane. Attestation methods include join tokens, cloud instance metadata, Kubernetes service account tokens, and TPM-based attestation.
-
-### Audit Mode
-
-The v0.x → v1.0 policy posture: policies evaluate and emit audit records but never block requests. Enforcement (blocking on violation) graduates in v1.x. See [`POLICY-AUDIT.md`](https://codeberg.org/Spicer-Creek-Solutions-LLC/keystone-core/src/tag/archive-2026-09-pre-v0.6-reboot/docs/project/POLICY-AUDIT.md).
+Evidence that an agent is the identity it claims to be. What evidence
+Generation 2 accepts, and how it is verified, is P03's to decide.
 
 ### Authentication
 
-The process of verifying the identity of a user, agent, or service. Keystone Core supports multiple authentication methods including API keys, JWT tokens, mTLS certificates, and SPIFFE SVIDs.
+Verifying the identity of an operator, agent, or service.
 
 ### Authorization
 
-The process of determining whether an authenticated entity has permission to perform a specific action. Implemented via OPA (Rego) and CEL policy engines.
+Determining whether an authenticated principal may perform a specific action.
+Generation 2 has two independent authorization layers: NATS subject permissions
+enforced by the broker, and Keystone's own checks. Neither substitutes for the
+other.
 
 ### CA (Certificate Authority)
 
-An entity that issues digital certificates. Keystone Core includes an embedded CA for issuing agent certificates and can integrate with external CAs.
-
-### CEL (Common Expression Language)
-
-A non-Turing-complete expression language used for policy evaluation. Provides a simpler alternative to OPA/Rego for basic authorization rules.
+An entity that issues digital certificates.
 
 ### Cipher Suite
 
-A combination of cryptographic algorithms used to secure network connections. Includes algorithms for key exchange, authentication, encryption, and message authentication.
+A combination of cryptographic algorithms used to secure a network connection —
+key exchange, authentication, encryption, and message authentication.
 
 ### Credential
 
-Secret information used for authentication, such as passwords, API keys, certificates, or tokens.
+Secret material used to authenticate. Distinct from key material used to sign
+or encrypt, which is not a credential merely by being secret: `ARCH-NATS-006`
+requires NATS transport identity, envelope signing and payload encryption to use
+**separate keys**, and forbids reusing an NKey seed as a Keystone signing or
+encryption key.
 
 ### Defense in Depth
 
-A security strategy that layers multiple independent security controls so that failure of one control does not compromise the entire system.
+Layering independent controls so that the failure of one does not compromise the
+system. Generation 2's layers are enumerated in RFC 0001 § NATS-first
+architecture.
 
 ### Encryption at Rest
 
-Protection of data stored on disk through cryptographic encryption. Used for database contents, backups, and sensitive configuration files.
+Protection of stored data through cryptographic encryption.
 
 ### Encryption in Transit
 
-Protection of data as it moves across networks through cryptographic protocols like TLS.
+Protection of data moving across a network. **Not equivalent to end-to-end
+payload encryption**: TLS terminates at the broker, which is why Keystone
+encrypts payloads to the intended recipient separately (`ARCH-NATS-006`).
 
 ### Fail Secure (Fail Closed)
 
-A design principle where system failures result in a secure state (typically denying access) rather than granting access.
+A design principle where failure results in denial rather than access.
+Generation 2 execution policy is deny-by-default (`ARCH-EXEC-001`).
 
 ### HMAC (Hash-based Message Authentication Code)
 
-A cryptographic construction for verifying both data integrity and authenticity using a secret key and a hash function.
-
-### IAM (Identity and Access Management)
-
-The framework of policies and technologies for ensuring that the right entities have appropriate access to resources.
-
-### Join Token
-
-A one-time or limited-use secret used by agents to register with the control plane. Provides initial attestation before certificate issuance.
-
-### Lease (Secrets)
-
-A time-bounded secret credential issued by a dynamic secrets backend (database, cloud IAM, PKI). Each lease has a TTL and a renewal / revocation API. Distinct from KV secrets, which have no lease semantics. See `internal/secrets/leasedirectory.go`.
+A construction for verifying data integrity and authenticity using a secret key
+and a hash function.
 
 ### Key Derivation Function (KDF)
 
-A cryptographic function that derives one or more secret keys from a secret value such as a password. Examples include Argon2, scrypt, and PBKDF2.
+A function that derives keys from a secret value. Argon2, scrypt, PBKDF2.
 
 ### Least Privilege
 
-The security principle that entities should have only the minimum permissions necessary to perform their functions.
+Granting only the minimum permissions necessary. `ARCH-NATS-003` applies this to
+NATS subjects: an agent may subscribe only to its own command and cancellation
+subjects and publish only to its own result, event, and presence subjects.
 
 ### mTLS (Mutual TLS)
 
-TLS authentication where both the client and server present certificates, providing mutual identity verification.
+TLS in which both parties present certificates.
 
-### PSK (Pre-Shared Key)
+### One-use token
 
-A symmetric secret presented at NATS bootstrap to authenticate a new agent *before* it has been issued a SPIFFE SVID. Production PSKs are single-use and short-lived; dev mode permits static PSKs with a startup `WARN` to keep operators honest about the production posture.
-
-### OPA (Open Policy Agent)
-
-A policy engine that evaluates policies written in Rego. Used for fine-grained authorization decisions.
-
-### RBAC (Role-Based Access Control)
-
-An access control model where permissions are assigned to roles, and roles are assigned to users.
-
-### Rego
-
-The policy language used by Open Policy Agent (OPA) for defining authorization rules.
-
-### Secret
-
-Any sensitive data that should be protected, including passwords, API keys, certificates, encryption keys, and tokens.
-
-### SPIFFE (Secure Production Identity Framework For Everyone)
-
-A set of standards for identifying and securing communications between services. Provides a universal identity format (SPIFFE ID) and certificate format (SVID).
-
-### SPIFFE ID
-
-A URI that uniquely identifies a workload within a trust domain. Format: `spiffe://trust-domain/path`
-
-### SVID (SPIFFE Verifiable Identity Document)
-
-A cryptographic document (X.509 certificate or JWT) that proves a workload's SPIFFE identity.
+The enrollment credential. Requested by the operator through
+`keystone enroll create`, valid for a single enrollment, short-lived by design,
+and never a substitute for the permanent identity it bootstraps. The charter
+forbids supplying it to the agent in a form that exposes it in process listings
+or shell history. Who issues and validates it, and its exact lifetime, are
+P03's.
 
 ### TLS (Transport Layer Security)
 
-A cryptographic protocol that provides privacy and data integrity between applications communicating over a network.
+A protocol providing privacy and integrity between communicating applications.
 
 ### Token
 
-A security artifact that represents identity or authorization claims. Can be short-lived (JWT) or long-lived (API key).
-
-### Transit (Secrets)
-
-A secrets-engine surface for encryption-as-a-service: operators send plaintext, receive ciphertext; keys never leave the server. Supports encrypt / decrypt / sign / verify with named keys. See `internal/secrets/transit.go`.
+An artifact representing identity or authorization claims.
 
 ### Trust Boundary
 
-A point in a system where the level of trust changes, requiring security controls such as authentication, authorization, and input validation.
+A point where the level of trust changes and controls are therefore required.
+Enumerating these for Generation 2 is P01's job.
 
 ### Trust Domain
 
-The administrative boundary within which SPIFFE identities are issued and validated. Corresponds to a PKI trust root.
+An administrative boundary within which identities are issued and validated.
+Naming Generation 2's trust domains is P01's job.
 
 ### X.509
 
-The standard format for public key certificates used in TLS and SPIFFE.
+The standard format for public key certificates.
 
 ### Zero Trust
 
-A security model that requires verification for every access request, regardless of network location or previous authentication.
+A model requiring verification of every access request regardless of network
+location or prior authentication.
 
-## Infrastructure Terms
-
-### Agent
-
-A lightweight process that runs on managed nodes, communicating with the control plane to execute commands and apply state configurations.
-
-### Blueprint
-
-A declarative composition of state modules + parameters + ordering, applied as a higher-level operation ("set up a web server", "harden a host"). Blueprints can be applied, rolled back, and queried like state. Authored as YAML. See `internal/blueprint/`.
-
-### Bootstrap
-
-The process of initializing a new Keystone Core deployment or registering a new agent, including certificate provisioning and initial configuration.
-
-### Cluster
-
-A group of control plane servers working together for high availability, using etcd for consensus and distributed coordination.
-
-### Control Plane
-
-The central management layer that coordinates agents, stores state, evaluates policies, and processes commands.
-
-### Drift
-
-The difference between the declared (desired) state and the actual state of a managed system.
-
-### Edge Agent
-
-An agent deployed in environments with intermittent connectivity, capable of operating autonomously with local state caching.
-
-### Embedded NATS
-
-NATS server running in-process with the control plane for simplified deployment without external dependencies.
-
-### Fencing
-
-A clustering safety mechanism preventing split-brain. When a cluster member loses quorum or detects it has been deposed as leader, it self-fences — refuses writes — until quorum is re-established. Implemented via etcd epoch + lease watch in `internal/cluster/fencing.go`.
-
-### GitOps
-
-Integration with GitOps deployment tooling (ArgoCD, Flux, raw GitHub/GitLab). Two surfaces: inbound webhooks that observe deploys + drive verification, and rollback executors that issue revert PRs / call ArgoCD or Kubernetes APIs when verification fails.
-
-### etcd
-
-A distributed key-value store used for cluster coordination, leader election, and distributed locking.
-
-### Heartbeat
-
-A periodic message sent by agents to the control plane to indicate health and connectivity.
-
-### High Availability (HA)
-
-A system design that minimizes downtime through redundancy, automatic failover, and distributed operation.
-
-### JetStream
-
-NATS's built-in persistence layer providing at-least-once and exactly-once message delivery with stream storage.
-
-### Leaf Node
-
-A NATS connection mode where agents connect to a local NATS server that relays messages to the main cluster.
+## Messaging and transport
 
 ### NATS
 
-A lightweight, high-performance messaging system used for all control plane to agent communication.
+The messaging system Generation 2 uses as its only agent transport
+(`ARCH-COMM-001`). NATS is treated as infrastructure rather than as a byte pipe:
+before Keystone builds a messaging, authorization, durability or flow-control
+mechanism, the native capability must be evaluated and recorded as `Adopt`,
+`Evaluate`, `Defer` or `Reject` (`ARCH-NATS-008`).
 
-### Membership
+### JetStream
 
-The set of currently-known cluster members and their roles (leader / follower / learner). Membership changes (add / remove / transfer) flow through the etcd consensus layer.
+NATS's persistence layer, providing streams, durable consumers and explicit
+acknowledgements. JetStream delivery is **at-least-once**. Keystone does not
+represent it as exactly-once execution (`ARCH-JOB-001`).
 
-### Proxy Agent
+### Account
 
-An agent that manages devices unable to run native agents, using protocols like SSH, SNMP, or WinRM.
+A NATS isolation unit. Keystone traffic runs in a dedicated account, with a
+separate system account for broker administration and advisories
+(`ARCH-NATS-001`). The account topology itself is P02's.
 
-### Quorum
+### Subject
 
-The minimum number of cluster members that must agree for distributed operations to proceed (typically majority).
+The address a NATS message is published to and subscribed on. The Keystone
+subject grammar and its per-principal permission matrix are P04's.
 
-### Runbook
+### Advisory
 
-A sequenced operational workflow with conditional branches that runs against one or more agents (backup, failover, incident response). Steps are typed (command / state / blueprint / wait); the engine persists execution status for status / list / audit queries. Authored as YAML. See `internal/runbook/`.
+A NATS-generated notification about broker or stream events, such as terminal
+delivery failure (`ARCH-NATS-010`).
 
-### Saga
+## Execution and lifecycle
 
-A long-running transaction pattern where each step has a compensating action. The state Runner uses saga semantics when applying state — failure mid-apply rolls back already-applied steps via their compensations. See `internal/statemgmt/runner_saga.go` and `pkg/saga/`.
+### Operator
 
-### State
+The person who runs `keystone` against a fleet. The charter's target operator
+is accountable for keeping Linux hosts running after deployment tooling has
+finished with them.
 
-The declared configuration for a managed system, expressed as a collection of state modules with their parameters.
+### Agent
 
-### State Module
+The Keystone process running on a managed host. It exposes no inbound
+application listener, and all of its **application** communication with the
+server — enrollment, commands, cancellation, results, events, presence —
+crosses NATS (`ARCH-COMM-001`). The invariant governs that traffic, not every
+packet the host sends.
 
-A unit of configuration that manages a specific aspect of a system (e.g., file, package, service, user).
+### Server
 
-### Supercluster
+The Keystone process that issues commands, consumes results, and holds the
+durable record. It is not assumed to be able to reach agents directly
+(`ARCH-COMM-002`).
 
-A NATS deployment spanning multiple geographic regions connected via gateways for global agent management.
+### Control plane
 
-### Targeting
+The server, the operator CLI, and the broker configuration together — the parts
+that decide and record, as distinct from the agents that execute.
 
-The process of selecting which agents should receive a command or state application, using glob patterns or filter expressions.
+### Enrollment
 
-## Protocol Terms
+The staged protocol by which a host becomes an agent with a permanent scoped
+identity: issue pending credentials, fsync and atomically rename the credential
+file at mode `0600`, prove a permanent connection, mark the identity active,
+revoke bootstrap access, and verify the revocation (`ARCH-NATS-004`).
 
-### gRPC
+### Command
 
-A high-performance RPC framework used for the client API (CLI tools communicating with control plane).
+What the operator asks an agent to run: an argv vector and its bounds. There is
+no shell, no pipeline and no script (charter § 6).
 
-### OTLP (OpenTelemetry Protocol)
+### Job
 
-The standard protocol for transmitting telemetry data (metrics, logs, traces) in cloud-native environments.
+One command's lifecycle on one agent, identified by a job identifier and
+durably recorded before execution begins (`ARCH-JOB-002`).
 
-### REST
+### Result
 
-Representational State Transfer, an architectural style for web APIs. Used for webhook receivers and external integrations.
+The durable record of a job's outcome — the remote exit status and captured
+output, signed by the agent and encrypted to the authorized result service
+(`ARCH-NATS-006`).
 
-### SNMP (Simple Network Management Protocol)
+### `UNKNOWN`
 
-A protocol for managing and monitoring network devices. Keystone Core proxy agents support SNMPv2c and SNMPv3.
+The knowledge state the control plane reports when it cannot prove whether a
+command ran. It is reported as itself, never rendered as success or failure, and
+never resolved by silently retrying an arbitrary command. A verified late result
+may supersede it; both observations stay in the audit log (`ARCH-JOB-004`).
 
-### SSH (Secure Shell)
+### Presence
 
-A protocol for secure remote access and command execution. Used by proxy agents for managing Unix/Linux systems.
+Whether an agent is currently observed to be connected. Presence is reported as
+observed and never inferred from the fact that an agent enrolled.
 
-### Webhook
+### Cancellation
 
-HTTP callback. Keystone Core has two flavors: **inbound** webhooks (`:8081/webhooks`) receive events from GitHub / GitLab / Flux / ArgoCD and drive [GitOps](#gitops) verification + rollback; **outbound** webhooks POST audit / state / event records matching an operator-registered filter to external URLs. See `internal/gitops/webhook/` (inbound) and `internal/webhook/outbound/` (outbound).
+Operator-initiated termination of a job. A job cancelled **before execution
+starts** never runs; a job cancelled **while running** has its complete process
+group or platform-equivalent job object terminated, not only its immediate child
+(`ARCH-EXEC-002`). Both reach a terminal cancelled state, and the charter gives
+both exit `14`.
 
-### WebSocket
+### Process tree
 
-A protocol for full-duplex communication over a single TCP connection. Reserved for potential future agent firewall-traversal transport (deferred to v2.x+); v0.x agents connect over [NATS](#nats).
+A process and all its descendants. The unit that cancellation and timeout must
+terminate — killing only the immediate child is the defect `ARCH-EXEC-002`
+exists to prevent.
 
-### WinRM (Windows Remote Management)
+### Argv-only execution boundary
 
-A Microsoft protocol for remote management of Windows systems. Used by proxy agents for Windows device management.
+The frozen limit on Generation 2's first release execution surface: no shell, no
+stdin streaming, no scripts, no pipelines, no caller-selected user, no
+caller-provided environment, no arbitrary working directory, no batch fan-out,
+no interactive session. Widening it requires an RFC amendment, not an ADR
+(charter § 6).
 
-## Development Terms
+## Project and process
 
-### Capability
+### Acceptance
 
-A permission granted to a module that controls what operations it can perform (file system, network, execution, etc.).
+Proof that an **operator-visible runtime feature** works, in the specific sense
+[`TESTING.md`](TESTING.md) requires: a black-box test that invokes the
+production CLI or API, crosses the production transport, executes in the
+intended agent process, and verifies the externally observable effect. Package
+tests support development; they do not close acceptance.
 
-### CEL Expression
+Planning and documentation tasks cross no transport and execute in no agent.
+They are accepted against their own stated cases, together with what those
+cases cannot detect — recorded in the task's dossier where one is required, and
+in the pull request where the task is a supporting task that has none.
 
-A filter expression using Common Expression Language syntax for targeting agents or filtering events.
+### Generation 0, 1, 2
 
-### Module
+Generation 0 is the older `archive/v0` lineage. Generation 1 is the `v0.1.0` /
+`v0.5.0` implementation, archived at `archive-2026-09-pre-v0.6-reboot`.
+Generation 2 is the post-reboot line, beginning at `v0.6.0`.
 
-An extension that provides additional state management or execution capabilities, running in a sandboxed environment.
+### Dossier
 
-### Naming: `kscore` vs `keystone-core`
+The checked-in artifact that turns a workstream paragraph into implementation
+authority. See [`../dossiers/README.md`](../dossiers/README.md).
 
-Two names appear deliberately, by scope:
+### Naming
 
-- **`kscore`** — runtime / on-disk identity: binaries (`kscore-server`,
-  `kscore-agent`, `kscorectl`, `kscore-*`), config and data directories
-  (`/etc/kscore`, `/etc/kscore/agent.yaml`, `/var/lib/kscore`,
-  `/var/lib/kscore-agent`, `/var/log/kscore`), the systemd units
-  (`kscore-server.service`, `kscore-agent.service`), and the dedicated
-  system user/group (`kscore`).
-- **`keystone-core`** — project / brand identity: the project name, the
-  repository, the Go vanity module (`go.keystone-core.io/keystone-core`),
-  the domain (`keystone-core.io`), release-artifact names
-  (`keystone-core_<version>_<platform>.tar.gz`), the maintainer address,
-  the `# Managed by keystone-core` markers written into managed system
-  files, and the gitops-rollback commit author.
+Two names, by scope:
 
-New code follows this split. When in doubt: if a human types it or a URL
-contains it, it is usually `keystone-core`; if the OS stores or runs it,
-it is `kscore`.
+- **`keystone`** — what a human types and what the OS runs. The operator CLI is
+  `keystone`, with `ks` installed as an alias; the daemons are
+  `keystone-server` and `keystone-agent` (charter § 5).
+- **`keystone-core`** — project and brand identity: the project name, the
+  repository, the Go module path `go.keystone-core.io/keystone-core`, the domain
+  `keystone-core.io`, and release-artifact names.
 
-### Policy
+Generation 1 used a different split, in which OS-run names took a `kscore`
+prefix. Generation 2 does not; RFC 0001 breaks Generation 1's CLIs, so
+continuity was available but not owed.
 
-A set of rules that govern authorization decisions, written in Rego (OPA) or CEL.
+## Reader aids
 
-### Reactor
+**The terms listed below are defined earlier in this document, and those
+definitions are not Keystone decisions.** They are general terms, defined
+because the documents that use them assume the reader knows them. Some entries
+also note where Generation 2 applies the term, or which task will decide its
+Keystone-specific meaning; those notes are context, not authority, and a term
+does not leave this list by acquiring one.
 
-An event-driven automation that executes actions in response to specific events based on filter conditions.
+- Attestation
+- CA (Certificate Authority)
+- Cipher Suite
+- Defense in Depth
+- Encryption at Rest
+- Encryption in Transit
+- Fail Secure (Fail Closed)
+- HMAC (Hash-based Message Authentication Code)
+- Key Derivation Function (KDF)
+- mTLS (Mutual TLS)
+- TLS (Transport Layer Security)
+- Token
+- Trust Boundary
+- Trust Domain
+- X.509
+- Zero Trust
 
-### Requisite
+Listing them is the point: a term with no project authority behind it is
+visibly an aid rather than an accidental leftover, which is how Generation 1's
+vocabulary survived.
 
-A dependency relationship between state modules (require, watch, prereq, onchanges) that controls execution order.
+Every other term is either used elsewhere in the current documents or cites an
+**accepted** decision that establishes it. A pointer to a decision a later task
+will make is not authority — it is the absence of one.
 
-### Starlark
+## Not yet defined
 
-A Python-like configuration language used for writing modules. Executes in a secure sandbox.
+These terms will be defined by the task that decides them. They are listed so
+that their absence is visible rather than accidental.
 
-### WASM (WebAssembly)
+| Term | Defined by |
+|---|---|
+| Subject grammar, permission matrix | P04 |
+| Account topology, stream and consumer layout, limits | P02 |
+| NKey, operator/account/user JWT as Keystone uses them | P02, P03 |
+| Bootstrap credential, permanent scoped credential | P03 |
+| Envelope, protocol version, signing and encryption layers | P05 |
+| Delivery failure, expiry, redelivery policy | P06 |
+| Execution limits, working directory, environment handling | P07 |
+| Audit record, ledger, retention | P08 |
+| Local operator API surface, operator authorization | P09 |
 
-A portable binary format for executable code. Used for running modules in a secure, sandboxed environment.
+## Removed terminology
 
-## Abbreviations
+Generation 1 terms were removed rather than rewritten, so that a superseded
+definition cannot be mistaken for a current one. Roughly fifty terms went:
+blueprints, state modules, drift, runbooks, sagas, clustering, quorum, fencing,
+etcd, high availability, leaf nodes, superclusters, edge and proxy agents,
+GitOps, webhooks, SPIFFE/SVID, OPA/Rego, CEL, RBAC, secrets leases and transit,
+Starlark, WASM, gRPC, REST, OTLP, SNMP and WinRM.
 
-| Abbreviation | Full Form |
-|-------------|-----------|
-| API | Application Programming Interface |
-| CA | Certificate Authority |
-| CEL | Common Expression Language |
-| CI/CD | Continuous Integration / Continuous Deployment |
-| CORS | Cross-Origin Resource Sharing |
-| CRD | Custom Resource Definition (Kubernetes) |
-| ECDSA | Elliptic Curve Digital Signature Algorithm |
-| HA | High Availability |
-| HMAC | Hash-based Message Authentication Code |
-| IAM | Identity and Access Management |
-| JWT | JSON Web Token |
-| KDF | Key Derivation Function |
-| KMS | Key Management Service |
-| mTLS | Mutual TLS |
-| NATS | Neural Autonomic Transport System |
-| OPA | Open Policy Agent |
-| OTLP | OpenTelemetry Protocol |
-| PII | Personally Identifiable Information |
-| PKI | Public Key Infrastructure |
-| RBAC | Role-Based Access Control |
-| RFC | Request for Comments |
-| RSA | Rivest-Shamir-Adleman (cryptographic algorithm) |
-| SAN | Subject Alternative Name (in certificates) |
-| SBOM | Software Bill of Materials |
-| SNMP | Simple Network Management Protocol |
-| SPIFFE | Secure Production Identity Framework For Everyone |
-| SSH | Secure Shell |
-| SSL | Secure Sockets Layer (deprecated, use TLS) |
-| SVID | SPIFFE Verifiable Identity Document |
-| TLS | Transport Layer Security |
-| TPM | Trusted Platform Module |
-| TTL | Time To Live |
-| USM | User-based Security Model (SNMPv3) |
-| UUID | Universally Unique Identifier |
-| WASM | WebAssembly |
-| WinRM | Windows Remote Management |
+Every one of them is catalogued as a `Future / Unscheduled` candidate in
+[`FUTURE-CAPABILITIES.md`](FUTURE-CAPABILITIES.md), and the Generation 1
+definitions remain readable:
+
+```bash
+git show archive-2026-09-pre-v0.6-reboot:docs/project/GLOSSARY.md
+```
+
+A term returns to this glossary when the capability it names is promoted through
+the roadmap gate and an accepted design defines it — not before.

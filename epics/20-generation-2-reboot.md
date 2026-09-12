@@ -49,7 +49,9 @@ If this epic conflicts with an older epic, RFC 0001 and this epic control.
 Every R checkbox is a separate repository task. P/C checkboxes are program
 workstreams and cannot be approved directly: their checked-in dossier splits
 acceptance-contract and implementation tasks into separate approvals, branches,
-and pull requests. Detailed controls are normative in the execution plan.
+and pull requests. G checkboxes are supporting repository tasks — not
+workstreams, so no dossier — that correct project documentation a later
+workstream depends on. Detailed controls are normative in the execution plan.
 
 ### Repository transition
 
@@ -98,6 +100,15 @@ and pull requests. Detailed controls are normative in the execution plan.
 - [ ] C14 — Adversarial and fault-matrix closure.
 - [ ] C15 — Scale and soak.
 - [ ] C16 — External pilot and `v0.6.0`.
+
+### Supporting tasks
+
+Not workstreams. Each is a single repository task correcting documentation that
+a workstream depends on, and each names the workstream it unblocks.
+
+- [x] G01 — Terminology baseline. Rebuilds `GLOSSARY.md` for Generation 2.
+  Unblocks P01, which depends on terms the Generation 1 glossary defined
+  wrongly or not at all.
 
 ## Epic acceptance
 
