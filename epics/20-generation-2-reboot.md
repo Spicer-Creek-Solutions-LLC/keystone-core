@@ -130,6 +130,8 @@ limitations go in the pull request.
 - [x] G07 — Revise `DL-8` again. It recurred in G06 under the revised
   countermeasure, this time because of how the search was written and how its
   output was trimmed rather than where it ran.
+- [x] G08 — Correct P02's `AC-4`, which forbade every wildcard and so could not
+  be satisfied by any ADR that permits JetStream acknowledgement.
 
 ## Epic acceptance
 
