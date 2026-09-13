@@ -47,9 +47,11 @@ If this epic conflicts with an older epic, RFC 0001 and this epic control.
 ## Tasks
 
 Every R checkbox is a separate repository task. P/C checkboxes are program
-workstreams and cannot be approved directly: their checked-in dossier splits
-acceptance-contract and implementation tasks into separate approvals, branches,
-and pull requests. G checkboxes are supporting repository tasks — not
+workstreams and cannot be approved directly: each needs a checked-in dossier
+first. **Behaviour** workstreams additionally split acceptance-contract and
+implementation tasks into separate approvals, branches and pull requests;
+planning and ADR tasks may use one. G checkboxes are supporting repository
+tasks — not
 workstreams, so no dossier — that correct project documentation a later
 workstream depends on. Detailed controls are normative in the execution plan.
 
