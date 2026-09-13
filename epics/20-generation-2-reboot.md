@@ -47,9 +47,11 @@ If this epic conflicts with an older epic, RFC 0001 and this epic control.
 ## Tasks
 
 Every R checkbox is a separate repository task. P/C checkboxes are program
-workstreams and cannot be approved directly: their checked-in dossier splits
-acceptance-contract and implementation tasks into separate approvals, branches,
-and pull requests. G checkboxes are supporting repository tasks — not
+workstreams and cannot be approved directly: each needs a checked-in dossier
+first. **Behaviour** workstreams additionally split acceptance-contract and
+implementation tasks into separate approvals, branches and pull requests;
+planning and ADR tasks may use one. G checkboxes are supporting repository
+tasks — not
 workstreams, so no dossier — that correct project documentation a later
 workstream depends on. Detailed controls are normative in the execution plan.
 
@@ -116,6 +118,9 @@ limitations go in the pull request.
   countermeasures, and whether each countermeasure held.
 - [x] G03 — Defect ledger entry `DL-8`. Records the class P01's three review
   rounds demonstrated twice: a finding repaired only where it was pointed out.
+- [x] G04 — Correct `AGENTS.md` § 3's workstream-split rule, which claimed every
+  P and C task splits into two agents where the execution plan splits only
+  behaviour workstreams and allows planning and ADR tasks one PR.
 
 ## Epic acceptance
 

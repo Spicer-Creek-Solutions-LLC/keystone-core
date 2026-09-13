@@ -57,8 +57,12 @@ Rules:
 - Remote forge changes need a reviewed dry run and a **separate** apply
   approval. Approving a task plan never authorises the apply.
 - P and C workstreams cannot be approved directly. Each needs a checked-in
-  dossier first, and splits into an acceptance-contract task and an
-  implementation task with different agents.
+  dossier first. **Behaviour workstreams** additionally split into an
+  acceptance-contract task and an implementation task with different agents.
+  Planning and ADR tasks may use one PR, where program rule 6's separation is
+  met by the independent reviewer the dossier names. The split's mechanism is
+  in [`REBOOT-EXECUTION-PLAN.md`](docs/project/REBOOT-EXECUTION-PLAN.md); this
+  file does not restate it.
 
 ## 4) Commit Attribution Requirements
 
