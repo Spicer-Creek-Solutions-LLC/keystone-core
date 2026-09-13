@@ -103,12 +103,16 @@ workstream depends on. Detailed controls are normative in the execution plan.
 
 ### Supporting tasks
 
-Not workstreams. Each is a single repository task correcting documentation that
-a workstream depends on, and each names the workstream it unblocks.
+Not workstreams. Each is a single repository task establishing or correcting
+project documentation that later work depends on. Each still needs its own
+presented plan and explicit approval; no dossier is required, and cases and
+limitations go in the pull request.
 
 - [x] G01 — Terminology baseline. Rebuilds `GLOSSARY.md` for Generation 2.
   Unblocks P01, which depends on terms the Generation 1 glossary defined
   wrongly or not at all.
+- [x] G02 — Defect ledger. Records recurring agent defects with root causes and
+  countermeasures, and whether each countermeasure held.
 
 ## Epic acceptance
 
