@@ -39,9 +39,12 @@ laundered.** Revise a countermeasure after it fails and the entry becomes
 `Proposed`, and the record of the failure disappears. Left unguarded, that would
 let a ledger of seven defects show no failures at all.
 
-`Proposed` becomes `Adopted` only when the countermeasure has been *exercised* —
-a later occasion presented the chance for the defect and it did not occur. Time
-passing is not evidence, and neither is the author intending to follow it.
+`Proposed` becomes `Adopted` only when the countermeasure has been *exercised on
+a later task* — that task presented the chance for the defect and it did not
+occur. Time passing is not evidence, the author intending to follow it is not
+evidence, and **continued use inside the task that recorded the defect is not
+evidence either**: a countermeasure cannot be credited by the same task that
+produced the thing it is meant to prevent.
 
 So every entry also carries **`Last recurrence`**: the latest occasion the
 defect is known to have occurred. A recurrence is a fact about the world; a
@@ -64,12 +67,12 @@ justified exemption.
 | ID | Defect class | Status |
 |---|---|---|
 | `DL-1` | A check that cannot fail, mistaken for evidence | `Proposed` |
-| `DL-2` | An acceptance property expressed as pattern-matching over prose | `Adopted` |
+| `DL-2` | An acceptance property tested through a proxy | `Proposed` |
 | `DL-3` | A factual claim never compared with its source | `Proposed` |
 | `DL-4` | The record and the branch go unchecked | `Failed` |
 | `DL-5` | A check verified only against fixtures | `Adopted` |
-| `DL-6` | Shell-hostile command construction | `Adopted` |
-| `DL-7` | A demonstration that did not demonstrate | `Held` |
+| `DL-6` | Shell-hostile command construction | `Proposed` |
+| `DL-7` | A substitution that did not do what it claimed | `Proposed` |
 
 ### `DL-1` — A check that cannot fail, mistaken for evidence
 
@@ -105,14 +108,15 @@ fire. Recorded as `DL-7`.
 nine defective checks since, but it recurred as above, so the countermeasure a
 reader should follow is now the core *plus* `DL-7`'s assertions.
 
-Those assertions have been exercised — `DL-7` is `Held` on their strength — but
-they were exercised catching `DL-7`'s class, not preventing `DL-1`'s. The
-strengthened procedure has not yet been applied to a later task's acceptance
-cases, which is where a check that cannot fail would actually slip through. P01
-is the first occasion. Judging it `Adopted` on this task's evidence would be the
-laundering this schema exists to prevent, applied to the entry that starts it.
+Those assertions have been exercised twice and caught both times, but they were
+exercised catching `DL-7`'s class rather than preventing `DL-1`'s — and `DL-7`
+itself then recurred uncaught in a step they did not cover. The strengthened
+procedure has not been applied to a later task's acceptance cases, which is where
+a check that cannot fail would actually slip through. P01 is the first occasion.
+Judging it `Adopted` on this task's own evidence would be the laundering this
+schema exists to prevent, applied to the entry that starts it.
 
-### `DL-2` — An acceptance property expressed as pattern-matching over prose
+### `DL-2` — An acceptance property tested through a proxy
 
 **Instances.** Nine across P00, G01 and P01, in both directions. Too loose:
 `AC-5` skipped a malformed table row instead of failing it; `AC-1` accepted the
@@ -133,28 +137,43 @@ Evidence in [`../dossiers/P00-acceptance-evidence.md`](../dossiers/P00-acceptanc
 fixes in `fd0d20b81`, `b1ff567d0`, `f55a04515`, `dd48d8e57`, `cb2472203`,
 `a2dfd383a`.
 
-**Root cause.** The check tested a proxy — a string is present, a pattern
-matches, an identifier resolves — rather than the property the case claims.
-Prose has no stable structure to match against, so the regex is always either
-wider or narrower than the claim.
+**Root cause.** The check tested a proxy rather than the property the case
+claims — a string is present, a pattern matches, an identifier resolves, one of
+two duplicated fields agrees. Prose is the worst case, because it has no stable
+structure and the regex is always wider or narrower than the claim. But
+structure alone does not fix it: a table can be parsed correctly and still be
+checked in only one of the places a fact appears.
 
 **Countermeasure.** Make the document carry the structure the check needs — a
 markdown list, a table, a stable identifier — then parse that structure and
-treat unparseable input as **failure**, never as absence of evidence. Worked
-example: [`GLOSSARY.md`](GLOSSARY.md) § "Reader aids" is a list rather than a
-prose sentence precisely so its check reads list items; the entry table in this
-document exists for the same reason. When a case false-positives, preserve the
+treat unparseable input as **failure**, never as absence of evidence. Worked example: [`GLOSSARY.md`](GLOSSARY.md) § "Reader aids" is a list rather
+than a prose sentence precisely so its check reads list items; the entry table
+in this document exists for the same reason.
+
+**And where a fact appears twice, check that the copies agree.** Structure makes
+a fact parseable; it does not make a check look at every copy of it. `AC-1` now
+compares the summary status against each entry's own `Status` field, which is
+the property it had been asserting through a proxy. When a case false-positives, preserve the
 property and fix the matching — do not substitute a narrower property and call
 it a restatement.
 
-**Last recurrence.** G01, where a prose-regex check was written two tasks after
-the lesson was recorded.
+**Last recurrence.** This pull request. `AC-1` compared the summary table's
+*class* against each heading and treated that as agreement between table and
+entry, while never comparing the *status* — so a substitution that swapped two
+entries' status blocks passed every check. The document carried structure and
+the check parsed it; it simply read one of the two duplicated fields.
 
-**Status: `Adopted`.** The countermeasure changed after that recurrence from
-"remember to parse structurally" to "make the document carry the structure", and
-has held since — G02's acceptance checks read an entry table for this reason. It now holds because G01's reader-aids list was converted to a
-markdown list that the check parses as list items — the document changed, not
-only the intention.
+Before that, G01, where a prose-regex check was written two tasks after the
+lesson was recorded.
+
+**Status: `Proposed`.** The countermeasure changed once already, from "remember
+to parse structurally" to "make the document carry the structure", and held
+across G01 into G02. It then failed on the duplicated-field case above, so it has
+been extended a second time. The first extension worked because
+[`GLOSSARY.md`](GLOSSARY.md)'s reader-aids list was converted to a markdown list
+the check parses as list items — the document changed, not only the intention.
+The second extension, comparing every duplicated field, is untested by a later
+task.
 
 ### `DL-3` — A factual claim never compared with its source
 
@@ -196,7 +215,7 @@ description hours after the practice was adopted for document bodies.
 
 **Status: `Proposed`.** The countermeasure was widened with concrete commands
 after the P01 failure, and the recurrence above predates that widening. It has
-not since been exercised on a later occasion.
+not since been exercised on a later task.
 
 ### `DL-4` — The record and the branch go unchecked
 
@@ -232,10 +251,12 @@ the artifact converges while the record around it drifts.
    current head, and name what the checks read. Evidence has a dependency graph,
    and a later commit can invalidate it silently.
 
-**Last recurrence.** Pull request #289 — two stale acceptance statements in this
-pull request's own description, found in review: `AC-1` claiming four required
-fields where there were five, and `AC-3`'s limitation still describing a
-recurrence as a `Failed` status one commit after that model was replaced.
+**Last recurrence.** Pull request #289, repeatedly. Most recently, a description
+that still counted four `DL-7` occurrences after a fifth had been reported in the
+thread. Before that, two stale acceptance statements found in review: `AC-1`
+claiming four required fields where there were five, and `AC-3`'s limitation
+still describing a recurrence as a `Failed` status one commit after that model
+was replaced.
 
 Before that, #287: a locally-created merge commit with no signature and no
 trailers, alongside four stale claims in the description, fixed at `a2dfd383a`.
@@ -272,7 +293,11 @@ an artifact, as [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) requires
 before any apply. A same-value match is not evidence of a relationship: state
 the relationship the requirement actually asks about, and test that.
 
-**Last recurrence.** R09; none since.
+**Last recurrence.** R09. Exercised since on a later task: R10's audit
+re-measured the archive bundle against the live repository with
+`GIT_NO_REPLACE_OBJECTS=1` rather than against a recorded figure, and queried the
+live forge for branch, tag and release state. That was an occasion for a
+fixtures-only check and it did not occur.
 
 **Status: `Adopted`.**
 
@@ -313,14 +338,16 @@ ignored is worse than no gate, because its output looks like evidence.
 **Last recurrence.** `5449b3f90` on this pull request, pushed while `docs-lint`
 was red.
 
-**Status: `Adopted`.** The first two instances were caught by the countermeasure
+**Status: `Proposed`.** The first two instances were caught by the countermeasure
 in force at the time. The third was not — it recurred because that countermeasure
-covered pipelines and not sequences. The widened version has since been
-exercised: a later commit in this task ran `make check`, which reported `MD012`,
-and the `&&` chain stopped before the commit and push. The occasion for the
-defect arose and the defect did not.
+covered pipelines and not sequences.
 
-### `DL-7` — A demonstration that did not demonstrate
+The widened version has been used since, and on one occasion `make check`
+reported `MD012` and the `&&` chain stopped before the commit. That is continued
+use *inside the task that recorded the defect*, which the schema explicitly does
+not count. A later task has to exercise it.
+
+### `DL-7` — A substitution that did not do what it claimed
 
 **Instance.** While authoring this ledger, two planted defects produced no
 failures and were nearly recorded as "the check does not fire". The checks were
@@ -341,7 +368,13 @@ present. A mutation that misses its target produces a clean run that is
 indistinguishable from a passing document — the demonstration becomes the very
 thing it exists to detect, one level up.
 
-**Countermeasure.** Three assertions, and the third is the one that matters:
+**Countermeasure.** Any scripted change to a document — planting a defect *or*
+editing it — must assert what it did. **Scope the replacement to the region it
+names**: an entry-scoped helper that searches only inside the named entry's
+block cannot land in a neighbour, which a whole-document `str.replace` can and
+did.
+
+Then three assertions, and the third is the one that matters:
 
 1. The mutation landed — `re.subn` requiring `n == 1`, or compare before and
    after and fail if unchanged.
@@ -356,19 +389,29 @@ thing it exists to detect, one level up.
    "it fired" as proof of that is circular, and was how this entry was first
    written.
 
-**Last recurrence.** This pull request, four times, and the last two were
-**caught by the countermeasure**. Uncaught: the mutation that landed on the
-wrong entry (the instance above), then a mutation that replaced only a
-countermeasure's first sentence — it changed the document, so the assertion then
-in force passed, but created no defect; that occurrence is why the third
-assertion exists and does not rely on the checker. Caught: two demonstration
-cases whose anchors referred to text that had since been rewritten, both
-rejected by the anchor assertion before they could produce false evidence.
+**Last recurrence.** This pull request, five times.
 
-**Status: `Held`.** The three assertions were exercised on the two stale-anchor
-cases above and rejected both before they could report a passing run. This is
-the only entry in the ledger whose countermeasure has caught its own defect
-class without a reader finding it first.
+Most recently, and **uncaught**: an *editing* substitution whose anchor text
+appeared in a different entry than assumed, which swapped `DL-3`'s and `DL-4`'s
+status blocks. The three assertions did not catch it because they were written
+for the demonstration harness and this was a document edit — the same defect in
+a step the countermeasure did not cover.
+
+Earlier and uncaught: a mutation that landed on the wrong entry (the instance
+above), and one that replaced only a countermeasure's first sentence — it changed
+the document, so the assertion then in force passed, but created no defect; that
+is why the third assertion exists and does not rely on the checker.
+
+Caught: two demonstration cases whose anchors referred to text since rewritten,
+both rejected by the anchor assertion before they could produce false evidence.
+
+**Status: `Proposed`.** The three assertions were exercised on the two
+stale-anchor cases and rejected both before they could report a passing run —
+one of only two occasions in this task where a countermeasure caught its own
+class without a reader, the other being `DL-6`'s `&&` stopping a commit after
+`MD012`. But they did not cover document editing, where the class then recurred
+uncaught, so the countermeasure has been widened and the wider version is
+untested.
 
 ## On whether this document works
 
