@@ -68,7 +68,7 @@ justified exemption.
 |---|---|---|
 | `DL-1` | A check that cannot fail, mistaken for evidence | `Proposed` |
 | `DL-2` | An acceptance property tested through a proxy | `Proposed` |
-| `DL-3` | A factual claim never compared with its source | `Proposed` |
+| `DL-3` | A factual claim never compared with its source | `Failed` |
 | `DL-4` | The record and the branch go unchecked | `Failed` |
 | `DL-5` | A check verified only against fixtures | `Adopted` |
 | `DL-6` | Shell-hostile command construction | `Proposed` |
@@ -205,17 +205,28 @@ unresolvable for every reader but you. For anything in a control document listed
 in [`AGENTS.md`](../../AGENTS.md) § 7, treat the claim as load-bearing: it
 licenses the next agent to act, and that agent has no reason to doubt it.
 
-**Last recurrence.** This pull request — `DL-6` was written asserting that every
-commit since is made with `git commit -F`, which a commit object does not record
-and so cannot be compared against any source. A `DL-3` instance inside the
-ledger, found in review rather than by the countermeasure.
+**Last recurrence.** `ac7974c88` — two stale cross-references written into this
+document: `DL-1` asserting that `DL-7` is `Held`, which had stopped being true in
+the same commit, and `DL-7` claiming to be the only occasion a countermeasure
+caught its own class, which `DL-6`'s `&&` falsifies. Both are claims about the
+document's own contents that were never compared against them. Fixed in
+`4674ab86c`, found in review.
+
+Before that, `22fbcab82` — `DL-6` written asserting that every commit since is
+made with `git commit -F`, which a commit object does not record.
 
 Before that, P01's pull request, where four stale claims shipped in a
 description hours after the practice was adopted for document bodies.
 
-**Status: `Proposed`.** The countermeasure was widened with concrete commands
-after the P01 failure, and the recurrence above predates that widening. It has
-not since been exercised on a later task.
+**Status: `Failed`.** An earlier draft claimed the countermeasure was widened
+after the P01 failure and that the recurrence predated the widening. `git blame`
+does not support that: the concrete-command countermeasure originates in
+`22fbcab82`, the ledger's first commit, and has not changed since — the same
+commit that carried the unverifiable `git commit -F` claim. The class then
+recurred twice more in `ac7974c88`, with that countermeasure in force.
+
+The claim that made this entry `Proposed` was itself a `DL-3` instance: a
+statement about the repository's history, never compared against the history.
 
 ### `DL-4` — The record and the branch go unchecked
 
@@ -260,9 +271,9 @@ was replaced.
 
 Before that, #287: a locally-created merge commit with no signature and no
 trailers, alongside four stale claims in the description, fixed at `a2dfd383a`.
-**This entry has now recurred on the pull request that documents it**, which is
-the clearest evidence available that its countermeasure is `Proposed` rather
-than working.
+**This entry has now recurred repeatedly on the pull request that documents
+it**, which is the clearest evidence available that its countermeasure does not
+work — hence `Failed` below rather than a revision.
 
 **Status: `Failed`.** The countermeasure is unchanged and has now been tested
 three times on this pull request alone — each review round that found a stale
@@ -363,33 +374,42 @@ for a supporting task live in its pull request, not in the tree. The entry is
 recorded because the failure mode is invisible by construction, and because the
 check in this pull request caught it happening again to `DL-7` itself.
 
-**Root cause.** `DL-1`'s countermeasure assumes the planted defect is actually
-present. A mutation that misses its target produces a clean run that is
-indistinguishable from a passing document — the demonstration becomes the very
-thing it exists to detect, one level up.
+**Root cause.** A scripted substitution is assumed to have done what its author
+intended, and nothing checks. In a document edit the result is a change landing
+somewhere it was not meant to. In a planted demonstration it is worse: a mutation
+that misses its target produces a clean run indistinguishable from a passing
+document, so the demonstration becomes the very thing it exists to detect, one
+level up.
 
-**Countermeasure.** Any scripted change to a document — planting a defect *or*
-editing it — must assert what it did. **Scope the replacement to the region it
-names**: an entry-scoped helper that searches only inside the named entry's
-block cannot land in a neighbour, which a whole-document `str.replace` can and
-did.
+**Countermeasure.** Two tiers, because the scopes differ.
 
-Then three assertions, and the third is the one that matters:
+*Every scripted substitution*, edit or demonstration:
 
-1. The mutation landed — `re.subn` requiring `n == 1`, or compare before and
-   after and fail if unchanged.
-2. The reported failure **names the thing you mutated**. A defect planted in
-   `DL-5` that reports `DL-6` is a planting bug, not a finding.
-3. The mutated document **actually has the defect**, verified by inspecting it
-   directly — parse the mutated text and assert the broken property, without
-   consulting the checker. Replacing a countermeasure's first sentence leaves
-   the rest in place: assertion 1 passes, no defect exists, and the run is
+1. **Scope the replacement to the region it names** — a helper that searches only
+   inside the named entry's block cannot land in a neighbour, which a
+   whole-document `str.replace` can and did.
+2. **Assert the anchor was unique and the document changed** — `re.subn`
+   requiring `n == 1`, or compare before and after.
+3. **Assert the intended postcondition independently**, by parsing the result
+   and checking the property you meant to change. "Something changed" is not
+   "the change I meant".
+
+*Negative demonstrations additionally*:
+
+1. The mutated document **actually has the defect**, verified by parsing it
+   directly rather than by consulting the checker. Replacing a countermeasure's
+   first sentence leaves the rest in place: the anchor and postcondition rules
+   above can both pass while no defect exists, and the run is then
    indistinguishable from a check that does not fire. **The checker under
    demonstration cannot establish that its own input is defective** — treating
-   "it fired" as proof of that is circular, and was how this entry was first
-   written.
+   "it fired" as proof is circular, and was how this entry was first written.
+2. The reported failure **names the thing you mutated**. A defect planted in
+   `DL-5` that reports `DL-6` is a planting bug, not a finding.
 
-**Last recurrence.** This pull request, five times.
+**Last recurrence.** This pull request, six times. The most recent was
+**caught**: a demonstration case still anchored on `DL-3` being `Proposed` after
+it became `Failed`, rejected by the anchor assertion before it could report a
+passing run.
 
 Most recently, and **uncaught**: an *editing* substitution whose anchor text
 appeared in a different entry than assumed, which swapped `DL-3`'s and `DL-4`'s
@@ -407,11 +427,12 @@ both rejected by the anchor assertion before they could produce false evidence.
 
 **Status: `Proposed`.** The three assertions were exercised on the two
 stale-anchor cases and rejected both before they could report a passing run —
-one of only two occasions in this task where a countermeasure caught its own
-class without a reader, the other being `DL-6`'s `&&` stopping a commit after
-`MD012`. But they did not cover document editing, where the class then recurred
-uncaught, so the countermeasure has been widened and the wider version is
-untested.
+one of only two countermeasures in this task to catch its own class without a
+reader, the other being `DL-6`'s `&&`, which has stopped a commit after `MD012`,
+`MD038` and `MD029`. But they did not cover document editing, where the class recurred uncaught, so
+the countermeasure has been split into two tiers. The demonstration tier is
+proven; the scoped-substitution tier that covers ordinary edits is new and
+untested, and the status describes the whole.
 
 ## On whether this document works
 
