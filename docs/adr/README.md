@@ -50,6 +50,8 @@ Examples:
 | [ADR-0000](0000-adr-template.md) | ADR Template (Full) | Accepted | 2024-01-01 |
 | [ADR-0001](0001-adr-short-template.md) | ADR Template (Short) | Accepted | 2024-01-01 |
 
+| [ADR-0002](0002-nats-native-capabilities.md) | NATS-native capability decisions | Proposed | 2026-09-13 |
+
 <!-- Add new ADRs above this line -->
 
 ## Creating a New ADR

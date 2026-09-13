@@ -140,7 +140,7 @@ Do not duplicate volatile inventories in this file. Those drift quickly.
 - Issue tracker conventions: `docs/project/ISSUE-TRACKING.md`
 - Governance / DCO / AI policy: `docs/project/{GOVERNANCE,DCO,AI-CONTRIBUTIONS,MAINTAINERS,RFC}.md`
 - Security policy and process: `SECURITY.md`, `docs/project/SECURITY-RELEASE.md`
-- ADR templates: `docs/adr/`
+- Accepted and proposed ADRs, and their templates: `docs/adr/`
 - Terminology: `docs/project/GLOSSARY.md`
 - Threat model (normative, `THR-*` and `RSK-*` ids): `docs/project/THREAT-MODEL.md`
 - Recurring agent defects and their countermeasures: `docs/project/DEFECT-LEDGER.md`
