@@ -30,16 +30,18 @@ is not a status.
 | Status | Meaning |
 |---|---|
 | `Proposed` | Countermeasure defined, not yet tested by events |
-| `Adopted` | In use; no recurrence since |
+| `Adopted` | Exercised on a later task where the defect could have occurred, and it did not |
 | `Held` | Recurred, the countermeasure caught it |
 | `Failed` | Recurred *despite* the countermeasure — the countermeasure is wrong or unusable |
 
 **The status describes the current countermeasure, which means it can be
 laundered.** Revise a countermeasure after it fails and the entry becomes
-`Proposed`, and the record of the failure disappears. Every entry here whose
-countermeasure failed has since been revised, so **no entry currently carries
-`Failed`** — which would leave a ledger of seven defects showing no failures at
-all.
+`Proposed`, and the record of the failure disappears. Left unguarded, that would
+let a ledger of seven defects show no failures at all.
+
+`Proposed` becomes `Adopted` only when the countermeasure has been *exercised* —
+a later occasion presented the chance for the defect and it did not occur. Time
+passing is not evidence, and neither is the author intending to follow it.
 
 So every entry also carries **`Last recurrence`**: the latest occasion the
 defect is known to have occurred. A recurrence is a fact about the world; a
@@ -64,10 +66,10 @@ justified exemption.
 | `DL-1` | A check that cannot fail, mistaken for evidence | `Proposed` |
 | `DL-2` | An acceptance property expressed as pattern-matching over prose | `Adopted` |
 | `DL-3` | A factual claim never compared with its source | `Proposed` |
-| `DL-4` | The record and the branch go unchecked | `Proposed` |
+| `DL-4` | The record and the branch go unchecked | `Failed` |
 | `DL-5` | A check verified only against fixtures | `Adopted` |
-| `DL-6` | Shell-hostile command construction | `Proposed` |
-| `DL-7` | A demonstration that did not demonstrate | `Proposed` |
+| `DL-6` | Shell-hostile command construction | `Adopted` |
+| `DL-7` | A demonstration that did not demonstrate | `Held` |
 
 ### `DL-1` — A check that cannot fail, mistaken for evidence
 
@@ -100,10 +102,15 @@ the procedure as written could not distinguish that from a check that does not
 fire. Recorded as `DL-7`.
 
 **Status: `Proposed`.** The core measure found `AC-5` in P00 and has surfaced
-nine defective checks since, but it recurred as above, and the assertions in
-`DL-7` that close the hole are part of the countermeasure a reader should follow
-and are untested by events. Linking to a separate entry does not erase the
-recurrence, and the strengthened whole has not yet been tried.
+nine defective checks since, but it recurred as above, so the countermeasure a
+reader should follow is now the core *plus* `DL-7`'s assertions.
+
+Those assertions have been exercised — `DL-7` is `Held` on their strength — but
+they were exercised catching `DL-7`'s class, not preventing `DL-1`'s. The
+strengthened procedure has not yet been applied to a later task's acceptance
+cases, which is where a check that cannot fail would actually slip through. P01
+is the first occasion. Judging it `Adopted` on this task's evidence would be the
+laundering this schema exists to prevent, applied to the entry that starts it.
 
 ### `DL-2` — An acceptance property expressed as pattern-matching over prose
 
@@ -179,11 +186,17 @@ unresolvable for every reader but you. For anything in a control document listed
 in [`AGENTS.md`](../../AGENTS.md) § 7, treat the claim as load-bearing: it
 licenses the next agent to act, and that agent has no reason to doubt it.
 
-**Last recurrence.** P01's pull request, where four stale claims shipped in a
+**Last recurrence.** This pull request — `DL-6` was written asserting that every
+commit since is made with `git commit -F`, which a commit object does not record
+and so cannot be compared against any source. A `DL-3` instance inside the
+ledger, found in review rather than by the countermeasure.
+
+Before that, P01's pull request, where four stale claims shipped in a
 description hours after the practice was adopted for document bodies.
 
-**Status: `Proposed`.** The countermeasure was widened with concrete checks after
-that recurrence and is untested by events.
+**Status: `Proposed`.** The countermeasure was widened with concrete commands
+after the P01 failure, and the recurrence above predates that widening. It has
+not since been exercised on a later occasion.
 
 ### `DL-4` — The record and the branch go unchecked
 
@@ -230,7 +243,17 @@ trailers, alongside four stale claims in the description, fixed at `a2dfd383a`.
 the clearest evidence available that its countermeasure is `Proposed` rather
 than working.
 
-**Status: `Proposed`.**
+**Status: `Failed`.** The countermeasure is unchanged and has now been tested
+three times on this pull request alone — each review round that found a stale
+statement here was an occasion for step 1 to work, and it did not.
+
+It is left unrevised deliberately. Step 1 is "re-read the description against
+the current diff", an unaided-attention instruction of exactly the kind `DL-3`
+already failed at; replacing it with a differently-worded unaided instruction
+would move this entry to `Proposed` while changing nothing. A working version
+would have to be mechanical — comparing the description's claims against the
+changed files — and that is not written. Recording the failure is the honest
+state until it is.
 
 ### `DL-5` — A check verified only against fixtures
 
@@ -290,10 +313,12 @@ ignored is worse than no gate, because its output looks like evidence.
 **Last recurrence.** `5449b3f90` on this pull request, pushed while `docs-lint`
 was red.
 
-**Status: `Proposed`.** The first two instances were caught by the countermeasure
+**Status: `Adopted`.** The first two instances were caught by the countermeasure
 in force at the time. The third was not — it recurred because that countermeasure
-covered pipelines and not sequences — and the widened version above is untested
-by events.
+covered pipelines and not sequences. The widened version has since been
+exercised: a later commit in this task ran `make check`, which reported `MD012`,
+and the `&&` chain stopped before the commit and push. The occasion for the
+defect arose and the defect did not.
 
 ### `DL-7` — A demonstration that did not demonstrate
 
@@ -331,14 +356,19 @@ thing it exists to detect, one level up.
    "it fired" as proof of that is circular, and was how this entry was first
    written.
 
-**Last recurrence.** This pull request, twice. First the mutation that landed
-on the wrong entry, which is the instance above. Then, while re-running the
-demonstrations after that fix, a mutation that replaced only a countermeasure's
-first sentence — it changed the document, so the assertion then in force
-passed, but created no defect. That second occurrence is why the third
-assertion exists and why it does not rely on the checker.
+**Last recurrence.** This pull request, four times, and the last two were
+**caught by the countermeasure**. Uncaught: the mutation that landed on the
+wrong entry (the instance above), then a mutation that replaced only a
+countermeasure's first sentence — it changed the document, so the assertion then
+in force passed, but created no defect; that occurrence is why the third
+assertion exists and does not rely on the checker. Caught: two demonstration
+cases whose anchors referred to text that had since been rewritten, both
+rejected by the anchor assertion before they could produce false evidence.
 
-**Status: `Proposed`.**
+**Status: `Held`.** The three assertions were exercised on the two stale-anchor
+cases above and rejected both before they could report a passing run. This is
+the only entry in the ledger whose countermeasure has caught its own defect
+class without a reader finding it first.
 
 ## On whether this document works
 
