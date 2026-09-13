@@ -64,6 +64,14 @@ One planting bug was caught by assertion 1 rather than producing false
 evidence: the unresolvable-invariant case first anchored on a bare
 `` `ARCH-EXEC-001` ``, which occurs five times.
 
+A second was caught by assertion 3 when the cases were re-run against the
+round-3 document. The *threat resolves to neither* case was planted on `THR-48`,
+whose mitigation cites `RSK-9` **and** `ARCH-JOB-002`; removing the risk left a
+valid mitigation behind, so the mutated document had no defect and the case
+would have "passed" against nothing. Re-anchored on `THR-32`, whose mitigation
+cites one thing. Assertion 3 exists because a demonstration that plants nothing
+looks exactly like a demonstration that works.
+
 ## What these cases cannot detect
 
 Stated as an output of P01, not learned afterwards. Every row says review,
@@ -108,6 +116,36 @@ control must constrain that actor.
 is for.** Fifteen mechanical cases, all green, against five real semantic
 defects — one of which (§ 7) was a guarantee stated more broadly than the design
 supports, in a security document.
+
+## Round 2 of review: the same classes, one document over
+
+Independent review of `95a8b4df1` found four further defects. **The acceptance
+checks passed all four**, as in round 1 — but the more useful observation is
+that three of them are *recurrences of round-1 classes* rather than new ones.
+
+| Finding | Class | Which case should have caught it |
+|---|---|---|
+| The blast radius was enumerated for `TD-SRV` and not for `TD-AGT`. `ACT-7` holds the signing key, the result plaintext and the ledger, so it can sign a success for a job it never executed | Semantic — **recurrence** of round 1's shallow-threat finding, one domain over | None. The same limit as round 1: `AC-6`'s coverage table is satisfied by a shallow threat |
+| § 7's guarantee still named a compromised agent among the parties the operator is protected from | Semantic — **recurrence** of round 1's claim-broader-than-its-evidence finding | None |
+| `ACT-8` was given the service signing key (`THR-11`, `THR-44`), decryption keys and store access (`THR-45`, `THR-46`), an enrollment token (`THR-02`) and a co-tenant's position (`THR-30`) — by the same commit that wrote the actor/control rule down | Semantic — **recurrence** of round 1's actor/control misalignment | None. `AC-1` checks that an actor has capabilities and `AC-3` that a control is named; neither compares the two |
+| § 7 claimed a compromised agent's denial is bounded to that agent, which `ARCH-NATS-007` does not require — it bounds resources, not topology | Semantic — a control cited for a property it does not have | None |
+| `SECURITY.md`, the epic and § 10 still carried round-1 counts and cross-references | Generated summary not regenerated | None. No case reads outside the threat model |
+
+Resolved by: extending § 5.3 to both domains that author the record (`THR-47`,
+`THR-48`, `RSK-9`), narrowing § 7's guarantee to denial and delay, tightening
+`ACT-8` to exactly one credential and re-pointing the six threats whose actor
+exceeded it, restating `THR-11` so the credential-only party cannot complete it,
+recording `RSK-10` for fleet-wide denial pending P02's topology decision, and
+regenerating the counts.
+
+**What round 2 establishes that round 1 did not.** Round 1's fixes were applied
+to the instances the reviewer named. Three of these four are the same classes
+surfacing elsewhere in the same document — including a rule written into § 5 and
+then violated in § 5.1 and § 5.3 by the commit that added it. The lesson is not
+"add a case": none of these is mechanically checkable, and the limits table
+already says so. It is that a semantic finding is a statement about the
+document, and repairing only where it was pointed out leaves the rest of it
+standing.
 
 ## A deviation from the approved plan
 

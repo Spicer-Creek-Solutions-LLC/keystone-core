@@ -145,7 +145,7 @@ party. The actor is whoever holds it.
 | `ACT-5` | Broker administrator | Runs the broker process. Sees every subject, header and byte on the wire; can drop, delay or reorder | Operates infrastructure Keystone does not own |
 | `ACT-6` | Network attacker | Observes and manipulates traffic between domains; cannot read TLS plaintext without a key | Opportunistic or targeted |
 | `ACT-7` | Compromised agent | Everything `ACT-3` has, plus `AST-2`–`AST-5`, the ledger, and root on that host | Pivot to other agents, the server, or the fleet |
-| `ACT-8` | Attacker holding a compromised service credential | Whatever that credential authorizes — publishing commands, or consuming results | Impersonate the control plane |
+| `ACT-8` | Attacker holding a compromised service credential | Exactly what that **one** credential authorizes — publishing commands, or consuming results. It holds no Keystone signing or decryption key and no access to the server's store: those live in `TD-SRV`, and a party holding them too is `ACT-2`'s compromise, not this one | Impersonate the control plane |
 | `ACT-9` | Malicious command author | Supplies argv that reaches an agent, without being the operator — via a compromised workstation, or an operator misled into running it | Execute on the fleet under legitimate authority |
 | `ACT-10` | Supply-chain attacker | Alters binaries, packages or dependencies before install | Persistent access to every host that installs |
 
@@ -170,7 +170,7 @@ and the party who would exploit it is named in the mitigation.
 | ID | Threat | Actor | Asset | Journey | Mitigation or risk |
 |---|---|---|---|---|---|
 | `THR-01` | The one-use token is read from shell history or a process listing | `ACT-9` | `AST-1` | 5.1 | Charter § 5.1 forbids supplying it in a form that exposes it; `--token-file`. Mode and lifetime: P03 |
-| `THR-02` | A captured token is replayed to enroll an impostor agent | `ACT-8` | `AST-1` | 5.1 | One-use and token-scoped, with short bootstrap expiry as the backstop (`ARCH-NATS-004`) |
+| `THR-02` | A captured token is replayed to enroll an impostor agent | `ACT-6`, `ACT-9` | `AST-1` | 5.1 | One-use and token-scoped, with short bootstrap expiry as the backstop (`ARCH-NATS-004`) |
 | `THR-03` | Bootstrap access survives enrollment and is reused later | `ACT-7` | `AST-2` | 5.1 | Staged protocol revokes bootstrap access **and verifies the revocation** (`ARCH-NATS-004`) |
 | `THR-04` | A crash between credential write and activation leaves the agent and server disagreeing about identity state | `ACT-7` | `AST-3` | 5.1 | fsync and atomic rename at mode `0600`; a defined crash-recovery path at every stage (`ARCH-NATS-004`) |
 | `THR-05` | An agent enrolls under another agent's identity | `ACT-7` | `AST-3` | 5.1 | Token-specific subjects; every agent a distinct principal (`ARCH-NATS-002`, `ARCH-NATS-004`) |
@@ -179,7 +179,7 @@ and the party who would exploit it is named in the mitigation.
 | `THR-08` | An agent subscribes to another agent's command subject | `ACT-7` | `AST-10` | 5.3 | Subscribe permitted only on the agent's own command and cancellation subjects (`ARCH-NATS-003`), proven by negative tests (`ARCH-TEST-002`) |
 | `THR-09` | An agent publishes a command to another agent | `ACT-7` | `AST-10` | 5.3 | Agents hold no publish permission on command subjects (`ARCH-NATS-003`) |
 | `THR-10` | argv is read off the wire | `ACT-5`, `ACT-6` | `AST-10` | 5.3 | Payload encrypted end-to-end to the target agent. TLS terminates at the broker and is **not** sufficient (`ARCH-NATS-006`) |
-| `THR-11` | Commands agents accept are issued by a party that is not the server | `ACT-8` | `AST-6`, `AST-7` | 5.3 | **Neither key alone suffices**: the publisher credential can publish but not sign, and the signing key can sign but not publish. The realisable path is joint possession of both — `RSK-1`, and by construction `THR-44` |
+| `THR-11` | Commands agents accept are issued by a party that is not the server | `ACT-8` | `AST-6`, `AST-7` | 5.3 | **A party holding only the publisher credential cannot complete this.** It can publish, and cannot produce the envelope signature agents verify (`ARCH-NATS-006`). The realisable path is joint possession, which is by construction possession of `TD-SRV` — `ACT-2`'s `THR-44`. Recorded as `RSK-1` |
 | `THR-12` | A captured command envelope is replayed to execute twice | `ACT-5`, `ACT-8` | `AST-10` | 5.3 | Durable agent ledger permits at most one automatic attempt; the ledger, not the broker deduplication window, is authoritative (`ARCH-JOB-003`) |
 | `THR-13` | Broker redelivery repeats indefinitely, amplifying one command into many | `ACT-5` | `AST-10` | 5.3 | Finite `MaxDeliver` and explicit `BackOff`, with terminal delivery advisories (`ARCH-NATS-010`); redelivery never creates a second logical attempt |
 | `THR-14` | Parallel consumption reorders or concurrently executes commands for one agent | `ACT-5` | `AST-10` | 5.3 | One exact agent `FilterSubject`, `MaxAckPending=1` (`ARCH-NATS-009`) |
@@ -196,7 +196,7 @@ and the party who would exploit it is named in the mitigation.
 | `THR-25` | A crash while cancellation is in flight leaves the outcome indeterminate and it is reported as terminal | `ACT-3` | `AST-13` | 5.6 | Recovery path at the cancellation boundary; `UNKNOWN` where the outcome is unprovable (`ARCH-JOB-004`) |
 | `THR-26` | A lifecycle transition emits no audit record, hiding an action | `ACT-2` | `AST-13` | 5.7 | Enrollment, authorization denial, receipt, start, cancellation, timeout, completion, unknown outcome and result retrieval all emit correlated records (`ARCH-OBS-001`) |
 | `THR-27` | Audit records or broker headers carry command secrets or payload plaintext | `ACT-2` | `AST-13` | 5.7 | `ARCH-OBS-001` forbids it; the harness plants canaries and fails before upload (`TESTING.md`) |
-| `THR-28` | A compromised server rewrites its own audit store | `ACT-2`, `ACT-8` | `AST-13` | 5.7 | `RSK-4` — no external attestation exists; see `THR-46` for the wider blast radius |
+| `THR-28` | A compromised server rewrites its own audit store | `ACT-2` | `AST-13` | 5.7 | `RSK-4` — no external attestation exists; see `THR-46` for the wider blast radius |
 
 ### 5.2 Threats from the invariant sweep
 
@@ -205,8 +205,8 @@ Threats the journey walk did not reach, found by walking all 24 invariants.
 | ID | Threat | Actor | Asset | Journey | Mitigation or risk |
 |---|---|---|---|---|---|
 | `THR-29` | An agent or ordinary service identity reaches `$SYS`, JetStream management, or another deployment's subjects | `ACT-7`, `ACT-8` | `AST-9` | all | Only the enumerated data-plane `$JS.API`, acknowledgement and reply subjects its exact consumer needs (`ARCH-NATS-005`) |
-| `THR-30` | Keystone traffic shares an account with unrelated workloads, so a co-tenant observes or publishes | `ACT-8` | `AST-10`, `AST-11` | all | A dedicated Keystone account, with broker administration and advisories in a separate system account (`ARCH-NATS-001`). This constrains **co-tenants, not `ACT-4`**, who mints accounts and is bounded only by `RSK-3` |
-| `THR-31` | An unbounded stream or consumer exhausts broker storage and denies the fleet | `ACT-7`, `ACT-9` | `AST-9` | all | Explicit connection, subscription, payload, consumer, byte, age and message limits; unbounded streams prohibited (`ARCH-NATS-007`) |
+| `THR-30` | Keystone traffic shares an account with unrelated workloads, so a co-tenant observes or publishes | `ACT-2` | `AST-10`, `AST-11` | all | A dedicated Keystone account, with broker administration and advisories in a separate system account (`ARCH-NATS-001`). The defect is in provisioning, so the actor is `ACT-2`; the party who would profit is an unrelated workload sharing the account, which holds no Keystone credential and is therefore not `ACT-8`. Account isolation constrains **that co-tenant, not `ACT-4`**, who mints accounts and is bounded only by `RSK-3` |
+| `THR-31` | An unbounded stream or consumer exhausts broker storage and denies the fleet | `ACT-7`, `ACT-9` | `AST-9` | all | Explicit connection, subscription, payload, consumer, byte, age and message limits; unbounded streams prohibited (`ARCH-NATS-007`). That invariant bounds **resources**; it does not require per-agent streams or per-agent storage, so until P02 settles stream and account topology one agent's publications may consume limits shared with others — `RSK-10` |
 | `THR-32` | The NATS operator mints a Keystone identity at will | `ACT-4` | `AST-9` | all | `RSK-3` — the broker's administrative authority exceeds the product's, by construction |
 | `THR-33` | One key serves as transport identity and as envelope-signing or payload key | `ACT-2` | `AST-3`–`AST-5` | all | Separate keys required; NKey seeds must not be reused as Keystone signing or encryption keys (`ARCH-NATS-006`). The defect is in provisioning; `ACT-7` is who would profit from it |
 | `THR-34` | An altered binary or package is installed | `ACT-10` | all | all | `RSK-5` — release signing is a C13 decision and does not exist in `v0.6.0` |
@@ -220,13 +220,14 @@ Threats the journey walk did not reach, found by walking all 24 invariants.
 | `THR-42` | Keystone reimplements a broker capability worse than the broker's, adding attack surface for no requirement | `ACT-2` | `AST-9` | all | Every messaging ADR records relevant NATS capabilities as `Adopt`, `Evaluate`, `Defer` or `Reject` with evidence, and does not duplicate native behaviour without a documented missing requirement (`ARCH-NATS-008`) |
 | `THR-43` | A mitigation is verified only against mocks or an in-process agent, so it is unverified where it runs | `ACT-2` | all | all | Acceptance uses released binaries, production configuration parsing, production serialization and production subjects; an in-memory bus is never a substitute (`ARCH-COMM-003`) |
 
-### 5.3 The server's blast radius
+### 5.3 Blast radius of total domain compromise
 
-`ACT-2` is described in § 4 as the widest single failure. That claim needs its
-consequences enumerated rather than asserted, because they are the one place
-where this model's other guarantees stop holding.
+Two domains hold enough material that their compromise ends this model's other
+guarantees: `TD-SRV`, described in § 4 as the widest single failure, and
+`TD-AGT`, which authors the results everything downstream believes. Both need
+their consequences enumerated rather than asserted.
 
-`TD-SRV` holds `AST-6` (the service NATS credentials), `AST-7` (the service
+**`TD-SRV`.** It holds `AST-6` (the service NATS credentials), `AST-7` (the service
 signing key), `AST-8` (the result-decryption key) and `AST-13` (the job and
 audit store). An attacker in possession of that domain therefore holds **both**
 halves of `THR-11` at once, and the separation-of-keys argument that defends
@@ -234,9 +235,25 @@ against single theft does not apply.
 
 | ID | Threat | Actor | Asset | Journey | Mitigation or risk |
 |---|---|---|---|---|---|
-| `THR-44` | A compromised server issues commands every agent accepts, holding the publisher credential and the signing key together | `ACT-2`, `ACT-8` | `AST-6`, `AST-7` | 5.3 | `RSK-4`. No control in `v0.6.0` survives this; agents verify a signature the attacker can produce |
-| `THR-45` | A compromised server decrypts every result on the deployment | `ACT-2`, `ACT-8` | `AST-8`, `AST-11` | 5.5 | `RSK-4`. Results are encrypted *to* the result service, so possessing it is possessing the plaintext |
-| `THR-46` | A compromised server fabricates operator-facing status, output and audit — a success the operator cannot distinguish from a real one | `ACT-2`, `ACT-8` | `AST-13` | 5.4, 5.5, 5.7 | `RSK-4`. The agent's own ledger is an independent record, but the operator reaches it only through the server |
+| `THR-44` | A compromised server issues commands every agent accepts, holding the publisher credential and the signing key together | `ACT-2` | `AST-6`, `AST-7` | 5.3 | `RSK-4`. No control in `v0.6.0` survives this; agents verify a signature the attacker can produce |
+| `THR-45` | A compromised server decrypts every result on the deployment | `ACT-2` | `AST-8`, `AST-11` | 5.5 | `RSK-4`. Results are encrypted *to* the result service, so possessing it is possessing the plaintext |
+| `THR-46` | A compromised server fabricates operator-facing status, output and audit — a success the operator cannot distinguish from a real one | `ACT-2` | `AST-13` | 5.4, 5.5, 5.7 | `RSK-4`. The agent's own ledger is an independent record, but the operator reaches it only through the server |
+
+**`TD-AGT`.** `ACT-7` holds `AST-4` (the agent's envelope-signing key), `AST-11`
+(the result plaintext, before it is encrypted to the result service) and
+`AST-12` (the ledger) at once. A result is therefore **authored inside the
+domain it reports on**, and its signature proves origin rather than truth — the
+server verifies a key the attacker legitimately holds. Unlike `TD-SRV` this is
+bounded to one host, because § 2 makes each agent host its own domain; within
+that host it is total.
+
+| ID | Threat | Actor | Asset | Journey | Mitigation or risk |
+|---|---|---|---|---|---|
+| `THR-47` | A compromised agent signs a fabricated successful result for a job it never executed | `ACT-7` | `AST-4`, `AST-11` | 5.4, 5.5 | `RSK-9`. The signature verifies because the key is the agent's own. `ARCH-JOB-004` separates *unprovable* from *proven*; it cannot separate *truthful* from *false* |
+| `THR-48` | A compromised agent falsifies or destroys its own ledger, so the independent record `RSK-4` relies on is untrue or absent | `ACT-7` | `AST-12` | 5.7 | `RSK-9`. `ARCH-JOB-002` requires the ledger to be durable, which defends against a crash and not against the host that owns it |
+
+Where one attacker holds both domains, nothing in this model applies; that is
+not a third case, it is the union of `RSK-4` and `RSK-9`.
 
 ### 5.4 Invariant coverage
 
@@ -310,7 +327,7 @@ the broker, and does not hide *that* you ran one.
 | `ACT-5` broker administrator | Drop, delay or reorder any message; withhold presence; stall acknowledgements; stop the deployment entirely |
 | `ACT-4` NATS operator | Revoke any identity, including every agent's, and deny the whole deployment |
 | `ACT-6` network attacker | Partition a domain from the broker, indefinitely |
-| `ACT-7` compromised agent | Consume its own limits and fill its own streams — bounded by `ARCH-NATS-007`, and bounded to that agent |
+| `ACT-7` compromised agent | Consume limits and fill streams — bounded by `ARCH-NATS-007`, which bounds *resources* and does not require per-agent streams or per-agent storage. Whether that denial stays local to the agent is P02's topology decision, not a present guarantee (`RSK-10`) |
 | `ACT-9` malicious command author | Occupy an agent with long-running work — bounded by `ARCH-EXEC-001` |
 | `ACT-2` server | Withhold commands, results or audit from the operator |
 
@@ -321,13 +338,18 @@ report `UNKNOWN`, and the charter gives that its own exit code so an operator
 can branch on it. Denial is converted into honest ambiguity rather than a wrong
 answer.
 
-**That guarantee does not extend to compromise of the server.** `ACT-2`'s row
-above is its *denial* power — withholding. A compromised `TD-SRV` also holds the
-signing key, the result-decryption key and the audit store, and can fabricate a
-success the operator cannot distinguish from a real one (`THR-46`). The
-ambiguity guarantee protects the operator from the broker, the network and a
-compromised agent. It does not protect them from the server, and § 5.3 says so
-rather than leaving the reader to infer it from a table of denial powers.
+**That guarantee does not extend to either domain that authors the record.**
+The `ACT-2` and `ACT-7` rows above are their *denial* powers — withholding, and
+consuming limits. Compromise is a different thing. A compromised `TD-SRV` also
+holds the signing key, the result-decryption key and the audit store, and can
+fabricate a success the operator cannot distinguish from a real one (`THR-46`).
+A compromised `TD-AGT` signs results with its own key and owns its own ledger,
+and can report a success for a command it never ran (`THR-47`).
+
+So the ambiguity guarantee covers *denial and delay*: from the broker, from the
+network, and from a compromised agent's denial powers. It does **not** cover
+fabrication by the server or by the agent, and § 5.3 says so rather than leaving
+the reader to infer it from a table of denial powers.
 
 That is a deliberate trade. Generation 2 has no availability commitment, no
 clustering and no HA (`ROADMAP.md`), so an operator who needs the fleet
@@ -361,11 +383,13 @@ is resolved or renewed explicitly.
 | `RSK-1` | **Joint** possession of the publisher credential and the service signing key yields commands every agent accepts (`THR-11`) | Project maintainer | Each key alone is useless for this: one publishes without signing, the other signs without publishing. Two separate thefts, or one compromise of the domain holding both — which is `RSK-4` | `ARCH-NATS-006` keeps them separate keys, so no single theft suffices; every issued command is audited (`ARCH-OBS-001`), though a party holding both can also rewrite that audit | 2027-03-13, or P05 |
 | `RSK-2` | The broker administrator can withhold or delay any message (`THR-07`) | Project maintainer | Keystone does not own the broker; a mediated design cannot exclude its operator | Withholding produces `UNKNOWN` or visible absence, never false success (`ARCH-JOB-004`) | 2027-03-13, or P02 |
 | `RSK-3` | The NATS operator can mint any Keystone identity (`THR-32`) | Project maintainer | Whoever holds the operator seed administers the trust domain; that authority is above the product by construction | Account isolation limits blast radius to the Keystone account (`ARCH-NATS-001`); envelope signatures are not broker-issued, so a minted identity still cannot forge a signed command | 2027-03-13, or P02 |
-| `RSK-4` | **Compromise of the server is total within the product**: issuing commands agents accept, decrypting every result, and fabricating operator-facing status and audit (`THR-28`, `THR-44`–`THR-46`) | Project maintainer | `TD-SRV` holds the service credentials, the signing key, the result-decryption key and the store. No control in `v0.6.0` survives possession of that domain, and none is proposed — the layered design defends the *broker*, the *network* and a *compromised agent*, not the control plane against itself | Agent-side ledgers are independent and record receipt and terminal state (`ARCH-JOB-002`), so a forensic reconstruction is possible from the agents even when the server's account is false — but the operator reaches those ledgers only through the server | 2027-03-13, or P08 |
+| `RSK-4` | **Compromise of the server is total within the product**: issuing commands agents accept, decrypting every result, and fabricating operator-facing status and audit (`THR-28`, `THR-44`–`THR-46`) | Project maintainer | `TD-SRV` holds the service credentials, the signing key, the result-decryption key and the store. No control in `v0.6.0` survives possession of that domain, and none is proposed — the layered design defends the *broker*, the *network* and a *compromised agent*, not the control plane against itself | Agent-side ledgers are independent and record receipt and terminal state (`ARCH-JOB-002`), so a forensic reconstruction is possible from the agents even when the server's account is false — but the operator reaches those ledgers only through the server, and the reconstruction holds only where the agent is not also compromised (`RSK-9`, `THR-48`) | 2027-03-13, or P08 |
 | `RSK-5` | Release artefacts are unsigned (`THR-34`) | Project maintainer | Signing is a C13 decision requiring a human ceremony; it does not exist before then | None within the product | 2027-03-13, or C13 |
 | `RSK-6` | Traffic metadata reveals an operational picture of the fleet to the broker (§ 6) | Project maintainer | Inherent to broker mediation; mitigation costs bandwidth and latency and is required by no invariant | Payload content remains protected (`ARCH-NATS-006`) | 2027-03-13, or P05 |
 | `RSK-7` | No key rotation exists after enrollment (§ 8) | Project maintainer | Generation 2's scope is one narrow promise; rotation was not part of it, and enrollment is the only transition designed | Re-enrollment achieves rotation manually, at the cost of a new identity | 2027-03-13, or P03 |
-| `RSK-8` | A compromised operator workstation acts with the operator's full authority (`THR-35`) | Project maintainer | The operator API is a local socket, which defends against remote callers and not against code already running as the operator. P09 will define *which* operators may do *what*; it cannot distinguish the operator from malware holding their session | Every command issued is audited with its actor (`ARCH-OBS-001`), so the action is visible afterwards even though it was not preventable | 2027-03-13, or P09 |
+| `RSK-8` | A compromised operator workstation acts with the operator's full authority (`THR-35`) | Project maintainer | The operator API is a local socket, which defends against remote callers and not against code already running as the operator. P09 will define *which* operators may do *what*; it cannot distinguish the operator from malware holding their session | Every command issued is audited with its actor (`ARCH-OBS-001`) — which records **the identity exercised, not the true actor**: malware acting in the operator's session is attributed to the operator. The action is visible afterwards; who took it is not | 2027-03-13, or P09 |
+| `RSK-9` | **Compromise of an agent host is total within that host**: it signs results with its own key and owns its own ledger, so it can report a success for a command it never ran (`THR-47`, `THR-48`) | Project maintainer | A result is authored inside the domain it reports on. The signature proves origin, not truth, and no control in `v0.6.0` gives the server an independent witness of what happened on the host. Attestation would; it is not part of Generation 2's one narrow promise | Bounded to one host by construction — § 2 makes each agent host its own domain — so fabrication is confined to jobs targeted at that agent. The server's audit stays *consistent*, recording a result that arrived and verified, which is true; what the result says is not | 2027-03-13, or P06 |
+| `RSK-10` | One agent's publications may consume broker limits shared with the fleet, so its denial is not proven to be agent-local (`THR-31`, § 7) | Project maintainer | `ARCH-NATS-007` requires bounded resources; it does not require per-agent streams or per-agent storage. Stream and account topology is P02's, so isolation is undecided rather than guaranteed | Limits are explicit and mandatory, so the denial is bounded in absolute terms even where it is not partitioned per agent; and denial produces `UNKNOWN`, never a false success (`ARCH-JOB-004`) | 2027-03-13, or P02 |
 
 ## 10. What this model cannot tell you
 
@@ -377,16 +401,19 @@ invariant that *requires* a control. Whether the control, once designed by
 P02–P09 and built in Stage C, actually stops the threat is established by C14's
 adversarial suite, not here.
 
-**The invariant coverage table (§ 5.3) proves every invariant is addressed, not
+**The invariant coverage table (§ 5.4) proves every invariant is addressed, not
 that it is addressed adequately.** A shallow threat satisfies the table exactly
 as well as a deep one. The table is a completeness check, and completeness is
 not sufficiency.
 
 **Whether these are the right ten actors is unverified.** They are the ten the
 workstream named. An eleventh — a compromised build host distinct from
-`ACT-10`, a second operator with different authority, a tenant in a shared
-broker — would produce threats this document does not contain, and nothing here
-would notice the omission.
+`ACT-10`, or a second operator with different authority — would produce threats
+this document does not contain, and nothing here would notice the omission. One
+candidate is named and deliberately not promoted: the unrelated workload sharing
+a broker account appears in `THR-30`'s mitigation rather than as an actor,
+because it holds no Keystone capability. If that judgement is wrong, the threats
+it would have generated are missing.
 
 **Whether an actor's stated capabilities are realistic is a judgement.** They
 are drawn from what the invariants imply each principal can do. If an
@@ -397,7 +424,7 @@ become wrong and the threats derived from them become incomplete.
 observe.** It is not a formal traffic analysis.
 
 **Residual risks record a decision, not a measurement.** `RSK-1` through
-`RSK-7` say the maintainer accepted a risk and why. None says the risk is
+`RSK-10` say the maintainer accepted a risk and why. None says the risk is
 small.
 
 The acceptance cases for this document check its **shape** — that every actor
