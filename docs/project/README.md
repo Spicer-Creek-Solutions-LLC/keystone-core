@@ -32,6 +32,7 @@ September 2026 and its references, guides and runbooks went with it.
 ## Project
 
 - [`PRODUCT-CHARTER.md`](PRODUCT-CHARTER.md) — why this exists, the seven canonical journeys, and the `v0.6.0` business gate
+- [`THREAT-MODEL.md`](THREAT-MODEL.md) — actors, threats, invariant coverage, and accepted residual risk
 - [`ROADMAP.md`](ROADMAP.md) — Now, Next, Future / Unscheduled, Not Planned
 - [`VERSIONING.md`](VERSIONING.md) — version policy and the `v0.6.0` gate
 - [`ISSUE-TRACKING.md`](ISSUE-TRACKING.md) — tracker conventions

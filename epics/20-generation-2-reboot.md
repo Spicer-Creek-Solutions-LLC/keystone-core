@@ -70,7 +70,8 @@ workstream depends on. Detailed controls are normative in the execution plan.
 ### Product and architecture foundation
 
 - [x] P00 — Product charter and canonical journeys. Charter accepted; argv-only boundary frozen.
-- [ ] P01 — Threat model.
+- [x] P01 — Threat model. Ten actors, 43 threats, all 24 invariants mapped,
+  seven accepted residual risks.
 - [ ] P02 — NATS-native capability ADR.
 - [ ] P03 — Enrollment and identity ADR.
 - [ ] P04 — Subject authorization ADR and executable policy.
