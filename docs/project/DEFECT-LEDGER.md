@@ -568,7 +568,7 @@ recurred. `P02` is the first task that can exercise the current steps, and the
 outcome there is `Held` if they catch a recurrence or `Adopted` if the class had
 its chance and did not appear.
 
-**What this entry cannot become.** No check catches this class. All three
+**What this entry cannot become.** No check catches this class. All four
 instances passed their acceptance cases, `make check`, and a clean
 `git diff --check`; the documents were well-formed at every point and wrong
 about the world.
