@@ -73,7 +73,7 @@ justified exemption.
 | `DL-5` | A check verified only against fixtures | `Adopted` |
 | `DL-6` | Shell-hostile command construction | `Proposed` |
 | `DL-7` | A substitution that did not do what it claimed | `Proposed` |
-| `DL-8` | A finding repaired only where it was pointed out | `Proposed` |
+| `DL-8` | A finding repaired only where it was pointed out | `Failed` |
 
 ### `DL-1` — A check that cannot fail, mistaken for evidence
 
@@ -439,8 +439,9 @@ untested, and the status describes the whole.
 
 ### `DL-8` — A finding repaired only where it was pointed out
 
-**Instances.** Two in `P01`, both uncaught, in consecutive rounds of the same
-review on pull request #290.
+**Instances.** Three. Two in `P01`, in consecutive rounds of the same review on
+pull request #290; a third in `G04`, on pull request #293, **after this entry
+existed and while its countermeasure was being applied**.
 
 *Siblings left standing.* Round 1 found the blast radius enumerated for `TD-SRV`
 and not for the other domain that can author a record, and found two threats
@@ -457,6 +458,16 @@ not, and it went on naming `ACT-8` for a cancellation no modelled credential
 authorized — a contradiction the tightening created. Round 3 found it in
 `f7c2a0ea5`; fixed in `bcc1003ac`.
 
+*The countermeasure applied, and the class recurred anyway.* `G04` corrected a
+rule in `AGENTS.md` that had drifted from the execution plan. Its pull request
+claimed this entry's sweep and performed one — deriving the shape as "`AGENTS.md`
+restating a rule that drifted from its source" and enumerating within
+`AGENTS.md`. Review then found the same rule stated broadly in the epic, and
+re-deriving the shape as "any governing document stating the workstream-split
+rule" found a third site, `docs/dossiers/P02.md`, which contradicted `P00.md`
+and `P01.md` in its own directory. One repository-wide search finds all three.
+`69d06b289`; fixed in `d1d909bd7`.
+
 **Root cause.** A review finding is treated as a fact about the instance the
 reviewer cited, rather than as a statement about the document, so the fix's
 scope is set by the citation instead of by the defect's shape. The second form is
@@ -466,6 +477,17 @@ site is genuinely fixed, the reviewer's example genuinely no longer reproduces,
 and the checks stay green, because every instance of this class so far has been
 semantic.
 
+The third instance moved the root cause one step back. Deriving the shape is
+itself a judgement, and **nothing in the first version of this countermeasure
+told you whether the shape you derived was wide enough**. The shape was drawn at
+the boundary of the file being edited, which is the most available boundary and
+has no authority at all.
+
+**Review cannot substitute for the sweep.** The reviewer reads a diff.
+`docs/dossiers/P02.md` was outside `G04`'s diff and therefore invisible to a
+reviewer doing everything right, which is why this class survives review
+repeatedly. The obligation is the author's and cannot be delegated.
+
 **Countermeasure.** Two tiers, because the two forms fail at different moments.
 
 *When acting on a finding*:
@@ -473,10 +495,17 @@ semantic.
 1. **Derive the shape, not the instance.** Restate the finding as the property
    that was violated — "a domain named as a total-compromise actor must have its
    blast radius enumerated", not "`TD-SRV`'s blast radius is missing".
-2. **Enumerate every site matching that shape** and say so in the reply: which
-   sites were found, and for each whether it was fixed or deliberately left. A
-   sweep that is claimed but not itemised cannot be reviewed, and this class is
-   invisible to checks.
+2. **Express the shape as a search, and write the command in the reply.** A
+   shape you cannot search for is a shape you cannot show you swept. Where one
+   genuinely resists expression as a search, say so and state how the
+   enumeration was bounded instead.
+3. **Run it over the whole repository.** Scoping the search to the file in hand
+   is the third instance above, and the file under edit has no privileged
+   status: the rule `G04` was correcting lived in three documents, one of which
+   was a dossier nobody was editing.
+4. **Itemise every hit** in the reply — found, and for each whether it was fixed
+   or deliberately left. A sweep that is claimed but not itemised cannot be
+   reviewed.
 
 *When the fix changes a definition* — an actor's capabilities, an asset's roles,
 a term, a numbered section:
@@ -488,22 +517,34 @@ a term, a numbered section:
    "the change I meant", and here "the cited row is fixed" is not "the document
    is consistent".
 
-**Last recurrence.** Pull request #290, round 3 — `f7c2a0ea5`, fixed in
-`bcc1003ac`.
+**Last recurrence.** Pull request #293 — `69d06b289`, fixed in `d1d909bd7`.
 
-**Status: `Proposed`.** The countermeasure has not been exercised. It cannot be
-credited by `P01`, which is the task that produced both instances — § "Status
-values" is explicit that continued use inside that task is not evidence — and
-`P02` is the first task that can offer it the chance.
+**Status: `Failed`.** The countermeasure was in force, was applied, and the class
+recurred. That is this document's definition of `Failed`, and the steps above
+have been rewritten in response — which is the moment § "Status values" warns
+about, because a revision is exactly what would let an entry return to
+`Proposed` and lose its failure.
 
-**What this entry cannot become.** No check catches this class. Both instances
-passed fifteen acceptance cases, `make check`, and a clean `git diff --check`;
-the document was well-formed at every point and wrong about the world. `DL-8` is
-a working habit made reviewable by requiring the sweep to be itemised, not a
-gate — and § "On whether this document works" already names the reason for
-scepticism: `DL-2` and `DL-3` were written down and recurred anyway. The one
-thing that is different is that the itemised sweep is *checkable by a reader*,
-which a private intention is not.
+**It does not.** The status stays `Failed` until the revised steps are exercised
+on a later task that offered the defect a chance and did not take it. A
+countermeasure is not credited for being rewritten; `DL-7` kept `Proposed`
+through a revision because its original tier was proven and only the new tier
+was untested, and `DL-8` has nothing proven to stand on. `P02` is the first task
+that can exercise the revision, and the outcome there is `Held` if it catches a
+recurrence or `Adopted` if the class had its chance and did not appear.
+
+**What this entry cannot become.** No check catches this class. All three
+instances passed their acceptance cases, `make check`, and a clean
+`git diff --check`; the documents were well-formed at every point and wrong
+about the world.
+
+The revision narrows the unmechanised part rather than removing it. A written
+search command **is** reproducible — a reviewer can re-run it and see the same
+hits, which a claim of diligence never allowed — so the sweep is now checkable
+rather than merely reviewable. What stays a judgement is the shape itself, and
+whether a hit is genuinely the same defect or a lookalike. § "On whether this
+document works" names the reason for scepticism: `DL-2` and `DL-3` were written
+down and recurred anyway, and `DL-8` has now done it too.
 
 ## On whether this document works
 
