@@ -116,6 +116,9 @@ limitations go in the pull request.
   countermeasures, and whether each countermeasure held.
 - [x] G03 — Defect ledger entry `DL-8`. Records the class P01's three review
   rounds demonstrated twice: a finding repaired only where it was pointed out.
+- [x] G04 — Correct `AGENTS.md` § 3's workstream-split rule, which claimed every
+  P and C task splits into two agents where the execution plan splits only
+  behaviour workstreams and allows planning and ADR tasks one PR.
 
 ## Epic acceptance
 
