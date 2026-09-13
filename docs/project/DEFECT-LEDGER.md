@@ -37,7 +37,7 @@ is not a status.
 **The status describes the current countermeasure, which means it can be
 laundered.** Revise a countermeasure after it fails and the entry becomes
 `Proposed`, and the record of the failure disappears. Left unguarded, that would
-let a ledger of seven defects show no failures at all.
+let a ledger of eight defects show no failures at all.
 
 `Proposed` becomes `Adopted` only when the countermeasure has been *exercised on
 a later task* — that task presented the chance for the defect and it did not
@@ -73,6 +73,7 @@ justified exemption.
 | `DL-5` | A check verified only against fixtures | `Adopted` |
 | `DL-6` | Shell-hostile command construction | `Proposed` |
 | `DL-7` | A substitution that did not do what it claimed | `Proposed` |
+| `DL-8` | A finding repaired only where it was pointed out | `Proposed` |
 
 ### `DL-1` — A check that cannot fail, mistaken for evidence
 
@@ -435,6 +436,74 @@ reader, the other being `DL-6`'s `&&`, which has stopped a commit after `MD012`,
 the countermeasure has been split into two tiers. The demonstration tier is
 proven; the scoped-substitution tier that covers ordinary edits is new and
 untested, and the status describes the whole.
+
+### `DL-8` — A finding repaired only where it was pointed out
+
+**Instances.** Two in `P01`, both uncaught, in consecutive rounds of the same
+review on pull request #290.
+
+*Siblings left standing.* Round 1 found the blast radius enumerated for `TD-SRV`
+and not for the other domain that can author a record, and found two threats
+naming an actor without the capability they required. Both were fixed **at the
+cited sites** in `95a8b4df1`, which also wrote the actor/control rule into § 5 of
+the threat model. Round 2 then found the same two classes elsewhere in the same
+document: `TD-AGT` unenumerated, and the new rule violated in § 5.1 and § 5.3 by
+the very commit that stated it.
+
+*Dependents left unchecked.* Round 2's fix tightened `ACT-8` from "whatever that
+credential authorizes" to exactly one credential holding no Keystone signing or
+decryption key. Six threats cited `ACT-8`. Five were re-pointed; `THR-24` was
+not, and it went on naming `ACT-8` for a cancellation no modelled credential
+authorized — a contradiction the tightening created. Round 3 found it in
+`f7c2a0ea5`; fixed in `bcc1003ac`.
+
+**Root cause.** A review finding is treated as a fact about the instance the
+reviewer cited, rather than as a statement about the document, so the fix's
+scope is set by the citation instead of by the defect's shape. The second form is
+the sharper one: there the fix *itself* changes a definition, and nothing
+re-reads what depended on it. A narrow repair also looks complete — the cited
+site is genuinely fixed, the reviewer's example genuinely no longer reproduces,
+and the checks stay green, because every instance of this class so far has been
+semantic.
+
+**Countermeasure.** Two tiers, because the two forms fail at different moments.
+
+*When acting on a finding*:
+
+1. **Derive the shape, not the instance.** Restate the finding as the property
+   that was violated — "a domain named as a total-compromise actor must have its
+   blast radius enumerated", not "`TD-SRV`'s blast radius is missing".
+2. **Enumerate every site matching that shape** and say so in the reply: which
+   sites were found, and for each whether it was fixed or deliberately left. A
+   sweep that is claimed but not itemised cannot be reviewed, and this class is
+   invisible to checks.
+
+*When the fix changes a definition* — an actor's capabilities, an asset's roles,
+a term, a numbered section:
+
+1. **Re-read every row that cites it** before committing. Tightening `ACT-8`
+   should have triggered a re-read of all six `ACT-8` rows; it reached five.
+2. Treat the definition's citations as the blast radius of the edit. This is the
+   document-level form of `DL-7`'s third assertion: "something changed" is not
+   "the change I meant", and here "the cited row is fixed" is not "the document
+   is consistent".
+
+**Last recurrence.** Pull request #290, round 3 — `f7c2a0ea5`, fixed in
+`bcc1003ac`.
+
+**Status: `Proposed`.** The countermeasure has not been exercised. It cannot be
+credited by `P01`, which is the task that produced both instances — § "Status
+values" is explicit that continued use inside that task is not evidence — and
+`P02` is the first task that can offer it the chance.
+
+**What this entry cannot become.** No check catches this class. Both instances
+passed fifteen acceptance cases, `make check`, and a clean `git diff --check`;
+the document was well-formed at every point and wrong about the world. `DL-8` is
+a working habit made reviewable by requiring the sweep to be itemised, not a
+gate — and § "On whether this document works" already names the reason for
+scepticism: `DL-2` and `DL-3` were written down and recurred anyway. The one
+thing that is different is that the itemised sweep is *checkable by a reader*,
+which a private intention is not.
 
 ## On whether this document works
 
