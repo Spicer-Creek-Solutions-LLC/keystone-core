@@ -72,8 +72,8 @@ workstream depends on. Detailed controls are normative in the execution plan.
 ### Product and architecture foundation
 
 - [x] P00 — Product charter and canonical journeys. Charter accepted; argv-only boundary frozen.
-- [x] P01 — Threat model. Ten actors, 48 threats, all 24 invariants mapped,
-  eleven accepted residual risks.
+- [x] P01 — Threat model. Ten actors, 49 threats, all 24 invariants mapped,
+  eleven residual risks, ten still accepted.
 - [x] P02 — NATS-native capability ADR. `ADR-0002`: two accounts, decentralized
   JWT with the operator seed outside every Keystone process, six service
   principals plus one identity per agent, two streams with per-agent command
@@ -139,6 +139,9 @@ limitations go in the pull request.
 - [x] G09 — Make P02's `AC-4` shape-aware. It required every allowlist entry to
   name one exact consumer, which a publisher's publish-acknowledgement inbox
   cannot have.
+- [x] G10 — Threat-model follow-ups from P02: model the account signing key the
+  ADR gives the server (`AST-16`, `THR-49`), and carry `RSK-10`'s resolution
+  into the two places that still called it undecided.
 
 ## Epic acceptance
 

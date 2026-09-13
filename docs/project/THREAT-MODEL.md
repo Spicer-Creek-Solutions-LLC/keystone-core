@@ -87,10 +87,17 @@ by reassigning the asset to a second home.
 | `AST-13` | Server job and audit store | `TD-SRV` |
 | `AST-14` | Local operator API socket | `TD-OP` |
 | `AST-15` | Presence and inventory state | `TD-SRV` |
+| `AST-16` | Keystone account signing key — mints user JWTs inside the Keystone account | `TD-SRV` |
 
 `ARCH-NATS-006` requires `AST-3`, `AST-4` and `AST-5` to be **separate keys**,
 and forbids reusing an NKey seed as a Keystone signing or encryption key. They
 are listed separately here for that reason, not for tidiness.
+
+`AST-16` is an **NKey seed**, and the same invariant forbids reusing it as
+`AST-7`. It is listed separately from `AST-6` because minting an identity and
+publishing as one are different powers: `ADR-0002` § 2 gives the server the
+account signing key so enrollment can issue a permanent agent identity, and
+withholds the operator seed so the server cannot create accounts.
 
 **Cancellation authority is modelled as the command publisher's.** The charter's
 5.6 journey introduces no party its 5.3 journey does not already have, and
@@ -216,7 +223,7 @@ Threats the journey walk did not reach, found by walking all 24 invariants.
 |---|---|---|---|---|---|
 | `THR-29` | An agent or ordinary service identity reaches `$SYS`, JetStream management, or another deployment's subjects | `ACT-7`, `ACT-8` | `AST-9` | all | Only the enumerated data-plane `$JS.API`, acknowledgement and reply subjects its exact consumer needs (`ARCH-NATS-005`) |
 | `THR-30` | Keystone traffic shares an account with unrelated workloads, so a co-tenant observes or publishes | `ACT-2` | `AST-10`, `AST-11` | all | A dedicated Keystone account, with broker administration and advisories in a separate system account (`ARCH-NATS-001`). The defect is in provisioning, so the actor is `ACT-2`; the party who would profit is an unrelated workload sharing the account, which holds no Keystone credential and is therefore not `ACT-8`. Account isolation constrains **that co-tenant, not `ACT-4`**, who mints accounts and is bounded only by `RSK-3` |
-| `THR-31` | An unbounded stream or consumer exhausts broker storage and denies the fleet | `ACT-7`, `ACT-9` | `AST-9` | all | Explicit connection, subscription, payload, consumer, byte, age and message limits; unbounded streams prohibited (`ARCH-NATS-007`). That invariant bounds **resources**; it does not require per-agent streams or per-agent storage, so until P02 settles stream and account topology one agent's publications may consume limits shared with others — `RSK-10` |
+| `THR-31` | An unbounded stream or consumer exhausts broker storage and denies the fleet | `ACT-7`, `ACT-9` | `AST-9` | all | Explicit connection, subscription, payload, consumer, byte, age and message limits; unbounded streams prohibited (`ARCH-NATS-007`). That invariant bounds **resources** and does not by itself require per-agent partitioning. `ADR-0002` § 7 and § 9 supply it: agents hold no publish permission on the command stream, and the result stream carries one subject per agent under an explicit maximum-messages-per-subject, so one agent's stored messages are bounded independently — `RSK-10`, resolved |
 | `THR-32` | The NATS operator mints a Keystone identity at will | `ACT-4` | `AST-9` | all | `RSK-3` — the broker's administrative authority exceeds the product's, by construction |
 | `THR-33` | One key serves as transport identity and as envelope-signing or payload key | `ACT-2` | `AST-3`–`AST-5` | all | Separate keys required; NKey seeds must not be reused as Keystone signing or encryption keys (`ARCH-NATS-006`). The defect is in provisioning; `ACT-7` is who would profit from it |
 | `THR-34` | An altered binary or package is installed | `ACT-10` | all | all | `RSK-5` — release signing is a C13 decision and does not exist in `v0.6.0` |
@@ -238,8 +245,8 @@ guarantees: `TD-SRV`, described in § 4 as the widest single failure, and
 their consequences enumerated rather than asserted.
 
 **`TD-SRV`.** It holds `AST-6` (the service NATS credentials), `AST-7` (the service
-signing key), `AST-8` (the result-decryption key) and `AST-13` (the job and
-audit store). An attacker in possession of that domain therefore holds **both**
+signing key), `AST-8` (the result-decryption key), `AST-13` (the job and
+audit store) and `AST-16` (the Keystone account signing key). An attacker in possession of that domain therefore holds **both**
 halves of `THR-11` at once, and the separation-of-keys argument that defends
 against single theft does not apply.
 
@@ -248,6 +255,7 @@ against single theft does not apply.
 | `THR-44` | A compromised server issues commands and cancellations every agent accepts, holding the publisher credential and the signing key together | `ACT-2` | `AST-6`, `AST-7` | 5.3 | `RSK-4`. No control in `v0.6.0` survives this; agents verify a signature the attacker can produce |
 | `THR-45` | A compromised server decrypts every result on the deployment | `ACT-2` | `AST-8`, `AST-11` | 5.5 | `RSK-4`. Results are encrypted *to* the result service, so possessing it is possessing the plaintext |
 | `THR-46` | A compromised server fabricates operator-facing status, output and audit — a success the operator cannot distinguish from a real one | `ACT-2` | `AST-13` | 5.4, 5.5, 5.7 | `RSK-4`. The agent's own ledger is an independent record, but the operator reaches it only through the server |
+| `THR-49` | A compromised server mints agent identities at will inside the Keystone account, without stealing any existing credential | `ACT-2` | `AST-16` | 5.1 | `RSK-4`. Holding the account signing key is what lets enrollment issue an identity at all (`ADR-0002` § 2); the same key mints one the operator never authorised. Account isolation (`ARCH-NATS-001`) bounds it to the Keystone account, and the operator seed is held outside every Keystone process, so the server cannot create accounts |
 
 **`TD-AGT`.** `ACT-7` holds `AST-4` (the agent's envelope-signing key), `AST-11`
 (the result plaintext, before it is encrypted to the result service) and
@@ -337,7 +345,7 @@ the broker, and does not hide *that* you ran one.
 | `ACT-5` broker administrator | Drop, delay or reorder any message; withhold presence; stall acknowledgements; stop the deployment entirely |
 | `ACT-4` NATS operator | Revoke any identity, including every agent's, and deny the whole deployment |
 | `ACT-6` network attacker | Partition a domain from the broker, indefinitely |
-| `ACT-7` compromised agent | Consume limits and fill streams — bounded by `ARCH-NATS-007`, which bounds *resources* and does not require per-agent streams or per-agent storage. Whether that denial stays local to the agent is P02's topology decision, not a present guarantee (`RSK-10`) |
+| `ACT-7` compromised agent | Consume its own limits and fill its own subject — bounded by `ARCH-NATS-007`, and **bounded to that agent** since `ADR-0002` § 7 and § 9: it holds no publish permission on the command stream, and its result subject is capped by a per-subject message limit (`RSK-10`, resolved) |
 | `ACT-9` malicious command author | Occupy an agent with long-running work — bounded by `ARCH-EXEC-001` |
 | `ACT-2` server | Withhold commands, results or audit from the operator; cancel any running job |
 
@@ -375,6 +383,7 @@ reachable during a broker outage does not have that from this product.
 | `AST-6` service NATS credentials | **Not specified** — `RSK-7` | Broker-side, by the NATS operator | Reprovisioning, outside the product |
 | `AST-7` service envelope-signing key | **Not specified** — `RSK-7` | **No mechanism exists.** Revoking `AST-6` removes the publish path, which *contains* the key exactly as `RSK-1` argues, and does not invalidate it: agents accept its signature over any publish path its holder can reach | Reprovisioning, and re-establishing trust in the new key on every agent — outside the product |
 | `AST-8` result-decryption key | **Not specified** — `RSK-7` | **No mechanism exists, and broker-side revocation does not help**: captured ciphertext stays decryptable offline for as long as the key exists | Reprovisioning, outside the product |
+| `AST-16` Keystone account signing key | **Not specified** — `RSK-7` | Broker-side: the NATS operator can revoke the account's signing key | Reprovisioning, and re-issuing every identity it signed — outside the product |
 | `AST-9` NATS operator and account seeds | The broker's own process | The broker's own process | Outside the product entirely |
 
 Enrollment is the only key transition Generation 2 specifies, and it is
@@ -401,7 +410,7 @@ is resolved or renewed explicitly.
 | `RSK-1` | **Joint** possession of the publisher credential and the service signing key yields commands every agent accepts (`THR-11`) | Project maintainer | Each key alone is useless for this: one publishes without signing, the other signs without publishing. Two separate thefts, or one compromise of the domain holding both — which is `RSK-4` | `ARCH-NATS-006` keeps them separate keys, so no single theft suffices; every issued command is audited (`ARCH-OBS-001`), though a party holding both can also rewrite that audit. Note the containment is **unbounded in time**: no revocation path exists for `AST-7` (§ 8, `RSK-7`), so a theft that is contained is not thereby ended | 2027-03-13, or P05 |
 | `RSK-2` | The broker administrator can withhold or delay any message (`THR-07`) | Project maintainer | Keystone does not own the broker; a mediated design cannot exclude its operator | Withholding produces `UNKNOWN` or visible absence, never false success (`ARCH-JOB-004`) | **Renewed at P02** (`ADR-0002` § 14): the account topology does not change what the party running the broker can drop or delay. 2027-09-13, or C14 |
 | `RSK-3` | The NATS operator can mint any Keystone identity (`THR-32`) | Project maintainer | Whoever holds the operator seed administers the trust domain; that authority is above the product by construction | Account isolation limits blast radius to the Keystone account (`ARCH-NATS-001`); envelope signatures are not broker-issued, so a minted identity still cannot forge a signed command. **Narrowed at P02** (`ADR-0002` § 2): the operator seed is held outside every Keystone process, so this is the broker administrator's authority and not the server's — the server holds an account signing key and can mint identities only inside the Keystone account | **Renewed at P02.** 2027-09-13, or C14 |
-| `RSK-4` | **Compromise of the server is total within the product**: issuing commands agents accept, decrypting every result, and fabricating operator-facing status and audit (`THR-28`, `THR-44`–`THR-46`) | Project maintainer | `TD-SRV` holds the service credentials, the signing key, the result-decryption key and the store. No control in `v0.6.0` survives possession of that domain, and none is proposed — the layered design defends the *broker*, the *network* and a *compromised agent*, not the control plane against itself | Agent-side ledgers are independent and record receipt and terminal state (`ARCH-JOB-002`), so a forensic reconstruction is possible from the agents even when the server's account is false — but the operator reaches those ledgers only through the server, and the reconstruction holds only where the agent is not also compromised (`RSK-9`, `THR-48`) | 2027-03-13, or P08 |
+| `RSK-4` | **Compromise of the server is total within the product**: issuing commands agents accept, decrypting every result, fabricating operator-facing status and audit, and minting agent identities inside its own account (`THR-28`, `THR-44`–`THR-46`, `THR-49`) | Project maintainer | `TD-SRV` holds the service credentials, the signing key, the result-decryption key, the store and the account signing key. No control in `v0.6.0` survives possession of that domain, and none is proposed — the layered design defends the *broker*, the *network* and a *compromised agent*, not the control plane against itself | Agent-side ledgers are independent and record receipt and terminal state (`ARCH-JOB-002`), so a forensic reconstruction is possible from the agents even when the server's account is false — but the operator reaches those ledgers only through the server, and the reconstruction holds only where the agent is not also compromised (`RSK-9`, `THR-48`) | 2027-03-13, or P08 |
 | `RSK-5` | Release artefacts are unsigned (`THR-34`) | Project maintainer | Signing is a C13 decision requiring a human ceremony; it does not exist before then | None within the product | 2027-03-13, or C13 |
 | `RSK-6` | Traffic metadata reveals an operational picture of the fleet to the broker (§ 6) | Project maintainer | Inherent to broker mediation; mitigation costs bandwidth and latency and is required by no invariant | Payload content remains protected (`ARCH-NATS-006`) | 2027-03-13, or P05 |
 | `RSK-7` | No key rotation exists after enrollment, and **no revocation exists for the service signing and decryption keys** (§ 8) | Project maintainer | Generation 2's scope is one narrow promise; rotation was not part of it, and enrollment is the only transition designed. Revocation was assumed to follow the NATS identity, which holds for `AST-6` and not for `AST-7` or `AST-8` | Re-enrollment achieves rotation manually for agent-side material, at the cost of a new identity. **There is no equivalent for `AST-7` and `AST-8`**: replacing either means reprovisioning the service and re-establishing trust across the fleet, outside the product | 2027-03-13, or P03 |
