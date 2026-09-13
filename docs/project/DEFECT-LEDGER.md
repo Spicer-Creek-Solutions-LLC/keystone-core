@@ -439,9 +439,11 @@ untested, and the status describes the whole.
 
 ### `DL-8` — A finding repaired only where it was pointed out
 
-**Instances.** Three. Two in `P01`, in consecutive rounds of the same review on
+**Instances.** Four. Two in `P01`, in consecutive rounds of the same review on
 pull request #290; a third in `G04`, on pull request #293, **after this entry
-existed and while its countermeasure was being applied**.
+existed and while its countermeasure was being applied**; a fourth in `G06`, on
+pull request #295, **after the countermeasure was revised in response to the
+third**.
 
 *Siblings left standing.* Round 1 found the blast radius enumerated for `TD-SRV`
 and not for the other domain that can author a record, and found two threats
@@ -468,6 +470,17 @@ rule" found a third site, `docs/dossiers/P02.md`, which contradicted `P00.md`
 and `P01.md` in its own directory. One repository-wide search finds all three.
 `69d06b289`; fixed in `d1d909bd7`.
 
+*The revision applied, and the class recurred again — differently.* `G06`
+reassigned the subject grammar and permission matrix to P04. Its sweep was
+expressed as a search and run over the whole repository, as the revision
+requires, and still missed two sites in the very file being realigned. Review
+found both. The first was **in the sweep's own output and was deleted from it**:
+the published command ended `| grep -v 'DL-2'`, a noise filter that removed the
+line `the matrix, the permission matrix, the allowlist…`. The second reads
+`permission *matrix*` — markdown emphasis between the two words, which a literal
+phrase pattern cannot match on a line-based search. `9a8b2e4e1`; fixed in
+`1f796e200`.
+
 **Root cause.** A review finding is treated as a fact about the instance the
 reviewer cited, rather than as a statement about the document, so the fix's
 scope is set by the citation instead of by the defect's shape. The second form is
@@ -482,6 +495,13 @@ itself a judgement, and **nothing in the first version of this countermeasure
 told you whether the shape you derived was wide enough**. The shape was drawn at
 the boundary of the file being edited, which is the most available boundary and
 has no authority at all.
+
+The fourth moved it back again, to the search itself. A search has two
+judgements in it beyond where it runs — **what pattern expresses the shape**, and
+**which of its hits you look at** — and the first revision addressed neither. In
+`G06` the scope was right and the form was wrong: a phrase pattern against
+line-wrapped prose carrying markdown emphasis, with a hand-added exclusion
+trimming the result.
 
 **Review cannot substitute for the sweep.** The reviewer reads a diff.
 `docs/dossiers/P02.md` was outside `G04`'s diff and therefore invisible to a
@@ -503,7 +523,16 @@ repeatedly. The obligation is the author's and cannot be delegated.
    is the third instance above, and the file under edit has no privileged
    status: the rule `G04` was correcting lived in three documents, one of which
    was a dossier nobody was editing.
-4. **Itemise every hit** in the reply — found, and for each whether it was fixed
+4. **Build the pattern from the rarest single token, not the phrase.** Search is
+   line-based and prose is not: a phrase is split silently by a line wrap, by
+   markdown emphasis (`permission *matrix*`), and by hyphenation. `matrix` finds
+   what `permission matrix` cannot. This repository wraps at eighty columns, so
+   any two-word pattern is one reflow away from matching nothing.
+5. **Do not filter the output.** Every hit gets a disposition, and an exclusion
+   is justified hit by hit in the reply or not made at all. Trimming a sweep's
+   output is editing its evidence, and in the fourth instance above the deleted
+   line was one of the two defects.
+6. **Itemise every hit** in the reply — found, and for each whether it was fixed
    or deliberately left. A sweep that is claimed but not itemised cannot be
    reviewed.
 
@@ -517,7 +546,7 @@ a term, a numbered section:
    "the change I meant", and here "the cited row is fixed" is not "the document
    is consistent".
 
-**Last recurrence.** Pull request #293 — `69d06b289`, fixed in `d1d909bd7`.
+**Last recurrence.** Pull request #295 — `9a8b2e4e1`, fixed in `1f796e200`.
 
 **Status: `Failed`.** The countermeasure was in force, was applied, and the class
 recurred. That is this document's definition of `Failed`, and the steps above
@@ -529,20 +558,34 @@ about, because a revision is exactly what would let an entry return to
 on a later task that offered the defect a chance and did not take it. A
 countermeasure is not credited for being rewritten; `DL-7` kept `Proposed`
 through a revision because its original tier was proven and only the new tier
-was untested, and `DL-8` has nothing proven to stand on. `P02` is the first task
-that can exercise the revision, and the outcome there is `Held` if it catches a
-recurrence or `Adopted` if the class had its chance and did not appear.
+was untested, and `DL-8` has nothing proven to stand on.
+
+This entry has now been revised twice, and **the first revision failed before
+the second was written** — the fourth instance happened under it. That is the
+strongest argument available for why a rewrite does not earn a status: this one
+would have spent a week at `Proposed` while the defect it was written against
+recurred. `P02` is the first task that can exercise the current steps, and the
+outcome there is `Held` if they catch a recurrence or `Adopted` if the class had
+its chance and did not appear.
 
 **What this entry cannot become.** No check catches this class. All three
 instances passed their acceptance cases, `make check`, and a clean
 `git diff --check`; the documents were well-formed at every point and wrong
 about the world.
 
-The revision narrows the unmechanised part rather than removing it. A written
-search command **is** reproducible — a reviewer can re-run it and see the same
-hits, which a claim of diligence never allowed — so the sweep is now checkable
-rather than merely reviewable. What stays a judgement is the shape itself, and
-whether a hit is genuinely the same defect or a lookalike. § "On whether this
+The revisions narrow the unmechanised part rather than removing it. What stays
+a judgement is the shape, the pattern that expresses it, and whether a hit is
+genuinely the same defect or a lookalike — three judgements, and instances
+three and four each failed at a different one.
+
+**Separate the two things a published command does**, because only one of them
+has worked. It has not reliably found the sites: twice now a sweep was run,
+published, and incomplete. It *has* made the failure visible to someone else —
+in the fourth instance the reviewer re-ran a better-formed search against the
+written one and found both missed sites, which no claim of diligence would have
+permitted. A countermeasure that fails and is *caught failing* is worth more
+than one that fails silently, and that is the honest case for keeping this
+approach rather than any claim that it works. § "On whether this
 document works" names the reason for scepticism: `DL-2` and `DL-3` were written
 down and recurred anyway, and `DL-8` has now done it too.
 
