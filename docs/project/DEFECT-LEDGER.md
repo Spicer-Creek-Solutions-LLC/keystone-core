@@ -390,19 +390,21 @@ level up.
    whole-document `str.replace` can and did.
 2. **Assert the anchor was unique and the document changed** — `re.subn`
    requiring `n == 1`, or compare before and after.
-3. **Assert the intended postcondition independently**, by parsing the result
-   and checking the property you meant to change. "Something changed" is not
-   "the change I meant".
+3. **Assert the edit's shape**, by parsing the result: the new text is present
+   where it was meant to go and the replaced text is gone. This is a claim about
+   *where and what* the substitution wrote, not about what the result now means.
+   "Something changed" is not "the change I meant".
 
 *Negative demonstrations additionally*:
 
-1. The mutated document **actually has the defect**, verified by parsing it
-   directly rather than by consulting the checker. Replacing a countermeasure's
-   first sentence leaves the rest in place: the anchor and postcondition rules
-   above can both pass while no defect exists, and the run is then
-   indistinguishable from a check that does not fire. **The checker under
-   demonstration cannot establish that its own input is defective** — treating
-   "it fired" as proof is circular, and was how this entry was first written.
+1. The mutated document **actually has the defect** — a *semantic* property, not
+   a shape one, verified by parsing the result and asserting the broken claim
+   directly. The common rules cannot cover this: replacing a countermeasure's
+   first sentence lands exactly where intended and writes exactly the specified
+   text, so all three pass, while the surviving remainder means no defect
+   exists. **The checker under demonstration cannot establish that its own input
+   is defective** — treating "it fired" as proof is circular, and was how this
+   entry was first written.
 2. The reported failure **names the thing you mutated**. A defect planted in
    `DL-5` that reports `DL-6` is a planting bug, not a finding.
 
