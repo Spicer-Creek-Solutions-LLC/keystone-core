@@ -116,7 +116,7 @@ agent identifiers (`ARCH-NATS-003`).
 
 | Principal | Publishes to | Subscribes to | Scope |
 |---|---|---|---|
-| Command publisher | The command subject of any enrolled agent | Nothing | Deployment |
+| Command publisher | The command subject of any enrolled agent | Its own publish-acknowledgement inbox | Deployment |
 | Enrollment service | Nothing on the agent data plane | The enrollment subject of an outstanding token | Per token |
 | Result consumer | Nothing | The result stream, through its own durable consumer | Deployment |
 | Presence consumer | Nothing | Agent presence subjects | Deployment |
@@ -142,12 +142,22 @@ broad publish permission: the server records the reply subject it handed out
 and permits exactly that one reply.
 
 **Keystone's data plane is not request/reply.** Commands and results are
-published to JetStream and acknowledged; presence is published. The one place a
-reply subject is genuinely required is pull consumption, where the consumer
-supplies an inbox for `CONSUMER.MSG.NEXT` to deliver into — and that is handled
-by an explicit, per-consumer inbox entry in § 8, which is **narrower** than a
-dynamic response grant because it is fixed at provisioning time and testable by
-P04 against a generated JWT.
+published to JetStream and acknowledged; presence is published. Reply subjects
+are genuinely required in exactly two places, and both are handled by explicit
+per-principal inbox entries in § 8 rather than by a dynamic response grant:
+
+1. **Pull consumption** — the consumer supplies an inbox for
+   `CONSUMER.MSG.NEXT` to deliver into.
+2. **Publish acknowledgement** — a JetStream publisher implicitly creates an
+   inbox, and the server returns the `PubAck` to it. **A publisher that cannot
+   receive its `PubAck` cannot distinguish a stored message from a lost one**,
+   which for the command publisher would make the charter's "a job identifier is
+   returned for every accepted job" (§ 5.3) unprovable at the moment it is
+   claimed.
+
+An explicit entry is **narrower** than `allow_responses` because it is fixed at
+provisioning time and testable by P04 against a generated JWT, rather than
+granted dynamically by the server at request time.
 
 Deferred rather than rejected: if P09's operator API or a later service acquires
 a genuine request/reply surface, `allow_responses` is the native mechanism and
@@ -198,6 +208,7 @@ exact consumer**. Nothing wildcards a stream, consumer or agent identifier.
 | Agent | `$JS.API.CONSUMER.MSG.NEXT.KS_CMD.<its own consumer>` | Pull its own next command |
 | Agent | `$JS.ACK.KS_CMD.<its own consumer>.>` | Acknowledge. **Trailing wildcard justified:** the subject carries per-message tokens — delivery count, stream sequence, consumer sequence, timestamp — that cannot be enumerated ahead of time. Bounded to one stream and one consumer |
 | Agent | Its own reply inbox prefix, `.>` | Receive pulled messages and publish-acks. **Trailing wildcard justified:** inbox tokens are generated per request. Bounded to that agent's own prefix |
+| Command publisher | Its own reply inbox prefix, `.>` | Receive the `PubAck` for each command it publishes to `KS_CMD`. **Trailing wildcard justified:** inbox tokens are generated per request. Bounded to the command publisher's own prefix |
 | Result consumer | `$JS.API.CONSUMER.MSG.NEXT.KS_RES.<its consumer>` | Pull results |
 | Result consumer | `$JS.ACK.KS_RES.<its consumer>.>` | Acknowledge, same justification |
 | Result consumer | Its own reply inbox prefix, `.>` | Same justification |
@@ -226,7 +237,7 @@ requirement is that none is absent or infinite.
 | Scope | Limit | Value | Reason |
 |---|---|---|---|
 | Keystone account | Max connections | Fleet size + service roles + headroom | One connection per agent, four per server role |
-| Keystone account | Max subscriptions per connection | Small fixed bound | An agent needs its command subject, its cancellation subject and its inbox |
+| Keystone account | Max subscriptions per connection | Small fixed bound | An agent needs its command subject, its cancellation subject and its inbox; each publishing service role needs its publish-acknowledgement inbox |
 | Keystone account | Max payload | 1 MiB | The charter bounds captured output (`ARCH-EXEC-001`); a payload larger than this is a defect, not a workload |
 | Keystone account | Max JetStream storage | Explicit byte cap | `ARCH-NATS-007` |
 | `KS_CMD` | Max age | Short — hours | A command older than its deadline is not worth delivering |
@@ -328,7 +339,7 @@ than a restatement of the verdict.
 
 | Capability | Verdict | Evidence |
 |---|---|---|
-| Response permissions | `Defer` | The data plane is publish/subscribe with acknowledgement, not request/reply; the one reply surface is handled by a narrower per-consumer inbox entry — § 6 |
+| Response permissions | `Defer` | The data plane is publish/subscribe with acknowledgement, not request/reply; both reply surfaces — pull consumption and publish acknowledgement — are handled by narrower per-principal inbox entries fixed at provisioning time — § 6 |
 | Key/Value (KV) | `Defer` | Presence is observed rather than stored (§ 7) and job state is the server's durable store (P08). No requirement is currently unserved |
 | Subject mappings | `Defer` | No requirement to rewrite subjects. Mapping would also move authorization-relevant routing out of the permission matrix P04 tests, which is a reason to be slow rather than fast here |
 | Object Store | `Defer` | Output is bounded by `ARCH-EXEC-001` and fits a payload; large-artifact transfer is not a v0.6.0 journey |
@@ -402,7 +413,9 @@ nothing now and leaves each reconsiderable with a stated trigger.
 
 The canonical subject grammar and the principal-by-subject permission matrix
 (**P04**); enrollment staging, bootstrap credentials and the permanent identity
-handover (**P03**); envelope format, signing and encryption, including the
+handover (**P03**) — noting that **any principal P03 introduces which publishes
+to a stream needs its own publish-acknowledgement inbox entry**, for the reason
+in § 6; envelope format, signing and encryption, including the
 cancellation-envelope gap `RSK-11` records (**P05**); job lifecycle and
 `UNKNOWN` semantics (**P06**); generated configuration, JWT fixtures and the
 negative identity matrix (**P04**, then **C03**).
@@ -420,3 +433,4 @@ negative identity matrix (**P04**, then **C03**).
 - [JetStream consumers](https://docs.nats.io/nats-concepts/jetstream/consumers)
 - [JetStream pull request subject](https://docs.nats.io/reference/jetstream/api/consumer/get-next)
 - [JetStream advisories](https://docs.nats.io/reference/jetstream/advisory)
+- [JetStream publishing and `PubAck`](https://docs.nats.io/learn/jetstream/publishing)
