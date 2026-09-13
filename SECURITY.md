@@ -34,9 +34,17 @@ The handling process, severity model and disclosure expectations are in
 
 ## Security posture of Generation 2
 
-Generation 2 has not been built yet. Its threat model is a deliberate,
-early-sequenced deliverable (P01) rather than something retrofitted, and the
-layered security design it must satisfy — NATS account isolation, per-agent
+Generation 2 has not been built yet. Its threat model was written before any of
+it — [`THREAT-MODEL.md`](docs/project/THREAT-MODEL.md), accepted as task P01 —
+and it is the input the architecture decisions are designed against rather than
+something retrofitted to them.
+
+It models ten actors and 48 threats against the seven canonical operator
+journeys, maps all 24 architecture invariants to threats, and records eleven
+accepted residual risks with owners and expiry dates. Read § 10 first if you are evaluating it: it says
+what the model cannot tell you.
+
+The layered security design it must satisfy — NATS account isolation, per-agent
 identity, exact subject authorisation, signed and end-to-end encrypted
 envelopes, and local execution policy — is set out in
 [RFC 0001](docs/rfcs/0001-generation-2-reboot.md) and

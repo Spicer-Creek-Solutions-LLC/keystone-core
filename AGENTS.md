@@ -138,6 +138,7 @@ Do not duplicate volatile inventories in this file. Those drift quickly.
 - Security policy and process: `SECURITY.md`, `docs/project/SECURITY-RELEASE.md`
 - ADR templates: `docs/adr/`
 - Terminology: `docs/project/GLOSSARY.md`
+- Threat model (normative, `THR-*` and `RSK-*` ids): `docs/project/THREAT-MODEL.md`
 - Recurring agent defects and their countermeasures: `docs/project/DEFECT-LEDGER.md`
 - Development-VM handoff: `docs/project/REBOOT-DEV-VM.md`
 
