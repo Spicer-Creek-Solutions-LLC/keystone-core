@@ -121,6 +121,9 @@ limitations go in the pull request.
 - [x] G04 — Correct `AGENTS.md` § 3's workstream-split rule, which claimed every
   P and C task splits into two agents where the execution plan splits only
   behaviour workstreams and allows planning and ADR tasks one PR.
+- [x] G05 — Record `DL-8` as `Failed` and revise its countermeasure. It recurred
+  in G04 while being applied, because deriving the shape of a finding was a
+  judgement with no test of whether the shape was wide enough.
 
 ## Epic acceptance
 
