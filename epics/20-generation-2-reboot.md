@@ -74,7 +74,11 @@ workstream depends on. Detailed controls are normative in the execution plan.
 - [x] P00 — Product charter and canonical journeys. Charter accepted; argv-only boundary frozen.
 - [x] P01 — Threat model. Ten actors, 48 threats, all 24 invariants mapped,
   eleven accepted residual risks.
-- [ ] P02 — NATS-native capability ADR.
+- [x] P02 — NATS-native capability ADR. `ADR-0002`: two accounts, decentralized
+  JWT with the operator seed outside every Keystone process, six service
+  principals plus one identity per agent, two streams with per-agent command
+  consumers, and an enumerated data-plane allowlist. `RSK-10` resolved;
+  `RSK-2` and `RSK-3` renewed.
 - [ ] P03 — Enrollment and identity ADR.
 - [ ] P04 — Subject authorization ADR and executable policy.
 - [ ] P05 — Versioned encrypted protocol ADR.

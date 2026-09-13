@@ -22,7 +22,8 @@ The Generation 2 reboot, tracked in
   persistence, operator-API, acceptance-harness and repository-skeleton ADRs.
   No production implementation starts until these are accepted. The charter and
 the threat model are accepted: [`PRODUCT-CHARTER.md`](PRODUCT-CHARTER.md),
-[`THREAT-MODEL.md`](THREAT-MODEL.md). P02 is next.
+[`THREAT-MODEL.md`](THREAT-MODEL.md). The first ADR is proposed:
+[`ADR-0002`](../adr/0002-nats-native-capabilities.md). P03 is next.
 - **Stage C — the first command-and-control release**, ending at `v0.6.0`.
 
 ## Next

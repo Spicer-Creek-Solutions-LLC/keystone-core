@@ -38,6 +38,7 @@ September 2026 and its references, guides and runbooks went with it.
 - [`ISSUE-TRACKING.md`](ISSUE-TRACKING.md) — tracker conventions
 - [`GLOSSARY.md`](GLOSSARY.md) — terminology already decided, and what is not yet defined
 - [`DEFECT-LEDGER.md`](DEFECT-LEDGER.md) — recurring agent defects, their countermeasures, and whether each held
+- [`../adr/0002-nats-native-capabilities.md`](../adr/0002-nats-native-capabilities.md) — how Keystone uses NATS: accounts, identities, streams, limits
 
 ## Governance and policy
 
