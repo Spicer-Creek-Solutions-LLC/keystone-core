@@ -124,6 +124,9 @@ limitations go in the pull request.
 - [x] G05 — Record `DL-8` as `Failed` and revise its countermeasure. It recurred
   in G04 while being applied, because deriving the shape of a finding was a
   judgement with no test of whether the shape was wide enough.
+- [x] G06 — Align P02's scope with `GLOSSARY.md`. The P02 dossier and the
+  execution plan both claimed the subject grammar and permission matrix that
+  the glossary assigns to P04.
 
 ## Epic acceptance
 
