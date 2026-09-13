@@ -142,6 +142,8 @@ limitations go in the pull request.
 - [x] G10 — Threat-model follow-ups from P02: model the account signing key the
   ADR gives the server (`AST-16`, `THR-49`), and carry `RSK-10`'s resolution
   into the two places that still called it undecided.
+- [x] G11 — Add attestation to P03's dossier. `GLOSSARY.md` assigns it to P03
+  by name and the dossier's exact outputs did not carry it.
 
 ## Epic acceptance
 
