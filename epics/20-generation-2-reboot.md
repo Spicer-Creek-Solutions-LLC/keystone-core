@@ -114,6 +114,8 @@ limitations go in the pull request.
   wrongly or not at all.
 - [x] G02 — Defect ledger. Records recurring agent defects with root causes and
   countermeasures, and whether each countermeasure held.
+- [x] G03 — Defect ledger entry `DL-8`. Records the class P01's three review
+  rounds demonstrated twice: a finding repaired only where it was pointed out.
 
 ## Epic acceptance
 
