@@ -200,18 +200,26 @@ enumeration against generated production JWTs. NATS allow-lists are exclusive �
 once an allow list exists, every subject not on it is denied — so this list is
 the whole of what a Keystone identity may reach in the JetStream API.
 
-Each entry below is per principal and **substitutes one exact stream and one
-exact consumer**. Nothing wildcards a stream, consumer or agent identifier.
+Entries come in **two shapes**, and the difference is not cosmetic:
 
-| Principal | Permitted | Why |
-|---|---|---|
-| Agent | `$JS.API.CONSUMER.MSG.NEXT.KS_CMD.<its own consumer>` | Pull its own next command |
-| Agent | `$JS.ACK.KS_CMD.<its own consumer>.>` | Acknowledge. **Trailing wildcard justified:** the subject carries per-message tokens — delivery count, stream sequence, consumer sequence, timestamp — that cannot be enumerated ahead of time. Bounded to one stream and one consumer |
-| Agent | Its own reply inbox prefix, `.>` | Receive pulled messages and publish-acks. **Trailing wildcard justified:** inbox tokens are generated per request. Bounded to that agent's own prefix |
-| Command publisher | Its own reply inbox prefix, `.>` | Receive the `PubAck` for each command it publishes to `KS_CMD`. **Trailing wildcard justified:** inbox tokens are generated per request. Bounded to the command publisher's own prefix |
-| Result consumer | `$JS.API.CONSUMER.MSG.NEXT.KS_RES.<its consumer>` | Pull results |
-| Result consumer | `$JS.ACK.KS_RES.<its consumer>.>` | Acknowledge, same justification |
-| Result consumer | Its own reply inbox prefix, `.>` | Same justification |
+- **Consumer-scoped** — consumer-next and acknowledgement. Each substitutes one
+  exact stream and one exact consumer.
+- **Principal-scoped** — a publisher's publish-acknowledgement inbox. It names
+  that principal's own inbox prefix and **no stream or consumer**, because a
+  `PubAck` is returned to the publisher and belongs to no consumer (§ 6).
+
+Nothing in either shape wildcards a stream, consumer, agent or principal
+identifier.
+
+| Principal | Shape | Permitted | Why |
+|---|---|---|---|
+| Agent | Consumer-scoped | `$JS.API.CONSUMER.MSG.NEXT.KS_CMD.<its own consumer>` | Pull its own next command |
+| Agent | Consumer-scoped | `$JS.ACK.KS_CMD.<its own consumer>.>` | Acknowledge. **Trailing wildcard justified:** the subject carries per-message tokens — delivery count, stream sequence, consumer sequence, timestamp — that cannot be enumerated ahead of time. Bounded to one stream and one consumer |
+| Agent | Principal-scoped | Its own reply inbox prefix, `.>` | Receive pulled messages and publish-acks. **Trailing wildcard justified:** inbox tokens are generated per request. Bounded to that agent's own prefix |
+| Command publisher | Principal-scoped | Its own reply inbox prefix, `.>` | Receive the `PubAck` for each command it publishes to `KS_CMD`. **Trailing wildcard justified:** inbox tokens are generated per request. Bounded to the command publisher's own prefix |
+| Result consumer | Consumer-scoped | `$JS.API.CONSUMER.MSG.NEXT.KS_RES.<its consumer>` | Pull results |
+| Result consumer | Consumer-scoped | `$JS.ACK.KS_RES.<its consumer>.>` | Acknowledge, same justification |
+| Result consumer | Principal-scoped | Its own reply inbox prefix, `.>` | Same justification |
 
 **Denied to every Keystone identity**, and stated explicitly because an
 exclusive allow list already denies them — repetition here is for the reader and

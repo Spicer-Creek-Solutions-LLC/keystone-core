@@ -58,7 +58,7 @@ not exercising.
 
 ## Demonstrations
 
-Control: `== 0 failures ==`. Nine cases across the eight acceptance cases:
+Control: `== 0 failures ==`. Eleven cases across the eight acceptance cases:
 
 | Defect planted | Case |
 |---|---|
@@ -67,6 +67,8 @@ Control: `== 0 failures ==`. Nine cases across the eight acceptance cases:
 | A deferred capability is silently adopted with no demonstrated need | `AC-2` |
 | Evidence merely restates the verdict | `AC-3` |
 | A bare `$JS.ACK.>` is permitted | `AC-4` |
+| A consumer-scoped entry names no exact stream or consumer | `AC-4` |
+| A principal-scoped entry claims a consumer it cannot have | `AC-4` |
 | A required principal is not named | `AC-5` |
 | An invariant is registered with no owning task | `AC-6` |
 | A P02 risk is left with its original expiry | `AC-7` |
@@ -87,6 +89,27 @@ This is `DL-1` caught before it became evidence, and it is the second time in
 this task that writing the demonstration found a defect in the check rather than
 in the document.
 
+### A check weaker than the claim it enforced
+
+`AC-4`'s prose required every allowlist entry to name one exact stream and one
+exact consumer. **The check never tested that clause at all** — it tested for
+`*`, for bare wildcards, for administrative subjects and for a missing
+justification. So when the ADR added a publisher's publish-acknowledgement
+inbox, which has no consumer and therefore contradicted the contract, the
+checker reported `== 0 failures ==` and review found it instead.
+
+`G09` then made `AC-4` shape-aware, because the contradiction was in the case
+rather than in the ADR: a `PubAck` belongs to no consumer, so the entry a
+publisher needs could never have satisfied the rule. The check now tests both
+halves — a consumer-scoped entry must name its exact stream and consumer, a
+principal-scoped entry must not claim either — and two demonstrations cover them.
+
+**Three defects on this task were in the checks rather than in the document**:
+the stale-phrase assertion, `AC-7`'s whole-row test, and this one. Two were
+caught by writing the demonstrations and one by review. That ratio is the honest
+measure of how much weight the mechanical cases carry, and it is why the section
+below is a required output rather than a courtesy.
+
 ## What these cases cannot detect
 
 Stated as an output of P02, not learned afterwards.
@@ -96,7 +119,7 @@ Stated as an output of P02, not learned afterwards.
 | `AC-1` | Whether a capability **absent from RFC 0001's list** is relevant and missing. The list is a floor, not a census | Review; C03, when a needed capability has no decision to implement |
 | `AC-2` | Whether a `Defer` is honest, or an `Adopt` the author did not want to argue for | Review — the deferred set is the reviewer's primary target |
 | `AC-3` | Whether the evidence is **true**, or supports the verdict beside it. It measures length and non-restatement, which a plausible falsehood passes | Review against the cited NATS documentation |
-| `AC-4` | Whether the allowlist is **sufficient** for the consumer it serves or **minimal**, and whether a permitted trailing wildcard is bounded as tightly as that consumer allows | C03's negative identity matrix: an insufficient allowlist fails to connect, an excessive one fails a denial test |
+| `AC-4` | Whether the allowlist is **sufficient** for the principal it serves or **minimal**; whether a permitted trailing wildcard is bounded as tightly as that principal allows; and **whether an entry is classified into the right shape** — a consumer-scoped entry mislabelled as principal-scoped escapes the stream-and-consumer requirement entirely | C03's negative identity matrix: an insufficient allowlist fails to connect, an excessive one fails a denial test |
 | `AC-5` | Whether the direction and scope named for a principal are the **right** authority for it | Review; P04's generated JWTs and negative tests (`ARCH-TEST-002`) |
 | `AC-6` | Whether a section claiming to satisfy an invariant **does**. A shallow section satisfies the map as well as a deep one | Review — the same limit P01's `AC-6` carried, restated because the shape is identical |
 | `AC-7` | Whether a renewal is **justified**, or a resolution **correct**. `RSK-10` is recorded resolved because a per-subject limit bounds a per-agent subject; if that mechanism does not behave as documented, this case still passes | C03 and C14, where the limit is configured and attacked |
@@ -190,9 +213,20 @@ for r in req + dfr:
 allow = rows(r"### 8\. Data-plane .*?\n")
 if not allow: fails.append("AC-4 no allowlist table")
 ADMIN = ["CREATE", "DELETE", "UPDATE", "LIST", "PURGE", "NAMES", "ACCOUNT.INFO"]
+SHAPES = ("Consumer-scoped", "Principal-scoped")
 for r in allow:
-    if len(r) < 3: continue
-    permitted, why = r[1], r[2]
+    if len(r) < 4:
+        fails.append(f"AC-4 entry does not declare a shape: {r}"); continue
+    principal, shape, permitted, why = r[0], r[1], r[2], r[3]
+    if shape not in SHAPES:
+        fails.append(f"AC-4 entry shape {shape!r} is not one of {SHAPES}"); continue
+    # the clause AC-4 actually states, tested rather than assumed
+    names_stream_and_consumer = bool(re.search(r"\$JS\.(?:API\.CONSUMER\.MSG\.NEXT|ACK)\.\w+\.<[^>]+>", permitted))
+    claims_stream_or_consumer = bool(re.search(r"KS_\w+|consumer", permitted, re.I))
+    if shape == "Consumer-scoped" and not names_stream_and_consumer:
+        fails.append(f"AC-4 consumer-scoped entry names no exact stream and consumer: {permitted}")
+    if shape == "Principal-scoped" and claims_stream_or_consumer:
+        fails.append(f"AC-4 principal-scoped entry claims a stream or consumer it cannot have: {permitted}")
     if "*" in permitted: fails.append(f"AC-4 entry wildcards a token with '*': {permitted}")
     if re.search(r"`?\$JS\.ACK\.>", permitted) or re.search(r"`?_INBOX\.>", permitted):
         fails.append(f"AC-4 bare wildcard entry: {permitted}")
