@@ -380,9 +380,11 @@ accepted residual risk.
 ### P02 — NATS-native capability ADR
 
 Specify accounts, system account, operator/JWT trust, service/agent principals,
-subject grammar, publish/subscribe permissions, response permissions decision,
+the direction and scope each principal requires, response permissions decision,
 JetStream streams and consumers, limits, advisories, headers, TLS, credential
-rotation, and deployment modes. Include an `Adopt/Evaluate/Defer/Reject` matrix
+rotation, and deployment modes. The canonical subject grammar and the
+principal-by-subject permission matrix are P04's, per `GLOSSARY.md` § Subject;
+P02 names subjects by role and fixes what P04 writes its matrix against. Include an `Adopt/Evaluate/Defer/Reject` matrix
 for every relevant NATS feature and the exact data-plane `$JS.API`/reply
 allowlist required by pull consumption and acknowledgements.
 
