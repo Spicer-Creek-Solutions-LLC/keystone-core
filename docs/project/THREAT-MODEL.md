@@ -77,7 +77,7 @@ by reassigning the asset to a second home.
 | `AST-3` | Permanent scoped agent NATS credential | `TD-AGT` |
 | `AST-4` | Agent envelope-signing key | `TD-AGT` |
 | `AST-5` | Agent payload-decryption key | `TD-AGT` |
-| `AST-6` | Service NATS credentials — command publisher, enrollment, result consumer, presence consumer | `TD-SRV` |
+| `AST-6` | Service NATS credentials — command and cancellation publisher, enrollment, result consumer, presence consumer | `TD-SRV` |
 | `AST-7` | Service envelope-signing key | `TD-SRV` |
 | `AST-8` | Result-service payload-decryption key | `TD-SRV` |
 | `AST-9` | NATS operator and account seeds | `TD-BRK` |
@@ -91,6 +91,16 @@ by reassigning the asset to a second home.
 `ARCH-NATS-006` requires `AST-3`, `AST-4` and `AST-5` to be **separate keys**,
 and forbids reusing an NKey seed as a Keystone signing or encryption key. They
 are listed separately here for that reason, not for tidiness.
+
+**Cancellation authority is modelled as the command publisher's.** The charter's
+5.6 journey introduces no party its 5.3 journey does not already have, and
+`FLW-8` has the same direction and the same per-agent scope as `FLW-5`, so
+`AST-6`'s publisher role covers cancellation subjects. That is **this model's
+assumption and not a decided ADR**: P04 owns subject authorization and may issue
+a distinct cancellation credential instead, which would narrow `ACT-8`'s reach
+rather than widen it. Recorded here because the alternative — leaving
+cancellation unattributed — is what made `THR-24` name an actor with no
+capability for it.
 
 ## 3. Trust boundaries and the flows that cross them
 
@@ -139,13 +149,13 @@ party. The actor is whoever holds it.
 | ID | Actor | Capabilities | Motivation |
 |---|---|---|---|
 | `ACT-1` | Operator | Issue enrollment tokens, target any enrolled agent, run bounded commands, cancel, read results and audit | Legitimate. Modelled because their workstation and socket are attack surface, not because they are hostile |
-| `ACT-2` | Server service | Publish commands, consume results and presence, write the audit store, issue tokens | Legitimate. Modelled because its compromise is the widest single failure |
+| `ACT-2` | Server service | Publish commands and cancellations, consume results and presence, write the audit store, issue tokens | Legitimate. Modelled because its compromise is the widest single failure |
 | `ACT-3` | Agent | Subscribe to its own command and cancellation subjects, publish its own result, event and presence subjects, execute bounded argv | Legitimate. Its authority is deliberately narrow |
 | `ACT-4` | NATS operator | Holds `AST-9`. Can mint accounts and users, and therefore any Keystone identity | Administers the broker. Its authority exceeds the product's |
 | `ACT-5` | Broker administrator | Runs the broker process. Sees every subject, header and byte on the wire; can drop, delay or reorder | Operates infrastructure Keystone does not own |
 | `ACT-6` | Network attacker | Observes and manipulates traffic between domains; cannot read TLS plaintext without a key | Opportunistic or targeted |
 | `ACT-7` | Compromised agent | Everything `ACT-3` has, plus `AST-2`–`AST-5`, the ledger, and root on that host | Pivot to other agents, the server, or the fleet |
-| `ACT-8` | Attacker holding a compromised service credential | Exactly what that **one** credential authorizes — publishing commands, or consuming results. It holds no Keystone signing or decryption key and no access to the server's store: those live in `TD-SRV`, and a party holding them too is `ACT-2`'s compromise, not this one | Impersonate the control plane |
+| `ACT-8` | Attacker holding a compromised service credential | Exactly what that **one** credential authorizes — publishing commands and cancellations, or consuming results. It holds no Keystone signing or decryption key and no access to the server's store: those live in `TD-SRV`, and a party holding them too is `ACT-2`'s compromise, not this one | Impersonate the control plane |
 | `ACT-9` | Malicious command author | Supplies argv that reaches an agent, without being the operator — via a compromised workstation, or an operator misled into running it | Execute on the fleet under legitimate authority |
 | `ACT-10` | Supply-chain attacker | Alters binaries, packages or dependencies before install | Persistent access to every host that installs |
 
@@ -192,7 +202,7 @@ and the party who would exploit it is named in the mitigation.
 | `THR-21` | Result output is read off the wire | `ACT-5`, `ACT-6` | `AST-11` | 5.5 | Results signed by the agent and encrypted to the authorized result service (`ARCH-NATS-006`) |
 | `THR-22` | Unbounded output exhausts agent or server memory | `ACT-9` | `AST-11` | 5.5 | Output limits with truncation reported explicitly rather than silently (`ARCH-EXEC-001`); broker-side payload limits (`ARCH-NATS-007`) |
 | `THR-23` | Cancellation kills the immediate child and leaves descendants running | `ACT-3` | `AST-12` | 5.6 | Timeout and cancellation terminate the complete process group or platform-equivalent job object (`ARCH-EXEC-002`). `ACT-9` supplies the work that spawns descendants; the defect is the agent's |
-| `THR-24` | A party cancels a job it does not own | `ACT-7`, `ACT-8` | `AST-12` | 5.6 | Cancellation subjects are per-agent (`ARCH-NATS-003`); which operators may cancel which jobs is P09's |
+| `THR-24` | A party cancels a job it does not own | `ACT-7`, `ACT-8` | `AST-12` | 5.6 | Cancellation subjects are per-agent (`ARCH-NATS-003`), so `ACT-7` has no publish path to another agent's. `ACT-8` does hold one (§ 2), and **`ARCH-NATS-006` names commands and results and not cancellations**, so the key-separation argument that bounds `THR-11` is not stated for this envelope — `RSK-11`, P05's to close. Which operators may cancel which jobs is P09's |
 | `THR-25` | A crash while cancellation is in flight leaves the outcome indeterminate and it is reported as terminal | `ACT-3` | `AST-13` | 5.6 | Recovery path at the cancellation boundary; `UNKNOWN` where the outcome is unprovable (`ARCH-JOB-004`) |
 | `THR-26` | A lifecycle transition emits no audit record, hiding an action | `ACT-2` | `AST-13` | 5.7 | Enrollment, authorization denial, receipt, start, cancellation, timeout, completion, unknown outcome and result retrieval all emit correlated records (`ARCH-OBS-001`) |
 | `THR-27` | Audit records or broker headers carry command secrets or payload plaintext | `ACT-2` | `AST-13` | 5.7 | `ARCH-OBS-001` forbids it; the harness plants canaries and fails before upload (`TESTING.md`) |
@@ -235,7 +245,7 @@ against single theft does not apply.
 
 | ID | Threat | Actor | Asset | Journey | Mitigation or risk |
 |---|---|---|---|---|---|
-| `THR-44` | A compromised server issues commands every agent accepts, holding the publisher credential and the signing key together | `ACT-2` | `AST-6`, `AST-7` | 5.3 | `RSK-4`. No control in `v0.6.0` survives this; agents verify a signature the attacker can produce |
+| `THR-44` | A compromised server issues commands and cancellations every agent accepts, holding the publisher credential and the signing key together | `ACT-2` | `AST-6`, `AST-7` | 5.3 | `RSK-4`. No control in `v0.6.0` survives this; agents verify a signature the attacker can produce |
 | `THR-45` | A compromised server decrypts every result on the deployment | `ACT-2` | `AST-8`, `AST-11` | 5.5 | `RSK-4`. Results are encrypted *to* the result service, so possessing it is possessing the plaintext |
 | `THR-46` | A compromised server fabricates operator-facing status, output and audit — a success the operator cannot distinguish from a real one | `ACT-2` | `AST-13` | 5.4, 5.5, 5.7 | `RSK-4`. The agent's own ledger is an independent record, but the operator reaches it only through the server |
 
@@ -329,7 +339,7 @@ the broker, and does not hide *that* you ran one.
 | `ACT-6` network attacker | Partition a domain from the broker, indefinitely |
 | `ACT-7` compromised agent | Consume limits and fill streams — bounded by `ARCH-NATS-007`, which bounds *resources* and does not require per-agent streams or per-agent storage. Whether that denial stays local to the agent is P02's topology decision, not a present guarantee (`RSK-10`) |
 | `ACT-9` malicious command author | Occupy an agent with long-running work — bounded by `ARCH-EXEC-001` |
-| `ACT-2` server | Withhold commands, results or audit from the operator |
+| `ACT-2` server | Withhold commands, results or audit from the operator; cancel any running job |
 
 **The design's answer to all of these is the same, and it is not prevention.**
 None of the powers *in the table above* can produce a false success: where the
@@ -362,7 +372,9 @@ reachable during a broker outage does not have that from this product.
 | `AST-2` bootstrap credential | Not rotated; it exists for one enrollment | Revoked at enrollment and the revocation **verified**; short expiry is the backstop (`ARCH-NATS-004`) | Defined crash-recovery path at every enrollment stage |
 | `AST-3` permanent agent credential | **Not specified in `v0.6.0`** — `RSK-7`. Mechanism is P03's | Removing the agent's NATS identity; the effect on in-flight jobs is P03 and P06 | Re-enrollment |
 | `AST-4`, `AST-5` agent signing and decryption keys | **Not specified** — `RSK-7`. P03 and P05 | With the agent identity | Re-enrollment |
-| `AST-6`, `AST-7`, `AST-8` service credentials and keys | **Not specified** — `RSK-7` | Broker-side, by the NATS operator | Reprovisioning, outside the product |
+| `AST-6` service NATS credentials | **Not specified** — `RSK-7` | Broker-side, by the NATS operator | Reprovisioning, outside the product |
+| `AST-7` service envelope-signing key | **Not specified** — `RSK-7` | **No mechanism exists.** Revoking `AST-6` removes the publish path, which *contains* the key exactly as `RSK-1` argues, and does not invalidate it: agents accept its signature over any publish path its holder can reach | Reprovisioning, and re-establishing trust in the new key on every agent — outside the product |
+| `AST-8` result-decryption key | **Not specified** — `RSK-7` | **No mechanism exists, and broker-side revocation does not help**: captured ciphertext stays decryptable offline for as long as the key exists | Reprovisioning, outside the product |
 | `AST-9` NATS operator and account seeds | The broker's own process | The broker's own process | Outside the product entirely |
 
 Enrollment is the only key transition Generation 2 specifies, and it is
@@ -370,6 +382,12 @@ specified thoroughly — staged, idempotent, fsync-and-rename, proof of permanen
 connection, revoke, verify, with a crash-recovery path per stage. **Everything
 after enrollment is undesigned**, which is `RSK-7` and the largest single gap
 this model found.
+
+The three service rows were one row until review pointed out that "broker-side,
+by the NATS operator" is true of `AST-6` alone. The broker can revoke a NATS
+identity; it has no authority over a Keystone signing or decryption key, and the
+two fail differently — containment for one, nothing at all for the other. A
+grouped row claimed a control that constrains one of the three assets.
 
 ## 9. Accepted residual risk
 
@@ -380,16 +398,17 @@ is resolved or renewed explicitly.
 
 | ID | Risk | Owner | Rationale | Compensating control | Expires |
 |---|---|---|---|---|---|
-| `RSK-1` | **Joint** possession of the publisher credential and the service signing key yields commands every agent accepts (`THR-11`) | Project maintainer | Each key alone is useless for this: one publishes without signing, the other signs without publishing. Two separate thefts, or one compromise of the domain holding both — which is `RSK-4` | `ARCH-NATS-006` keeps them separate keys, so no single theft suffices; every issued command is audited (`ARCH-OBS-001`), though a party holding both can also rewrite that audit | 2027-03-13, or P05 |
+| `RSK-1` | **Joint** possession of the publisher credential and the service signing key yields commands every agent accepts (`THR-11`) | Project maintainer | Each key alone is useless for this: one publishes without signing, the other signs without publishing. Two separate thefts, or one compromise of the domain holding both — which is `RSK-4` | `ARCH-NATS-006` keeps them separate keys, so no single theft suffices; every issued command is audited (`ARCH-OBS-001`), though a party holding both can also rewrite that audit. Note the containment is **unbounded in time**: no revocation path exists for `AST-7` (§ 8, `RSK-7`), so a theft that is contained is not thereby ended | 2027-03-13, or P05 |
 | `RSK-2` | The broker administrator can withhold or delay any message (`THR-07`) | Project maintainer | Keystone does not own the broker; a mediated design cannot exclude its operator | Withholding produces `UNKNOWN` or visible absence, never false success (`ARCH-JOB-004`) | 2027-03-13, or P02 |
 | `RSK-3` | The NATS operator can mint any Keystone identity (`THR-32`) | Project maintainer | Whoever holds the operator seed administers the trust domain; that authority is above the product by construction | Account isolation limits blast radius to the Keystone account (`ARCH-NATS-001`); envelope signatures are not broker-issued, so a minted identity still cannot forge a signed command | 2027-03-13, or P02 |
 | `RSK-4` | **Compromise of the server is total within the product**: issuing commands agents accept, decrypting every result, and fabricating operator-facing status and audit (`THR-28`, `THR-44`–`THR-46`) | Project maintainer | `TD-SRV` holds the service credentials, the signing key, the result-decryption key and the store. No control in `v0.6.0` survives possession of that domain, and none is proposed — the layered design defends the *broker*, the *network* and a *compromised agent*, not the control plane against itself | Agent-side ledgers are independent and record receipt and terminal state (`ARCH-JOB-002`), so a forensic reconstruction is possible from the agents even when the server's account is false — but the operator reaches those ledgers only through the server, and the reconstruction holds only where the agent is not also compromised (`RSK-9`, `THR-48`) | 2027-03-13, or P08 |
 | `RSK-5` | Release artefacts are unsigned (`THR-34`) | Project maintainer | Signing is a C13 decision requiring a human ceremony; it does not exist before then | None within the product | 2027-03-13, or C13 |
 | `RSK-6` | Traffic metadata reveals an operational picture of the fleet to the broker (§ 6) | Project maintainer | Inherent to broker mediation; mitigation costs bandwidth and latency and is required by no invariant | Payload content remains protected (`ARCH-NATS-006`) | 2027-03-13, or P05 |
-| `RSK-7` | No key rotation exists after enrollment (§ 8) | Project maintainer | Generation 2's scope is one narrow promise; rotation was not part of it, and enrollment is the only transition designed | Re-enrollment achieves rotation manually, at the cost of a new identity | 2027-03-13, or P03 |
+| `RSK-7` | No key rotation exists after enrollment, and **no revocation exists for the service signing and decryption keys** (§ 8) | Project maintainer | Generation 2's scope is one narrow promise; rotation was not part of it, and enrollment is the only transition designed. Revocation was assumed to follow the NATS identity, which holds for `AST-6` and not for `AST-7` or `AST-8` | Re-enrollment achieves rotation manually for agent-side material, at the cost of a new identity. **There is no equivalent for `AST-7` and `AST-8`**: replacing either means reprovisioning the service and re-establishing trust across the fleet, outside the product | 2027-03-13, or P03 |
 | `RSK-8` | A compromised operator workstation acts with the operator's full authority (`THR-35`) | Project maintainer | The operator API is a local socket, which defends against remote callers and not against code already running as the operator. P09 will define *which* operators may do *what*; it cannot distinguish the operator from malware holding their session | Every command issued is audited with its actor (`ARCH-OBS-001`) — which records **the identity exercised, not the true actor**: malware acting in the operator's session is attributed to the operator. The action is visible afterwards; who took it is not | 2027-03-13, or P09 |
 | `RSK-9` | **Compromise of an agent host is total within that host**: it signs results with its own key and owns its own ledger, so it can report a success for a command it never ran (`THR-47`, `THR-48`) | Project maintainer | A result is authored inside the domain it reports on. The signature proves origin, not truth, and no control in `v0.6.0` gives the server an independent witness of what happened on the host. Attestation would; it is not part of Generation 2's one narrow promise | Bounded to one host by construction — § 2 makes each agent host its own domain — so fabrication is confined to jobs targeted at that agent. The server's audit stays *consistent*, recording a result that arrived and verified, which is true; what the result says is not | 2027-03-13, or P06 |
 | `RSK-10` | One agent's publications may consume broker limits shared with the fleet, so its denial is not proven to be agent-local (`THR-31`, § 7) | Project maintainer | `ARCH-NATS-007` requires bounded resources; it does not require per-agent streams or per-agent storage. Stream and account topology is P02's, so isolation is undecided rather than guaranteed | Limits are explicit and mandatory, so the denial is bounded in absolute terms even where it is not partitioned per agent; and denial produces `UNKNOWN`, never a false success (`ARCH-JOB-004`) | 2027-03-13, or P02 |
+| `RSK-11` | `ARCH-NATS-006` requires commands and results to be signed and does not name **cancellations**, so a holder of the command publisher credential alone may be able to produce an accepted cancellation (`THR-24`) | Project maintainer | The invariant was written around the two envelopes the 5.3 and 5.5 journeys carry. Cancellation is `FLW-8` and in the v0.6.0 promise, so the omission is a gap in the invariant rather than a decision about it | Cancellation subjects are per-agent (`ARCH-NATS-003`), so the exposure needs the service credential and is not reachable by an agent; and a wrongly cancelled job is reported as cancelled rather than as success (`ARCH-JOB-004`) | 2027-03-13, or P05 |
 
 ## 10. What this model cannot tell you
 
@@ -424,7 +443,7 @@ become wrong and the threats derived from them become incomplete.
 observe.** It is not a formal traffic analysis.
 
 **Residual risks record a decision, not a measurement.** `RSK-1` through
-`RSK-10` say the maintainer accepted a risk and why. None says the risk is
+`RSK-11` say the maintainer accepted a risk and why. None says the risk is
 small.
 
 The acceptance cases for this document check its **shape** — that every actor

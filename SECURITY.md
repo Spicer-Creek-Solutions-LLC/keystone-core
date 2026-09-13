@@ -40,7 +40,7 @@ and it is the input the architecture decisions are designed against rather than
 something retrofitted to them.
 
 It models ten actors and 48 threats against the seven canonical operator
-journeys, maps all 24 architecture invariants to threats, and records ten
+journeys, maps all 24 architecture invariants to threats, and records eleven
 accepted residual risks with owners and expiry dates. Read § 10 first if you are evaluating it: it says
 what the model cannot tell you.
 

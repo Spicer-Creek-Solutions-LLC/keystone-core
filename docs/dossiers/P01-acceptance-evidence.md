@@ -125,8 +125,7 @@ that three of them are *recurrences of round-1 classes* rather than new ones.
 
 | Finding | Class | Which case should have caught it |
 |---|---|---|
-| The blast radius was enumerated for `TD-SRV` and not for `TD-AGT`. `ACT-7` holds the signing key, the result plaintext and the ledger, so it can sign a success for a job it never executed | Semantic — **recurrence** of round 1's shallow-threat finding, one domain over | None. The same limit as round 1: `AC-6`'s coverage table is satisfied by a shallow threat |
-| § 7's guarantee still named a compromised agent among the parties the operator is protected from | Semantic — **recurrence** of round 1's claim-broader-than-its-evidence finding | None |
+| The blast radius was enumerated for `TD-SRV` and not for `TD-AGT` — `ACT-7` holds the signing key, the result plaintext and the ledger, so it can sign a success for a job it never executed — and § 7 still named a compromised agent among the parties the operator is protected from | Semantic — **recurrence** of round 1's shallow-threat and claim-broader-than-its-evidence findings, one domain over | None. The same limit as round 1: `AC-6`'s coverage table is satisfied by a shallow threat |
 | `ACT-8` was given the service signing key (`THR-11`, `THR-44`), decryption keys and store access (`THR-45`, `THR-46`), an enrollment token (`THR-02`) and a co-tenant's position (`THR-30`) — by the same commit that wrote the actor/control rule down | Semantic — **recurrence** of round 1's actor/control misalignment | None. `AC-1` checks that an actor has capabilities and `AC-3` that a control is named; neither compares the two |
 | § 7 claimed a compromised agent's denial is bounded to that agent, which `ARCH-NATS-007` does not require — it bounds resources, not topology | Semantic — a control cited for a property it does not have | None |
 | `SECURITY.md`, the epic and § 10 still carried round-1 counts and cross-references | Generated summary not regenerated | None. No case reads outside the threat model |
@@ -146,6 +145,35 @@ then violated in § 5.1 and § 5.3 by the commit that added it. The lesson is no
 already says so. It is that a semantic finding is a statement about the
 document, and repairing only where it was pointed out leaves the rest of it
 standing.
+
+## Round 3 of review: two defects the earlier fixes created or exposed
+
+Independent review of `f7c2a0ea5` found two. The checks passed both.
+
+| Finding | Class | Which case should have caught it |
+|---|---|---|
+| Cancellation authority was attributed to nobody. `FLW-8` is a server-to-agent flow and 5.6 is in the charter, but `AST-6` named four service roles without a cancellation publisher, so `THR-24` named `ACT-8` for an action no modelled credential authorized | Semantic — an asset model incomplete against a flow the same document declares. **Sharpened by round 2's own fix**: tightening `ACT-8` to exactly one credential turned a vague actor into a flat contradiction | None. `AC-2` checks that a flow names the boundaries it crosses, never that some actor holds authority for it |
+| § 8 grouped `AST-6`, `AST-7` and `AST-8` under "revocation: broker-side, by the NATS operator", which is true of the NATS credential alone | Semantic — a control cited for assets it does not constrain: the asset-side form of round 1's actor/control finding | None. No case reads the § 8 table; `AC-5` checks only that the section exists |
+
+Resolved by modelling cancellation as the command publisher's authority and
+recording that as an assumption P04 may overturn (§ 2), correcting `AST-6`,
+`ACT-2`, `ACT-8`, `THR-24` and `THR-44`, and splitting § 8's service row into
+three with the two failure modes stated separately — containment without
+invalidation for `AST-7`, nothing at all for `AST-8`. `RSK-7` widens from
+rotation to rotation *and* revocation.
+
+**A third defect surfaced while fixing the first, and is recorded rather than
+resolved.** `ARCH-NATS-006` requires commands and results to be signed and does
+not name cancellations, so the key-separation argument that bounds `THR-11` is
+not stated for `FLW-8`'s envelope. That is a gap in the invariant rather than in
+this document's use of it: `RSK-11`, P05's to close. It is named here because
+the alternative was to assert the signature requirement covers cancellations,
+which would have been a fourth instance of the class round 1 found.
+
+**What three rounds establish about the limits table.** Eleven findings — five,
+four, two. Every one falls under a row written before round 1, and not one was
+caught by a case. The table was a prediction, not a disclaimer, and it has now
+been tested three times.
 
 ## A deviation from the approved plan
 
