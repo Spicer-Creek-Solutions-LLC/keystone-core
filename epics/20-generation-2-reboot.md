@@ -132,6 +132,9 @@ limitations go in the pull request.
   output was trimmed rather than where it ran.
 - [x] G08 — Correct P02's `AC-4`, which forbade every wildcard and so could not
   be satisfied by any ADR that permits JetStream acknowledgement.
+- [x] G09 — Make P02's `AC-4` shape-aware. It required every allowlist entry to
+  name one exact consumer, which a publisher's publish-acknowledgement inbox
+  cannot have.
 
 ## Epic acceptance
 
