@@ -71,9 +71,9 @@ which is why the dossier names a reviewer in § 8 rather than deferring it.
 
 | Case | Cannot detect | Found instead by |
 |---|---|---|
-| `AC-1` | Whether an actor's capabilities are **realistic**, or whether an eleventh actor is missing entirely | Review; C14's adversarial suite later |
+| `AC-1` | Whether an actor's capabilities are **realistic**, whether a threat names an actor that *has* the capability it requires, or whether an eleventh actor is missing entirely | Review — demonstrated, see below |
 | `AC-2` | Whether the claimed owning domain is the **right** one, or whether a flow is absent altogether | Review against the charter's journeys |
-| `AC-3` | **Whether a mitigation mitigates.** It checks that a control is named and that the citation resolves | Review; P02–P08 rejecting an unimplementable mitigation |
+| `AC-3` | **Whether a mitigation mitigates**, and **whether the cited control constrains the actor named beside it**. It checks that a control is named and that the citation resolves | Review — demonstrated, see below |
 | `AC-4` | Whether a rationale is **sound** or a compensating control **effective** | The maintainer, who owns each risk by name |
 | `AC-5` | Whether a section's treatment is **adequate**, only that the section exists | Review |
 | `AC-6` | Whether the mapped threat is the one that invariant actually addresses. A shallow threat satisfies the coverage table exactly as well as a deep one | Review |
@@ -83,6 +83,31 @@ which is why the dossier names a reviewer in § 8 rather than deferring it.
 threat names a control and every invariant is addressed — and neither can tell
 you the model is *correct*. G02 measured this directly over ten review rounds:
 structural defects caught reliably, semantic defects never.
+
+## Round 1 of review: what the cases could not reach
+
+Independent review of `bc618c390` found five defects. **The acceptance checks
+passed all five**, and they are the exact classes the limits table predicts.
+
+| Finding | Class | Which case should have caught it |
+|---|---|---|
+| `ACT-2`'s blast radius asserted but never enumerated: `THR-28` covered audit rewriting, while `TD-SRV` also holds the signing key, the result-decryption key and the store | Semantic — a threat present but shallow | None. `AC-6`'s coverage table is satisfied by a shallow threat exactly as well as by a deep one, which the limits table already said |
+| § 7 concluded that no denial power can produce a false success — true of the table above it, false of server compromise | Semantic — a claim broader than its evidence | None |
+| `THR-35`'s control was a local socket, which does not survive compromise *of that host* | Semantic — control does not constrain the actor | None. `AC-3` checks that a control is named |
+| `THR-11`/`RSK-1` argued a stolen signing key suffices, while its own compensating control argued the opposite | Internal contradiction between a threat and its risk | None |
+| Actors named without the capability the threat requires — a network attacker reading a shell history; account isolation cited against the party who mints accounts | Semantic — actor/control misalignment | None |
+
+Resolved by: enumerating the blast radius (`THR-44`–`THR-46`, § 5.3), widening
+`RSK-4` to the whole of it, scoping § 7's conclusion and stating where the
+ambiguity guarantee stops, recording `RSK-8` for workstation compromise,
+restating `RSK-1` as a **joint** compromise, and adding two stated rules about
+the actor column — the named actor must have the capability, and the cited
+control must constrain that actor.
+
+**This is the clearest evidence in Stage P for what the dossier's § 8 reviewer
+is for.** Fifteen mechanical cases, all green, against five real semantic
+defects — one of which (§ 7) was a guarantee stated more broadly than the design
+supports, in a security document.
 
 ## A deviation from the approved plan
 
