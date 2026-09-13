@@ -127,6 +127,9 @@ limitations go in the pull request.
 - [x] G06 — Align P02's scope with `GLOSSARY.md`. The P02 dossier and the
   execution plan both claimed the subject grammar and permission matrix that
   the glossary assigns to P04.
+- [x] G07 — Revise `DL-8` again. It recurred in G06 under the revised
+  countermeasure, this time because of how the search was written and how its
+  output was trimmed rather than where it ran.
 
 ## Epic acceptance
 
