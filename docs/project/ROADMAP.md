@@ -28,8 +28,10 @@ the threat model are accepted: [`PRODUCT-CHARTER.md`](PRODUCT-CHARTER.md),
 [`ADR-0004`](../adr/0004-subject-authorization.md) and
 [`ADR-0005`](../adr/0005-versioned-encrypted-protocol.md) and
 [`ADR-0006`](../adr/0006-delivery-and-job-lifecycle.md) and
-[`ADR-0007`](../adr/0007-safe-execution.md), which is **incomplete**: one
-boundary decision in its § 2.1 is outstanding and blocks C07.
+[`ADR-0007`](../adr/0007-safe-execution.md), which is **incomplete for
+bookkeeping**: the boundary decision its § 2.1 raised is settled by
+[RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md), and a
+follow-up applies that ruling to the ADR.
 - **Stage C — the first command-and-control release**, ending at `v0.6.0`.
 
 ## Next

@@ -1,8 +1,10 @@
 # ADR-0007: Safe execution
 
-- **Status:** Proposed — **incomplete.** One decision in § 2.1 is outstanding and
-  belongs to the boundary's owner, not to this ADR. **C07 is blocked until it is
-  settled**, because the two readings produce different executors
+- **Status:** Proposed — **incomplete.** § 2.1 raised a decision belonging to the
+  boundary's owner, and [RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md)
+  has since settled it: the exclusions constrain what Keystone constructs. **What
+  remains is applying that ruling to § 2.1**, in P07's own follow-up. C07 is no
+  longer blocked on a decision, only on that application
 - **Date:** 2026-09-15
 - **Task:** P07, bounded by [`docs/dossiers/P07.md`](../dossiers/P07.md)
 - **Builds on:** [`ADR-0005`](0005-versioned-encrypted-protocol.md), [`ADR-0006`](0006-delivery-and-job-lifecycle.md), [RFC 0003](../rfcs/0003-caller-selected-execution-user.md)

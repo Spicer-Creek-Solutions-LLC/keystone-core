@@ -1,5 +1,13 @@
 # P07 acceptance evidence
 
+> **Settled since this was written.** The boundary question this file discusses
+> as open — whether an operator naming `/bin/sh` or a `#!` file as `argv[0]` is
+> inside charter § 6 — was ruled on by
+> [RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md): the
+> exclusions constrain what Keystone constructs. The body below is the record of
+> what was demonstrated at P07 and is left as written, which is how this project
+> treats acceptance evidence overtaken by a later decision.
+
 The eleven cases of [`P07.md`](P07.md) § 5.2, each demonstrated failing on an
 `ADR-0007` that carries its defect, then passing on the document as it stands.
 

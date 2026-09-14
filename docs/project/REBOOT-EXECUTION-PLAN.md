@@ -368,7 +368,7 @@ Define target operator, fleet profile, problems, measurable success, explicit
 non-goals, and exact CLI journeys for enroll, list/presence, run, status, output,
 cancel, and audit. Record the 60–90 day external validation plan and business
 evidence gate. Freeze the initial argv-only execution boundary from RFC 0001,
-since amended once by RFC 0003.
+since amended twice — by RFC 0003 and RFC 0004.
 
 ### P01 — Threat model
 

@@ -101,9 +101,11 @@ workstream depends on. Detailed controls are normative in the execution plan.
   command did not run, exhaustion proves only that it was received. Cancellation
   separates the accepted request (`Cancelling`) from the evidence-backed outcome
   (`Cancelled`). `RSK-9` renewed to P08.
-- [ ] P07 — Safe execution ADR. **`ADR-0007` is proposed and incomplete**: one
-  boundary decision in its § 2.1 is outstanding and blocks C07. The rest is
-  decided — argv reaches `execve` as a vector
+- [ ] P07 — Safe execution ADR. **`ADR-0007` is proposed and incomplete**, and
+  the reason is now bookkeeping rather than an open question: RFC 0004 (`G20`)
+  settled the boundary decision its § 2.1 raised, and a follow-up pull request
+  applies that ruling to the ADR. **C07 is no longer blocked on a decision**,
+  only on that application. The rest was decided in P07 — argv reaches `execve` as a vector
   and `argv[0]` resolves against a **fixed** `PATH`, never the harvested one, so
   a writable profile cannot decide which binary a name means. Two components —
   an unprivileged agent holding the NATS connection, the keys and the ledger,
