@@ -488,12 +488,16 @@ a gap in it.
 
 ### `DL-8` — A finding repaired only where it was pointed out
 
-**Instances.** Thirteen occasions across nine tasks. Two in `P01`, in
-consecutive rounds of the same review on pull request #290; a third in `G04`, on
-pull request #293, **after this entry existed and while its countermeasure was
-being applied**; a fourth in `G06`, on pull request #295, **after the
-countermeasure was revised in response to the third**; and nine more in the
-twenty-four hours after the second revision merged, itemised below.
+**Instances.** Thirteen occasions across ten tasks — **four** occasions on
+**three** tasks in the prose below, and **nine** occasions on **seven** tasks in
+the table that follows it. Two in `P01`, in consecutive rounds of
+the same review on pull request #290; a third in `G04`, on pull request #293,
+**after this entry existed and while its countermeasure was being applied**; a
+fourth in `G06`, on pull request #295, **after the countermeasure was revised in
+response to the third**.
+
+Every timestamp here is UTC and is the commit's own author date, not a
+neighbouring row's.
 
 *Siblings left standing.* Round 1 found the blast radius enumerated for `TD-SRV`
 and not for the other domain that can author a record, and found two threats
@@ -531,14 +535,21 @@ line `the matrix, the permission matrix, the allowlist…`. The second reads
 phrase pattern cannot match on a line-based search. `9a8b2e4e1`; fixed in
 `1f796e200`.
 
-*Nine occasions under the second revision, in one day.* `G07` merged the
-revised steps on 13 September at 18:50. Every occasion below is later, and all
-but one is recorded in its own commit message and nowhere else — which is how
-this entry came to say "Four" while the class was recurring roughly hourly.
+*Nine occasions under the second revision, inside a day.* `G07` merged the
+revised steps at 19:21 on 13 September. **The first occasion below precedes that
+merge by fourteen minutes** — it is a commit on `G07`'s own branch, correcting
+the instance count that the same pull request had just made stale, so the second
+revision failed before it was published rather than after. The remaining eight
+fall in the following eighteen hours, the first of them `4f51b0d96`, one hour and
+sixteen minutes after the merge.
+
+All nine are recorded in their own commit messages and nowhere else — which is
+how this entry came to say "Four" while the class was recurring roughly
+hourly.
 
 | When | Task | Commit | What was left standing |
 |---|---|---|---|
-| 09-13 20:37 | `G07` | `dda58f462` | **this entry's own instance count**, made stale by the pull request that raised it to four |
+| 09-13 19:07 | `G07` | `dda58f462` | **this entry's own instance count**, made stale by the pull request that raised it to four |
 | 09-13 20:37 | P03 dossier, #301 | `4f51b0d96` | the edit permission had three statements in one file; two were updated |
 | 09-14 09:31 | `G12`, #304 | `0710e7fed` | five handoff sites still sent generated artifacts to P04 |
 | 09-14 09:40 | `G12`, #304 | `e914a4d43` | four more, in the dossiers' own attributions |
