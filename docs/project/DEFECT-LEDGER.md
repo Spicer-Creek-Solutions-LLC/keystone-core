@@ -55,6 +55,24 @@ The field is **never cleared**. It is replaced only by a *later* occurrence,
 which is why it says "last" rather than "most recent since the countermeasure
 changed".
 
+**A recurrence is recorded in the pull request that finds it.** Not by a later
+task, not by a periodic review. This rule exists because the alternative was
+tried and failed measurably: between pull requests #296 and #312 the `DL-8` class
+recurred nine times, **each one written up in its own commit message**, and the
+entry went on saying "Instances. Four" throughout. `G12` had already stated the
+principle at `8a5cddacd` — a finding recorded only in a commit message is not
+recorded — and `G07` had already had to correct this entry's own count at
+`dda58f462`.
+
+So a task that hits one of these classes updates `Last recurrence` and the
+instance record in the same pull request, in the same way it would update any
+other document its work made stale. A recurrence noticed and left for later is
+the ledger's own `DL-8`.
+
+**State counts so they can be checked, not so they read well.** "Instances.
+Four" is a claim with nothing behind it; an itemised list with a count derived
+from it cannot drift out of step with what it counts.
+
 **There is no `None`.** An entry only belongs here if the defect has occurred —
 that is the first rule in § "What belongs here" — so every entry has an
 occurrence to record, and an empty field means the entry has not been kept up to
@@ -66,13 +84,13 @@ justified exemption.
 
 | ID | Defect class | Status |
 |---|---|---|
-| `DL-1` | A check that cannot fail, mistaken for evidence | `Proposed` |
+| `DL-1` | A check that cannot fail, mistaken for evidence | `Failed` |
 | `DL-2` | An acceptance property tested through a proxy | `Proposed` |
 | `DL-3` | A factual claim never compared with its source | `Failed` |
 | `DL-4` | The record and the branch go unchecked | `Failed` |
 | `DL-5` | A check verified only against fixtures | `Adopted` |
 | `DL-6` | Shell-hostile command construction | `Proposed` |
-| `DL-7` | A substitution that did not do what it claimed | `Proposed` |
+| `DL-7` | A substitution that did not do what it claimed | `Failed` |
 | `DL-8` | A finding repaired only where it was pointed out | `Failed` |
 
 ### `DL-1` — A check that cannot fail, mistaken for evidence
@@ -101,21 +119,28 @@ tell a check that does not fire from a plant that missed. Normative for
 dossiers in [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md)
 § "Required task dossier".
 
-**Last recurrence.** This pull request — the planting step missed its target and
+**Last recurrence.** Pull request #306 — `09bed9bdd`, in a form the
+countermeasure does not reach. P04's ADR added the sentence "§ 8 enumerates every
+grant in § 4 and § 6" while covering one of the monitoring role's three advisory
+grants. Nothing checked the sentence, so it read as evidence and could not fail.
+`bc4fe417d` records it as this entry's shape, and the shortfall took two rounds
+of review because writing the claim is what made it look settled.
+
+Before that, pull request #289 — the planting step missed its target and
 the procedure as written could not distinguish that from a check that does not
 fire. Recorded as `DL-7`.
 
-**Status: `Proposed`.** The core measure found `AC-5` in P00 and has surfaced
-nine defective checks since, but it recurred as above, so the countermeasure a
-reader should follow is now the core *plus* `DL-7`'s assertions.
+**The countermeasure has a gap the latest instance exposes.** It protects checks
+that exist: plant a defect, confirm the check reports it. It says nothing about
+**a claim a document makes about its own completeness with no check behind it**,
+which is the same defect with the check omitted rather than weak. A completeness
+claim needs a case that counts one list against the other, or it is prose.
 
-Those assertions have been exercised twice and caught both times, but they were
-exercised catching `DL-7`'s class rather than preventing `DL-1`'s — and `DL-7`
-itself then recurred uncaught in a step they did not cover. The strengthened
-procedure has not been applied to a later task's acceptance cases, which is where
-a check that cannot fail would actually slip through. P01 is the first occasion.
-Judging it `Adopted` on this task's own evidence would be the laundering this
-schema exists to prevent, applied to the entry that starts it.
+**Status: `Failed`.** The strengthened procedure has since been applied to five
+task dossiers' acceptance cases, which is the occasion the previous status said
+was missing — and the class recurred anyway, in the form above. The core measure
+has surfaced defective checks repeatedly and keeps doing so; what failed is its
+scope.
 
 ### `DL-2` — An acceptance property tested through a proxy
 
@@ -263,7 +288,13 @@ the artifact converges while the record around it drifts.
    current head, and name what the checks read. Evidence has a dependency graph,
    and a later commit can invalidate it silently.
 
-**Last recurrence.** Pull request #289, repeatedly. Most recently, a description
+**Last recurrence.** Pull request #306 — `bc4fe417d`. A commit message described
+an evidence edit the diff did not contain: the script asserted after writing,
+aborted, and `git add -A` ran anyway. The message was left standing and the
+paragraph landed in a follow-up, because rewriting the branch would have removed
+the evidence of the mistake.
+
+Before that, pull request #289, repeatedly. A description
 that still counted four `DL-7` occurrences after a fifth had been reported in the
 thread. Before that, two stale acceptance statements found in review: `AC-1`
 claiming four required fields where there were five, and `AC-3`'s limitation
@@ -409,7 +440,19 @@ level up.
 2. The reported failure **names the thing you mutated**. A defect planted in
    `DL-5` that reports `DL-6` is a planting bug, not a finding.
 
-**Last recurrence.** This pull request, six times. The most recent was
+**Last recurrence.** Pull request #307 — `5b7761c80`, **uncaught**, in the edit
+tier. `G13`'s entry was inserted by anchoring on "the next unchecked item after
+`G12`'s", and `G12` is the last supporting task, so the next unchecked item is
+the first epic acceptance criterion. The entry landed under "Epic acceptance".
+The anchor was unique and the file changed; nothing asserted *where* the new text
+went, which is the third assertion applied to placement rather than to content.
+
+Before that, pull request #303 — two of P03's evidence plantings satisfied the
+first two assertions and not the third: the predicates asserted that text had
+changed rather than that the defect was present. Recorded at `1ee451e9c`, which
+carried the lesson into P04's dossier.
+
+Before that, pull request #289, six times. The most recent of those was
 **caught**: a demonstration case still anchored on `DL-3` being `Proposed` after
 it became `Failed`, rejected by the anchor assertion before it could report a
 passing run.
@@ -428,22 +471,33 @@ is why the third assertion exists and does not rely on the checker.
 Caught: two demonstration cases whose anchors referred to text since rewritten,
 both rejected by the anchor assertion before they could produce false evidence.
 
-**Status: `Proposed`.** The three assertions were exercised on the two
-stale-anchor cases and rejected both before they could report a passing run —
-one of only two countermeasures in this task to catch its own class without a
-reader, the other being `DL-6`'s `&&`, which has stopped a commit after `MD012`,
-`MD038` and `MD029`. But they did not cover document editing, where the class recurred uncaught, so
-the countermeasure has been split into two tiers. The demonstration tier is
-proven; the scoped-substitution tier that covers ordinary edits is new and
-untested, and the status describes the whole.
+**Status: `Failed`.** The two tiers have diverged and the status describes the
+whole, so it follows the weaker one.
+
+The **anchor assertions keep working**. They have rejected stale anchors before
+those could report a passing run at `4600547ab`, `2557a4ff7` and `5243daff9`,
+across three later tasks — with `DL-6`'s `&&` they are the only measures here
+that catch their own class without a reader.
+
+The **third assertion keeps being skipped**, and both recurrences above are that
+skip: P03's plantings asserted that text changed rather than that the defect was
+present, and `G13`'s edit asserted that text changed rather than where it landed.
+The assertion that cannot be delegated to a shape check is the one that keeps not
+being written, which is a usability finding about the countermeasure rather than
+a gap in it.
 
 ### `DL-8` — A finding repaired only where it was pointed out
 
-**Instances.** Four. Two in `P01`, in consecutive rounds of the same review on
-pull request #290; a third in `G04`, on pull request #293, **after this entry
-existed and while its countermeasure was being applied**; a fourth in `G06`, on
-pull request #295, **after the countermeasure was revised in response to the
-third**.
+**Instances.** Thirteen occasions across ten tasks — **four** occasions on
+**three** tasks in the prose below, and **nine** occasions on **seven** tasks in
+the table that follows it. Two in `P01`, in consecutive rounds of
+the same review on pull request #290; a third in `G04`, on pull request #293,
+**after this entry existed and while its countermeasure was being applied**; a
+fourth in `G06`, on pull request #295, **after the countermeasure was revised in
+response to the third**.
+
+Every timestamp here is UTC and is the commit's own author date, not a
+neighbouring row's.
 
 *Siblings left standing.* Round 1 found the blast radius enumerated for `TD-SRV`
 and not for the other domain that can author a record, and found two threats
@@ -480,6 +534,52 @@ line `the matrix, the permission matrix, the allowlist…`. The second reads
 `permission *matrix*` — markdown emphasis between the two words, which a literal
 phrase pattern cannot match on a line-based search. `9a8b2e4e1`; fixed in
 `1f796e200`.
+
+*Nine occasions under the second revision, inside a day.* `G07` merged the
+revised steps at 19:21 on 13 September. **The first occasion below is at 19:07,
+before that merge** — it is a commit on `G07`'s own branch, correcting the
+instance count that the same pull request had just made stale, so the second
+revision failed before it was published rather than after. The remaining eight
+run from `4f51b0d96` at 20:37 that evening to `d0c6e7771` at 14:38 the next day,
+which are the first and last rows of the table.
+
+Durations are not stated anywhere in this entry. Every one that was — "one hour
+and forty-seven minutes", "eighteen hours", "eleven days" — was computed once,
+typed, and wrong or stale by the next commit. A timestamp cited from the commit
+it describes cannot drift; a duration derived from two of them silently can.
+
+All nine are recorded in their own commit messages and nowhere else — which is
+how this entry came to say "Four" while the class was recurring roughly
+hourly.
+
+| When | Task | Commit | What was left standing |
+|---|---|---|---|
+| 09-13 19:07 | `G07` | `dda58f462` | **this entry's own instance count**, made stale by the pull request that raised it to four |
+| 09-13 20:37 | P03 dossier, #301 | `4f51b0d96` | the edit permission had three statements in one file; two were updated |
+| 09-14 09:31 | `G12`, #304 | `0710e7fed` | five handoff sites still sent generated artifacts to P04 |
+| 09-14 09:40 | `G12`, #304 | `e914a4d43` | four more, in the dossiers' own attributions |
+| 09-14 13:06 | `G14`, #309 | `64c03d4a5` | `THR-50` was narrowed; the epic summary kept the wide claim |
+| 09-14 13:31 | P05, #310 | `ce7427f3f` | `RSK-6` was widened in § 7; the ADR's own risk row still said narrowed |
+| 09-14 13:40 | P05, #310 | `14322fdbe` | fourth round on `RSK-6`; five statements, one fixed per round |
+| 09-14 14:13 | `G15`, #311 | `8e06c6378` | the delivery gap stated three ways, and a count in a second document |
+| 09-14 14:38 | `G16`, #312 | `d0c6e7771` | the invariant gap, stated a sixth way in a summary table row |
+
+*What the nine have that the first four did not.* The first four were about
+**identifiers and rules** — `TD-AGT`, `ACT-8`, a workstream-split rule, a
+permission matrix. The dependents tier works on those, because "re-read every
+row that cites it" presumes something a reader can search for.
+
+Five of the nine are about a **conclusion**, which has no identifier: `RSK-6`'s
+outcome, `THR-50`'s reach, whether the service halves are delivered, the residual
+risk counts, and the invariant gap `RFC 0002` has since closed. A conclusion is
+restated in
+prose, in different words each time, and summary tables exist precisely to
+restate it. Step 4 — build the pattern from the rarest single token — has no
+token to offer, and what was substituted each time was **the phrasings the author
+could remember**, which is enumerating instances one level up from the sites.
+
+The last occasion is the clearest: `G16`'s sweep listed five phrasings of "the
+amendment is still owed" and the residual-risk table said it a sixth way.
 
 **Root cause.** A review finding is treated as a fact about the instance the
 reviewer cited, rather than as a statement about the document, so the fix's
@@ -546,7 +646,25 @@ a term, a numbered section:
    "the change I meant", and here "the cited row is fixed" is not "the document
    is consistent".
 
-**Last recurrence.** Pull request #295 — `9a8b2e4e1`, fixed in `1f796e200`.
+*When what changed is a conclusion rather than an identifier* — an outcome, a
+claim's reach, whether something is open or closed, a count:
+
+1. **Do not search for the old conclusion's phrasings.** There is no canonical
+   wording to find. A list of phrasings is a list of instances one level up, and
+   it is what failed on five of the nine occasions above.
+2. **Search for the conclusion's *subject* instead**, by the rarest token in it
+   — `RSK-6`, `public halves`, or the invariant gap `RFC 0002` closed — and
+   require **every hit to carry the new conclusion**. The question is not
+   "where is the old wording" but "where is this subject spoken about at all".
+3. **Encode that as an assertion over every tracked file**, not as a search you
+   perform and describe. This is the one form that has worked: `14322fdbe`,
+   `8e06c6378` and `d0c6e7771` each ended their task's recurrence, and each did
+   it by writing the sweep as a check rather than running one.
+4. **Make a table row its own unit.** A stale row must not be excused by a
+   citation elsewhere in the same table — that is exactly how the ninth occasion
+   survived a sweep that ran over the whole repository.
+
+**Last recurrence.** Pull request #312 — `2d00bd6a4`, fixed in `d0c6e7771`.
 
 **Status: `Failed`.** The countermeasure was in force, was applied, and the class
 recurred. That is this document's definition of `Failed`, and the steps above
@@ -556,27 +674,36 @@ about, because a revision is exactly what would let an entry return to
 
 **It does not.** The status stays `Failed` until the revised steps are exercised
 on a later task that offered the defect a chance and did not take it. A
-countermeasure is not credited for being rewritten; `DL-7` kept `Proposed`
-through a revision because its original tier was proven and only the new tier
-was untested, and `DL-8` has nothing proven to stand on.
+countermeasure is not credited for being rewritten, and this entry has now been
+revised three times without ever earning a different value.
 
-This entry has now been revised twice, and **the first revision failed before
-the second was written** — the fourth instance happened under it. That is the
-strongest argument available for why a rewrite does not earn a status: this one
-would have spent a week at `Proposed` while the defect it was written against
-recurred. `P02` is the first task that can exercise the current steps, and the
-outcome there is `Held` if they catch a recurrence or `Adopted` if the class had
-its chance and did not appear.
+This entry has now been revised three times, and **each revision failed before
+the next was written**. The first revision was in force for the fourth instance.
+The second was in force for nine more, beginning with `dda58f462` at 19:07,
+ahead of its own merge at 19:21. That is the strongest argument available for
+why a rewrite does not earn a status: each of these would have sat at `Proposed`
+while the defect it was written against recurred.
 
-**What this entry cannot become.** No check catches this class. All four
-instances passed their acceptance cases, `make check`, and a clean
+The second revision's prediction is worth keeping as a record of how wrong a
+confident forecast can be. It said `P02` was "the first task that can exercise
+the current steps, and the outcome there is `Held` if they catch a recurrence or
+`Adopted` if the class had its chance and did not appear." `P02` did not produce
+an instance; every task after it did.
+
+**What this entry cannot become.** No check catches this class in general. Every
+instance passed its acceptance cases, `make check`, and a clean
 `git diff --check`; the documents were well-formed at every point and wrong
-about the world.
+about the world. The third tier narrows this: a sweep written as an assertion
+*is* a check, and it catches the recurrence of the specific conclusion it was
+written for. It does not catch the next conclusion, which has no assertion yet.
 
 The revisions narrow the unmechanised part rather than removing it. What stays
 a judgement is the shape, the pattern that expresses it, and whether a hit is
-genuinely the same defect or a lookalike — three judgements, and instances
-three and four each failed at a different one.
+genuinely the same defect or a lookalike — three judgements, and instances three
+and four each failed at a different one. The third tier adds a fourth: whether
+what changed is an identifier or a conclusion, because the two need different
+sweeps and mistaking the second for the first is the whole of the last five
+occasions.
 
 **Separate the two things a published command does**, because only one of them
 has worked. It has not reliably found the sites: twice now a sweep was run,
@@ -600,3 +727,28 @@ That is a reason to expect better, not a demonstration of it. **Review this
 document when Stage P completes:** entries that have not moved from `Proposed`,
 or that sit at `Failed` with an unchanged countermeasure, are evidence the
 countermeasure is wrong rather than that the defect is unavoidable.
+
+## What the first currency pass found
+
+`G17` swept every commit since this document landed whose message names a `DL-`
+identifier, and separated **recurrences** — the defect occurring — from
+**citations**, where a countermeasure was applied or caught something. Most
+mentions are citations; the ledger would look far worse if they were counted.
+
+Three entries moved. `DL-1` and `DL-7` left `Proposed`, each having been
+exercised on later tasks and having recurred there. `DL-4` and `DL-8` were
+already `Failed` and gained later recurrences. **Four entries changed by nothing
+at all**: this document landed on 13 September and the pass ran on the 14th, so
+they are as they were written.
+
+*What that does not prove.* The sweep's signal is a commit message naming an
+identifier, which finds only defects whose author recognised the class and said
+so. `DL-3` and `DL-6` almost certainly recurred in that period — a factual claim
+not compared with its source, and a backtick in a `-m` body — and left no
+citation, because those get fixed in the moment and never reach a message.
+**Absence of evidence here is evidence about the sweep, not about the defect**,
+and an entry left unchanged by this pass has not thereby earned its status.
+
+The general finding is about the record rather than the defects: nine
+recurrences of one class were written down nine times, in nine places nobody
+reads, while the one place designed to hold them said four.

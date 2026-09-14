@@ -179,6 +179,12 @@ limitations go in the pull request.
   dropping the five it never named. RFC 0002 names them, states which are
   additionally encrypted, and closes the enumeration. `RSK-11`'s invariant gap
   is closed.
+- [x] G17 — Bring the defect ledger's recurrence record current. `DL-8` said
+  four instances while the class had recurred nine more times since its last
+  revision, each recorded only in a commit message. `DL-1` and `DL-7` left
+  `Proposed` for `Failed` on evidence that already existed. A recurrence is now
+  recorded in the pull request that finds it, and `DL-8` gains a third tier for
+  conclusions, which have no identifier to sweep on.
 
 ## Epic acceptance
 
