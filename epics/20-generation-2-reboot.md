@@ -173,6 +173,12 @@ limitations go in the pull request.
   carries the service signing and result-encryption public halves, without which
   an agent cannot verify a command or encrypt a result. `THR-51` and `RSK-14`
   record what that makes the bundle worth tampering with.
+- [x] G16 — Amend `ARCH-NATS-006` to name every envelope class the product
+  carries. Generation 2's first RFC: `ADR-0005` signs all seven classes, which
+  the invariant permitted rather than required, so nothing stopped a later ADR
+  dropping the five it never named. RFC 0002 names them, states which are
+  additionally encrypted, and closes the enumeration. `RSK-11`'s invariant gap
+  is closed.
 
 ## Epic acceptance
 

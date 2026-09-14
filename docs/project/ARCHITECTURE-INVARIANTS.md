@@ -71,6 +71,20 @@ encryption use separate keys. Commands are signed by an authorized service and
 encrypted to the target agent. Results are signed by the agent and encrypted to
 the authorized result service.
 
+**Every envelope class the product carries is signed.** The classes are
+enrollment request, enrollment reply, command, cancellation, result, lifecycle
+event, and presence. An envelope that does not verify is refused.
+
+**Payload encryption is required where a payload carries operator intent or
+captured output**: commands and cancellations are encrypted to the target agent,
+results to the authorized result service. The remaining classes are signed and
+not encrypted — this invariant permitting that, not omitting them.
+
+**This enumeration is closed.** A new envelope class, or a change to which
+classes are encrypted, amends this invariant before the design that needs it is
+accepted. Amended by [RFC 0002](../rfcs/0002-signed-envelope-classes.md), which
+records why the original enumeration was incomplete.
+
 ### ARCH-NATS-007 — Bounded broker resources
 
 Accounts and streams define explicit connection, subscription, payload,
