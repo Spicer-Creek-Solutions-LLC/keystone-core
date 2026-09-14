@@ -103,12 +103,21 @@ missing a granted permission and still pass every case** — an authorization to
 *narrow* rather than too wide, which is the direction nobody watches. `POS-15`
 through `POS-21` close it.
 
+**The completeness claim was false in the commit that made it.** The fix above
+added seven cases *and* the sentence "§ 8 enumerates every grant" — and still
+covered one of the monitoring role's three advisory grants. Review found the
+other two, and `POS-22` and `POS-23` closed them. **Writing the claim is what
+made the shortfall look settled**; adding a statement of completeness is not the
+same as achieving it.
+
 **No acceptance case checks that § 8 covers § 4 and § 6.** `AC-7` checks that
 each case names its four parts; `AC-2` checks the matrix is complete. Neither
 compares the two lists, and stretching either to cover it would be the
 implementation claiming more than its case states — the thing P03's evidence
 refused to do with `AC-2`. It is recorded here as a gap and a candidate for a
-future dossier's acceptance set.
+future dossier's acceptance set, and **the recurrence above is the argument for
+it**: a claim a document makes about itself, with nothing checking it, is the
+shape `DL-1` records — it reads as evidence and cannot fail.
 
 ## What these cases cannot detect
 
