@@ -23,16 +23,17 @@ provide. `ACT-5` holds every byte in flight and every permission check passes.
 Those are this protocol's only source of truth for an agent recipient, and they
 exist because P04's review found they were being established and dropped.
 
-> **Finding raised against `ADR-0003`, not fixed here.** The record runs one way.
-> An agent must **verify** a service-signed command, which needs `AST-7`'s public
-> half, and must **encrypt** a result to the result service, which needs
-> `AST-8`'s public half. `ADR-0003` delivers neither: § 6's reply carries the
-> permanent user JWT, and nothing carries the service's halves to the agent.
->
-> The token bundle is the only pre-trust channel in the system — an operator
-> physically carries it to the host — so it is where they belong. **This ADR
-> specifies that the agent holds both and states that `ADR-0003` does not say how
-> it obtains them.** `D-P05-4` requires the finding to be raised and stopped at.
+The record once ran one way: an agent must **verify** a service-signed command,
+which needs `AST-7`'s public half, and must **encrypt** a result to the result
+service, which needs `AST-8`'s public half, and `ADR-0003` delivered neither.
+That was raised here as a finding and has since been **closed**: `ADR-0003` § 1
+puts both halves in the token bundle and its § 6 persists them with the
+credential file in one atomic operation.
+
+The bundle is the only pre-trust channel in the system, which is also its
+weakness — a bundle altered in transit substitutes the anchor, and the agent
+cannot check what checking is done with. That is `THR-51`, accepted as `RSK-14`,
+whose real mitigation is channel separation and a deployment mode P10 would own.
 
 ## Decision
 

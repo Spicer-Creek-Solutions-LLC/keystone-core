@@ -72,7 +72,7 @@ workstream depends on. Detailed controls are normative in the execution plan.
 ### Product and architecture foundation
 
 - [x] P00 — Product charter and canonical journeys. Charter accepted; argv-only boundary frozen.
-- [x] P01 — Threat model. Ten actors, 50 threats, all 24 invariants mapped,
+- [x] P01 — Threat model. Ten actors, 51 threats, all 24 invariants mapped,
   eleven residual risks, ten still accepted.
 - [x] P02 — NATS-native capability ADR. `ADR-0002`: two accounts, decentralized
   JWT with the operator seed outside every Keystone process, six service
@@ -169,6 +169,10 @@ limitations go in the pull request.
   answer is a signed presence envelope, which is P05's to shape. It does **not**
   reach a compromised server, which verifies presence and reports it and so
   needs no forgery — that path stays `THR-46` and `RSK-4`.
+- [x] G15 — Close the trust-anchor gap `ADR-0005` raised: the token bundle now
+  carries the service signing and result-encryption public halves, without which
+  an agent cannot verify a command or encrypt a result. `THR-51` and `RSK-14`
+  record what that makes the bundle worth tampering with.
 
 ## Epic acceptance
 

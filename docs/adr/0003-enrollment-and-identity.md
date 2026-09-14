@@ -41,6 +41,17 @@ That reframes the charter's existing rule. A bundle that must not appear in a
 process listing is not a convenience constraint; it is a credential file, and
 this ADR treats it as one.
 
+**It is also the agent's trust anchor, and that is a second thing.** An agent
+must *verify* a service-signed command and *encrypt* a result to the result
+service (`ADR-0005` §§ 4, 5), which needs `AST-7`'s and `AST-8`'s public halves.
+Enrollment is the only moment the agent has any channel to the server at all,
+and the bundle is the only part of it that arrives **out of band** — carried by
+an operator rather than over the broker. So the halves travel in the bundle.
+
+Nothing else could carry them. A half delivered *over* the enrollment exchange
+would be one the agent has no way to check, because checking it is what the half
+is for.
+
 ### On subjects
 
 Subjects are named **by role** and never as literal strings. The canonical
@@ -59,6 +70,7 @@ durable step:
 | Generate a one-use token | High-entropy random identifier and secret. **Opaque, not a JWT** — a self-validating token cannot be made one-use without server state, so the server keeps the state and the token carries no claims |
 | Mint a bootstrap NATS credential | A user JWT in the Keystone account, signed with `AST-16`, scoped to this token's subjects only (§ 3), expiring with the token |
 | Record a pending enrollment | Token identifier, agent name, expiry, state `pending`, and the bootstrap identity's public key. The agent's own keys do not exist yet |
+| Add the service public halves | The **service envelope-signing public half** (`AST-7`) and the **result-service encryption public half** (`AST-8`). Both are public; neither is a secret |
 | Emit the bundle **once** | To standard output, never to a file the server chooses |
 | Emit an audit record | Issuance is a lifecycle transition (`ARCH-OBS-001`) |
 
@@ -162,7 +174,7 @@ because the server's record is what makes the protocol idempotent.
 |---|---|---|
 | S0 | `pending` | Token issued, bootstrap credential minted, nothing claimed |
 | S1 | `issued` | Server validates (§ 5); **durably records the agent's three public halves** — NATS identity, signing verification, encryption; mints the permanent user JWT against the recorded NATS public key with `AST-16`; records the JWT; replies on the token-scoped subject |
-| S2 | `issued` | **Agent** writes the credential file: write to a temporary file in the same directory, `fsync`, `rename` atomically, `fsync` the directory, mode `0600`. It also initialises its **durable job ledger**, so that a command arriving immediately after S4 has somewhere to be recorded before it is acted on (`ARCH-JOB-002`) |
+| S2 | `issued` | **Agent** writes the credential file **and the two service public halves from the bundle** in one operation: write to a temporary file in the same directory, `fsync`, `rename` atomically, `fsync` the directory, mode `0600`. Credential and trust anchor are either both present or neither, by the same atomic rename. It also initialises its **durable job ledger**, so that a command arriving immediately after S4 has somewhere to be recorded before it is acted on (`ARCH-JOB-002`) |
 | S3 | `issued` | **Agent** disconnects the bootstrap identity, connects with the permanent identity, and publishes a proof of connection on its own subject |
 | S4 | `active` | Server observes the proof and marks the identity active |
 | S5 | `active` | Server revokes bootstrap access — the bootstrap user is added to the account's revocation list |
@@ -282,6 +294,12 @@ claims to be:
 3. a successful permanent connection with the issued identity (S3), proving
    control of the NKey seed it registered.
 
+**And what the agent accepts about the server**, which this section previously
+did not mention at all: the service public halves in the bundle, on the strength
+of the operator having carried it. The agent performs no check on them — it
+cannot, since they are what checking is done *with*. **The bundle's integrity is
+the whole of the agent's trust in the server**, which is `THR-51`.
+
 **What it does not attempt**, stated because an attestation section that lists
 only what it accepts reads as a stronger guarantee than this product makes:
 
@@ -294,6 +312,9 @@ only what it accepts reads as a stronger guarantee than this product makes:
   window; they do not close it.
 - **No proof of the operator's intent.** The product cannot distinguish the host
   the operator meant from another host that received the bundle first.
+- **No verification of the trust anchor.** A bundle altered in transit can
+  substitute the service public halves, and the agent will trust whoever
+  supplied them — `THR-51`, accepted as `RSK-14`.
 
 Enrollment therefore attests **possession and freshness, not provenance**.
 Strengthening it would require a capability Generation 2 does not have, and is
@@ -367,6 +388,16 @@ The server holds `AST-16`, which is `THR-49`.
 consumer and no `$JS.API` permission.
 
 ## What this ADR does not decide
+
+**Whether an agent may require its trust anchor to arrive by a second channel.**
+The mitigation for `THR-51` is *channel separation* — a service public half baked
+into a signed package or a machine image, so an attacker must compromise both the
+install path and the bundle. That is a **deployment mode, not an option**: an
+agent that merely *prefers* a pre-provisioned anchor falls back to the bundle
+when the file is absent, and an attacker who can alter the bundle can delete a
+file. It would belong in `ADR-0002` § 14's deployment modes with refusal as the
+behaviour, its operational procedure is P10's, and `CAP-IDENT-021` is the
+catalogued capability. **Not designed here**; `RSK-14` records the acceptance.
 
 The canonical subject grammar and the permission matrix (**P04**); envelope
 format, signing and encryption operations, and `RSK-12` (**P05**) — which
