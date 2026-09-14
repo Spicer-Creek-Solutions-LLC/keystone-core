@@ -54,6 +54,8 @@ Examples:
 
 | [ADR-0003](0003-enrollment-and-identity.md) | Enrollment and identity | Proposed | 2026-09-13 |
 
+| [ADR-0004](0004-subject-authorization.md) | Subject authorization | Proposed | 2026-09-14 |
+
 <!-- Add new ADRs above this line -->
 
 ## Creating a New ADR
