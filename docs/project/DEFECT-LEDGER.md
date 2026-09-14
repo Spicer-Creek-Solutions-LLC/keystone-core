@@ -536,12 +536,17 @@ phrase pattern cannot match on a line-based search. `9a8b2e4e1`; fixed in
 `1f796e200`.
 
 *Nine occasions under the second revision, inside a day.* `G07` merged the
-revised steps at 19:21 on 13 September. **The first occasion below precedes that
-merge by fourteen minutes** — it is a commit on `G07`'s own branch, correcting
-the instance count that the same pull request had just made stale, so the second
+revised steps at 19:21 on 13 September. **The first occasion below is at 19:07,
+before that merge** — it is a commit on `G07`'s own branch, correcting the
+instance count that the same pull request had just made stale, so the second
 revision failed before it was published rather than after. The remaining eight
-fall in the following eighteen hours, the first of them `4f51b0d96`, one hour and
-sixteen minutes after the merge.
+run from `4f51b0d96` at 20:37 that evening to `d0c6e7771` at 14:38 the next day,
+which are the first and last rows of the table.
+
+Durations are not stated anywhere in this entry. Every one that was — "one hour
+and forty-seven minutes", "eighteen hours", "eleven days" — was computed once,
+typed, and wrong or stale by the next commit. A timestamp cited from the commit
+it describes cannot drift; a duration derived from two of them silently can.
 
 All nine are recorded in their own commit messages and nowhere else — which is
 how this entry came to say "Four" while the class was recurring roughly
@@ -674,9 +679,9 @@ revised three times without ever earning a different value.
 
 This entry has now been revised three times, and **each revision failed before
 the next was written**. The first revision was in force for the fourth instance.
-The second was in force for nine more, beginning one hour and forty-seven
-minutes after it merged. That is the strongest argument available for why a
-rewrite does not earn a status: each of these would have sat at `Proposed`
+The second was in force for nine more, beginning with `dda58f462` at 19:07,
+ahead of its own merge at 19:21. That is the strongest argument available for
+why a rewrite does not earn a status: each of these would have sat at `Proposed`
 while the defect it was written against recurred.
 
 The second revision's prediction is worth keeping as a record of how wrong a
@@ -733,7 +738,8 @@ mentions are citations; the ledger would look far worse if they were counted.
 Three entries moved. `DL-1` and `DL-7` left `Proposed`, each having been
 exercised on later tasks and having recurred there. `DL-4` and `DL-8` were
 already `Failed` and gained later recurrences. **Four entries changed by nothing
-except becoming eleven days older.**
+at all**: this document landed on 13 September and the pass ran on the 14th, so
+they are as they were written.
 
 *What that does not prove.* The sweep's signal is a commit message naming an
 identifier, which finds only defects whose author recognised the class and said
