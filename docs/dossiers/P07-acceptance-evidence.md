@@ -1,6 +1,6 @@
 # P07 acceptance evidence
 
-The ten cases of [`P07.md`](P07.md) § 5.2, each demonstrated failing on an
+The eleven cases of [`P07.md`](P07.md) § 5.2, each demonstrated failing on an
 `ADR-0007` that carries its defect, then passing on the document as it stands.
 
 The checks read the ADR's **tables** and the sources it must agree with. Three
@@ -23,6 +23,7 @@ from `ADR-0006` § 1.
 | `AC-8` | A limit breach names a lifecycle state `ADR-0006` § 1 does not declare |
 | `AC-9` | § 11's **body** does not state what redaction cannot do, does not state the argv limit concretely, or does not exclude the harvested environment |
 | `AC-10` | The output limit is not expressed against `ADR-0002` § 9's payload bound |
+| `AC-11` | Any tracked document states either reading of § 2.1's question as settled while the ADR records it as open |
 
 ## Two cases were weaker than their claims, and the demonstrations found both
 
@@ -80,6 +81,8 @@ AC-9   fails as expected  — redaction claims a limit it does not have
 AC-10  fails as expected  — the output limit is set independently of the payload bound
         - AC-10 § 8 does not express the output limit against ADR-0002 § 9
         - AC-10 § 8 does not relate the output bound to the payload limit
+AC-11  fails as expected  — the evidence settles the question the ADR leaves open
+        - AC-11 docs/dossiers/P07-acceptance-evidence.md states the exclusion reading as settled while ADR-0007 § 2.1 leaves it open:
 ```
 
 ## The checker
@@ -291,8 +294,13 @@ if open_q:
     # second would fire whenever the exemptions happen to cover everything,
     # which says nothing about whether the check still works.
     matched = swept = 0
+    # Fenced code is not prose. The acceptance-evidence file embeds this very
+    # checker, whose own pattern strings and comments would otherwise be read as
+    # statements about the boundary — a check asserting things about its own
+    # source text.
+    fence = re.compile(r"^```.*?^```", re.S | re.M)
     for rel in files:
-        for blk in re.split(r"\n\s*\n", (ROOT / rel).read_text()):
+        for blk in re.split(r"\n\s*\n", fence.sub("", (ROOT / rel).read_text())):
             f = " ".join(blk.split())
             if not SETTLED.search(f):
                 continue
@@ -375,6 +383,41 @@ inferred from *no residual risk names P07 as its expiry* that P07 would touch no
 risk — which does not follow, since a task can change a risk's compensating
 control without owning its expiry. The row is updated and the inference is
 recorded in the dossier so a later one does not repeat it.
+
+## `AC-11` was added mid-task, and what that cost
+
+It is not in the dossier's original ten. Review found this file still asserting
+a reading `ADR-0007` § 2.1 had withdrawn, and `AC-11` is the case written for
+that class. The dossier's § 5.2 now defines it, § 5.3 records what it cannot
+detect, and this file's tables and counts include it — **because a checker that
+enforces more than the acceptance contract says is a contract that has stopped
+meaning anything.**
+
+The first version claimed a demonstration that existed only in a terminal. The
+commit message said `AC-11`'s case had been demonstrated; it had been run by
+hand and never added to the harness, so the demonstration record did not contain
+it. That is `DL-4` — the record and the branch going unchecked — in a claim about
+evidence.
+
+**Writing the case properly turned up three more defects in it**, each fixed:
+
+1. **§ 2.1's own blocks were being flagged** for presenting the readings the
+   section exists to present.
+2. **A block reporting what an earlier draft asserted** was read as asserting it.
+3. **The vacuity guard counted the wrong thing** — blocks surviving the
+   exemptions rather than blocks the pattern matched — so it fired whenever the
+   exemptions covered everything, which says nothing about whether the check
+   works. Two counters now.
+
+**And then a fourth, which is the interesting one.** `AC-11` was reading **this
+file's own embedded checker source** as prose: the fenced Python block contains
+its pattern strings and its comments, so the check was asserting things about its
+own text. It now strips fenced code before scanning. A check embedded in the
+document it checks has to know which parts of that document are the check.
+
+The harness needed a fix too: its change-detection snapshot covered the ADR and
+the threat model only, so a case mutating a third file read as *"mutation changed
+nothing"*. It now snapshots every file it copies.
 
 ## What these cases cannot detect
 
