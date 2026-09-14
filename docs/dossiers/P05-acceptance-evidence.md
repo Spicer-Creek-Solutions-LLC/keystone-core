@@ -126,9 +126,10 @@ they assert that every message is classified and every vector dimension named,
 and neither can tell you an answer is correct or a coverage complete.
 
 **Two limits no case reaches, stated because this ADR rests on them.**
-The encryption recipients depend on public halves `ADR-0003` records in one
-direction only — the ADR raises that as a finding, and no case can detect that a
-document rests on an unspecified input. And `AC-3` checks that each clause of
+Every recipient here is trusted because the token bundle said so. `ADR-0003` § 1
+and § 6 deliver the service public halves, and `THR-51` records that a bundle
+altered in transit substitutes them; no case can detect that a document rests on
+a trust anchor it cannot itself verify. And `AC-3` checks that each clause of
 `ARCH-NATS-006` has an expression; **no case checks that the ADR's additional
 requirements are ones the invariant would sanction**, which is exactly the gap
 `RSK-11`'s resolution leaves open.

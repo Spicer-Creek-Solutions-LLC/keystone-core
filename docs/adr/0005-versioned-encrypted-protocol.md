@@ -375,9 +375,10 @@ without failing verification. The accepted metadata leakage is now enumerated
 per class rather than described in aggregate.
 
 **Negative.** Signing presence costs a signature per heartbeat per agent.
-Encryption recipients depend on public halves `ADR-0003` records in one
-direction only, which is the finding above. `RSK-12` is unchanged, and the
-protocol's keys still cannot be rotated.
+Every recipient here is trusted because the token bundle said so, which makes
+the bundle's integrity a protocol dependency and not only an enrollment one —
+`THR-51`, accepted as `RSK-14`. `RSK-12` is unchanged, and the protocol's keys
+still cannot be rotated.
 
 **Neutral.** Fixed field order means a new field is a version change, not an
 extension. That is a cost with versions and a benefit without ambiguity.
@@ -388,8 +389,10 @@ Job lifecycle, delivery semantics and `UNKNOWN` (**P06**); execution limits and
 argv handling (**P07**); the audit record's schema and retention (**P08**);
 operator-facing error presentation (**P09**); the canonical encoder, the
 signature and encryption operations, fuzzing, and the **computed** vectors
-(**C01**); the amendment to `ARCH-NATS-006` (its own task); and how the agent
-obtains the service public halves — raised against `ADR-0003` above.
+(**C01**); and the amendment to `ARCH-NATS-006` (its own task). How the agent
+obtains the service public halves is no longer open here — `ADR-0003` § 1
+and § 6 decide it — and the residue is `RSK-14`, whose channel-separated
+deployment mode belongs to **P10**.
 
 ## Validation
 
