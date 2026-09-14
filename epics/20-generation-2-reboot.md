@@ -160,9 +160,11 @@ limitations go in the pull request.
 - [x] G13 — Correct P05's workstream paragraph, which asked for test vectors
   before any implementation exists to compute them. Same class as G12, one
   workstream over.
-- [x] G14 — Model forged presence (`THR-50`). Broker permissions constrain
-  agents and not the broker, the NATS operator, or a server that can mint an
-  identity; the answer is a signed presence envelope, which is P05's to shape.
+- [x] G14 — Model presence fabricated **on the wire** (`THR-50`). Broker
+  permissions constrain agents and not the broker or the NATS operator; the
+  answer is a signed presence envelope, which is P05's to shape. It does **not**
+  reach a compromised server, which verifies presence and reports it and so
+  needs no forgery — that path stays `THR-46` and `RSK-4`.
 
 ## Epic acceptance
 
