@@ -192,9 +192,14 @@ Remote repository changes, issue closures, milestone closures, and protection
 changes require an explicit apply approval after a dry run.
 
 The first release execution surface is argv-only and non-interactive. It has no
-shell, stdin streaming, scripts, pipelines, caller-selected user, caller-provided
-environment, arbitrary working directory, batch fan-out, or interactive
-session. Expanding that boundary requires an RFC amendment.
+shell interpreting a command's argv, stdin streaming, scripts, pipelines,
+caller-provided environment, arbitrary working directory, batch fan-out, or
+interactive session. Expanding that boundary requires an RFC amendment.
+
+**Amended by [RFC 0003](0003-caller-selected-execution-user.md)**, which admits a
+caller-selected execution user and admits a shell solely to compute that user's
+login environment under a fixed agent-authored command. The sentence above is
+this decision as amended; RFC 0003 records why.
 
 ## Alternatives considered
 
@@ -241,6 +246,18 @@ protected branch, the signed tag and the offline bundle, each independently
 sufficient and each verified.
 
 ### Amendments
+
+**2026-09-14 (`G19`).** The execution boundary in § Implementation governance
+admits a **caller-selected execution user**, and admits **a shell only to compute
+that user's login environment**, never to interpret a command's argv. Seven of
+the nine originally excluded forms are unchanged.
+
+Unlike the amendment below, **this changes the decision** rather than correcting
+a claim about it, which is why it is recorded in its own document:
+[RFC 0003](0003-caller-selected-execution-user.md). The reasoning is there —
+in short, that the alternative was a first release running every command as
+root, and that the amendment is a widening of the boundary and a narrowing of
+the privilege actually exercised at the same time.
 
 **2026-09-11 (task R10).** This section previously stated that forge mutations
 have "their own before-state manifest and compensating procedure". The

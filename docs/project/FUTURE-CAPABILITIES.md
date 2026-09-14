@@ -364,14 +364,14 @@ Known gaps and limitations:
 | `CAP-AGENT-034` | Re-running bootstrap is idempotent (no duplicate systemd units, no broken state) | implemented | Future | `epics/06-agent-runtime.md L77` |
 | `CAP-AGENT-035` | Coverage >75% on internal/agent | implemented | Future | `epics/06-agent-runtime.md L79` |
 | `CAP-AGENT-036` | Domain overview and architecture notes | reference | Future | `PROJECT-DETAILS.md L437` |
-| `CAP-AGENT-037` | Command execution extras beyond the argv-only boundary: caller-selected working directory, caller-provided environment, and user switching | implemented | Future | `FEATURES.md L208` |
+| `CAP-AGENT-037` | Command execution extras beyond the argv-only boundary: caller-selected working directory and caller-provided environment | implemented | Future | `FEATURES.md L208` |
 
 Scope and status notes:
 
 - `CAP-AGENT-002` — Status established by hand audit of the v0.6 scope set: internal/agent/agent.go.
 - `CAP-AGENT-003` — Status established by hand audit of the v0.6 scope set: internal/agent/agent.go with internal/agent/metadata.go.
 - `CAP-AGENT-005` — Status established by hand audit of the v0.6 scope set: internal/agent/executor.go.
-- `CAP-AGENT-005` — RFC 0001 confines the first release to argv-only, non-interactive execution. The caller-selected working directory, caller-provided environment and user-switching behaviour named in the archived description are outside that boundary; admitting them requires an RFC amendment rather than ordinary promotion.
+- `CAP-AGENT-005` — RFC 0001 confines the first release to argv-only, non-interactive execution. The caller-selected working directory and caller-provided environment named in the archived description are outside that boundary; the user-switching behaviour was admitted by [RFC 0003](../rfcs/0003-caller-selected-execution-user.md) on 2026-09-14; admitting them requires an RFC amendment rather than ordinary promotion.
 - `CAP-AGENT-008` — Status established by hand audit of the v0.6 scope set: cmd/kscore-agent/main.go registers --non-interactive with the accompanying flags.
 - `CAP-AGENT-010` — Status established by hand audit of the v0.6 scope set: internal/agent/systemd/install.go.
 - `CAP-AGENT-012` — FEATURES.md declares a source path that no longer resolves, but the identifiers it quotes are present in the tree: `/etc/kscore/agent.yaml`.
@@ -380,7 +380,7 @@ Scope and status notes:
 - `CAP-AGENT-017` — FEATURES.md declares source path(s) that are absent from the final tree: internal/agent/nats_server.go
 - `CAP-AGENT-022` — Status established by hand audit of the v0.6 scope set: No VM harness exists in the tree; test/ has no vagrant, libvirt or qemu driver.
 - `CAP-AGENT-022` — Duplicate of `CAP-FOUND-021`; both describe the same capability and carry the same scope.
-- `CAP-AGENT-037` — The part of `CAP-AGENT-005` that RFC 0001 places outside the argv-only, non-interactive execution boundary. Catalogued separately so it is retained as a Future candidate rather than falling outside both buckets.
+- `CAP-AGENT-037` — The part of `CAP-AGENT-005` that RFC 0001 places outside the argv-only, non-interactive execution boundary. Catalogued separately so it is retained as a Future candidate rather than falling outside both buckets. **User switching left this entry on 2026-09-14**: [RFC 0003](../rfcs/0003-caller-selected-execution-user.md) admits a caller-selected execution user, so it is now inside the accepted workstream and the scope-subtraction rule excludes it here. The caller-selected working directory and caller-provided environment remain outside the boundary and remain `Future`, which is why the entry's scope is unchanged.
 
 Known gaps and limitations:
 

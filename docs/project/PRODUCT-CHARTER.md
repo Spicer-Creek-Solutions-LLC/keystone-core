@@ -191,11 +191,13 @@ enrollment.
 ### 5.3 Run
 
 ```
-keystone run --agent <agent-id> [--timeout <duration>] -- <argv>...
+keystone run --agent <agent-id> [--timeout <duration>] [--user <name>‡] -- <argv>...
 ```
 
-Everything after `--` is the command's argv, passed as a vector. There is no
-shell anywhere on this path (§ 6).
+Everything after `--` is the command's argv, passed as a vector. **No shell
+interprets it** (§ 6). `--user` names the account the command runs as; omitted,
+the deployment's configured default applies. Its form and the default's
+mechanism are **P07**'s, which is what ‡ marks.
 
 **Exit:** `0` when the remote command ran to completion and its status was
 retrieved, **including when that status is non-zero**. Control-plane outcomes
@@ -303,24 +305,43 @@ Records contain no command secrets and no payload plaintext.
 
 ## 6. The argv-only execution boundary
 
-Frozen from RFC 0001 § Implementation governance. The first release's execution
-surface is argv-only and non-interactive. It has none of:
+Frozen from RFC 0001 § Implementation governance, and amended once by
+[RFC 0003](../rfcs/0003-caller-selected-execution-user.md). The first release's
+execution surface is argv-only and non-interactive. It has none of:
 
-1. a shell;
+1. a shell that interprets the command's argv;
 2. stdin streaming;
 3. scripts;
 4. pipelines;
-5. a caller-selected user;
-6. a caller-provided environment;
-7. an arbitrary working directory;
-8. batch fan-out; and
-9. an interactive session.
+5. a caller-provided environment;
+6. an arbitrary working directory;
+7. batch fan-out; and
+8. an interactive session.
 
 Execution policy is deny-by-default for unsupported forms (`ARCH-EXEC-001`).
 
+### What RFC 0003 admits
+
+Two changes to the list above, and nothing else:
+
+- **A caller-selected execution user.** A command names the user it runs as;
+  when it names none, a deployment-configured default applies. **The product
+  does not ship root as an implicit default** — a deployment states its default,
+  and an unstated one is a configuration error rather than a silent escalation.
+- **A shell, solely to compute that user's login environment** under a fixed
+  command the agent authors, with `su -l` semantics so the account's profile
+  scripts run as a login would. Accounts with no usable shell fall back to the
+  environment derived from the user database. The command's argv is `exec`ed as
+  a **vector** and is never given to a shell, which is why item 1 above names
+  argv rather than forbidding the binary.
+
+A **caller-provided environment stays excluded** and that is consistent: the
+caller supplies no variables, and its only influence over the environment is the
+choice of account.
+
 **Widening this boundary requires an amendment to RFC 0001.** It is not a
 roadmap entry, not an ADR decision, and not an implementation detail. P07
-inherits this boundary and may narrow it; it may not widen it.
+inherits this boundary as amended and may narrow it; it may not widen it.
 
 ## 7. External validation plan
 

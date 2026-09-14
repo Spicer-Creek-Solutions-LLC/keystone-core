@@ -189,6 +189,8 @@ and the party who would exploit it is named in the mitigation.
 | `THR-01` | The one-use token is read from shell history or a process listing | `ACT-9` | `AST-1` | 5.1 | Charter § 5.1 forbids supplying it in a form that exposes it; `--token-file`. Mode and lifetime: P03 |
 | `THR-02` | A captured token is replayed to enroll an impostor agent | `ACT-6`, `ACT-9` | `AST-1` | 5.1 | One-use and token-scoped, with short bootstrap expiry as the backstop (`ARCH-NATS-004`) |
 | `THR-51` | The token bundle is **altered** in transit and its service public halves replaced, so the agent trusts a false server for the life of its identity | `ACT-9`, `ACT-6` | `AST-1` | 5.1 | `RSK-14`. The bundle is the agent's only trust anchor and it cannot check what checking is done with (`ADR-0003` § 14). Distinct from `THR-02`: a replayed token is **detectable**, because the real host's enrollment then fails as spent; a substituted anchor leaves the host enrolled and looking healthy |
+| `THR-52` | A caller with the operator credential names a privileged execution user for a command that does not need one | `ACT-9`, `ACT-8` | `AST-10`, `AST-12` | 5.3 | `RFC 0003` admits the choice and requires a **non-root deployment default**, so privilege is named per command rather than held permanently. Every choice is in the job's audit record (`ARCH-OBS-001`), which is what makes an unnecessary escalation visible. The control is disclosure and default, not prevention: a caller authorised to run commands at all is authorised to name a user |
+| `THR-53` | A writable profile script on a target account influences commands run as that account | `ACT-9` | `AST-10` | 5.3 | The profile runs **as the target user**, exactly as that account's own login would, and the command then runs as the same user. Whoever can write that profile can already act as that account, so this changes no privilege. The harvest is bounded — its own timeout, its own output, a size bound, and fallback to the derived environment on any failure (`RFC 0003`) |
 | `THR-03` | Bootstrap access survives enrollment and is reused later | `ACT-7` | `AST-2` | 5.1 | Staged protocol revokes bootstrap access **and verifies the revocation** (`ARCH-NATS-004`) |
 | `THR-04` | A crash between credential write and activation leaves the agent and server disagreeing about identity state | `ACT-7` | `AST-3` | 5.1 | fsync and atomic rename at mode `0600`; a defined crash-recovery path at every stage (`ARCH-NATS-004`) |
 | `THR-05` | An agent enrolls under another agent's identity | `ACT-7` | `AST-3` | 5.1 | Token-specific subjects; every agent a distinct principal (`ARCH-NATS-002`, `ARCH-NATS-004`) |
@@ -202,7 +204,7 @@ and the party who would exploit it is named in the mitigation.
 | `THR-12` | A captured command envelope is replayed to execute twice | `ACT-5`, `ACT-8` | `AST-10` | 5.3 | Durable agent ledger permits at most one automatic attempt; the ledger, not the broker deduplication window, is authoritative (`ARCH-JOB-003`) |
 | `THR-13` | Broker redelivery repeats indefinitely, amplifying one command into many | `ACT-5` | `AST-10` | 5.3 | Finite `MaxDeliver` and explicit `BackOff`, with terminal delivery advisories (`ARCH-NATS-010`); redelivery never creates a second logical attempt |
 | `THR-14` | Parallel consumption reorders or concurrently executes commands for one agent | `ACT-5` | `AST-10` | 5.3 | One exact agent `FilterSubject`, `MaxAckPending=1` (`ARCH-NATS-009`) |
-| `THR-15` | Supplied argv escapes the bounded surface — shell metacharacters, a script, a pipeline | `ACT-9` | `AST-10` | 5.3 | No shell exists on the path; argv is a vector, not a string (charter § 6). Execution policy is deny-by-default for unsupported forms (`ARCH-EXEC-001`) |
+| `THR-15` | Supplied argv escapes the bounded surface — shell metacharacters, a script, a pipeline | `ACT-9` | `AST-10` | 5.3 | **No shell interprets argv**; argv is a vector, not a string (charter § 6). `RFC 0003` admits a shell solely to compute a target account's login environment under a fixed agent-authored command, and the command's argv is `exec`ed as a vector that no shell parses. The property this row rests on is the second clause, and it is unchanged. Execution policy is deny-by-default for unsupported forms (`ARCH-EXEC-001`) |
 | `THR-16` | A command runs unbounded and exhausts the agent host | `ACT-9` | `AST-12` | 5.3 | Explicit duration, output, environment, working-directory, concurrency and resource limits (`ARCH-EXEC-001`) |
 | `THR-17` | Execution begins before a durable receipt, so a crash hides whether it ran | `ACT-3` | `AST-12` | 5.3 | Command identifier, authenticated envelope metadata and receipt state persisted **before** the process starts (`ARCH-JOB-002`) |
 | `THR-18` | The control plane reports success for a job it cannot prove ran | `ACT-2` | `AST-13` | 5.4 | `UNKNOWN` is reported as itself and never rendered as success or failure; a verified late result may supersede it, both retained (`ARCH-JOB-004`) |
@@ -300,9 +302,9 @@ carries a security-`N/A` waiver.**
 | `ARCH-JOB-003` | `THR-12` |
 | `ARCH-JOB-004` | `THR-18`, `THR-25` |
 | `ARCH-JOB-005` | `THR-19` |
-| `ARCH-EXEC-001` | `THR-15`, `THR-16`, `THR-22` |
+| `ARCH-EXEC-001` | `THR-15`, `THR-16`, `THR-22`, `THR-53` |
 | `ARCH-EXEC-002` | `THR-23` |
-| `ARCH-OBS-001` | `THR-26`, `THR-27` |
+| `ARCH-OBS-001` | `THR-26`, `THR-27`, `THR-52` |
 | `ARCH-TEST-001` | `THR-40` |
 | `ARCH-TEST-002` | `THR-08`, `THR-39` |
 | `ARCH-TEST-003` | `THR-41` |

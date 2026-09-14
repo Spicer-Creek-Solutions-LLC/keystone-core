@@ -68,7 +68,11 @@ replacement, a remote-desktop product, an endpoint-detection product, or an
 unbounded shell gateway.
 
 The first release's execution surface is argv-only and non-interactive: no
-shell, no stdin streaming, no scripts or pipelines, no caller-selected user,
-environment or working directory, no batch fan-out, no interactive session.
-Widening that boundary requires an amendment to
+shell interpreting a command's argv, no stdin streaming, no scripts or
+pipelines, no caller-provided environment or working directory, no batch
+fan-out, no interactive session. A **caller-selected execution user** is
+admitted by
+[RFC 0003](../rfcs/0003-caller-selected-execution-user.md), which also admits a
+shell solely to compute that user's login environment. Widening that boundary
+further requires an amendment to
 [RFC 0001](../rfcs/0001-generation-2-reboot.md), not a roadmap entry.
