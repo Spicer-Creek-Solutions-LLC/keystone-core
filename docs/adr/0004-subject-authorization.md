@@ -240,12 +240,22 @@ outcome, so C03 can implement each as one test.
 | `POS-19` | Monitoring role | `ks.out.*.event` | subscribe | succeed |
 | `POS-20` | Result consumer | `$JS.ACK.KS_RES.<its consumer>.<tokens>` | publish | succeed |
 | `POS-21` | Result consumer | its own inbox prefix, `.>` | subscribe | succeed |
+| `POS-22` | Monitoring role | `$JS.EVENT.ADVISORY.CONSUMER.MSG_TERMINATED.KS_CMD.<consumer>` | subscribe | succeed |
+| `POS-23` | Monitoring role | `$JS.EVENT.ADVISORY.API.LIMIT_REACHED` for this account | subscribe | succeed |
 
 **§ 8 enumerates every grant in § 4 and § 6, and that completeness is the
 point.** A positive list shorter than the permission list lets C03 generate a
 JWT missing a granted permission and still pass every case — the authorization
 would be too narrow, and nothing here would notice. Each row above is one grant
 from § 4 or § 6; **no grant is intentionally left untested.**
+
+**Count them.** § 4 grants fifteen permissions across seven principals and § 6
+grants eleven more; § 8 carries twenty-three cases because several § 4 grants are
+exercised by one case each and the agent's `ks.job.<its own id>.>` subscribe is
+exercised twice, once per class it covers. The monitoring role's three advisory
+subjects are three grants and three cases — `POS-14`, `POS-22`, `POS-23` — and
+an earlier draft of this section claimed completeness while covering only the
+first of them.
 
 ### 9. Negative authorization cases
 
