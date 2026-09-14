@@ -83,7 +83,11 @@ workstream depends on. Detailed controls are normative in the execution plan.
   token-scoped bootstrap NATS credential, all three agent keys are generated on
   the agent, and the staged protocol ends only when revocation is verified.
   `RSK-7` resolved for agent material; `RSK-12` to P05, `RSK-13` to P10.
-- [ ] P04 — Subject authorization ADR and executable policy.
+- [x] P04 — Subject authorization ADR and executable policy. `ADR-0004`: a
+  four-token grammar `ks.<plane>.<id>.<class>`, with the identifier before the
+  class so one exact `FilterSubject` per agent is possible, and `enroll` as its
+  own plane so one deny closes it. Fifteen negative cases cover all five
+  `ARCH-TEST-002` clauses.
 - [ ] P05 — Versioned encrypted protocol ADR.
 - [ ] P06 — Delivery and job lifecycle ADR.
 - [ ] P07 — Safe execution ADR.
