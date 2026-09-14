@@ -26,7 +26,8 @@ the threat model are accepted: [`PRODUCT-CHARTER.md`](PRODUCT-CHARTER.md),
 [`ADR-0002`](../adr/0002-nats-native-capabilities.md) and
 [`ADR-0003`](../adr/0003-enrollment-and-identity.md) and
 [`ADR-0004`](../adr/0004-subject-authorization.md) and
-[`ADR-0005`](../adr/0005-versioned-encrypted-protocol.md). P06 is next.
+[`ADR-0005`](../adr/0005-versioned-encrypted-protocol.md) and
+[`ADR-0006`](../adr/0006-delivery-and-job-lifecycle.md). P07 is next.
 - **Stage C — the first command-and-control release**, ending at `v0.6.0`.
 
 ## Next

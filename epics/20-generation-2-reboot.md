@@ -93,7 +93,12 @@ workstream depends on. Detailed controls are normative in the execution plan.
   cleartext and covered by the signature so it cannot be downgraded, and
   presence and events signed but not encrypted. `RSK-11` resolved; `RSK-1`,
   `RSK-6` and `RSK-12` renewed.
-- [ ] P06 — Delivery and job lifecycle ADR.
+- [x] P06 — Delivery and job lifecycle ADR. `ADR-0006`: ten server states and
+  eight agent states, receipt and start as separate durable writes, the agent
+  ledger authoritative over the deduplication window, and **delivery failure
+  split into two outcomes with different truth values** — expiry proves the
+  command did not run, exhaustion proves only that it was received. `RSK-9`
+  renewed to P08.
 - [ ] P07 — Safe execution ADR.
 - [ ] P08 — Persistence and audit ADR.
 - [ ] P09 — Local operator API and authorization ADR.

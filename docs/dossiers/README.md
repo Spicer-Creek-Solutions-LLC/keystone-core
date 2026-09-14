@@ -68,4 +68,4 @@ title, per [`ISSUE-TRACKING.md`](../project/ISSUE-TRACKING.md) § Principles.
 | P03 — Enrollment and identity ADR | [P03.md](P03.md) | Complete — `ADR-0003` proposed |
 | P04 — Subject authorization ADR and executable policy | [P04.md](P04.md) | Complete — `ADR-0004` proposed |
 | P05 — Versioned encrypted protocol ADR | [P05.md](P05.md) | Complete — `ADR-0005` proposed |
-| P06 — Delivery and job lifecycle ADR | [P06.md](P06.md) | Boundary landed — P06 not yet approved |
+| P06 — Delivery and job lifecycle ADR | [P06.md](P06.md) | Complete — `ADR-0006` proposed |
