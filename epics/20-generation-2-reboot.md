@@ -109,7 +109,9 @@ workstream depends on. Detailed controls are normative in the execution plan.
   group. `RSK-9` renewed, narrowed against memory-safety compromise and not
   against logical compromise. Two findings raised: `ADR-0006` has no state for a
   resource-limit kill, and `ADR-0005`'s key placement stops the executor
-  verifying what it runs.
+  verifying what it runs. A third is **open and blocks C07**: whether an
+  operator naming `/bin/sh` or a `#!` script as `argv[0]` is inside charter § 6's
+  boundary. `ADR-0007` § 2.1 states both readings and decides neither.
 - [ ] P08 — Persistence and audit ADR.
 - [ ] P09 — Local operator API and authorization ADR.
 - [ ] P10 — Acceptance-harness design.

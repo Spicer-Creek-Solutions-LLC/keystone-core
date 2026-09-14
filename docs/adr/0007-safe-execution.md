@@ -32,13 +32,12 @@ else moved**, and § 2 states the rest as still excluded.
 A command's argv is a **vector** from the operator's shell to the `execve` call.
 It is never a string, never concatenated, never re-split.
 
-**No shell interprets it.** A shell runs elsewhere — § 5's harvest — and it
-receives a fixed command the agent authors, never any part of a command's argv.
-The property `THR-15` rests on is not that no shell is present on the host, nor
-that no shell ever executes; it is that **operator input reaches no parser that
-gives characters meaning beyond what the operator wrote**. § 2.1 states the
-consequence, which is that a caller may name an interpreter and has escaped
-nothing by doing so.
+**Keystone interposes no shell.** It builds no shell invocation and wraps no
+argv in a string; the vector is passed to `execve` as the operator wrote it. A
+shell runs elsewhere — § 5's harvest — under a fixed command the agent authors,
+never any part of a command's argv.
+
+What that leaves open is § 2.1, and this ADR does not close it.
 
 That distinction is the whole of `RFC 0003`'s narrowing of the boundary's first
 item, and it is why the amendment does not reopen `THR-15`.
@@ -49,7 +48,7 @@ item, and it is why the amendment does not reopen `THR-15`.
 |---|---|---|---|
 | A shell interpreting the command's argv | **Excluded** | Keystone constructs no shell invocation and wraps no argv. There is nothing to refuse at runtime because Keystone never builds the form | `THR-15` |
 | stdin streaming | **Excluded** | The process receives a closed stdin | `THR-15` |
-| Scripts | **Excluded** | Keystone accepts no script body and writes no file to run. It chooses no interpreter | `THR-15` |
+| Scripts | **Excluded** | Keystone accepts no script body and writes no file to run. It chooses no interpreter. **Whether a script named as `argv[0]` is within this exclusion is § 2.1's open question** | `THR-15` |
 | Pipelines | **Excluded** | Refusal; one command is one process tree | `THR-15` |
 | A caller-provided environment | **Excluded** | Refusal. The environment comes from the target account (§ 5) | `THR-16` |
 | An arbitrary working directory | **Excluded** | Refusal. The directory is fixed by § 6 | `THR-16` |
@@ -58,41 +57,52 @@ item, and it is why the amendment does not reopen `THR-15`.
 | **A caller-selected execution user** | **Admitted** (`RFC 0003`) | The command runs as the named account; absent a name, the deployment's default | `THR-52` |
 | **A shell for the login-environment harvest** | **Admitted** (`RFC 0003`) | § 5's harvest, under a fixed agent-authored command | `THR-53` |
 
-### 2.1 What the exclusions constrain, and what they do not
+### 2.1 An open question this ADR raises and does not answer
 
-**They constrain what Keystone does. They do not constrain which binaries exist
-on the host.** Stating this is not a weakening; it is the difference between the
-boundary this ADR can enforce and one it could only pretend to.
+**Keystone constructs none of the excluded forms.** It builds no shell
+invocation, wraps no argv, accepts no script body, writes no file to execute and
+chooses no interpreter. Generation 1's `--shell bash` made Keystone wrap argv in
+a shell, and that is the form RFC 0001 removed.
 
-Keystone builds no shell invocation, wraps no argv in a string, accepts no
-script body, writes no file to execute, and chooses no interpreter. Those are
-the forms RFC 0001 removed — Generation 1's `--shell bash` **made Keystone wrap
-argv in a shell**, and that is what item 1 took away.
+**What it does not settle is whether an operator naming an interpreter is inside
+the boundary or outside it**, and the question is not rhetorical:
 
-**An operator may still name an interpreter.** `python3 /opt/x.py` is argv — a
-program and an argument. So is `/bin/sh -c '…'`. So is `/usr/sbin/service`,
-which on most distributions **is** a shell script, and `argv[0]` resolving to a
-file with a `#!` line means the kernel invokes that interpreter without Keystone
-choosing it.
+- `keystone run -- /bin/sh -c '…'` is argv — a program and two arguments. The
+  shell then interprets its own argument, which the operator wrote as a shell
+  program.
+- `keystone run -- /usr/sbin/service nginx reload` is argv, and `service` is a
+  shell script on most distributions, so the kernel invokes an interpreter that
+  nobody named.
 
-None of that is an escape, and `THR-15` is precise about why: the threat is
-*supplied argv **escapes** the bounded surface*. A caller who names `/bin/sh`
-has escaped nothing — they ran a command they fully specified, with the
-authority `ACT-9`'s own row grants them, *execute on the fleet under legitimate
-authority*. What argv-as-a-vector prevents is the other thing: a caller
-supplying `; rm -rf /` inside an argument and having it become a second command.
-That protection is unaffected by which binary `argv[0]` names.
+**Two readings, and this ADR is not entitled to pick.**
 
-**The alternative reading is untenable and worth saying so.** Enforcing "no
-script ever executes" would mean inspecting every resolved `argv[0]` for a `#!`
-line and refusing it — which rejects `service`, `ldconfig` and much of a
-distribution's administrative surface, the exact work `PROB-1` exists for — and
-then refusing every binary that could interpret something, which is an allowlist
-of permitted programs. That is a policy engine, and RFC 0001 discarded it.
+*The exclusions constrain what Keystone provides.* Then both are ordinary
+commands; `THR-15`'s *supplied argv **escapes** the bounded surface* is
+unaffected, because a caller who names `/bin/sh` escaped nothing — they ran what
+they specified, with the authority `ACT-9`'s row already grants. This reading
+matches what RFC 0001 removed and is the only one under which the charter's
+§ 5.3 journey is implementable for ordinary administrative work.
 
-**So this ADR does not claim scripts cannot run. It claims Keystone never
-arranges for one.** A design that claimed the first would be claiming an
-enforcement it does not have, which is the class of error `THR-36` describes.
+*The exclusions constrain what may execute.* Then the agent must refuse an
+`argv[0]` that is a shell, and refuse any resolved file carrying a `#!` line —
+which rejects `service`, `ldconfig` and much of a distribution's administrative
+surface, the work `PROB-1` exists for. Refusing every binary that could
+interpret something is an allowlist of permitted programs, which is a policy
+engine RFC 0001 discarded.
+
+**Raised, not decided.** `D-P07-1` of this task's dossier says P07 inherits the
+boundary and may narrow it, never widen it — and choosing the first reading
+inside an ADR would be widening it by interpretation, which is the specific
+failure that decision exists to prevent. The charter's wording is *a shell that
+interprets the command's argv*, and `/bin/sh -c '…'` has a shell interpreting
+part of a command's argv on any plain reading.
+
+So this ADR states what Keystone does, and records that **the boundary does not
+currently say which reading governs**. Resolving it is a maintainer decision and,
+if the first reading is intended, an explicit amendment — the second reading
+needs no amendment and needs a refusal mechanism this ADR would then have to
+define. **C07 cannot be written until it is settled**, because the two readings
+produce different executors.
 
 ### 3. Deny-by-default
 
@@ -387,6 +397,10 @@ signal handling in code (**C07**); the service account and the packaged units
 And it does not decide either finding in § 13: the lifecycle state for a
 resource-limit termination belongs to `ADR-0006`, and the key placement that
 would let the executor verify what it runs belongs to `ADR-0003` and `ADR-0005`.
+
+**Nor § 2.1's question** — whether an operator naming an interpreter is inside
+the boundary. That is the charter's and RFC 0001's, and it blocks **C07**, whose
+executor differs between the two readings.
 
 ## Validation
 

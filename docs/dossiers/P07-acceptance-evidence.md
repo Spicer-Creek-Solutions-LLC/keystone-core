@@ -276,8 +276,21 @@ model**. `argv[0]` resolving to a file with a `#!` line means the kernel invokes
 its interpreter — no shell involved, no interpreter named by the operator — so a
 script executed while the ADR said scripts were excluded.
 
-Following it through showed the claim was wrong in a larger way than the finding
-stated: `/bin/sh -c '…'` is also just argv, so the shell exclusion was equally
+A second round then found that the fix had **resolved the question in the ADR's
+own favour**, which `D-P07-1` forbids: stating that the exclusions constrain only
+what Keystone provides is an interpretation that admits `/bin/sh -c '…'`, and the
+charter's wording is *a shell that interprets the command's argv*. § 2.1 now
+states both readings and decides neither, and the question is recorded as
+blocking C07.
+
+That is the more useful record than either draft. The first asserted an
+enforcement the design did not have; the second asserted an interpretation the
+task was not entitled to make. What survives is what the ADR can say on its own
+authority — what Keystone constructs — plus a question for whoever owns the
+boundary.
+
+Following the original finding through showed the claim was wrong in a larger
+way than it stated: `/bin/sh -c '…'` is also just argv, so the shell exclusion was equally
 unenforced. § 2.1 now states what the exclusions actually constrain — **what
 Keystone does, not which binaries exist on the host** — with the evidence that
 Generation 1's removed `--shell bash` flag is precisely the form item 1 took
