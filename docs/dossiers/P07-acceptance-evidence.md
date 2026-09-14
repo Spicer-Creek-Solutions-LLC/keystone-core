@@ -269,6 +269,39 @@ if fails:
 print("== 0 failures ==")
 ```
 
+## The review round, and the case no check could have raised
+
+Review found that **§ 2's script exclusion was not enforced by the execution
+model**. `argv[0]` resolving to a file with a `#!` line means the kernel invokes
+its interpreter — no shell involved, no interpreter named by the operator — so a
+script executed while the ADR said scripts were excluded.
+
+Following it through showed the claim was wrong in a larger way than the finding
+stated: `/bin/sh -c '…'` is also just argv, so the shell exclusion was equally
+unenforced. § 2.1 now states what the exclusions actually constrain — **what
+Keystone does, not which binaries exist on the host** — with the evidence that
+Generation 1's removed `--shell bash` flag is precisely the form item 1 took
+away, and `THR-15`'s wording, *supplied argv **escapes** the bounded surface*,
+which a caller deliberately naming an interpreter does not do.
+
+**No case here could have raised it.** Every case compares the ADR against the
+charter, the invariants or another ADR, and the ADR **agreed with all of them**:
+it named every excluded form and stated each as excluded. The defect was that
+the word "excluded" meant something the design could not deliver, which is a
+claim about the world rather than a disagreement between documents.
+
+The nearest a check could get is the one now written into `AC-1`'s limitation
+row — *whether an exclusion is enforceable rather than declared* — which was
+already there, pointing at C07 and C14. Review reached it sooner.
+
+A second finding was mechanical and is recorded because its cause was this
+task's dossier: `RSK-9`'s threat-model row still said *renewed at P06* while the
+ADR narrowed it at P07. The dossier's § 2 had not permitted that row, having
+inferred from *no residual risk names P07 as its expiry* that P07 would touch no
+risk — which does not follow, since a task can change a risk's compensating
+control without owning its expiry. The row is updated and the inference is
+recorded in the dossier so a later one does not repeat it.
+
 ## What these cases cannot detect
 
 | Case | Cannot detect | Found instead by |

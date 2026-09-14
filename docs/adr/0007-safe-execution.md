@@ -34,8 +34,11 @@ It is never a string, never concatenated, never re-split.
 
 **No shell interprets it.** A shell runs elsewhere — § 5's harvest — and it
 receives a fixed command the agent authors, never any part of a command's argv.
-The property `THR-15` rests on is not that no shell is present on the host; it is
-that operator input reaches no parser that gives characters meaning.
+The property `THR-15` rests on is not that no shell is present on the host, nor
+that no shell ever executes; it is that **operator input reaches no parser that
+gives characters meaning beyond what the operator wrote**. § 2.1 states the
+consequence, which is that a caller may name an interpreter and has escaped
+nothing by doing so.
 
 That distinction is the whole of `RFC 0003`'s narrowing of the boundary's first
 item, and it is why the amendment does not reopen `THR-15`.
@@ -44,9 +47,9 @@ item, and it is why the amendment does not reopen `THR-15`.
 
 | Form | Status | A request for it produces | Closes |
 |---|---|---|---|
-| A shell interpreting the command's argv | **Excluded** | Refusal. No argv path reaches a shell, so there is nothing to refuse at runtime — the form does not exist | `THR-15` |
+| A shell interpreting the command's argv | **Excluded** | Keystone constructs no shell invocation and wraps no argv. There is nothing to refuse at runtime because Keystone never builds the form | `THR-15` |
 | stdin streaming | **Excluded** | The process receives a closed stdin | `THR-15` |
-| Scripts | **Excluded** | A script runs only if the operator names an interpreter as argv[0] and the script as an argument, which is an ordinary command | `THR-15` |
+| Scripts | **Excluded** | Keystone accepts no script body and writes no file to run. It chooses no interpreter | `THR-15` |
 | Pipelines | **Excluded** | Refusal; one command is one process tree | `THR-15` |
 | A caller-provided environment | **Excluded** | Refusal. The environment comes from the target account (§ 5) | `THR-16` |
 | An arbitrary working directory | **Excluded** | Refusal. The directory is fixed by § 6 | `THR-16` |
@@ -55,12 +58,41 @@ item, and it is why the amendment does not reopen `THR-15`.
 | **A caller-selected execution user** | **Admitted** (`RFC 0003`) | The command runs as the named account; absent a name, the deployment's default | `THR-52` |
 | **A shell for the login-environment harvest** | **Admitted** (`RFC 0003`) | § 5's harvest, under a fixed agent-authored command | `THR-53` |
 
-**Scripts deserve the note in their row.** Excluding scripts does not mean
-excluding interpreters. `python3 /opt/x.py` is argv — a program and an argument —
-and is admitted, because nothing about it gives operator input to a parser the
-agent controls. What is excluded is Keystone accepting a *script body* and
-arranging to run it, which would require writing a file and choosing an
-interpreter on the operator's behalf.
+### 2.1 What the exclusions constrain, and what they do not
+
+**They constrain what Keystone does. They do not constrain which binaries exist
+on the host.** Stating this is not a weakening; it is the difference between the
+boundary this ADR can enforce and one it could only pretend to.
+
+Keystone builds no shell invocation, wraps no argv in a string, accepts no
+script body, writes no file to execute, and chooses no interpreter. Those are
+the forms RFC 0001 removed — Generation 1's `--shell bash` **made Keystone wrap
+argv in a shell**, and that is what item 1 took away.
+
+**An operator may still name an interpreter.** `python3 /opt/x.py` is argv — a
+program and an argument. So is `/bin/sh -c '…'`. So is `/usr/sbin/service`,
+which on most distributions **is** a shell script, and `argv[0]` resolving to a
+file with a `#!` line means the kernel invokes that interpreter without Keystone
+choosing it.
+
+None of that is an escape, and `THR-15` is precise about why: the threat is
+*supplied argv **escapes** the bounded surface*. A caller who names `/bin/sh`
+has escaped nothing — they ran a command they fully specified, with the
+authority `ACT-9`'s own row grants them, *execute on the fleet under legitimate
+authority*. What argv-as-a-vector prevents is the other thing: a caller
+supplying `; rm -rf /` inside an argument and having it become a second command.
+That protection is unaffected by which binary `argv[0]` names.
+
+**The alternative reading is untenable and worth saying so.** Enforcing "no
+script ever executes" would mean inspecting every resolved `argv[0]` for a `#!`
+line and refusing it — which rejects `service`, `ldconfig` and much of a
+distribution's administrative surface, the exact work `PROB-1` exists for — and
+then refusing every binary that could interpret something, which is an allowlist
+of permitted programs. That is a policy engine, and RFC 0001 discarded it.
+
+**So this ADR does not claim scripts cannot run. It claims Keystone never
+arranges for one.** A design that claimed the first would be claiming an
+enforcement it does not have, which is the class of error `THR-36` describes.
 
 ### 3. Deny-by-default
 
