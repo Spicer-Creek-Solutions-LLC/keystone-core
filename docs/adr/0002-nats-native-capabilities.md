@@ -425,8 +425,10 @@ handover (**P03**) — noting that **any principal P03 introduces which publishe
 to a stream needs its own publish-acknowledgement inbox entry**, for the reason
 in § 6; envelope format, signing and encryption, including the
 cancellation-envelope gap `RSK-11` records (**P05**); job lifecycle and
-`UNKNOWN` semantics (**P06**); generated configuration, JWT fixtures and the
-negative identity matrix (**P04**, then **C03**).
+`UNKNOWN` semantics (**P06**); the subject grammar, the permission matrix and
+the authorization cases they must satisfy (**P04**); and **generated**
+configuration, signed JWT fixtures and the executed negative identity matrix
+(**C03**, from P04's specification — no build exists before P11).
 
 ## Validation
 
