@@ -72,7 +72,7 @@ workstream depends on. Detailed controls are normative in the execution plan.
 ### Product and architecture foundation
 
 - [x] P00 — Product charter and canonical journeys. Charter accepted; argv-only boundary frozen.
-- [x] P01 — Threat model. Ten actors, 49 threats, all 24 invariants mapped,
+- [x] P01 — Threat model. Ten actors, 50 threats, all 24 invariants mapped,
   eleven residual risks, ten still accepted.
 - [x] P02 — NATS-native capability ADR. `ADR-0002`: two accounts, decentralized
   JWT with the operator seed outside every Keystone process, six service
@@ -160,6 +160,9 @@ limitations go in the pull request.
 - [x] G13 — Correct P05's workstream paragraph, which asked for test vectors
   before any implementation exists to compute them. Same class as G12, one
   workstream over.
+- [x] G14 — Model forged presence (`THR-50`). Broker permissions constrain
+  agents and not the broker, the NATS operator, or a server that can mint an
+  identity; the answer is a signed presence envelope, which is P05's to shape.
 
 ## Epic acceptance
 

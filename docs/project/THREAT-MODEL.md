@@ -193,6 +193,7 @@ and the party who would exploit it is named in the mitigation.
 | `THR-05` | An agent enrolls under another agent's identity | `ACT-7` | `AST-3` | 5.1 | Token-specific subjects; every agent a distinct principal (`ARCH-NATS-002`, `ARCH-NATS-004`) |
 | `THR-06` | An agent publishes presence for another agent | `ACT-7` | `AST-15` | 5.2 | Publish permitted only on the agent's own presence subject (`ARCH-NATS-003`) |
 | `THR-07` | Presence is withheld so a live agent appears offline | `ACT-5`, `ACT-6` | `AST-15` | 5.2 | `RSK-2`. Presence is reported as observed, never inferred (charter § 5.2), so the operator sees absence rather than a false positive |
+| `THR-50` | Presence is **fabricated** so a stopped agent appears live, by a party that is not that agent | `ACT-4`, `ACT-5`, `ACT-2` | `AST-15` | 5.2 | Publish permission is per-agent (`ARCH-NATS-003`), which constrains *agents* and not the broker, the party who mints identities, or a server that can mint one (`THR-49`). The answer is the envelope: presence is signed by the agent, and `AST-4` never leaves the host (`ADR-0003` § 4), so a minted NATS identity cannot produce it. The signature's shape is P05's |
 | `THR-08` | An agent subscribes to another agent's command subject | `ACT-7` | `AST-10` | 5.3 | Subscribe permitted only on the agent's own command and cancellation subjects (`ARCH-NATS-003`), proven by negative tests (`ARCH-TEST-002`) |
 | `THR-09` | An agent publishes a command to another agent | `ACT-7` | `AST-10` | 5.3 | Agents hold no publish permission on command subjects (`ARCH-NATS-003`) |
 | `THR-10` | argv is read off the wire | `ACT-5`, `ACT-6` | `AST-10` | 5.3 | Payload encrypted end-to-end to the target agent. TLS terminates at the broker and is **not** sufficient (`ARCH-NATS-006`) |
@@ -288,7 +289,7 @@ carries a security-`N/A` waiver.**
 | `ARCH-NATS-003` | `THR-06`, `THR-08`, `THR-09`, `THR-20`, `THR-24` |
 | `ARCH-NATS-004` | `THR-02`, `THR-03`, `THR-04`, `THR-05` |
 | `ARCH-NATS-005` | `THR-29` |
-| `ARCH-NATS-006` | `THR-10`, `THR-21`, `THR-33` |
+| `ARCH-NATS-006` | `THR-10`, `THR-21`, `THR-33`, `THR-50` |
 | `ARCH-NATS-007` | `THR-22`, `THR-31` |
 | `ARCH-NATS-008` | `THR-42` |
 | `ARCH-NATS-009` | `THR-14` |
@@ -337,6 +338,11 @@ none is designed. Recorded as `RSK-6`.
 
 The honest summary for an operator: Keystone hides *what* a command says from
 the broker, and does not hide *that* you ran one.
+
+**Signing does not narrow this.** `THR-50` is answered by signing presence, which
+makes a forged presence message detectable and leaves every observable in the
+table above exactly as it was. Authenticity and confidentiality are independent
+layers (`ARCH-NATS-006`), and only the second would narrow § 6.
 
 ## 7. Denial and delay powers
 
