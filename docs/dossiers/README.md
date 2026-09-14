@@ -67,3 +67,4 @@ title, per [`ISSUE-TRACKING.md`](../project/ISSUE-TRACKING.md) § Principles.
 | P02 — NATS-native capability ADR | [P02.md](P02.md) | Complete — `ADR-0002` proposed |
 | P03 — Enrollment and identity ADR | [P03.md](P03.md) | Complete — `ADR-0003` proposed |
 | P04 — Subject authorization ADR and executable policy | [P04.md](P04.md) | Complete — `ADR-0004` proposed |
+| P05 — Versioned encrypted protocol ADR | [P05.md](P05.md) | Awaiting P05 plan approval |
