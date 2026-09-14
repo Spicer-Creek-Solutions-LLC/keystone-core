@@ -23,16 +23,17 @@ provide. `ACT-5` holds every byte in flight and every permission check passes.
 Those are this protocol's only source of truth for an agent recipient, and they
 exist because P04's review found they were being established and dropped.
 
-> **Finding raised against `ADR-0003`, not fixed here.** The record runs one way.
-> An agent must **verify** a service-signed command, which needs `AST-7`'s public
-> half, and must **encrypt** a result to the result service, which needs
-> `AST-8`'s public half. `ADR-0003` delivers neither: § 6's reply carries the
-> permanent user JWT, and nothing carries the service's halves to the agent.
->
-> The token bundle is the only pre-trust channel in the system — an operator
-> physically carries it to the host — so it is where they belong. **This ADR
-> specifies that the agent holds both and states that `ADR-0003` does not say how
-> it obtains them.** `D-P05-4` requires the finding to be raised and stopped at.
+The record once ran one way: an agent must **verify** a service-signed command,
+which needs `AST-7`'s public half, and must **encrypt** a result to the result
+service, which needs `AST-8`'s public half, and `ADR-0003` delivered neither.
+That was raised here as a finding and has since been **closed**: `ADR-0003` § 1
+puts both halves in the token bundle and its § 6 persists them with the
+credential file in one atomic operation.
+
+The bundle is the only pre-trust channel in the system, which is also its
+weakness — a bundle altered in transit substitutes the anchor, and the agent
+cannot check what checking is done with. That is `THR-51`, accepted as `RSK-14`,
+whose real mitigation is channel separation and a deployment mode P10 would own.
 
 ## Decision
 
@@ -374,9 +375,10 @@ without failing verification. The accepted metadata leakage is now enumerated
 per class rather than described in aggregate.
 
 **Negative.** Signing presence costs a signature per heartbeat per agent.
-Encryption recipients depend on public halves `ADR-0003` records in one
-direction only, which is the finding above. `RSK-12` is unchanged, and the
-protocol's keys still cannot be rotated.
+Every recipient here is trusted because the token bundle said so, which makes
+the bundle's integrity a protocol dependency and not only an enrollment one —
+`THR-51`, accepted as `RSK-14`. `RSK-12` is unchanged, and the protocol's keys
+still cannot be rotated.
 
 **Neutral.** Fixed field order means a new field is a version change, not an
 extension. That is a cost with versions and a benefit without ambiguity.
@@ -387,8 +389,10 @@ Job lifecycle, delivery semantics and `UNKNOWN` (**P06**); execution limits and
 argv handling (**P07**); the audit record's schema and retention (**P08**);
 operator-facing error presentation (**P09**); the canonical encoder, the
 signature and encryption operations, fuzzing, and the **computed** vectors
-(**C01**); the amendment to `ARCH-NATS-006` (its own task); and how the agent
-obtains the service public halves — raised against `ADR-0003` above.
+(**C01**); and the amendment to `ARCH-NATS-006` (its own task). How the agent
+obtains the service public halves is no longer open here — `ADR-0003` § 1
+and § 6 decide it — and the residue is `RSK-14`, whose channel-separated
+deployment mode belongs to **P10**.
 
 ## Validation
 
