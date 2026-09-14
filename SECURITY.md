@@ -39,7 +39,7 @@ it — [`THREAT-MODEL.md`](docs/project/THREAT-MODEL.md), accepted as task P01 �
 and it is the input the architecture decisions are designed against rather than
 something retrofitted to them.
 
-It models ten actors and 51 threats against the seven canonical operator
+It models ten actors and 53 threats against the seven canonical operator
 journeys, maps all 24 architecture invariants to threats, and records fourteen
 residual risks with owners and expiry dates, eleven of which remain accepted.
 Read § 10 first if you are evaluating it: it says what the model cannot tell

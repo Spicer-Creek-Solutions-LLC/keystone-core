@@ -71,8 +71,9 @@ workstream depends on. Detailed controls are normative in the execution plan.
 
 ### Product and architecture foundation
 
-- [x] P00 — Product charter and canonical journeys. Charter accepted; argv-only boundary frozen.
-- [x] P01 — Threat model. Ten actors, 51 threats, all 24 invariants mapped,
+- [x] P00 — Product charter and canonical journeys. Charter accepted; argv-only
+  boundary frozen, and amended once by RFC 0003 (`G19`).
+- [x] P01 — Threat model. Ten actors, 53 threats, all 24 invariants mapped,
   fourteen residual risks, eleven still accepted.
 - [x] P02 — NATS-native capability ADR. `ADR-0002`: two accounts, decentralized
   JWT with the operator seed outside every Keystone process, six service
@@ -199,6 +200,13 @@ limitations go in the pull request.
   the cancellation reaching the agent first, and `keystone job cancel` exits `0`
   only when the job reaches terminal cancelled — otherwise the job's own code,
   so "I cancelled it and it ran anyway" is an outcome rather than output.
+
+- [x] G19 — Amend RFC 0001's execution boundary. RFC 0003 admits a
+  **caller-selected execution user** with a non-root deployment default, and
+  admits a shell **only** to compute that user's login environment under a fixed
+  agent-authored command. Operator argv still reaches no shell, which is the
+  half of `THR-15`'s mitigation that protects anything. Seven forms unchanged;
+  `THR-52` and `THR-53` record what the change costs.
 
 ## Epic acceptance
 

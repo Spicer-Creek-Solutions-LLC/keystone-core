@@ -367,7 +367,8 @@ separate approval and PR.
 Define target operator, fleet profile, problems, measurable success, explicit
 non-goals, and exact CLI journeys for enroll, list/presence, run, status, output,
 cancel, and audit. Record the 60–90 day external validation plan and business
-evidence gate. Freeze the initial argv-only execution boundary from RFC 0001.
+evidence gate. Freeze the initial argv-only execution boundary from RFC 0001,
+since amended once by RFC 0003.
 
 ### P01 — Threat model
 
@@ -460,11 +461,19 @@ a verified late result arrives.
 
 ### P07 — Safe execution ADR
 
-Define safe argv-only execution, fixed environment and working directory,
+Define safe argv-only execution, the caller-selected execution user and its
+login-environment harvest ([RFC 0003](../rfcs/0003-caller-selected-execution-user.md)),
+fixed working directory,
 service identity/privilege, duration/output/resource limits, process-group
 cancellation, signal escalation, executable resolution, audit redaction, and
-unsupported forms. Shell, stdin, scripts, pipelines, user/environment/directory
-selection, batches, and interactive sessions remain out of scope.
+unsupported forms.
+
+Out of scope, unchanged by `RFC 0003`: a shell **interpreting a command's
+argv**, stdin streaming, scripts, pipelines, a caller-provided environment, an
+arbitrary working directory, batch fan-out, and interactive sessions. In scope
+because `RFC 0003` admits them: the caller-selected execution user with its
+non-root deployment default, and a shell **solely** for the login-environment
+harvest.
 
 ### P08 — Persistence and audit ADR
 
@@ -563,7 +572,8 @@ belongs to C08. Do not add a parallel Keystone retry scheduler.
 
 ### C07 — Bounded executor
 
-Implement argv-only execution with fixed environment/directory,
+Implement argv-only execution with the caller-selected user, its environment
+harvest and fixed directory,
 output/time/resource bounds, full process-tree cancellation, result capture, and
 policy. The RFC non-goals cannot be expanded by this task.
 
