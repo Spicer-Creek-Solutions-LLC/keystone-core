@@ -399,9 +399,17 @@ assumptions, crash recovery at every edge, and disaster recovery.
 ### P04 — Subject authorization ADR and executable policy
 
 Define the canonical subject grammar and a principal-by-subject permission
-matrix. Produce generated NATS configuration/JWT fixtures and positive/negative
-acceptance cases. Prefer one exact `FilterSubject` per consumer; any multi-filter
-use must account for its authorization behavior explicitly.
+matrix. Specify the NATS configuration and JWT claim shapes generated from them,
+and the positive and negative authorization cases they must satisfy — what each
+principal may do, and what it must be denied. Prefer one exact `FilterSubject`
+per consumer; any multi-filter use must account for its authorization behavior
+explicitly.
+
+**"Executable policy" names what P04 specifies, not what it ships.** No Go
+module, build or test runner exists until P11, and P11 follows P00–P10, so P04
+produces no generator, no signed JWT and no runnable case. C03 implements the
+generation and runs the Docker negative identity matrix against it. A fixture
+with no generator and no runner is a claim nobody can check.
 
 ### P05 — Versioned encrypted protocol ADR
 

@@ -147,6 +147,8 @@ limitations go in the pull request.
   into the two places that still called it undecided.
 - [x] G11 — Add attestation to P03's dossier. `GLOSSARY.md` assigns it to P03
   by name and the dossier's exact outputs did not carry it.
+- [x] G12 — Correct P04's workstream paragraph, which asked for generated
+  fixtures and acceptance cases before any build exists to produce or run them.
 
 ## Epic acceptance
 
