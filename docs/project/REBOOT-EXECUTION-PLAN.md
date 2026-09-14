@@ -433,11 +433,22 @@ a build exists.
 
 Define envelope canonicalization, version negotiation, job and correlation IDs,
 signatures, recipient encryption, replay bounds, timestamps/nonces, headers,
-payload and output limits, forward compatibility, test vectors, and error codes.
+payload and output limits, forward compatibility, **the coverage a test-vector
+set must have** — which inputs, fields and boundary cases it must exercise — and
+error codes.
 Headers contain only routing-safe metadata—never secrets or plaintext commands.
 Classify enrollment, command, cancellation, result, lifecycle event, and presence
 messages by signer, verifier, encryption recipient, replay key/window, maximum
 size, durability, retention, headers, and accepted metadata leakage.
+
+**P05 specifies the vectors' coverage; C01 computes them.** A cryptographic test
+vector is a concrete byte string produced by running a canonical encoding and a
+signature or encryption operation over a known input. No Go module, build or
+test runner exists until P11, and P11 follows P00–P10, so P05 has nothing to
+compute one with. C01 implements the encoding and the operations and produces
+the cross-process vectors from P05's coverage specification. **A vector nobody
+can recompute is a number, not evidence** — and one written by hand before an
+implementation exists is a number the implementation will be tuned to match.
 
 ### P06 — Delivery and job lifecycle ADR
 
