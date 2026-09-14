@@ -148,7 +148,11 @@ limitations go in the pull request.
 - [x] G11 — Add attestation to P03's dossier. `GLOSSARY.md` assigns it to P03
   by name and the dossier's exact outputs did not carry it.
 - [x] G12 — Correct P04's workstream paragraph, which asked for generated
-  fixtures and acceptance cases before any build exists to produce or run them.
+  fixtures and acceptance cases before any build exists to produce or run them,
+  and the dossier handoffs that repeated it. The related question — whether
+  `ARCH-NATS-005`'s "P02/P04 must document and test" needs amending, or is
+  answered by the traceability register's design-owner/evidence split — is
+  **recorded in the execution plan and left open**, not closed by this task.
 
 ## Epic acceptance
 

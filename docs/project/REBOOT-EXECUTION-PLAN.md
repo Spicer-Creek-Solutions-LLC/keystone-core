@@ -411,6 +411,24 @@ produces no generator, no signed JWT and no runnable case. C03 implements the
 generation and runs the Docker negative identity matrix against it. A fixture
 with no generator and no runner is a claim nobody can check.
 
+**An unresolved question this raises, recorded rather than decided.**
+`ARCH-NATS-005` says "P02/P04 must document and test that system-subject
+allowlist", and `ARCH-TEST-002` requires negative identity tests against
+generated production JWTs. Neither can be executed at P02 or P04. The available
+reading is that those clauses name **design ownership**, which is how
+[`REQUIREMENTS-TRACEABILITY.md`](REQUIREMENTS-TRACEABILITY.md) already records
+them — its columns separate *design owner* from *planned automated evidence*,
+and its header states the test paths "become mandatory as the corresponding
+implementation lands". Under that reading P04 owns the requirement and C03
+carries the evidence, and nothing is in conflict.
+
+**Whether that reading is sufficient, or `ARCH-NATS-005` should be amended to
+say so, is not settled here.** Amending a normative invariant requires an RFC
+(`REQUIREMENTS-TRACEABILITY.md` § Maintenance rules). Until one is accepted or
+the reading is ratified, a P04 agent should take the register's separation as
+authoritative and raise the point rather than attempt an executable test before
+a build exists.
+
 ### P05 — Versioned encrypted protocol ADR
 
 Define envelope canonicalization, version negotiation, job and correlation IDs,
