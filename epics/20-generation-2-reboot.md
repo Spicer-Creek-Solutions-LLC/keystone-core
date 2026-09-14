@@ -88,7 +88,11 @@ workstream depends on. Detailed controls are normative in the execution plan.
   class so one exact `FilterSubject` per agent is possible, and `enroll` as its
   own plane so one deny closes it. Fifteen negative cases cover all five
   `ARCH-TEST-002` clauses.
-- [ ] P05 — Versioned encrypted protocol ADR.
+- [x] P05 — Versioned encrypted protocol ADR. `ADR-0005`: every envelope class
+  signed, fixed-order length-prefixed canonicalization, the version readable in
+  cleartext and covered by the signature so it cannot be downgraded, and
+  presence and events signed but not encrypted. `RSK-11` resolved; `RSK-1`,
+  `RSK-6` and `RSK-12` renewed.
 - [ ] P06 — Delivery and job lifecycle ADR.
 - [ ] P07 — Safe execution ADR.
 - [ ] P08 — Persistence and audit ADR.
