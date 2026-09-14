@@ -88,9 +88,16 @@ can contain a `.` is a subject *structure* the supplier controls:
 
 **`enroll` is a plane rather than a class, and that is the point.**
 `ARCH-NATS-005` requires enrollment subjects to be unreachable after enrollment.
-With a separate plane, that is **one deny of `ks.enroll.>`** on every permanent
-identity — one rule to state, one to generate, one to test. Spread across
-classes it would be several, and several rules are several chances to miss one.
+With a separate plane, that is **one line — `ks.enroll.>` — in the permanent
+agent identity's template**, rather than one per class. Spread across classes it
+would be several, and several rules are several chances to miss one.
+
+**It is the agent template, not a deployment-wide rule, and the distinction
+matters.** The enrollment service is itself a permanent identity and must reach
+the enrollment plane for its whole life; a rule phrased as "every permanent
+identity" would deny the one principal enrollment depends on. Only **permanent
+agent** identities are excluded from the plane. Bootstrap identities hold exactly
+one token's pair and expire (`ADR-0003` § 8).
 
 ### 3. Every subject class
 
@@ -126,14 +133,17 @@ may do what appears here and nothing else.
 | **Agent** | `ks.out.<its own id>.result`, `ks.out.<its own id>.event`, `ks.out.<its own id>.presence` | `ks.job.<its own id>.>` | **Exactly one agent — its own.** No wildcard across identifiers |
 | **Bootstrap identity** | `ks.enroll.<its own token>.request` | `ks.enroll.<its own token>.reply` | **Exactly one token.** No wildcard across identifiers |
 
-**Denied to every permanent identity, and stated rather than left implicit:**
+**Denied to every permanent *agent* identity, and stated rather than left
+implicit.** NATS allow-lists are exclusive, so an omission already denies; these
+are written out for the reader and as targets for § 9's cases, exactly as
+`ADR-0002` § 8 does.
 
-| Denied | Why |
-|---|---|
-| `ks.enroll.>` | `ARCH-NATS-005` — enrollment subjects are unreachable after enrollment. One rule, because `enroll` is a plane (§ 2) |
-| Any `ks.job.*` publish, for an agent | `THR-09` — agents hold no publish permission on command subjects |
-| Any other agent's `ks.job.<other>.>` or `ks.out.<other>.*` | `THR-08`, `THR-20` |
-| `$SYS.>`, and every administrative `$JS.API` subject | `ARCH-NATS-005` (`ADR-0002` § 8) |
+| Denied | To whom | Why |
+|---|---|---|
+| `ks.enroll.>` | Permanent **agent** identities. **Not the enrollment service**, whose two grants above are its entire reason to exist, and not bootstrap identities, which hold one token's pair and expire | `ARCH-NATS-005` — enrollment subjects are unreachable after enrollment. One line in the agent template, because `enroll` is a plane (§ 2) |
+| Any `ks.job.*` publish | Agents | `THR-09` — agents hold no publish permission on command subjects |
+| Any other agent's `ks.job.<other>.>` or `ks.out.<other>.*` | Agents | `THR-08`, `THR-20` |
+| `$SYS.>`, and every administrative `$JS.API` subject | Every Keystone identity | `ARCH-NATS-005` (`ADR-0002` § 8) |
 
 **The four wildcards above are the whole of the documented exception**
 `ARCH-NATS-003` allows. Every one is a service role, none is an agent, and each
@@ -223,6 +233,19 @@ outcome, so C03 can implement each as one test.
 | `POS-12` | Bootstrap identity | `ks.enroll.<its own token>.reply` | subscribe | succeed |
 | `POS-13` | Enrollment service | `ks.enroll.*.request` | subscribe | succeed |
 | `POS-14` | Monitoring role | `$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES.KS_CMD.<consumer>` | subscribe | succeed |
+| `POS-15` | Command publisher | its own inbox prefix, `.>` | subscribe | succeed — without it no `PubAck` is received (`ADR-0002` § 6) |
+| `POS-16` | Enrollment service | `ks.enroll.*.reply` | publish | succeed |
+| `POS-17` | Agent | `ks.out.<its own id>.event` | publish | succeed |
+| `POS-18` | Agent | its own inbox prefix, `.>` | subscribe | succeed |
+| `POS-19` | Monitoring role | `ks.out.*.event` | subscribe | succeed |
+| `POS-20` | Result consumer | `$JS.ACK.KS_RES.<its consumer>.<tokens>` | publish | succeed |
+| `POS-21` | Result consumer | its own inbox prefix, `.>` | subscribe | succeed |
+
+**§ 8 enumerates every grant in § 4 and § 6, and that completeness is the
+point.** A positive list shorter than the permission list lets C03 generate a
+JWT missing a granted permission and still pass every case — the authorization
+would be too narrow, and nothing here would notice. Each row above is one grant
+from § 4 or § 6; **no grant is intentionally left untested.**
 
 ### 9. Negative authorization cases
 

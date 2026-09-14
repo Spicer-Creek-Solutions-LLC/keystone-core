@@ -82,6 +82,34 @@ Control: `== 0 failures ==`. Ten cases across the eight acceptance cases:
 | A case omits its direction | `AC-7` |
 | The ADR claims to run something | `AC-8` |
 
+### What review found that no case could
+
+Two findings on `d3fa17293`, neither reachable by a mechanical case.
+
+**The enrollment-plane deny contradicted the enrollment service's grant.** § 2
+claimed "one deny of `ks.enroll.>` on every permanent identity" and § 4 repeated
+it — while granting the enrollment service, itself a permanent identity, the two
+enrollment-plane permissions that are its entire reason to exist. Followed
+literally, enrollment could not work; special-cased, the one-rule property the
+plane was chosen for would be gone. The deny is now scoped to permanent **agent**
+identities, which is what it always meant and never said.
+
+**§ 8 did not enumerate every grant.** Seven permissions in § 4 and § 6 had no
+positive case: the command publisher's publish-acknowledgement inbox, the
+enrollment service's reply publish, the agent's event publish and inbox, the
+monitoring role's event subscribe, and the result consumer's acknowledgement and
+inbox. **A positive list shorter than the permission list lets C03 generate a JWT
+missing a granted permission and still pass every case** — an authorization too
+*narrow* rather than too wide, which is the direction nobody watches. `POS-15`
+through `POS-21` close it.
+
+**No acceptance case checks that § 8 covers § 4 and § 6.** `AC-7` checks that
+each case names its four parts; `AC-2` checks the matrix is complete. Neither
+compares the two lists, and stretching either to cover it would be the
+implementation claiming more than its case states — the thing P03's evidence
+refused to do with `AC-2`. It is recorded here as a gap and a candidate for a
+future dossier's acceptance set.
+
 ## What these cases cannot detect
 
 | Case | Cannot detect | Found instead by |
