@@ -63,6 +63,14 @@ item, and it is why the amendment does not reopen `THR-15`.
 
 ### 2.1 An open question this ADR raises and does not answer
 
+> **Answered since, by [RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md).**
+> The exclusions constrain what Keystone constructs, so an operator naming
+> `/bin/sh` or a `#!` file as `argv[0]` is inside the boundary. **The rest of this
+> section is P07's record of the question and is left as written**; folding the
+> ruling into the reasoning is P07's follow-up. Where it says the boundary does
+> not say which reading governs, or that C07 cannot be written until it is
+> settled, read it as describing the state at P07 — both are now false.
+
 **Keystone constructs none of the excluded forms.** It builds no shell
 invocation, wraps no argv, accepts no script body, writes no file to execute and
 chooses no interpreter. Generation 1's `--shell bash` made Keystone wrap argv in
@@ -403,8 +411,10 @@ resource-limit termination belongs to `ADR-0006`, and the key placement that
 would let the executor verify what it runs belongs to `ADR-0003` and `ADR-0005`.
 
 **Nor § 2.1's question** — whether an operator naming an interpreter is inside
-the boundary. That is the charter's and RFC 0001's, and it blocks **C07**, whose
-executor differs between the two readings.
+the boundary. That was the charter's and RFC 0001's, and
+[RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md) has since
+answered it: the exclusions constrain what Keystone constructs. **C07 is not
+blocked on it.** Applying that ruling to § 2.1's reasoning is P07's follow-up.
 
 ## Validation
 

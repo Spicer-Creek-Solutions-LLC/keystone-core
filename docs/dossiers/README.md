@@ -69,4 +69,4 @@ title, per [`ISSUE-TRACKING.md`](../project/ISSUE-TRACKING.md) § Principles.
 | P04 — Subject authorization ADR and executable policy | [P04.md](P04.md) | Complete — `ADR-0004` proposed |
 | P05 — Versioned encrypted protocol ADR | [P05.md](P05.md) | Complete — `ADR-0005` proposed |
 | P06 — Delivery and job lifecycle ADR | [P06.md](P06.md) | Complete — `ADR-0006` proposed |
-| P07 — Safe execution ADR | [P07.md](P07.md) | `ADR-0007` proposed, **incomplete** — one boundary decision outstanding |
+| P07 — Safe execution ADR | [P07.md](P07.md) | `ADR-0007` proposed, **incomplete for bookkeeping** — RFC 0004 settled the decision; a follow-up applies it |
