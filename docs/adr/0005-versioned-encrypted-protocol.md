@@ -135,9 +135,10 @@ the agent's three separately for the same reason.
 | Enrollment request | The agent's newly generated signing key | Enrollment service, with the half in the request (`ADR-0003` § 5) |
 | Enrollment reply | Service signing key (`AST-7`) | Agent, with the half from the token bundle |
 
-`ARCH-NATS-006` names commands and results. It does not say *only* those, so
-requiring signatures on the rest adds an obligation without contradicting it —
-see § 11 on the invariant gap that remains.
+`ARCH-NATS-006` named commands and results when this ADR was written. It did not
+say *only* those, so requiring signatures on the rest added an obligation
+without contradicting it; [RFC 0002](../rfcs/0002-signed-envelope-classes.md)
+has since made the invariant name all seven. See § 11.
 
 **Signing presence and events is not decoration.** `THR-50` records presence
 fabricated on the wire: `ADR-0004`'s permission matrix constrains *agents*, and
@@ -314,27 +315,26 @@ untested.
 | `RSK-6` | **Renewed and widened.** § 8 fixes the header set and § 7 enumerates the accepted leakage per class, so what the broker learns is stated rather than inferred — but stating it is not reducing it, and § 7 adds two things `THREAT-MODEL.md` § 6 does not list: a **cleartext job identifier**, which makes the correlation § 6 concedes *exact* rather than inferred, and a lifecycle event's job linkage and coarse transition. The correlation identifier is not among them — § 3 moves it inside the payload on every encrypted class. § 6's observable table should gain a row for the first two, which is outside this task's boundary and recorded in § 7 |
 | `RSK-12` | **Renewed.** `AST-7` and `AST-8` still have neither rotation nor revocation. **The candidate mitigation is recorded rather than left to be rediscovered**: a certificate chain rooted outside the deployment — `CAP-IDENT-004` and `CAP-IDENT-021`, Generation 1 capabilities catalogued as Future — would allow leaf rotation, and reaching it is a phase-gate promotion (program rule 10). A *server-held* root is rejected: it would let a compromised server certify itself as any agent and forge that agent's signatures, destroying what `ADR-0003` § 4 exists to create and widening `RSK-4` |
 
-## The invariant gap `RSK-11` leaves behind
+## The invariant gap `RSK-11` left behind, and its closure
 
-`ARCH-NATS-006` requires **commands and results** to be signed. This ADR
-requires every class to be signed, which is permitted because the invariant does
-not say *only* those.
+`ARCH-NATS-006` required **commands and results** to be signed. This ADR
+requires every class to be signed, which was permitted because the invariant did
+not say *only* those — and which meant nothing required it. A later ADR could
+have dropped signatures on cancellation, presence, events or enrollment and
+violated nothing. `RSK-11`'s exposure was closed here; the reason it existed was
+not.
 
-**The invariant still would not mandate it.** A later ADR could drop signatures
-on cancellation, presence, events or enrollment and violate nothing. `RSK-11`'s
-exposure is closed; the reason it existed is not.
-
-Closing it is an amendment to `ARCH-NATS-006` naming **every envelope class the
-product carries**, which is its own task with its own approval, citing this ADR
-as the design it ratifies. The omission was never specific to cancellation — the
-invariant was written around the two journeys that existed when it was drafted,
-and this ADR is what makes the full list knowable.
+**It is closed now.** [RFC 0002](../rfcs/0002-signed-envelope-classes.md) amends
+`ARCH-NATS-006` to name every envelope class the product carries, citing this
+ADR as the design it ratifies. The omission was never specific to cancellation —
+the invariant was written around the two journeys that existed when it was
+drafted, and this ADR is what made the full list knowable.
 
 ## Invariant coverage
 
 | Invariant | Where |
 |---|---|
-| `ARCH-NATS-006` | §§ 4, 5 — **satisfied**, and exceeded; see the gap above |
+| `ARCH-NATS-006` | §§ 4, 5 — **satisfied**. What these sections exceeded in the invariant as drafted, [RFC 0002](../rfcs/0002-signed-envelope-classes.md) has since made the invariant require |
 | `ARCH-OBS-001` | § 8 — **satisfied in part**; no header carries a secret or plaintext. The audit record's schema is P08's |
 | `ARCH-JOB-001` | § 6 — **registered**; replay bounds are never described as exactly-once execution |
 | `ARCH-JOB-003` | § 6 — **registered**; the ledger is authoritative beyond any window. The ledger is P06's and P08's |
@@ -389,10 +389,9 @@ Job lifecycle, delivery semantics and `UNKNOWN` (**P06**); execution limits and
 argv handling (**P07**); the audit record's schema and retention (**P08**);
 operator-facing error presentation (**P09**); the canonical encoder, the
 signature and encryption operations, fuzzing, and the **computed** vectors
-(**C01**); and the amendment to `ARCH-NATS-006` (its own task). How the agent
-obtains the service public halves is no longer open here — `ADR-0003` § 1
-and § 6 decide it — and the residue is `RSK-14`, whose channel-separated
-deployment mode belongs to **P10**.
+(**C01**). How the agent obtains the service public halves is no longer open
+here — `ADR-0003` § 1 and § 6 decide it — and the residue is `RSK-14`, whose
+channel-separated deployment mode belongs to **P10**.
 
 ## Validation
 

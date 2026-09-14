@@ -63,6 +63,7 @@ policy and clustering are all Future candidates rather than commitments.
 ## Where things are
 
 - [RFC 0001](docs/rfcs/0001-generation-2-reboot.md) — the decision
+- [RFC 0002](docs/rfcs/0002-signed-envelope-classes.md) — every envelope class is signed
 - [Execution plan](docs/project/REBOOT-EXECUTION-PLAN.md) — every task, in order
 - [Architecture invariants](docs/project/ARCHITECTURE-INVARIANTS.md) — 24 rules with stable identifiers
 - [Testing requirements](docs/project/TESTING.md) — what "shipped" means

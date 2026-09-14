@@ -41,8 +41,8 @@ All work flows through [`epics/20-generation-2-reboot.md`](epics/20-generation-2
 Before starting any epic task, you MUST:
 
 1. Read the epic and the task within it.
-2. Consult RFC 0001, accepted ADRs, the product charter, the architecture
-   invariants, and the task dossier. Generation 1 sources are research, and live
+2. Consult the accepted RFCs, accepted ADRs, the product charter, the
+   architecture invariants, and the task dossier. Generation 1 sources are research, and live
    in the archive — see §7.
 3. Present an implementation plan.
 4. Wait for explicit user approval (`yes` or equivalent).
@@ -125,7 +125,8 @@ Do not duplicate volatile inventories in this file. Those drift quickly.
 ## 7) Source-of-Truth Index
 
 - Project overview/status: `README.md`
-- Accepted reboot decision: `docs/rfcs/0001-generation-2-reboot.md`
+- Accepted RFCs: `docs/rfcs/` — the reboot decision is `0001`, and `0002`
+  amends `ARCH-NATS-006`
 - Task sequencing and controls: `docs/project/REBOOT-EXECUTION-PLAN.md`
 - Active epic: `epics/20-generation-2-reboot.md`
 - Architecture invariants (normative, stable `ARCH-*` ids): `docs/project/ARCHITECTURE-INVARIANTS.md`

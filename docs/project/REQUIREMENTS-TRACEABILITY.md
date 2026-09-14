@@ -14,7 +14,7 @@ corresponding implementation lands.
 | ARCH-NATS-003 | Subject authorization ADR | `test/e2e/docker/permissions_test.go` | PR |
 | ARCH-NATS-004 | Enrollment ADR | `test/e2e/docker/enrollment_test.go` | PR |
 | ARCH-NATS-005 | Subject authorization ADR | `test/e2e/docker/system_subject_permissions_test.go` | PR |
-| ARCH-NATS-006 | Protocol ADR | `test/e2e/docker/envelope_confidentiality_test.go` | PR |
+| ARCH-NATS-006 | Protocol ADR | `test/e2e/docker/envelope_confidentiality_test.go`, `test/e2e/docker/envelope_signature_test.go` | PR |
 | ARCH-NATS-007 | NATS topology ADR | `test/e2e/docker/resource_limits_test.go` | Main |
 | ARCH-NATS-008 | RFC/ADR process | `tools/archlint` decision-matrix rule | PR |
 | ARCH-NATS-009 | Job lifecycle ADR | exact-filter serialized-consumer test | PR |
@@ -37,5 +37,12 @@ corresponding implementation lands.
 - A requirement cannot be marked implemented without a link to executable
   evidence or an approved manual-review exception.
 - Renaming a test requires updating this register in the same pull request.
-- Removing or weakening a requirement requires an RFC.
+- **Changing a normative invariant's text requires an RFC, in either
+  direction.** Removing or weakening one obviously does; strengthening one
+  does too, because a requirement every later ADR is measured against should
+  not change under a task approval. This rule previously covered only
+  removal and weakening, while
+  [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) already stated the
+  broader rule; [RFC 0002](../rfcs/0002-signed-envelope-classes.md) was the
+  first amendment either governed, and settled it here.
 - CI must fail when an implemented invariant lacks its registered evidence.

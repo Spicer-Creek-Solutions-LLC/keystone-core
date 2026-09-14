@@ -8,6 +8,8 @@ September 2026 and its references, guides and runbooks went with it.
 
 - [`../rfcs/0001-generation-2-reboot.md`](../rfcs/0001-generation-2-reboot.md) —
   the accepted decision, its reasoning, and the alternatives rejected
+- [`../rfcs/0002-signed-envelope-classes.md`](../rfcs/0002-signed-envelope-classes.md) —
+  amends `ARCH-NATS-006` to name every envelope class the product carries
 - [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) — every transition and
   foundation task, with its controls and acceptance criteria
 - [`PROJECT-REBOOT-REVIEW.md`](PROJECT-REBOOT-REVIEW.md) — the assessment the

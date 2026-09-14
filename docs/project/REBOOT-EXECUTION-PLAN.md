@@ -12,8 +12,8 @@ To resume the transition from the development VM, follow the
 
 1. One repository task, one explicit approval, one branch, one pull request.
 2. R-stage tasks consult the relevant Generation 1 sources. P/C-stage tasks
-   consult RFC 0001, accepted ADRs, the product charter, architecture invariants,
-   and their task dossier. Archive sources are research, not active scope.
+   consult the accepted RFCs, accepted ADRs, the product charter, architecture
+   invariants, and their task dossier. Archive sources are research, not active scope.
 3. Do not begin implementation until the maintainer approves that task plan.
 4. Do not silently absorb discovered scope. Record it and stop for direction.
 5. Remote changes require a reviewed dry run and a separate apply approval.
