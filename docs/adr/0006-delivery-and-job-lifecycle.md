@@ -43,7 +43,8 @@ The server's states are what an operator sees. The charter fixes the outcomes
 | `Delivered` | The broker has delivered the command to the agent's consumer at least once | No |
 | `Running` | The agent reported a durable start | No |
 | `Completed` | A verified terminal result is recorded, **including a non-zero remote exit status** | Yes |
-| `Cancelled` | The job reached a terminal cancelled state on the agent | Yes |
+| `Cancelling` | A cancellation has been accepted and the outcome is not yet established | No |
+| `Cancelled` | **The command provably did not complete.** Either a verified cancelled result arrived, or the cancellation reached a job whose command was never published | Yes |
 | `TimedOut` | The agent's deadline elapsed and the process tree was terminated | Yes |
 | `Undelivered` | The command expired in `KS_CMD` having never been delivered. **It did not run** | Yes |
 | `Unknown` | The control plane cannot prove whether the command ran | Yes |
@@ -54,16 +55,22 @@ The server's states are what an operator sees. The charter fixes the outcomes
 | From | To | Trigger |
 |---|---|---|
 | `Accepted` | `Published` | `PubAck` received for the command envelope |
+| `Accepted` | `Cancelled` | Cancellation of a job whose command was never published. No envelope exists, so nothing can execute |
 | `Accepted` | `Refused` | Local validation or authorization rejects the request |
 | `Accepted` | `Unknown` | The publish outcome cannot be established (§ 11) |
 | `Published` | `Delivered` | A delivery is observed: an agent lifecycle event, or an acknowledgement-progress signal (§ 5) |
 | `Published` | `Undelivered` | `KS_CMD` max-age expiry with **no** delivery recorded (§ 11) |
-| `Published` | `Cancelled` | Cancellation reaches a terminal state before any delivery (§ 9) |
+| `Published` | `Cancelling` | A cancellation is accepted (§ 9) |
 | `Delivered` | `Running` | The agent's start event arrives |
 | `Delivered` | `Unknown` | Redelivery is exhausted (§ 11), or the deadline elapses with no further signal |
-| `Delivered` | `Cancelled` | A terminal cancelled result arrives |
+| `Delivered` | `Cancelling` | A cancellation is accepted (§ 9) |
 | `Running` | `Completed` | A verified terminal result arrives |
-| `Running` | `Cancelled` | A verified cancelled result arrives |
+| `Running` | `Cancelling` | A cancellation is accepted (§ 9) |
+| `Cancelling` | `Cancelled` | A verified cancelled result arrives |
+| `Cancelling` | `Completed` | A verified terminal result arrives instead — the agent ran the command before the cancellation reached it (§ 9) |
+| `Cancelling` | `TimedOut` | A verified timed-out result arrives instead |
+| `Cancelling` | `Undelivered` | The command expires in `KS_CMD` having never been delivered |
+| `Cancelling` | `Unknown` | The deadline plus the result grace period elapses with no verified result |
 | `Running` | `TimedOut` | A verified timed-out result arrives |
 | `Running` | `Unknown` | The deadline plus the result grace period elapses with no terminal result |
 
@@ -285,10 +292,10 @@ it is for. It is for this.
 
 | When cancellation arrives | Outcome |
 |---|---|
-| **Before the command is delivered, agent connected** | The live path reaches the agent before it pulls. The ledger records the cancellation, and § 7's check refuses the command when it is pulled. No execution |
-| **Before the command is delivered, agent offline** | **The cancellation does not prevent execution.** See below |
-| **After receipt, before start** | No process exists. The agent moves `Received` → `Killed`, publishes a cancelled result, and never creates a process tree |
-| **During execution** | The complete process tree is terminated (`ARCH-EXEC-002`, P07's mechanics). The agent moves `Started` → `Killed` and publishes a cancelled result **carrying whatever partial output is durable** |
+| **Before the command is delivered, agent connected** | `Cancelling`. The live path reaches the agent before it pulls; the ledger records the cancellation, § 7's check refuses the command when it is pulled, and the cancelled result moves the job to `Cancelled`. No execution |
+| **Before the command is delivered, agent offline** | The job enters `Cancelling`. **The cancellation does not prevent execution**, and the job's terminal state is whatever the agent eventually reports. See below |
+| **After receipt, before start** | `Cancelling`. No process exists. The agent moves `Received` → `Killed`, publishes a cancelled result, and never creates a process tree; the job reaches `Cancelled` |
+| **During execution** | `Cancelling`. The complete process tree is terminated (`ARCH-EXEC-002`, P07's mechanics). The agent moves `Started` → `Killed` and publishes a cancelled result **carrying whatever partial output is durable**; the job reaches `Cancelled` |
 | **After a terminal state** | A no-op for the job's state. The cancellation is recorded as an audit observation and the job stays in its terminal state |
 
 **The offline case, stated as the limitation it is.** An agent that was not
@@ -299,17 +306,32 @@ agent pulls the command first, its ledger holds no cancellation for that job, an
 is acknowledged, by which time the job is terminal and § 9's fourth row makes it
 a recorded no-op.
 
-The server's state is unaffected — the job is `Cancelled` from the moment the
-cancellation is accepted, and the later result is retained as a second
-observation under § 12's rule. **What is not true is that the command did not
-run.** An operator who cancels a job queued for an offline agent has changed what
-the control plane reports and not what the host does.
+**This is why `Cancelling` exists and `Cancelled` is not entered on request.**
+The server records `Cancelling` when it accepts the cancellation, and the job's
+terminal state is whatever the agent eventually proves: `Cancelled` if the
+cancellation won, `Completed` or `TimedOut` if the command ran first. An operator
+who cancels a job queued for an offline agent has changed what the control plane
+is *trying* to do and not what the host will do, and the state name says so.
+
+`Cancelled` therefore always means the same thing — **the command provably did
+not complete** — with two proofs: a verified cancelled result, or a job whose
+command was never published, where no envelope exists to execute. Both are
+evidence. Neither is a request.
 
 **What bounds it.** The agent refuses a command whose deadline has already
 elapsed (§ 7), so the exposure is the command's own deadline rather than
 `KS_CMD`'s max age — which § 4 requires to be the longer of the two. A job
 cancelled while its agent is offline executes only if that agent reconnects
 before the deadline it was given.
+
+**A second charter observation, raised with the first.** Journey § 5.6 states
+the observable effect of a cancellation as *the job reaches a terminal cancelled
+state*. Under `Cancelling` that holds whenever the cancellation wins and does not
+hold when the command ran first, which the charter does not model because the
+offline-agent case was not in view when it was written. As with `Undelivered` in
+§ 11, the state is defined here and the charter question is raised: either § 5.6
+narrows to the cases where cancellation is deliverable, or one of the mechanisms
+below makes it true again.
 
 **What would close it**, and why none of it is decided here. Making pre-delivery
 cancellation authoritative needs one of: a **separate cancellation consumer**, so
@@ -439,7 +461,8 @@ terminality.
 | `Delivered` | On the first delivery signal | The broker and the agent | Delivered | No |
 | `Running` | On the agent's start event | The agent | Running | No |
 | `Completed` | On the verified result | The agent | The remote exit status and output | Yes |
-| `Cancelled` | On the verified cancelled result | An operator, via the agent | Cancelled | Yes |
+| `Cancelling` | On the cancellation being accepted | An operator | Cancelling, with the outcome not yet established | No |
+| `Cancelled` | On the verified cancelled result, or on cancelling an unpublished command | An operator, confirmed by the agent or by the absence of any envelope | Cancelled; the command did not complete | Yes |
 | `TimedOut` | On the verified timed-out result | The deadline, via the agent | Deadline exceeded | Yes |
 | `Undelivered` | On max-age expiry with no delivery | The broker | Never delivered; it did not run | Yes |
 | `Unknown` | On the ambiguity being established | Absence of evidence | `UNKNOWN`, with which of § 12's three | Yes |
@@ -530,7 +553,8 @@ The `KS_CMD` max-age and `AckWait` relationships in § 4 are stated as
 constraints on `ADR-0002` § 9's values, not as new values. C03 renders them.
 
 **And it does not decide how to make a pre-delivery cancellation authoritative
-for an offline agent** (§ 9). The three candidate mechanisms each change an
+for an offline agent** (§ 9), nor whether the charter's § 5.6 observable effect
+narrows to the cases where cancellation is deliverable. The three candidate mechanisms each change an
 accepted ADR — a separate cancellation consumer or the removal of a queued
 command belong to `ADR-0002` § 7 and § 8, a pre-start liveness check to
 `ADR-0004`'s grammar. P06 states the limitation, bounds it with the deadline

@@ -69,7 +69,7 @@ AC-6   fails as expected  — the dedup window is not distinguished from an exac
 AC-7   fails as expected  — the broker property the two-case distinction rests on is unstated
         - AC-7 the broker property the distinction rests on is not stated
 AC-8   fails as expected  — the lifecycle table omits a declared state
-        - AC-8 the lifecycle table covers ['Accepted', 'Cancelled', 'Completed', 'Delivered', 'Published', 'Refused', 'Running', 'TimedOut
+        - AC-8 the lifecycle table covers ['Accepted', 'Cancelled', 'Cancelling', 'Completed', 'Delivered', 'Published', 'Refused', 'Runni
 AC-9   fails as expected  — RSK-9 is left undisposed in the threat model
         - AC-9 RSK-9's expiry is not a date
         - AC-9 the threat model does not record P06's disposition
@@ -325,6 +325,32 @@ P06's own subject rather than a fix to someone else's ADR.
 **No case here could have caught it.** Every case reads one document for
 structure. This defect is a claim about the interaction of two other ADRs'
 decisions, and it took a reader who held all three at once.
+
+## The second review round, and what `AC-8` caught
+
+The first round's fix introduced a contradiction the second round found: § 9 had
+the server entering `Cancelled` on accepting a cancellation, while § 1 defined
+`Cancelled` as requiring a verified cancelled result from the agent. In the
+offline case no such result exists, and the one that eventually arrives may say
+`Completed`.
+
+`Cancelling` now separates the request from the outcome. `Cancelled` keeps one
+meaning — **the command provably did not complete** — with two proofs, a verified
+cancelled result or a job whose command was never published. A job in
+`Cancelling` reaches whichever terminal state the agent eventually proves.
+
+**`AC-8` caught the lifecycle table lagging behind the new state** on the first
+run after the edit, which is the case working: the table and § 1's state list are
+compared for equality rather than for containment, so adding a state to one
+without the other fails.
+
+**Two demonstrations stopped creating their defects** and were repaired rather
+than trusted. `AC-2`'s deleted one inbound edge to `Undelivered` when the new
+`Cancelling` state gave it two, leaving the state reachable. `AC-10`'s anchored
+on arrival rows whose text had changed. Both now derive what they mutate from the
+document rather than carrying a literal copy of it — the first asserts no inbound
+edge survives, the second reads the arrivals table and drops two of whatever it
+finds.
 
 ## What these cases cannot detect
 
