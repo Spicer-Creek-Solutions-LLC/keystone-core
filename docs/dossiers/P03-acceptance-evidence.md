@@ -79,6 +79,38 @@ present.** That is the assertion's exact purpose, written too loosely. Both
 plantings now remove the whole construct the case is about, and both predicates
 parse the mutated section and assert the semantic property directly.
 
+### What review found that no case could
+
+Two findings on `a42738f8e`, neither reachable by a mechanical case:
+
+**The ADR recorded no agent protocol public keys.** § 4 said all three keys are
+generated on the agent and only public halves leave it; § 5 mentioned only the
+signing key's public half, as the thing a request signature is checked against;
+and S1 recorded only the permanent NATS user JWT. **Enrollment is the only moment
+those halves are established**, so P05 and C03 would have had to invent a source
+of truth for encrypting a command to an agent or verifying an agent-signed
+result. Now S1 records all three, and idempotent re-presentation is tied to the
+recorded values — a retry carrying *different* public halves is a denial rather
+than a retry, without which anyone obtaining the bundle after a first request
+could take over a pending enrollment.
+
+`AC-2` is the nearest case and could not have caught it: it asserts the keys are
+generated on the agent and that no output describes a private key reaching the
+server. **Where the public halves go is a different property**, and no case
+states it. That limit is recorded here rather than papered over by stretching
+`AC-2`'s implementation to cover a claim `AC-2` does not make.
+
+**The ADR registered `ARCH-JOB-003` where the dossier required `ARCH-JOB-002`.**
+Substituting one invariant for another changes what the task claims without
+changing the contract that bounded it. Both are now registered — `ARCH-JOB-002`
+because the agent's durable ledger is initialised at S2, so a command arriving
+at activation has a receipt to write before execution, and `ARCH-JOB-003`
+because § 10 deliberately does not carry a ledger across re-enrollment.
+
+No case compares the ADR's invariant table against the dossier's. That is a real
+gap and a candidate for a future dossier's acceptance set; it is named here
+rather than fixed from inside the task the contract bounds.
+
 ## What these cases cannot detect
 
 | Case | Cannot detect | Found instead by |
