@@ -73,7 +73,7 @@ AC-8   fails as expected  — the lifecycle table omits a declared state
 AC-9   fails as expected  — RSK-9 is left undisposed in the threat model
         - AC-9 RSK-9's expiry is not a date
         - AC-9 the threat model does not record P06's disposition
-AC-10  fails as expected  — a cancellation arrival is dropped
+AC-10  fails as expected  — cancellation arrivals fall below the four the case requires
         - AC-10 cancellation enumerates 3 arrivals, expected four
 AC-11  fails as expected  — a delivery failure has no resulting state
         - AC-11 § 11 does not give each failure a resulting state
@@ -301,6 +301,30 @@ if fails:
     sys.exit(1)
 print("== 0 failures ==")
 ```
+
+## The review round that changed the design
+
+`AC-10` in this file originally demonstrated on a four-row arrivals table. It
+now has five, because review found the first row false.
+
+**The finding.** *Cancellation before delivery* claimed the job reaches
+`Cancelled` **with no execution**, on the reasoning that the agent's ledger would
+record the cancellation and refuse the command. It would not: `KS_CMD` carries
+commands and cancellations on **one** per-agent consumer with
+`FilterSubject: ks.job.<agent>.>`, so for an offline agent the command sits
+earlier in the sequence, is pulled first, meets an empty ledger, and starts.
+
+**What checking the premise added.** `MaxAckPending=1` and `ARCH-JOB-005`
+together mean a cancellation in `KS_CMD` cannot be delivered while the command it
+cancels is un-acknowledged — so the durable path cannot serve
+cancellation-during-execution either. The live core-NATS subscription
+`ADR-0002` § 4 grants and `ADR-0004` `POS-4` tests is what does, and **no accepted
+ADR said so**. § 9 now states both paths and which case each serves, which is
+P06's own subject rather than a fix to someone else's ADR.
+
+**No case here could have caught it.** Every case reads one document for
+structure. This defect is a claim about the interaction of two other ADRs'
+decisions, and it took a reader who held all three at once.
 
 ## What these cases cannot detect
 

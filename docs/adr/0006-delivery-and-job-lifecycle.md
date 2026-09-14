@@ -81,7 +81,7 @@ each one means.
 | `Refused` | The envelope did not verify; `ADR-0005` § 9's refusal applies | Yes |
 | `Started` | The start is durable and the process tree exists | No |
 | `Exited` | The process exited; terminal state and result are durable | No |
-| `Killed` | Cancellation or the deadline terminated the complete process tree; the partial result is durable | No |
+| `Killed` | The job ended without completing — cancellation or the deadline terminated the process tree, or the deadline had already elapsed when the command was pulled and no tree was created. Any partial result is durable | No |
 | `ResultPublished` | The result envelope is in `KS_RES` and the agent holds its `PubAck` | No |
 | `Acked` | The JetStream acknowledgement is sent (`ARCH-JOB-005`) | Yes |
 | `Indeterminate` | Recovery found a durable start with no durable terminal state | Yes |
@@ -91,6 +91,7 @@ each one means.
 | `Received` | `Refused` | Verification fails |
 | `Received` | `Started` | The start record is durable and the process tree launches |
 | `Received` | `Killed` | Cancellation arrives before the process starts |
+| `Received` | `Killed` | The command's deadline has already elapsed; no process is created (§ 7) |
 | `Started` | `Exited` | The process exits and the result is durable |
 | `Started` | `Killed` | Cancellation or the deadline terminates the process tree |
 | `Started` | `Indeterminate` | Recovery after a crash (§ 10) |
@@ -212,13 +213,20 @@ On receiving a command the agent consults the ledger before anything else:
 
 | Ledger says | The agent does |
 |---|---|
+| Nothing, and the command's deadline has elapsed | Record receipt, then `Killed` without creating a process. Publishes a deadline-exceeded result |
 | Nothing | Record receipt, then start (§ 3) |
 | `Received`, no start | Record the start and begin. This is the first attempt, not a second |
 | `Started`, no terminal | **Does not execute.** Republishes an `UNKNOWN` result for the job (§ 12) |
 | Terminal state recorded | **Does not execute.** Republishes the recorded result |
 | `Refused` | Republishes the refusal |
 
-The third and fourth rows are the substance of `ARCH-JOB-003`: *redelivery of a
+**The deadline check is first, and it is what bounds § 9's offline
+cancellation case.** A command that has outlived the deadline its operator gave
+it is not worth running, and an agent that reconnects hours later would otherwise
+execute a job whose outcome nobody is still waiting for. `ADR-0005` § 6 already
+makes the timestamp a staleness bound; this is the lifecycle acting on it.
+
+The fourth and fifth rows are the substance of `ARCH-JOB-003`: *redelivery of a
 known command identifier may resume result delivery but may not automatically
 execute the command again*. Resuming result delivery is exactly what the last
 three rows do, and it is why redelivery is useful rather than merely survivable.
@@ -257,12 +265,60 @@ Cancellation is its own envelope class on its own subject (`ADR-0004`), signed
 (`ADR-0005` § 4, RFC 0002), and idempotent — cancelling a cancelled job is a
 no-op (`ADR-0005` § 6).
 
+**Which path delivers a cancellation, which no prior ADR states.** The accepted
+decisions provide two, and the difference between them is the whole of this
+section:
+
+| Path | Mechanism | Reaches | Survives an offline agent |
+|---|---|---|---|
+| **Live** | The agent's core-NATS subscription to `ks.job.<id>.cancel` (`ADR-0002` § 4; `ADR-0004` `POS-4`) | A connected agent, immediately | No. Core NATS is not retained |
+| **Durable** | The same envelope stored in `KS_CMD` and pulled by the agent's consumer (`ADR-0002` § 7) | Any agent, eventually | Yes, but **behind the command in FIFO order** |
+
+The live path is why cancellation during execution works at all. The agent's
+consumer has `MaxAckPending=1` and `ARCH-JOB-005` withholds the acknowledgement
+until the result is published, so a cancellation waiting in `KS_CMD` **cannot be
+delivered while the command it cancels is running**. Only the core subscription
+reaches a busy agent.
+
+`ADR-0002` § 4 grants the subscription and `ADR-0004` tests it; neither says what
+it is for. It is for this.
+
 | When cancellation arrives | Outcome |
 |---|---|
-| **Before the command is delivered** | The job reaches `Cancelled` with no execution. The command may still be in `KS_CMD`; the agent's ledger records the cancellation, and if the command is later delivered § 7's ledger check refuses it |
+| **Before the command is delivered, agent connected** | The live path reaches the agent before it pulls. The ledger records the cancellation, and § 7's check refuses the command when it is pulled. No execution |
+| **Before the command is delivered, agent offline** | **The cancellation does not prevent execution.** See below |
 | **After receipt, before start** | No process exists. The agent moves `Received` → `Killed`, publishes a cancelled result, and never creates a process tree |
 | **During execution** | The complete process tree is terminated (`ARCH-EXEC-002`, P07's mechanics). The agent moves `Started` → `Killed` and publishes a cancelled result **carrying whatever partial output is durable** |
 | **After a terminal state** | A no-op for the job's state. The cancellation is recorded as an audit observation and the job stays in its terminal state |
+
+**The offline case, stated as the limitation it is.** An agent that was not
+connected when the cancellation was published missed the live path, and the
+durable copy sits behind the command in one FIFO consumer. On reconnecting the
+agent pulls the command first, its ledger holds no cancellation for that job, and
+§ 7's first row starts it. The cancellation is delivered only after the command
+is acknowledged, by which time the job is terminal and § 9's fourth row makes it
+a recorded no-op.
+
+The server's state is unaffected — the job is `Cancelled` from the moment the
+cancellation is accepted, and the later result is retained as a second
+observation under § 12's rule. **What is not true is that the command did not
+run.** An operator who cancels a job queued for an offline agent has changed what
+the control plane reports and not what the host does.
+
+**What bounds it.** The agent refuses a command whose deadline has already
+elapsed (§ 7), so the exposure is the command's own deadline rather than
+`KS_CMD`'s max age — which § 4 requires to be the longer of the two. A job
+cancelled while its agent is offline executes only if that agent reconnects
+before the deadline it was given.
+
+**What would close it**, and why none of it is decided here. Making pre-delivery
+cancellation authoritative needs one of: a **separate cancellation consumer**, so
+cancellation is not ordered behind commands; **removal of the queued command**,
+which needs a stream-message-delete permission the command publisher does not
+hold (`ADR-0002` § 8); or a **pre-start liveness check**, which needs a
+request/reply class `ADR-0004`'s grammar does not define. Each changes an
+accepted ADR, so each is raised here and fixed by its owner — `ADR-0002` § 7 for
+the first two, `ADR-0004` for the third.
 
 **The crash boundary.** An agent that crashes between terminating the process
 tree and making the cancelled result durable recovers to `Started` with no
@@ -472,6 +528,13 @@ migrations and the ledger implementation (**C02**); the transport adapter
 
 The `KS_CMD` max-age and `AckWait` relationships in § 4 are stated as
 constraints on `ADR-0002` § 9's values, not as new values. C03 renders them.
+
+**And it does not decide how to make a pre-delivery cancellation authoritative
+for an offline agent** (§ 9). The three candidate mechanisms each change an
+accepted ADR — a separate cancellation consumer or the removal of a queued
+command belong to `ADR-0002` § 7 and § 8, a pre-start liveness check to
+`ADR-0004`'s grammar. P06 states the limitation, bounds it with the deadline
+check of § 7, and raises the rest.
 
 ## Validation
 
