@@ -57,6 +57,7 @@ Examples:
 | [ADR-0004](0004-subject-authorization.md) | Subject authorization | Proposed | 2026-09-14 |
 
 | [ADR-0005](0005-versioned-encrypted-protocol.md) | Versioned encrypted protocol | Proposed | 2026-09-14 |
+| [ADR-0006](0006-delivery-and-job-lifecycle.md) | Delivery and job lifecycle | Proposed | 2026-09-14 |
 
 <!-- Add new ADRs above this line -->
 

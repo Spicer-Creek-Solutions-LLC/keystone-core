@@ -44,6 +44,9 @@ September 2026 and its references, guides and runbooks went with it.
 - [`../adr/0003-enrollment-and-identity.md`](../adr/0003-enrollment-and-identity.md) — how an agent acquires an identity, and what enrollment attests
 - [`../adr/0004-subject-authorization.md`](../adr/0004-subject-authorization.md) — the subject grammar, the permission matrix, and what must be refused
 - [`../adr/0005-versioned-encrypted-protocol.md`](../adr/0005-versioned-encrypted-protocol.md) — what is inside an envelope, who signs it, and who can read it
+- [`../adr/0006-delivery-and-job-lifecycle.md`](../adr/0006-delivery-and-job-lifecycle.md) —
+  what the system is entitled to believe about a job, and what it says when it
+  cannot know
 
 ## Governance and policy
 
