@@ -65,4 +65,4 @@ title, per [`ISSUE-TRACKING.md`](../project/ISSUE-TRACKING.md) § Principles.
 | P00 — Product charter and canonical journeys | [P00.md](P00.md) | Complete — charter accepted |
 | P01 — Threat model | [P01.md](P01.md) | Complete — threat model accepted |
 | P02 — NATS-native capability ADR | [P02.md](P02.md) | Complete — `ADR-0002` proposed |
-| P03 — Enrollment and identity ADR | [P03.md](P03.md) | Awaiting P03 plan approval |
+| P03 — Enrollment and identity ADR | [P03.md](P03.md) | Complete — `ADR-0003` proposed |

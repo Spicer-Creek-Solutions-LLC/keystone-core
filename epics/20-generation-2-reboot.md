@@ -79,7 +79,10 @@ workstream depends on. Detailed controls are normative in the execution plan.
   principals plus one identity per agent, two streams with per-agent command
   consumers, and an enumerated data-plane allowlist. `RSK-10` resolved;
   `RSK-2` and `RSK-3` renewed.
-- [ ] P03 — Enrollment and identity ADR.
+- [x] P03 — Enrollment and identity ADR. `ADR-0003`: the token file carries a
+  token-scoped bootstrap NATS credential, all three agent keys are generated on
+  the agent, and the staged protocol ends only when revocation is verified.
+  `RSK-7` resolved for agent material; `RSK-12` to P05, `RSK-13` to P10.
 - [ ] P04 — Subject authorization ADR and executable policy.
 - [ ] P05 — Versioned encrypted protocol ADR.
 - [ ] P06 — Delivery and job lifecycle ADR.

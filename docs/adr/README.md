@@ -52,6 +52,8 @@ Examples:
 
 | [ADR-0002](0002-nats-native-capabilities.md) | NATS-native capability decisions | Proposed | 2026-09-13 |
 
+| [ADR-0003](0003-enrollment-and-identity.md) | Enrollment and identity | Proposed | 2026-09-13 |
+
 <!-- Add new ADRs above this line -->
 
 ## Creating a New ADR
