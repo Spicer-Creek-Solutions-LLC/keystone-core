@@ -59,7 +59,7 @@ is not a measure.
 | Time from fresh host to first successful command | ≤ 10 minutes | Timed fresh-VM run at release-candidate gate, per `TESTING.md` § Gate schedule | Project maintainer |
 | Enrollment uses no long-lived credential | 100% of enrollments | Enrollment acceptance test asserts bootstrap credentials are revoked and revocation is verified (`ARCH-NATS-004`) | Project maintainer |
 | Interruption never reports a false outcome | 100% of injected fault boundaries | Restart and fault-boundary matrix; every boundary yields a correct terminal state or explicit `UNKNOWN`, never a false success (`ARCH-JOB-004`) | Project maintainer |
-| Cancellation terminates the whole process tree | 100% of cancellations | Descendant-process cancellation test, VM-gated (`ARCH-EXEC-002`) | Project maintainer |
+| Cancellation terminates the whole process tree | 100% of cancellations **that reach a running command** | Descendant-process cancellation test, VM-gated (`ARCH-EXEC-002`). A cancellation that never reaches its agent terminates nothing and is measured by the row above, not this one — see § 5.6 | Project maintainer |
 | Every lifecycle transition is auditable | 100% of transitions | Correlated lifecycle audit test (`ARCH-OBS-001`) | Project maintainer |
 | Duplicate delivery never re-executes | 0 duplicate executions | Non-idempotent external counter under duplicate delivery (`ARCH-JOB-003`) | Project maintainer |
 | External operators complete the journey unaided | ≥ 3 partners | § 7 validation plan | Project maintainer |

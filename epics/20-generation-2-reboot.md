@@ -212,7 +212,9 @@ limitations go in the pull request.
 - [ ] Production binaries pass isolated Docker black-box journeys and required
   VM tests.
 - [ ] Duplicate delivery never causes automatic duplicate execution.
-- [ ] Cancellation terminates the complete process tree.
+- [ ] Cancellation that reaches a running command terminates the complete
+  process tree; one that does not is reported as the outcome the agent proves,
+  never as a cancellation that took effect.
 - [ ] At least three external design partners complete the core journey without
   maintainer control of the keyboard.
 - [ ] The continuation gate records real repeated use and a concrete willingness
