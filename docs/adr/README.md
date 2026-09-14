@@ -58,6 +58,7 @@ Examples:
 
 | [ADR-0005](0005-versioned-encrypted-protocol.md) | Versioned encrypted protocol | Proposed | 2026-09-14 |
 | [ADR-0006](0006-delivery-and-job-lifecycle.md) | Delivery and job lifecycle | Proposed | 2026-09-14 |
+| [ADR-0007](0007-safe-execution.md) | Safe execution | Proposed | 2026-09-15 |
 
 <!-- Add new ADRs above this line -->
 

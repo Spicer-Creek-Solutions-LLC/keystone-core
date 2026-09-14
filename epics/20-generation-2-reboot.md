@@ -101,7 +101,15 @@ workstream depends on. Detailed controls are normative in the execution plan.
   command did not run, exhaustion proves only that it was received. Cancellation
   separates the accepted request (`Cancelling`) from the evidence-backed outcome
   (`Cancelled`). `RSK-9` renewed to P08.
-- [ ] P07 — Safe execution ADR.
+- [x] P07 — Safe execution ADR. `ADR-0007`: argv reaches `execve` as a vector
+  and `argv[0]` resolves against a **fixed** `PATH`, never the harvested one, so
+  a writable profile cannot decide which binary a name means. Two components —
+  an unprivileged agent holding the NATS connection, the keys and the ledger,
+  and a small root executor that only changes identity and owns the process
+  group. `RSK-9` renewed, narrowed against memory-safety compromise and not
+  against logical compromise. Two findings raised: `ADR-0006` has no state for a
+  resource-limit kill, and `ADR-0005`'s key placement stops the executor
+  verifying what it runs.
 - [ ] P08 — Persistence and audit ADR.
 - [ ] P09 — Local operator API and authorization ADR.
 - [ ] P10 — Acceptance-harness design.

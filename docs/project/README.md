@@ -47,6 +47,8 @@ September 2026 and its references, guides and runbooks went with it.
 - [`../adr/0006-delivery-and-job-lifecycle.md`](../adr/0006-delivery-and-job-lifecycle.md) —
   what the system is entitled to believe about a job, and what it says when it
   cannot know
+- [`../adr/0007-safe-execution.md`](../adr/0007-safe-execution.md) — what a
+  command can touch once it is a process
 
 ## Governance and policy
 
