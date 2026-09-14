@@ -260,6 +260,56 @@ if not re.search(r"`ADR-0002` § 9", l8):
 if not re.search(r"below.{0,40}1 MiB|1 MiB", l8):
     fails.append("AC-10 § 8 does not relate the output bound to the payload limit")
 
+# --- AC-11 no document settles a question the ADR leaves open --------------
+# Derived: the ADR says whether § 2.1 is open. If it is, no tracked file may
+# state either reading as the outcome. The evidence file stated the withdrawn
+# reading while the ADR had already withdrawn it — DL-8's dependents tier,
+# inside the evidence for the task that raised the question.
+import subprocess
+s21 = section(r"### 2\.1 ")
+open_q = bool(re.search(r"decides neither|raised, not decided|does not close it",
+                        " ".join(s21.split()), re.I))
+notes.append(f"AC-11 § 2.1 reads as {'OPEN' if open_q else 'settled'}")
+if open_q:
+    SETTLED = re.compile(
+        r"exclusions?[^.]{0,60}constrain[^.]{0,80}(what Keystone|not which)"
+        r"|what Keystone does, not which"
+        r"|the exclusions only constrain", re.I)
+    HEDGE = re.compile(r"both readings|decides neither|raised, not decided|open question"
+                       r"|does not settle|neither reading|is open", re.I)
+    files = [p for p in subprocess.run(["git", "-C", str(ROOT), "ls-files", "*.md"],
+             capture_output=True, text=True, check=True).stdout.split()
+             if not p.startswith("docs/transition/r10/raw")]
+    # § 2.1 is where both readings are laid out by design, so its own blocks
+    # present a reading without asserting it. And a block reporting what an
+    # earlier draft asserted is a record, not a claim.
+    REPORTING = re.compile(r"\basserted\b|\bwithdrawn\b|no longer|the second draft|"
+                           r"the first \*\*|previous (?:draft|commit)", re.I)
+    s21_blocks = {" ".join(b.split()) for b in re.split(r"\n\s*\n", s21)}
+    # Two counters: `matched` proves the pattern still finds the document it was
+    # written for, `swept` is what remains after the exemptions. Guarding on the
+    # second would fire whenever the exemptions happen to cover everything,
+    # which says nothing about whether the check still works.
+    matched = swept = 0
+    for rel in files:
+        for blk in re.split(r"\n\s*\n", (ROOT / rel).read_text()):
+            f = " ".join(blk.split())
+            if not SETTLED.search(f):
+                continue
+            matched += 1
+            if f in s21_blocks or REPORTING.search(f):
+                continue
+            swept += 1
+            if not HEDGE.search(f):
+                fails.append(f"AC-11 {rel} states the exclusion reading as settled while "
+                             f"ADR-0007 § 2.1 leaves it open:\n    {f[:140]}")
+    notes.append(f"AC-11 {matched} statements of the reading found, {swept} checked "
+                 f"after exemptions")
+    if matched == 0:
+        fails.append("AC-11 found no statement of either reading anywhere — check is "
+                     "vacuous. The readings are set out in § 2.1, so zero means the "
+                     "pattern no longer matches the document it was written for")
+
 for n in notes: print("  ·", n)
 print()
 if fails:
@@ -277,25 +327,36 @@ its interpreter — no shell involved, no interpreter named by the operator — 
 script executed while the ADR said scripts were excluded.
 
 A second round then found that the fix had **resolved the question in the ADR's
-own favour**, which `D-P07-1` forbids: stating that the exclusions constrain only
-what Keystone provides is an interpretation that admits `/bin/sh -c '…'`, and the
-charter's wording is *a shell that interprets the command's argv*. § 2.1 now
-states both readings and decides neither, and the question is recorded as
-blocking C07.
+own favour**, which `D-P07-1` forbids. § 2.1 now states both readings and decides
+neither, and the question is recorded as blocking C07.
 
-That is the more useful record than either draft. The first asserted an
-enforcement the design did not have; the second asserted an interpretation the
-task was not entitled to make. What survives is what the ADR can say on its own
-authority — what Keystone constructs — plus a question for whoever owns the
-boundary.
+**This file states neither reading as settled**, and says why rather than leaving
+it implicit: the boundary's owner has not ruled, and an acceptance-evidence file
+that recorded one reading as the outcome would be the same overreach in a quieter
+document. What is settled is only what Keystone constructs — no shell invocation,
+no wrapped argv, no script body, no file written to execute, no interpreter
+chosen.
 
-Following the original finding through showed the claim was wrong in a larger
-way than it stated: `/bin/sh -c '…'` is also just argv, so the shell exclusion was equally
-unenforced. § 2.1 now states what the exclusions actually constrain — **what
-Keystone does, not which binaries exist on the host** — with the evidence that
-Generation 1's removed `--shell bash` flag is precisely the form item 1 took
-away, and `THR-15`'s wording, *supplied argv **escapes** the bounded surface*,
-which a caller deliberately naming an interpreter does not do.
+Three drafts, each wrong in a way worth keeping:
+
+1. The first **asserted an enforcement the design did not have** — that scripts
+   and shells could not run.
+2. The second **asserted an interpretation the task was not entitled to make** —
+   that the exclusions constrain only what Keystone provides.
+3. The third left the ADR correct and **left this file stating the second**,
+   which is `DL-8`'s dependents tier inside the evidence for the task that
+   raised it.
+
+`AC-11` now checks the third: no tracked document may state either reading as
+settled while `ADR-0007` § 2.1 says the question is open. It reads the ADR for
+whether the question is open rather than being told.
+
+Following the original finding through showed the first claim was wrong in a
+larger way than the review stated: `/bin/sh -c '…'` is also just argv, so the shell exclusion was equally
+unenforced. § 2.1 now sets out both readings with the
+evidence each rests on — Generation 1's removed `--shell bash` flag on one side,
+the charter's literal *a shell that interprets the command's argv* on the other
+— **and decides neither**.
 
 **No case here could have raised it.** Every case compares the ADR against the
 charter, the invariants or another ADR, and the ADR **agreed with all of them**:
@@ -329,6 +390,7 @@ recorded in the dossier so a later one does not repeat it.
 | `AC-8` | Whether the mapping is correct for every breach | C07; C14's fault matrix |
 | `AC-9` | Whether redaction catches a secret in practice — it cannot, and § 11 says so | Nothing. It is a stated limit, not a gap a case could close |
 | `AC-10` | Whether the two limits are consistent under load | C15 |
+| `AC-11` | **Whether either reading is right.** It checks that no document settles a question the ADR leaves open, which is a consistency property, not a correctness one | The maintainer, who owns the boundary |
 
 **And one thing no case here reaches**: whether § 13's two findings are the
 right two. Both are claims about what *other* accepted ADRs fail to provide, and
