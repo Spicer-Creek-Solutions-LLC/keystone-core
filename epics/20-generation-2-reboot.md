@@ -192,6 +192,14 @@ limitations go in the pull request.
   recorded in the pull request that finds it, and `DL-8` gains a third tier for
   conclusions, which have no identifier to sweep on.
 
+- [x] G18 — Close the two charter gaps `ADR-0006` raised. `11` is reworded from
+  *agent not present* to **the target agent did not take delivery within the
+  deadline**, which is the outcome rather than one of its causes and covers the
+  `Undelivered` state. Journey § 5.6's observable effect becomes conditional on
+  the cancellation reaching the agent first, and `keystone job cancel` exits `0`
+  only when the job reaches terminal cancelled — otherwise the job's own code,
+  so "I cancelled it and it ran anyway" is an outcome rather than output.
+
 ## Epic acceptance
 
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
