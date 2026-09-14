@@ -195,9 +195,11 @@ revoke bootstrap access, and verify the revocation (`ARCH-NATS-004`).
 ### Command
 
 What the operator asks an agent to run: an argv vector, the account it runs as,
-and its bounds. **No shell interprets the argv**, and there is no pipeline and no
-script (charter § 6). A shell may run to compute that account's login
-environment, which is a separate operation that reaches no operator input
+and its bounds. **Keystone interposes no shell and builds no pipeline**; every
+element of the vector was written by the operator (charter § 6,
+[RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md)). A shell may
+run to compute that account's login environment, which is a separate operation
+that reaches no operator input
 ([RFC 0003](../rfcs/0003-caller-selected-execution-user.md)).
 
 ### Job
@@ -250,11 +252,13 @@ exists to prevent.
 
 ### Argv-only execution boundary
 
-The frozen limit on Generation 2's first release execution surface: no shell
-interpreting a command's argv, no stdin streaming, no scripts, no pipelines, no
-caller-provided environment, no arbitrary working directory, no batch fan-out,
-no interactive session. Widening it requires an RFC amendment, not an ADR
-(charter § 6).
+The frozen limit on Generation 2's first release execution surface. **It
+constrains what Keystone constructs, not which programs an operator may name**
+([RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md)): Keystone
+interposes no shell, accepts and writes no script, and provides no stdin
+streaming, pipelines, caller-provided environment, arbitrary working directory,
+batch fan-out or interactive session. Widening it requires an RFC amendment, not
+an ADR (charter § 6).
 
 [RFC 0003](../rfcs/0003-caller-selected-execution-user.md) amended it once: a
 **caller-selected execution user** is admitted, and a shell is admitted **only**

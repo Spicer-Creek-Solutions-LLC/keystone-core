@@ -69,10 +69,12 @@ Keystone Core is not becoming a general-purpose IaC engine, a Kubernetes
 replacement, a remote-desktop product, an endpoint-detection product, or an
 unbounded shell gateway.
 
-The first release's execution surface is argv-only and non-interactive: no
-shell interpreting a command's argv, no stdin streaming, no scripts or
-pipelines, no caller-provided environment or working directory, no batch
-fan-out, no interactive session. A **caller-selected execution user** is
+The first release's execution surface is argv-only and non-interactive.
+**Keystone constructs** no shell invocation, no script, no stdin streaming, no
+pipeline, no caller-provided environment or working directory, no batch fan-out
+and no interactive session — which is what the exclusions constrain, per
+[RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md), rather than
+which programs an operator may name. A **caller-selected execution user** is
 admitted by
 [RFC 0003](../rfcs/0003-caller-selected-execution-user.md), which also admits a
 shell solely to compute that user's login environment. Widening that boundary

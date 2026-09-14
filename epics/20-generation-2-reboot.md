@@ -72,8 +72,8 @@ workstream depends on. Detailed controls are normative in the execution plan.
 ### Product and architecture foundation
 
 - [x] P00 — Product charter and canonical journeys. Charter accepted; argv-only
-  boundary frozen, and amended once by RFC 0003 (`G19`).
-- [x] P01 — Threat model. Ten actors, 53 threats, all 24 invariants mapped,
+  boundary frozen, and amended twice — by RFC 0003 (`G19`) and RFC 0004 (`G20`).
+- [x] P01 — Threat model. Ten actors, 54 threats, all 24 invariants mapped,
   fourteen residual risks, eleven still accepted.
 - [x] P02 — NATS-native capability ADR. `ADR-0002`: two accounts, decentralized
   JWT with the operator seed outside every Keystone process, six service
@@ -111,10 +111,10 @@ workstream depends on. Detailed controls are normative in the execution plan.
   group. `RSK-9` renewed, narrowed against memory-safety compromise and not
   against logical compromise. Two findings raised: `ADR-0006` has no state for a
   resource-limit kill, and `ADR-0005`'s key placement stops the executor
-  verifying what it runs. **The third is what leaves P07 unticked**: whether an
-  operator naming `/bin/sh` or a `#!` script as `argv[0]` is inside charter § 6's
-  boundary. `ADR-0007` § 2.1 states both readings and decides neither, because
-  deciding it inside an ADR would widen the boundary by interpretation.
+  verifying what it runs. **The third — whether an operator naming `/bin/sh` or a
+  `#!` script as `argv[0]` is inside charter § 6 — is settled by RFC 0004**
+  (`G20`), which `ADR-0007` § 2.1 raised and rightly declined to answer.
+  Completing P07 against that ruling is the remaining step and its own task.
 - [ ] P08 — Persistence and audit ADR.
 - [ ] P09 — Local operator API and authorization ADR.
 - [ ] P10 — Acceptance-harness design.
@@ -220,6 +220,14 @@ limitations go in the pull request.
   agent-authored command. Operator argv still reaches no shell, which is the
   half of `THR-15`'s mitigation that protects anything. Seven forms unchanged;
   `THR-52` and `THR-53` record what the change costs.
+
+- [x] G20 — Settle what the execution exclusions constrain. RFC 0004: they
+  constrain **what Keystone constructs**, not which programs an operator may
+  name, so naming `/bin/sh` or a `#!` file as `argv[0]` is inside the boundary.
+  Items 1 and 3 reworded, the other six untouched, the count unchanged. It
+  unblocks P07's completion and C07, which `ADR-0007` § 2.1 had stopped.
+  `THR-54` records what the reading costs: an opaque payload is harder to
+  review, controlled by disclosure rather than prevention.
 
 ## Epic acceptance
 

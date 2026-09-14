@@ -468,9 +468,11 @@ service identity/privilege, duration/output/resource limits, process-group
 cancellation, signal escalation, executable resolution, audit redaction, and
 unsupported forms.
 
-Out of scope, unchanged by `RFC 0003`: a shell **interpreting a command's
-argv**, stdin streaming, scripts, pipelines, a caller-provided environment, an
-arbitrary working directory, batch fan-out, and interactive sessions. In scope
+Out of scope: a shell **Keystone interposes**, a **script Keystone accepts or
+writes**, stdin streaming, pipelines, a caller-provided environment, an
+arbitrary working directory, batch fan-out, and interactive sessions. Those are
+constraints on what Keystone constructs, not on which programs an operator may
+name (`RFC 0004`). In scope
 because `RFC 0003` admits them: the caller-selected execution user with its
 non-root deployment default, and a shell **solely** for the login-environment
 harvest.
