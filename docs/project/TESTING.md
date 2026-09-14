@@ -57,7 +57,7 @@ Every feature PR supplies a table with these cases:
 | Payload protection | Broker-visible data contains no command/result plaintext |
 | Duplicate delivery | A duplicate message does not repeat execution |
 | Restart | Restart at each durable boundary preserves honest state |
-| Cancellation/timeout | The complete process tree exits and state is terminal |
+| Cancellation/timeout | For a cancellation that reaches a running command, the complete process tree exits and state is terminal. For one that does not, the job's terminal state is what the agent proves and both observations stay visible (`ADR-0006` § 9) |
 | Audit | Actor, target, job, action, result, and correlation are present |
 | Diagnostics | Operator can distinguish denial, offline, timeout, and unknown |
 

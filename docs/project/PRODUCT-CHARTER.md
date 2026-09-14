@@ -59,7 +59,7 @@ is not a measure.
 | Time from fresh host to first successful command | ≤ 10 minutes | Timed fresh-VM run at release-candidate gate, per `TESTING.md` § Gate schedule | Project maintainer |
 | Enrollment uses no long-lived credential | 100% of enrollments | Enrollment acceptance test asserts bootstrap credentials are revoked and revocation is verified (`ARCH-NATS-004`) | Project maintainer |
 | Interruption never reports a false outcome | 100% of injected fault boundaries | Restart and fault-boundary matrix; every boundary yields a correct terminal state or explicit `UNKNOWN`, never a false success (`ARCH-JOB-004`) | Project maintainer |
-| Cancellation terminates the whole process tree | 100% of cancellations | Descendant-process cancellation test, VM-gated (`ARCH-EXEC-002`) | Project maintainer |
+| Cancellation terminates the whole process tree | 100% of cancellations **that reach a running command** | Descendant-process cancellation test, VM-gated (`ARCH-EXEC-002`). A cancellation that never reaches its agent terminates nothing and is measured by the row above, not this one — see § 5.6 | Project maintainer |
 | Every lifecycle transition is auditable | 100% of transitions | Correlated lifecycle audit test (`ARCH-OBS-001`) | Project maintainer |
 | Duplicate delivery never re-executes | 0 duplicate executions | Non-idempotent external counter under duplicate delivery (`ARCH-JOB-003`) | Project maintainer |
 | External operators complete the journey unaided | ≥ 3 partners | § 7 validation plan | Project maintainer |
@@ -108,7 +108,7 @@ the remote command's own exit status.
 | `0` | The operation succeeded and its outcome is known |
 | `1` | Local or usage error: bad arguments, unreadable configuration |
 | `10` | Authorization denied |
-| `11` | Target agent is not present within the deadline |
+| `11` | The target agent did not take delivery within the deadline |
 | `12` | The job exceeded its deadline |
 | `13` | `UNKNOWN` — the control plane cannot prove whether execution occurred |
 | `14` | The job was cancelled |
@@ -116,6 +116,19 @@ the remote command's own exit status.
 Codes `11` to `14` exist so the operator can distinguish offline, timeout,
 unknown and cancellation without parsing output, which
 `TESTING.md` § Feature acceptance contract requires of the Diagnostics case.
+
+**`11` is about delivery, not only about presence, and the difference matters.**
+An agent that was never present takes no delivery; so does a job whose command
+expired before that agent came back. Both mean *the work never reached the
+host*, both leave the command provably unexecuted, and both send the operator to
+the same place. The code is worded for the outcome rather than for one of its
+causes, which is what lets `ADR-0006`'s `Undelivered` state report as itself
+instead of borrowing `12` or overstating `13`.
+
+An agent that is present and heartbeating but not taking delivery is a broken
+agent, and it reports `11` as well. The distinction from an absent one is
+visible in presence, which is observed rather than inferred (§ 5.2), and does
+not need its own code.
 
 **Global codes.** `0` and `1` apply to every `keystone` command. `10` applies to
 every command whose invocation is subject to operator authorization; P09 defines
@@ -186,7 +199,7 @@ shell anywhere on this path (§ 6).
 
 **Exit:** `0` when the remote command ran to completion and its status was
 retrieved, **including when that status is non-zero**. Control-plane outcomes
-take precedence over `0`, and are mutually exclusive: `11` agent not present,
+take precedence over `0`, and are mutually exclusive: `11` not delivered,
 `12` deadline exceeded, `13` `UNKNOWN`, `14` cancelled. A cancelled or timed-out
 job may still hold a durable partial result; it exits `14` or `12` regardless,
 because the control-plane outcome is what the operator must act on.
@@ -245,12 +258,31 @@ remote exit status. Truncation is reported explicitly rather than silently.
 keystone job cancel <job-id>
 ```
 
-**Exit:** `0` once the job is terminal. `11` if the agent is not present. `13`
-if the control plane cannot establish the outcome.
+**Exit:** `0` when the job reaches a terminal **cancelled** state — the
+cancellation took effect. When the job is terminal in some other state, the
+cancellation did not prevent the outcome and the exit code is **that job's own**:
+`0` if it completed, `12` if it exceeded its deadline, `11` if it was never
+delivered, `13` if the control plane cannot establish the outcome.
 
-**Observable effect:** the complete process tree on the agent exits, not only
-the immediate child; the job reaches a terminal cancelled state; a later result
-never contradicts it silently.
+An operator therefore learns whether the cancellation took effect from the exit
+status alone, which is what `TESTING.md` § Feature acceptance contract requires
+of the Diagnostics case. "I cancelled it and it ran anyway" is an outcome, not a
+detail of the output.
+
+**Observable effect:** the cancellation is accepted and the job's state records
+it. **When the cancellation reaches the agent before the command completes**,
+the complete process tree exits — not only the immediate child — and the job
+reaches a terminal cancelled state.
+
+**When it does not, the command may complete.** A cancellation for a job whose
+agent is not connected is not retained by the live path, and the durable copy is
+ordered behind the command it cancels, so an agent returning within the
+command's deadline runs it. The job's terminal state is then whatever the agent
+proves, and **both observations remain visible**: a later result never
+contradicts a cancellation silently, and a cancellation never conceals a result.
+
+`ADR-0006` § 9 decides the delivery paths this depends on and bounds the case;
+closing it needs a change to `ADR-0002` or `ADR-0004`, which that ADR names.
 
 **Invariants:** `ARCH-EXEC-002`, `ARCH-JOB-004`, `ARCH-OBS-001`.
 

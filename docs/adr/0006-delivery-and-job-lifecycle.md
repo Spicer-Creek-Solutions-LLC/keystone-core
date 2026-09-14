@@ -324,14 +324,14 @@ elapsed (§ 7), so the exposure is the command's own deadline rather than
 cancelled while its agent is offline executes only if that agent reconnects
 before the deadline it was given.
 
-**A second charter observation, raised with the first.** Journey § 5.6 states
+**How an operator sees this, settled after P06 by `G18`.** Journey § 5.6 stated
 the observable effect of a cancellation as *the job reaches a terminal cancelled
-state*. Under `Cancelling` that holds whenever the cancellation wins and does not
-hold when the command ran first, which the charter does not model because the
-offline-agent case was not in view when it was written. As with `Undelivered` in
-§ 11, the state is defined here and the charter question is raised: either § 5.6
-narrows to the cases where cancellation is deliverable, or one of the mechanisms
-below makes it true again.
+state*, which under `Cancelling` holds when the cancellation wins and not when
+the command ran first. The charter now makes that conditional, and gives the
+operator the answer in the exit status: `keystone job cancel` exits `0` only when
+the job reaches terminal **cancelled**, and otherwise exits with the job's own
+outcome code. "I cancelled it and it ran anyway" is reported as an outcome rather
+than left in the output.
 
 **What would close it**, and why none of it is decided here. Making pre-delivery
 cancellation authoritative needs one of: a **separate cancellation consumer**, so
@@ -406,14 +406,17 @@ delivery to a consumer, and an agent that is not pulling receives no deliveries.
 An offline agent therefore exhausts max age, never `MaxDeliver`. If that property
 did not hold, `Undelivered` would be unsound and both cases would be `Unknown`.
 
-**A finding this raises and does not resolve.** The charter fixes the operator's
-exit codes — `11` agent not present, `12` deadline exceeded, `13` `UNKNOWN`,
-`14` cancelled (§ 5.3) — and `Undelivered` maps cleanly to none of them. It is
-not `11`, which is a pre-flight presence check before a job exists; calling it
-`12` stretches *deadline exceeded* from the command's timeout to the delivery
-window. `PRODUCT-CHARTER.md` is outside this task's boundary and operator-facing
-presentation is **P09**'s. The state is defined here, the mapping gap is
-recorded, and P09 or a charter amendment closes it.
+**How an operator sees this, settled after P06 by `G18`.** `Undelivered` reports
+as **`11`**, which the charter defines as *the target agent did not take
+delivery within the deadline*.
+
+This ADR originally raised it as an unmapped state, on the reasoning that `11`
+was "a pre-flight presence check before a job exists". **The charter never said
+that** — it said *not present within the deadline*, and where the check happens
+was this document's inference rather than the charter's text. `G18` corrected
+the wording to describe the outcome rather than one of its causes, at which point
+`Undelivered` was already covered: a command that expired undelivered is work
+that never reached the host, which is what `11` now says.
 
 ### 12. `UNKNOWN`
 
@@ -452,7 +455,9 @@ observation.
 ### 13. The lifecycle table
 
 Every server state by durability point, causer, operator-visible form and
-terminality.
+terminality. **The codes are the charter's** (§ Exit codes), cited so that every
+terminal state has a distinguishable outcome and none has to be inferred; P06
+fixes no code and P09 decides how each is rendered.
 
 | State | Durable when | Caused by | Operator sees | Terminal |
 |---|---|---|---|---|
@@ -460,13 +465,13 @@ terminality.
 | `Published` | On `PubAck` | The command publisher | In flight | No |
 | `Delivered` | On the first delivery signal | The broker and the agent | Delivered | No |
 | `Running` | On the agent's start event | The agent | Running | No |
-| `Completed` | On the verified result | The agent | The remote exit status and output | Yes |
+| `Completed` | On the verified result | The agent | The remote exit status and output; `0` | Yes |
 | `Cancelling` | On the cancellation being accepted | An operator | Cancelling, with the outcome not yet established | No |
-| `Cancelled` | On the verified cancelled result, or on cancelling an unpublished command | An operator, confirmed by the agent or by the absence of any envelope | Cancelled; the command did not complete | Yes |
-| `TimedOut` | On the verified timed-out result | The deadline, via the agent | Deadline exceeded | Yes |
-| `Undelivered` | On max-age expiry with no delivery | The broker | Never delivered; it did not run | Yes |
-| `Unknown` | On the ambiguity being established | Absence of evidence | `UNKNOWN`, with which of § 12's three | Yes |
-| `Refused` | Before publication | The server | Rejected, with a reason | Yes |
+| `Cancelled` | On the verified cancelled result, or on cancelling an unpublished command | An operator, confirmed by the agent or by the absence of any envelope | Cancelled, the command did not complete; `14` | Yes |
+| `TimedOut` | On the verified timed-out result | The deadline, via the agent | Deadline exceeded; `12` | Yes |
+| `Undelivered` | On max-age expiry with no delivery | The broker | Never delivered, it did not run; `11` | Yes |
+| `Unknown` | On the ambiguity being established | Absence of evidence | `UNKNOWN`, with which of § 12's three; `13` | Yes |
+| `Refused` | Before publication | The server | Rejected, with a reason; `1` or `10` | Yes |
 
 ## Residual risks
 
@@ -553,8 +558,9 @@ The `KS_CMD` max-age and `AckWait` relationships in § 4 are stated as
 constraints on `ADR-0002` § 9's values, not as new values. C03 renders them.
 
 **And it does not decide how to make a pre-delivery cancellation authoritative
-for an offline agent** (§ 9), nor whether the charter's § 5.6 observable effect
-narrows to the cases where cancellation is deliverable. The three candidate mechanisms each change an
+for an offline agent** (§ 9). How both cases are *presented* was settled after
+this ADR by `G18`, which amended the charter; how the underlying limitation is
+*removed* still belongs to `ADR-0002` § 7 and § 8 or to `ADR-0004`. The three candidate mechanisms each change an
 accepted ADR — a separate cancellation consumer or the removal of a queued
 command belong to `ADR-0002` § 7 and § 8, a pre-start liveness check to
 `ADR-0004`'s grammar. P06 states the limitation, bounds it with the deadline

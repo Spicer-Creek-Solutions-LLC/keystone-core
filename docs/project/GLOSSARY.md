@@ -222,11 +222,22 @@ observed and never inferred from the fact that an agent enrolled.
 
 ### Cancellation
 
-Operator-initiated termination of a job. A job cancelled **before execution
-starts** never runs; a job cancelled **while running** has its complete process
-group or platform-equivalent job object terminated, not only its immediate child
-(`ARCH-EXEC-002`). Both reach a terminal cancelled state, and the charter gives
-both exit `14`.
+Operator-initiated termination of a job. **A request, not a guarantee.**
+
+When the cancellation **reaches the agent before the command completes**, the job
+never runs or has its complete process group — or platform-equivalent job object
+— terminated, not only its immediate child (`ARCH-EXEC-002`). It reaches a
+terminal cancelled state and the charter gives exit `14`.
+
+When it does not, **the command may complete anyway**: a cancellation for an
+agent that is not connected is not retained by the live path, and the durable
+copy is ordered behind the command it cancels. The job's terminal state is then
+whatever the agent proves, and `keystone job cancel` exits with that state's own
+code rather than `14`. Both observations stay visible.
+
+The distinction has two names in `ADR-0006` § 1 — `Cancelling` for the accepted
+request, `Cancelled` for the proven outcome — and the charter's § 5.6 states the
+observable effect conditionally for the same reason.
 
 ### Process tree
 
