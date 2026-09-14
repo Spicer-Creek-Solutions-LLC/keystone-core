@@ -70,6 +70,43 @@ compensating-control case anchored on `RSK-11`'s control text, which this task
 rewrote; it now anchors on `RSK-13`, which P05 does not touch. That is the fourth
 time `DL-7`'s first assertion has rejected a stale anchor in this repository.
 
+### What review found that no case could
+
+**The accepted-leakage table omitted the cleartext identifiers the envelope
+carries.** § 1 puts the job and correlation identifiers in fields 3 and 4, ahead
+of the payload field, and § 7's leakage cells never mentioned them — while § 10
+and `RSK-6` both claimed the enumeration was complete and exceeded nothing § 6
+already concedes. **That claim was false**, and the shape is familiar: a
+completeness sentence written beside an incomplete list, which P04's evidence
+records twice.
+
+Two things came out of it.
+
+**One is a design improvement rather than a disclosure.** The correlation
+identifier had no reason to be cleartext — nothing outside the two endpoints
+needs it — so it now travels **inside the payload** on every encrypted class.
+The job identifier stays cleartext because § 8 puts it in a header by an earlier
+decision, and hiding it in the envelope while the header carries it would
+achieve nothing.
+
+**The other is a concession.** A cleartext job identifier makes the correlation
+§ 6 concedes *exact* rather than *inferred*, and a lifecycle event reveals the
+job it concerns and a coarse transition, which § 6's table does not list at all.
+`RSK-6` is now recorded as **renewed and widened** rather than renewed, in both
+its compensating-control and expiry cells.
+
+**And a finding P05 may not fix.** § 6's observable table should gain a row for
+cleartext envelope identifiers. P05's dossier permits § 6's *closing sentence*
+and `RSK-6`'s row and **not that table**, so the widening is recorded in both
+places P05 may write and the row is left to its own task. Widening a risk while
+leaving the table it derives from unchanged is half a fix, and it is the half
+P05 is allowed.
+
+**No case reaches any of this.** `AC-7` checks each risk is resolved or renewed
+with a dated outcome; nothing compares a leakage cell against the envelope's own
+field list, and nothing would have noticed that the envelope exposed a field the
+classification table did not mention.
+
 ## What these cases cannot detect
 
 | Case | Cannot detect | Found instead by |

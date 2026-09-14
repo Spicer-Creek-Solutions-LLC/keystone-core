@@ -47,7 +47,7 @@ it.
 | 1 | Protocol version | Cleartext, and **covered by the signature** (§ 2) |
 | 2 | Message class | One of the seven in § 7 |
 | 3 | Job identifier | Empty for classes that carry none (§ 3) |
-| 4 | Correlation identifier | § 3 |
+| 4 | Correlation identifier | **Empty on encrypted classes**, where it travels inside the payload instead (§ 3) |
 | 5 | Sender identifier | The principal, per `ADR-0004` |
 | 6 | Timestamp | § 6 |
 | 7 | Nonce | § 6 |
@@ -92,6 +92,19 @@ property every downgrade attack needs.
 The charter requires a job identifier for **every accepted job** (§ 5.3), so it
 is assigned at acceptance and not at execution: a job that never reaches its
 agent still has one, which is what lets `UNKNOWN` name a specific job.
+
+**Which of the two is visible to the broker, and why they differ.** The **job
+identifier** is cleartext, and deliberately: § 8 puts it in a header because an
+operator-facing audit record correlates on it, so hiding it in the envelope
+would achieve nothing while the header carries it. The **correlation
+identifier** has no such requirement — nothing outside the two endpoints needs
+it — so on every encrypted class it travels **inside the payload**, and envelope
+field 4 is empty. On the classes that are not encrypted it is cleartext like
+everything else about them.
+
+That asymmetry is the whole of the difference: an observer can link a command to
+its result by job identifier, which § 6 already concedes as correlation, and
+cannot link an operator's several actions to each other.
 
 Both are opaque, high-entropy, and constrained to the same character set as
 `ADR-0004`'s subject tokens — not because they appear in subjects, but because
@@ -196,11 +209,30 @@ The table the whole ADR exists to produce.
 | **Durability** | None — core NATS | None — core NATS | `KS_CMD` | `KS_CMD` | `KS_RES` | None — core NATS | None — core NATS |
 | **Retention** | None | None | `KS_CMD` max age | `KS_CMD` max age | `KS_RES` age and per-subject cap | None | None |
 | **Headers** | Version, class | Version, class | `Nats-Msg-Id`, version, class, job id | `Nats-Msg-Id`, version, class, job id | `Nats-Msg-Id`, version, class, job id | Version, class | Version, class |
-| **Accepted metadata leakage** | That a token is being redeemed, and when | That one was redeemed | Which agent is commanded, when, and roughly how long the argv is | That a job was cancelled, and when | Job duration and roughly how much output | That an agent changed state | Which agents are live, and when one stops |
+| **Accepted metadata leakage** | That a token is being redeemed, and when; the token identifier | That one was redeemed; the token identifier | Which agent is commanded, when, roughly how long the argv is, **and the job identifier in cleartext** | That a job was cancelled, when, **and which job** | Job duration, roughly how much output, **and the job identifier** | That an agent changed state, **which job it concerns, and the coarse transition** | Which agents are live, and when one stops |
 
-Every metadata-leakage cell is already conceded by `THREAT-MODEL.md` § 6 and
-recorded as `RSK-6`. **None of it is new**, and § 10 says so rather than leaving
-a reader to compare.
+**Most of this is already conceded by `THREAT-MODEL.md` § 6 and recorded as
+`RSK-6`. One part is not, and saying otherwise would be the kind of claim this
+project keeps having to retract.**
+
+The cleartext **job identifier** makes correlation *exact* where § 6 concedes it
+as *inferred*: that table says an observer can build "a usable operational
+picture… who is working on what, when, and for how long" by correlating subject,
+timing and size. A literal identifier linking a command to its result, its
+cancellation and its events removes the inference step. The difference is degree
+rather than kind, and it is a widening of `RSK-6` rather than a restatement of
+it.
+
+A **lifecycle event** additionally reveals the job it concerns and a coarse
+transition — which § 6's table does not list at all, because events did not have
+a defined payload before this ADR.
+
+> **Finding raised, not fixed.** `THREAT-MODEL.md` § 6's observable table should
+> gain a row for cleartext envelope identifiers. P05's dossier permits editing
+> § 6's closing sentence and `RSK-6`'s row and **not that table**, so the
+> widening is recorded in both places P05 may write and the table's row is left
+> to its own task. Widening a risk in the row while leaving the table that
+> derives it unchanged is half a fix, and this is the half P05 is allowed.
 
 ### 8. Headers
 
