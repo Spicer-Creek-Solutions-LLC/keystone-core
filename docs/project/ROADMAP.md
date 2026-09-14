@@ -28,7 +28,8 @@ the threat model are accepted: [`PRODUCT-CHARTER.md`](PRODUCT-CHARTER.md),
 [`ADR-0004`](../adr/0004-subject-authorization.md) and
 [`ADR-0005`](../adr/0005-versioned-encrypted-protocol.md) and
 [`ADR-0006`](../adr/0006-delivery-and-job-lifecycle.md) and
-[`ADR-0007`](../adr/0007-safe-execution.md). P08 is next.
+[`ADR-0007`](../adr/0007-safe-execution.md), which is **incomplete**: one
+boundary decision in its § 2.1 is outstanding and blocks C07.
 - **Stage C — the first command-and-control release**, ending at `v0.6.0`.
 
 ## Next

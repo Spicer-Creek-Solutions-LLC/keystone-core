@@ -101,7 +101,9 @@ workstream depends on. Detailed controls are normative in the execution plan.
   command did not run, exhaustion proves only that it was received. Cancellation
   separates the accepted request (`Cancelling`) from the evidence-backed outcome
   (`Cancelled`). `RSK-9` renewed to P08.
-- [x] P07 — Safe execution ADR. `ADR-0007`: argv reaches `execve` as a vector
+- [ ] P07 — Safe execution ADR. **`ADR-0007` is proposed and incomplete**: one
+  boundary decision in its § 2.1 is outstanding and blocks C07. The rest is
+  decided — argv reaches `execve` as a vector
   and `argv[0]` resolves against a **fixed** `PATH`, never the harvested one, so
   a writable profile cannot decide which binary a name means. Two components —
   an unprivileged agent holding the NATS connection, the keys and the ledger,
@@ -109,9 +111,10 @@ workstream depends on. Detailed controls are normative in the execution plan.
   group. `RSK-9` renewed, narrowed against memory-safety compromise and not
   against logical compromise. Two findings raised: `ADR-0006` has no state for a
   resource-limit kill, and `ADR-0005`'s key placement stops the executor
-  verifying what it runs. A third is **open and blocks C07**: whether an
+  verifying what it runs. **The third is what leaves P07 unticked**: whether an
   operator naming `/bin/sh` or a `#!` script as `argv[0]` is inside charter § 6's
-  boundary. `ADR-0007` § 2.1 states both readings and decides neither.
+  boundary. `ADR-0007` § 2.1 states both readings and decides neither, because
+  deciding it inside an ADR would widen the boundary by interpretation.
 - [ ] P08 — Persistence and audit ADR.
 - [ ] P09 — Local operator API and authorization ADR.
 - [ ] P10 — Acceptance-harness design.
