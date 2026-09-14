@@ -157,6 +157,9 @@ limitations go in the pull request.
   `ARCH-NATS-005`'s "P02/P04 must document and test" needs amending, or is
   answered by the traceability register's design-owner/evidence split — is
   **recorded in the execution plan and left open**, not closed by this task.
+- [x] G13 — Correct P05's workstream paragraph, which asked for test vectors
+  before any implementation exists to compute them. Same class as G12, one
+  workstream over.
 
 ## Epic acceptance
 
