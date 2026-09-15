@@ -272,8 +272,9 @@ had no reason to doubt it.
 
 **G21 performed the comparison** the countermeasure asks for, over every
 dossier: each one's claim about where its record landed was checked against
-`git log`, in both directions, and the checker that did it is reproduced in the
-description of #327. It would have failed on the day P00's paragraph was written.
+`git log`, in both directions. **The checker is reproduced in full in the
+description of #327**, which is where a `G` task's record lives, and it would
+have failed on the day P00's paragraph was written.
 
 **It is not retained in this repository and nothing re-runs it.** No checker
 ever has been: `git ls-files` returns no script, `make check` runs three
