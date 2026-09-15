@@ -4,9 +4,11 @@
 > as open — whether an operator naming `/bin/sh` or a `#!` file as `argv[0]` is
 > inside charter § 6 — was ruled on by
 > [RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md): the
-> exclusions constrain what Keystone constructs. The body below is the record of
-> what was demonstrated at P07 and is left as written, which is how this project
-> treats acceptance evidence overtaken by a later decision.
+> exclusions constrain what Keystone constructs. `ADR-0007` § 2.1 now records
+> that ruling, and **`AC-11` retired itself in consequence** — see below. The
+> rest of the body is the record of what was demonstrated at P07 and is left as
+> written, which is how this project treats acceptance evidence overtaken by a
+> later decision.
 
 The eleven cases of [`P07.md`](P07.md) § 5.2, each demonstrated failing on an
 `ADR-0007` that carries its defect, then passing on the document as it stands.
@@ -89,8 +91,7 @@ AC-9   fails as expected  — redaction claims a limit it does not have
 AC-10  fails as expected  — the output limit is set independently of the payload bound
         - AC-10 § 8 does not express the output limit against ADR-0002 § 9
         - AC-10 § 8 does not relate the output bound to the payload limit
-AC-11  fails as expected  — the evidence settles the question the ADR leaves open
-        - AC-11 docs/dossiers/P07-acceptance-evidence.md states the exclusion reading as settled while ADR-0007 § 2.1 leaves it open:
+AC-11  retired            — § 2.1 records RFC 0004's ruling, so the case no longer applies
 ```
 
 ## The checker
@@ -137,7 +138,11 @@ if not table:
     fails.append("AC-1 § 2 has no table")
 named = {r[0].strip("*` ").lower(): r for r in table}
 for f in forms:
-    key = re.sub(r"^(a|an|the)\s+", "", f.lower())
+    # Compare head nouns. RFC 0004 gave two charter forms explanatory clauses,
+    # and the charter and the ADR word those clauses differently on purpose —
+    # the same staleness G19's AC-3 hit, carried across this time.
+    key = re.split(r" — | that | it ", f, maxsplit=1)[0]
+    key = re.sub(r"^(a|an|the)\s+", "", key.strip().lower())
     hit = [k for k in named if key in k or k in key or
            key.split()[0] in k.split()]
     if not hit:
@@ -426,6 +431,23 @@ document it checks has to know which parts of that document are the check.
 The harness needed a fix too: its change-detection snapshot covered the ADR and
 the threat model only, so a case mutating a third file read as *"mutation changed
 nothing"*. It now snapshots every file it copies.
+
+## `AC-11` retired itself
+
+The case reads `ADR-0007` § 2.1 for whether a question is open and applies only
+while one is. RFC 0004 ruled, § 2.1 now records the ruling, and the case
+consequently **cannot fail** — there is no longer an open question for a document
+to settle prematurely.
+
+The demonstration record above shows it as `retired` rather than as a failure or
+a pass. Both alternatives would have been dishonest: reporting a pass implies it
+was exercised, and reporting a failure implies the document is wrong.
+
+It is kept in the dossier's § 5.2 and in this file rather than deleted, because
+it was genuinely exercised while it applied and the record of that is the point.
+**A case whose applicability is derived from the document rather than asserted
+can retire without anyone remembering to retire it** — which is the property
+worth copying, and the reason its text reads the ADR instead of being told.
 
 ## What these cases cannot detect
 

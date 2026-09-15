@@ -101,11 +101,7 @@ workstream depends on. Detailed controls are normative in the execution plan.
   command did not run, exhaustion proves only that it was received. Cancellation
   separates the accepted request (`Cancelling`) from the evidence-backed outcome
   (`Cancelled`). `RSK-9` renewed to P08.
-- [ ] P07 — Safe execution ADR. **`ADR-0007` is proposed and incomplete**, and
-  the reason is now bookkeeping rather than an open question: RFC 0004 (`G20`)
-  settled the boundary decision its § 2.1 raised, and a follow-up pull request
-  applies that ruling to the ADR. **C07 is no longer blocked on a decision**,
-  only on that application. The rest was decided in P07 — argv reaches `execve` as a vector
+- [x] P07 — Safe execution ADR. `ADR-0007`: argv reaches `execve` as a vector
   and `argv[0]` resolves against a **fixed** `PATH`, never the harvested one, so
   a writable profile cannot decide which binary a name means. Two components —
   an unprivileged agent holding the NATS connection, the keys and the ledger,
@@ -113,10 +109,10 @@ workstream depends on. Detailed controls are normative in the execution plan.
   group. `RSK-9` renewed, narrowed against memory-safety compromise and not
   against logical compromise. Two findings raised: `ADR-0006` has no state for a
   resource-limit kill, and `ADR-0005`'s key placement stops the executor
-  verifying what it runs. **The third — whether an operator naming `/bin/sh` or a
-  `#!` script as `argv[0]` is inside charter § 6 — is settled by RFC 0004**
-  (`G20`), which `ADR-0007` § 2.1 raised and rightly declined to answer.
-  Completing P07 against that ruling is the remaining step and its own task.
+  verifying what it runs. A third — whether an operator naming `/bin/sh` or a
+  `#!` script as `argv[0]` is inside charter § 6 — `ADR-0007` § 2.1 raised and
+  rightly declined to answer; **RFC 0004 (`G20`) settled it** and § 2.1 now
+  records the ruling.
 - [ ] P08 — Persistence and audit ADR.
 - [ ] P09 — Local operator API and authorization ADR.
 - [ ] P10 — Acceptance-harness design.

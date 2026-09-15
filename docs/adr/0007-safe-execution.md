@@ -1,10 +1,6 @@
 # ADR-0007: Safe execution
 
-- **Status:** Proposed — **incomplete.** § 2.1 raised a decision belonging to the
-  boundary's owner, and [RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md)
-  has since settled it: the exclusions constrain what Keystone constructs. **What
-  remains is applying that ruling to § 2.1**, in P07's own follow-up. C07 is no
-  longer blocked on a decision, only on that application
+- **Status:** Proposed
 - **Date:** 2026-09-15
 - **Task:** P07, bounded by [`docs/dossiers/P07.md`](../dossiers/P07.md)
 - **Builds on:** [`ADR-0005`](0005-versioned-encrypted-protocol.md), [`ADR-0006`](0006-delivery-and-job-lifecycle.md), [RFC 0003](../rfcs/0003-caller-selected-execution-user.md)
@@ -50,9 +46,9 @@ item, and it is why the amendment does not reopen `THR-15`.
 
 | Form | Status | A request for it produces | Closes |
 |---|---|---|---|
-| A shell interpreting the command's argv | **Excluded** | Keystone constructs no shell invocation and wraps no argv. There is nothing to refuse at runtime because Keystone never builds the form | `THR-15` |
+| A shell Keystone interposes | **Excluded** | Keystone constructs no shell invocation, wraps no argv and adds no `-c`. There is nothing to refuse at runtime because Keystone never builds the form | `THR-15` |
 | stdin streaming | **Excluded** | The process receives a closed stdin | `THR-15` |
-| Scripts | **Excluded** | Keystone accepts no script body and writes no file to run. It chooses no interpreter. **Whether a script named as `argv[0]` is within this exclusion is § 2.1's open question** | `THR-15` |
+| A script Keystone accepts or writes | **Excluded** | Keystone accepts no script body, writes no file to run and chooses no interpreter. **A script an operator names as `argv[0]` is outside this exclusion** (§ 2.1, `RFC 0004`) | `THR-15` |
 | Pipelines | **Excluded** | Refusal; one command is one process tree | `THR-15` |
 | A caller-provided environment | **Excluded** | Refusal. The environment comes from the target account (§ 5) | `THR-16` |
 | An arbitrary working directory | **Excluded** | Refusal. The directory is fixed by § 6 | `THR-16` |
@@ -61,60 +57,42 @@ item, and it is why the amendment does not reopen `THR-15`.
 | **A caller-selected execution user** | **Admitted** (`RFC 0003`) | The command runs as the named account; absent a name, the deployment's default | `THR-52` |
 | **A shell for the login-environment harvest** | **Admitted** (`RFC 0003`) | § 5's harvest, under a fixed agent-authored command | `THR-53` |
 
-### 2.1 An open question this ADR raises and does not answer
+### 2.1 What the exclusions constrain
 
-> **Answered since, by [RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md).**
-> The exclusions constrain what Keystone constructs, so an operator naming
-> `/bin/sh` or a `#!` file as `argv[0]` is inside the boundary. **The rest of this
-> section is P07's record of the question and is left as written**; folding the
-> ruling into the reasoning is P07's follow-up. Where it says the boundary does
-> not say which reading governs, or that C07 cannot be written until it is
-> settled, read it as describing the state at P07 — both are now false.
+Settled by [RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md):
+**the exclusions constrain what Keystone constructs on the operator's behalf,
+not which programs an operator may name.**
 
 **Keystone constructs none of the excluded forms.** It builds no shell
 invocation, wraps no argv, accepts no script body, writes no file to execute and
 chooses no interpreter. Generation 1's `--shell bash` made Keystone wrap argv in
 a shell, and that is the form RFC 0001 removed.
 
-**What it does not settle is whether an operator naming an interpreter is inside
-the boundary or outside it**, and the question is not rhetorical:
+**An operator may name an interpreter, and has escaped nothing by doing so.**
+Both of these are ordinary commands:
 
-- `keystone run -- /bin/sh -c '…'` is argv — a program and two arguments. The
-  shell then interprets its own argument, which the operator wrote as a shell
-  program.
-- `keystone run -- /usr/sbin/service nginx reload` is argv, and `service` is a
-  shell script on most distributions, so the kernel invokes an interpreter that
-  nobody named.
+- `keystone run -- /bin/sh -c '…'` — a program and two arguments. The shell then
+  interprets its own argument, which the operator wrote.
+- `keystone run -- /usr/sbin/service nginx reload` — where `service` is a shell
+  script on most distributions, so the kernel invokes an interpreter nobody
+  named.
 
-**Two readings, and this ADR is not entitled to pick.**
+`THR-15`'s subject is *supplied argv **escapes** the bounded surface*, and escape
+is what a vector prevents: no element becomes a second command, no metacharacter
+acquires meaning, no quoting error changes what runs. A caller who names
+`/bin/sh` ran what they wrote, with the authority `ACT-9`'s row already grants.
 
-*The exclusions constrain what Keystone provides.* Then both are ordinary
-commands; `THR-15`'s *supplied argv **escapes** the bounded surface* is
-unaffected, because a caller who names `/bin/sh` escaped nothing — they ran what
-they specified, with the authority `ACT-9`'s row already grants. This reading
-matches what RFC 0001 removed and is the only one under which the charter's
-§ 5.3 journey is implementable for ordinary administrative work.
+**What that costs is `THR-54`**, recorded by RFC 0004 rather than here: an
+operator can be handed an opaque payload, controlled by the audit record and the
+named execution user rather than by prevention. § 11's limit — a secret in argv
+is a secret in the audit record — is more likely to bite for the same reason.
 
-*The exclusions constrain what may execute.* Then the agent must refuse an
-`argv[0]` that is a shell, and refuse any resolved file carrying a `#!` line —
-which rejects `service`, `ldconfig` and much of a distribution's administrative
-surface, the work `PROB-1` exists for. Refusing every binary that could
-interpret something is an allowlist of permitted programs, which is a policy
-engine RFC 0001 discarded.
-
-**Raised, not decided.** `D-P07-1` of this task's dossier says P07 inherits the
-boundary and may narrow it, never widen it — and choosing the first reading
-inside an ADR would be widening it by interpretation, which is the specific
-failure that decision exists to prevent. The charter's wording is *a shell that
-interprets the command's argv*, and `/bin/sh -c '…'` has a shell interpreting
-part of a command's argv on any plain reading.
-
-So this ADR states what Keystone does, and records that **the boundary does not
-currently say which reading governs**. Resolving it is a maintainer decision and,
-if the first reading is intended, an explicit amendment — the second reading
-needs no amendment and needs a refusal mechanism this ADR would then have to
-define. **C07 cannot be written until it is settled**, because the two readings
-produce different executors.
+**How this was decided matters as much as what was decided.** P07 drafted the
+answer twice and withdrew it twice. `D-P07-1` says this task inherits the
+boundary and may narrow it, never widen it, and choosing a reading inside an ADR
+is widening it by interpretation — so the ADR stated both readings, decided
+neither, and stopped. RFC 0004 is the amendment that was actually required, and
+this section now records its ruling rather than substituting for it.
 
 ### 3. Deny-by-default
 
@@ -410,11 +388,11 @@ And it does not decide either finding in § 13: the lifecycle state for a
 resource-limit termination belongs to `ADR-0006`, and the key placement that
 would let the executor verify what it runs belongs to `ADR-0003` and `ADR-0005`.
 
-**Nor § 2.1's question** — whether an operator naming an interpreter is inside
-the boundary. That was the charter's and RFC 0001's, and
-[RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md) has since
-answered it: the exclusions constrain what Keystone constructs. **C07 is not
-blocked on it.** Applying that ruling to § 2.1's reasoning is P07's follow-up.
+§ 2.1's question was the charter's and RFC 0001's, not this ADR's, and
+[RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md) answered it.
+Whether the charter should also say outright that an operator may name an
+interpreter, rather than only stating what Keystone constructs, is the one
+question RFC 0004 left open — and it is the charter's.
 
 ## Validation
 
