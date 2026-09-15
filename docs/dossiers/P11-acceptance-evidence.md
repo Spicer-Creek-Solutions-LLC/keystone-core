@@ -37,7 +37,7 @@ land together, in a pull request whose review is about nothing else.
 | `AC-2` | A trailing space or tab survives in any tracked text file, **including inside a fenced code block** |
 | `AC-8` | The version is a literal, or `commit` carries an initialiser in source |
 | `AC-9` | Any non-test file imports a NATS client, `net`, `os/exec` or `golang.org/x/sys/unix`, or wires a journey verb |
-| `AC-10` | A target in `make check` is not invoked by a CI step |
+| `AC-10` | A target in `make check` is not invoked by a CI step, **or CI invokes one `make check` omits**, or the one named CI-only gate disappears |
 | `AC-11` | `AGENTS.md` still says this repository has no product code |
 
 ## `AC-2` exists because the gate we had could not see the defect
@@ -99,9 +99,10 @@ AC-9   fails as expected  — a binary imports a NATS client
 AC-9   fails as expected  — a binary opens a network connection
 AC-9   fails as expected  — a journey verb is wired
 AC-10  fails as expected  — a check target is not run by CI
+AC-10  fails as expected  — CI runs a gate that make check does not
+AC-10  fails as expected  — the one CI-only gate is removed without removing its exemption
 AC-11  fails as expected  — AGENTS.md still says there is no product code
 gitignore fails as expected  — a source package named target is invisible to git
-
 ```
 
 ## The harness
@@ -164,13 +165,25 @@ def _(r):
     sub(r, "cmd/keystone/main.go", r'showVersion := fs\.Bool\("version"',
         'verb := "run"\n\t_ = verb\n\tshowVersion := fs.Bool("version"')
 
-AGREE = ('targets=$(sed -n "s/^check:\\([^#]*\\).*/\\1/p" Makefile | tr " " "\\n" | grep -v "^$" | sort -u); '
-         'steps=$(grep -oE "make [a-z-]+" .forgejo/workflows/reboot-baseline.yml | awk "{print \\$2}" | sort -u); '
-         '[ -z "$(comm -23 <(echo "$targets") <(echo "$steps"))" ]')
+# One definition, in the Makefile, used by CI and by this harness alike.
+AGREE = "make gates-agree"
 
 @case("AC-10", "a check target is not run by CI", AGREE)
 def _(r):
     sub(r, ".forgejo/workflows/reboot-baseline.yml", r"^      - name: go vet\n        run: make vet\n\n", "")
+
+@case("AC-10", "CI runs a gate that make check does not", AGREE)
+def _(r):
+    # The direction review of #331 found open: a CI-only gate, with `check`
+    # still advertising that it runs everything.
+    # A trailing backslash in the replacement is a regex escape to re.sub, not a
+    # literal. Drop build and vuln without touching the continuation.
+    sub(r, "Makefile", r"whitespace-check build vuln docs-lint", "whitespace-check docs-lint")
+
+@case("AC-10", "the one CI-only gate is removed without removing its exemption", "make dco-exempt-check")
+def _(r):
+    sub(r, ".forgejo/workflows/reboot-baseline.yml",
+        r"      - name: DCO sign-off on every pull-request commit\n", "      - name: DCO check\n")
 
 @case("AC-11", "AGENTS.md still says there is no product code",
       '! grep -q "There is no product code here" AGENTS.md')
@@ -241,15 +254,44 @@ unexplained exception.
 | `AC-2` | Whitespace in a file type `git ls-files --eol` does not classify as text, or in an unstaged file | The next generator that writes one; staging before trusting a green run |
 | `AC-8` | Whether the version is right in a **packaged** artifact | C13 |
 | `AC-9` | **Behaviour added later.** It is a point-in-time check on a boundary that erodes by increments, and its import list is one someone had to think of | `tools/doclint` at `P11b`; review of every C task |
-| `AC-10` | Whether the gates are the **right** ones, or whether a CI step runs something `make check` does not | `ADR-0010` decided them; the reverse direction is unchecked and is stated here |
+| `AC-10` | Whether the gates are the **right** ones, and whether a gate expressed as an inline CI script rather than a `make` target has been added | `ADR-0010` decided them; `dco-exempt-check` covers the one such gate that exists, by name |
 | `AC-11` | Nothing — it is a one-line fact | — |
 | All | **Whether any of this is the right design.** Nine plantings prove nine gates reject nine defects; they say nothing about the defects nobody planted | Review, and C01 being the first task to live with it |
 
-**`AC-10` is asymmetric and that is worth naming.** It fails when `make check`
-has a target CI does not run. It does **not** fail when CI runs something
-`make check` omits — and CI does exactly that today, for `build`, `vuln` and the
-DCO check. Those are deliberate: two need a network or a toolchain install that a
-local `make check` should not force. But the asymmetry means the invariant
-`ADR-0010` § 11 actually states — *one local command runs what CI runs* — is only
-half enforced, and closing it needs a decision about what belongs in a local
-gate rather than a stricter check.
+## `AC-10` was asymmetric, and documenting that was not enough
+
+An earlier version of this case checked one direction: that every `make check`
+target appears in CI. **The reverse was open** — CI ran `build`, the
+vulnerability scan and the DCO check, and `make check` ran none of them, while
+the target's own help text said *"Run every gate CI runs."*
+
+I recorded the gap here and treated that as sufficient. Review of #331 did not,
+and was right: **`ADR-0010` § 11 states a contract, not a description, and
+documenting a gap does not make the contract hold.** The help text was also a
+false claim about the repository — `DL-3`, in a file every developer reads first.
+
+**`make check` now runs `build` and `vuln`.** Both can run locally; `vuln`
+requires `govulncheck` on `PATH` and says so, which is the same hard dependency
+`docs-links` already has on `lychee`.
+
+**The DCO gate is the one exemption, and it is named rather than noticed.** It
+reads `git log BASE..HEAD` across a pull request; there is no base locally, and
+the workflow already skips it on push for that reason. `dco-exempt-check`
+asserts it still exists, so the exemption cannot quietly become a missing gate.
+
+**The assertion moved into the `Makefile` as `gates-agree`**, so CI and a local
+run execute the same code. It had been written inline in the workflow — an
+assertion written twice is two things to drift, which is the defect this whole
+case is about. Three plantings now cover it: a target CI drops, a gate CI has and
+`check` lacks, and the exemption's subject disappearing.
+
+## What these cases cannot detect
+
+| Case | Cannot detect | Found instead by |
+|---|---|---|
+| `AC-2` | Whitespace in a file type `git ls-files --eol` does not classify as text, or in an unstaged file | The next generator that writes one; staging before trusting a green run |
+| `AC-8` | Whether the version is right in a **packaged** artifact | C13 |
+| `AC-9` | **Behaviour added later.** It is a point-in-time check on a boundary that erodes by increments, and its import list is one someone had to think of | `tools/doclint` at `P11b`; review of every C task |
+| `AC-10` | A gate added to CI as an **inline script** rather than a `make` target. `gates-agree` compares `make` targets, and the DCO gate is the one inline gate that exists — covered by name | Review of any workflow change |
+| `AC-11` | Nothing — it is a one-line fact | — |
+| All | **Whether any of this is the right design.** Eleven plantings prove eleven gates reject eleven defects; they say nothing about the defects nobody planted | Review, and C01 being the first task to live with it |

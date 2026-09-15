@@ -105,21 +105,15 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           PATH="$(go env GOPATH)/bin:$PATH" make vuln
 
-      # `make check` must run what CI runs (ADR-0010 § 11, P11 AC-1). This step
-      # is the assertion, not a comment: it fails when a target exists that no
-      # step above invokes, or a step invokes a target `check` does not.
-      - name: make check agrees with this workflow
-        run: |
-          set -eu
-          targets=$(sed -n 's/^check:\([^#]*\).*/\1/p' Makefile | tr ' ' '\n' | grep -v '^$' | sort -u)
-          steps=$(grep -oE 'make [a-z-]+' .forgejo/workflows/reboot-baseline.yml | awk '{print $2}' | sort -u)
-          missing=$(comm -23 <(echo "$targets") <(echo "$steps") || true)
-          if [ -n "$missing" ]; then
-            echo "::error::these `make check` targets are not run by CI:"
-            echo "$missing"
-            exit 1
-          fi
-          echo "make check and CI agree on: $(echo "$targets" | tr '\n' ' ')"
+      # The exemption asserts itself: if the DCO gate below is ever removed,
+      # `check`'s one named exception becomes a gate nobody runs, and this fails.
+      - name: the one CI-only gate still exists
+        run: make dco-exempt-check
+
+      # The gate-set assertion lives in the Makefile so CI and a local run
+      # execute the same code. An assertion written twice is two things to drift.
+      - name: make check agrees with this workflow, in both directions
+        run: make gates-agree
 
       # Every non-merge commit on a pull request must carry a Signed-off-by
       # trailer, per docs/project/DCO.md and AGENTS.md § 4. Skipped on push,

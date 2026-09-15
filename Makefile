@@ -22,7 +22,7 @@ LDFLAGS     := -X $(VERSION_PKG).commit=$(COMMIT)
 BINARIES    := keystone keystone-server keystone-agent
 
 .PHONY: help docs-lint docs-lint-fix docs-links capability-catalog-check stray-binary-check \
-	whitespace-check build fmt fmt-check vet test test-race vuln check
+	whitespace-check build fmt fmt-check vet test test-race vuln dco-exempt-check gates-agree check
 
 help: ## Show available targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -126,5 +126,47 @@ build: ## Build every binary with a derived version stamp
 		go build -ldflags "$(LDFLAGS)" -o "bin/$$b" "./cmd/$$b" || exit 1; \
 	done
 
-check: fmt-check vet test-race whitespace-check docs-lint docs-links capability-catalog-check ## Run every gate CI runs
+# ADR-0010 § 11: one local command runs what CI runs. That is a contract, not a
+# description, so `check` carries every gate CI runs that can run at all locally
+# — build and the vulnerability scan included.
+#
+# Exactly one CI gate is not here, and it is named rather than left to be
+# noticed: the DCO sign-off check reads `git log BASE..HEAD` across a pull
+# request's base and head. There is no base locally, so it is not a gate a
+# developer can run — the workflow already skips it on push for the same reason.
+# `dco-exempt-check` asserts it still exists, so the exemption cannot become a
+# missing gate nobody spots.
+check: fmt-check vet test-race whitespace-check build vuln docs-lint docs-links \
+	capability-catalog-check dco-exempt-check gates-agree ## Run every CI gate that can run locally
 	@echo "check: ok"
+
+gates-agree: ## Assert make check and CI run the same gate set, both directions
+	# ADR-0010 § 11 requires one local command to run what CI runs. This is the
+	# assertion, and it lives here rather than inline in the workflow so that CI
+	# and a local run execute the same code -- an assertion written twice is two
+	# things to drift.
+	#
+	# Review of #331 found the reverse direction open: CI ran build and the
+	# vulnerability scan, `check` did not, and its help text claimed it ran every
+	# gate. Documenting that gap did not make the contract hold.
+	@targets="$$(sed -n '/^check:/,/[^\\]$$/p' $(MAKEFILE_LIST) \
+		| sed 's/^check://; s/##.*//; s/\\$$//' | tr ' \t' '\n\n' | grep -v '^$$' | sort -u)"; \
+	steps="$$(grep -oE '^ *run: make [a-z-]+|make [a-z-]+$$' .forgejo/workflows/reboot-baseline.yml \
+		| grep -oE 'make [a-z-]+' | awk '{print $$2}' | sort -u)"; \
+	if [ -z "$$targets" ] || [ -z "$$steps" ]; then \
+		echo "ERROR: gates-agree parsed an empty set; it is checking nothing"; exit 1; fi; \
+	: "process substitution is bash-only and make runs /bin/sh; grep -vxF takes"; \
+	: "a newline-separated pattern string, which is portable and needs no shell"; \
+	missing="$$(echo "$$targets" | grep -vxF "$$steps" || true)"; \
+	extra="$$(echo "$$steps" | grep -vxF "$$targets" || true)"; \
+	rc=0; \
+	if [ -n "$$missing" ]; then echo "make check runs these and CI does not:"; echo "$$missing"; rc=1; fi; \
+	if [ -n "$$extra" ]; then echo "CI runs these and make check does not:"; echo "$$extra"; rc=1; fi; \
+	[ $$rc -eq 0 ] || exit 1; \
+	echo "gates-agree: both directions agree on $$(echo "$$targets" | tr '\n' ' ')"
+
+dco-exempt-check: ## Assert the one CI-only gate still exists
+	@grep -q 'DCO sign-off on every pull-request commit' .forgejo/workflows/reboot-baseline.yml || { \
+		echo "ERROR: the DCO gate is named as check's only exemption and is no longer in CI"; \
+		exit 1; }
+	@echo "dco-exempt-check: the one CI-only gate is present"
