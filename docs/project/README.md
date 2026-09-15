@@ -53,6 +53,8 @@ September 2026 and its references, guides and runbooks went with it.
   what survives, where it lives, and whether an operator can believe it later
 - [`../adr/0009-local-operator-api-and-authorization.md`](../adr/0009-local-operator-api-and-authorization.md) —
   how a human reaches the control plane, and what it records about them
+- [`../adr/0010-acceptance-harness.md`](../adr/0010-acceptance-harness.md) —
+  what would count as proof, and which half of it a container cannot reach
 
 ## Governance and policy
 

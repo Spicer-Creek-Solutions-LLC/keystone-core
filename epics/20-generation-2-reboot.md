@@ -135,7 +135,22 @@ workstream depends on. Detailed controls are normative in the execution plan.
   actor is a **uid, authoritative, plus a username marked as a snapshot**.
   `RSK-8` renewed and strengthened — the actor is unforgeable by the caller,
   which is **disclosure, not prevention** — expiring at C04.
-- [ ] P10 — Acceptance-harness design.
+- [x] P10 — Acceptance-harness design. `ADR-0010`: **it is two harnesses.**
+  `TESTING.md` requires VM coverage wherever behaviour depends on users and
+  groups, host security policy or an init system, and refuses container-only
+  emulation of them at a release gate — which puts **`ADR-0007`'s privilege
+  model and `ADR-0009`'s authorization model entirely on the VM side**, with no
+  Docker acceptance at all. Docker carries the protocol; the VM carries the
+  host. Fault points are **configuration in the shipped binary**, inert by
+  default and recorded in the audit when enabled, because a binary built to be
+  testable is not the binary that ships. The invariant map is
+  `REQUIREMENTS-TRACEABILITY.md`, updated in place — three rows that named a
+  *Test architecture ADR* now resolve — and § 14 states that
+  **`ARCH-TEST-003` is not satisfied by a task that runs nothing.** `RSK-1`,
+  `RSK-4` and `RSK-9` re-gate to C14, which can attempt what P08 wrongly
+  expected here; `RSK-13` and `RSK-14` to C13, correcting a placement made when
+  five documents thought P10 did deployment; `RSK-12` keeps a date and loses its
+  task gate, because no Generation 2 task resolves it.
 - [ ] P11 — Repository skeleton and CI.
 
 ### First command-and-control release

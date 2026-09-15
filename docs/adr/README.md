@@ -61,6 +61,7 @@ Examples:
 | [ADR-0007](0007-safe-execution.md) | Safe execution | Proposed | 2026-09-15 |
 | [ADR-0008](0008-persistence-and-audit.md) | Persistence and audit | Proposed | 2026-09-15 |
 | [ADR-0009](0009-local-operator-api-and-authorization.md) | Local operator API and authorization | Proposed | 2026-09-15 |
+| [ADR-0010](0010-acceptance-harness.md) | The acceptance harness | Proposed | 2026-09-15 |
 
 <!-- Add new ADRs above this line -->
 

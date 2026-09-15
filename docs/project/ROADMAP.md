@@ -30,7 +30,10 @@ the threat model are accepted: [`PRODUCT-CHARTER.md`](PRODUCT-CHARTER.md),
 [`ADR-0006`](../adr/0006-delivery-and-job-lifecycle.md) and
 [`ADR-0007`](../adr/0007-safe-execution.md) and
 [`ADR-0008`](../adr/0008-persistence-and-audit.md) and
-[`ADR-0009`](../adr/0009-local-operator-api-and-authorization.md). P10 is next.
+[`ADR-0009`](../adr/0009-local-operator-api-and-authorization.md) and
+[`ADR-0010`](../adr/0010-acceptance-harness.md). **P11 is next, and it is the
+last of Stage P** — the first task that reintroduces a build, and where a
+planned-evidence filename either exists or does not.
 - **Stage C — the first command-and-control release**, ending at `v0.6.0`.
 
 ## Next
