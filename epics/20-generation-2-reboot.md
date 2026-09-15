@@ -122,7 +122,17 @@ workstream depends on. Detailed controls are normative in the execution plan.
   through the server it is meant to check. `RSK-1`, `RSK-4` and `RSK-9` renewed
   to P10, the first task that could demonstrate that reconstruction rather than
   assert it.
-- [ ] P09 — Local operator API and authorization ADR.
+- [x] P09 — Local operator API and authorization ADR. `ADR-0009`: a root-owned
+  socket restricted to one configured admin group, with authorization evaluated
+  on `accept()` from **kernel-supplied peer credentials before any request byte
+  is parsed** — so no unauthenticated input reaches the parser and a **revoked
+  operator whose shell still carries the cached group membership** is denied and
+  recorded. The charter's seven journeys are mapped to authority; every row is
+  `admin`, and **the enumeration rather than the values is the decision**, so a
+  later RBAC changes cell values instead of inventing a dimension. The audit
+  actor is a **uid, authoritative, plus a username marked as a snapshot**.
+  `RSK-8` renewed and strengthened — the actor is unforgeable by the caller,
+  which is **disclosure, not prevention** — expiring at C04.
 - [ ] P10 — Acceptance-harness design.
 - [ ] P11 — Repository skeleton and CI.
 
