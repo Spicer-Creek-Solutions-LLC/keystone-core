@@ -291,6 +291,26 @@ it. `P11` is where a checker first has somewhere to live and something to run
 it, and until then this limitation is the honest description of every one of
 them.
 
+**Also pull request #328**, and it is the same shape at a larger scale. Six
+documents described **P10** as something it is not: `docs/dossiers/P02.md` named
+it *"deployment and operations"*, `ADR-0003` gave it a fleet-rotation procedure
+and a channel-separation procedure, `ADR-0005` gave it a deployment mode twice,
+`TESTING.md` gave its artifact-redaction work to P09, and `ADR-0008` and the
+epic said it would demonstrate a reconstruction. **There is no
+deployment-and-operations task in the plan and nothing runs until P11**, so
+every one of those was false when written.
+
+**Three residual risks were gated on that belief.** `RSK-13` was carried to P10
+as *"an operational runbook"*, and `RSK-14`'s channel-separated deployment mode
+was assigned to P10 twice. A false description of a task became a false
+placement of accepted risk, which is how far this class travels when the subject
+is a task nobody has run yet: **nothing contradicts it until someone tries to do
+the work.**
+
+`TESTING.md`'s wrong owner and the plan's correct one were written **in the same
+commit**, `37837bd5f`, on 2026-09-08. The numbering never changed; it was an
+off-by-one in one sitting that stood for a week and through nine tasks.
+
 Before that, `ac7974c88` — two stale cross-references written into this
 document: `DL-1` asserting that `DL-7` is `Held`, which had stopped being true in
 the same commit, and `DL-7` claiming to be the only occasion a countermeasure

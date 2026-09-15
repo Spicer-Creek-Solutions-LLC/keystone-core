@@ -249,6 +249,13 @@ learned and when, not a global truth about what happened first.
 task that could demonstrate the reconstruction of § 3 actually working, rather
 than asserting it.
 
+**Corrected at `G22`: the second half of that sentence is wrong.** P10 designs
+the harness and nothing runs until P11, which follows P10 — so P10 can specify
+the probe and cannot perform it. The expiry gate stands and P10 still disposes
+of all three; what it cannot do is produce the evidence this paragraph promised.
+The task that can is a C-stage one, named when P10 renews them. The decision
+this ADR made is unchanged.
+
 ## Invariant coverage
 
 | Invariant | Where |

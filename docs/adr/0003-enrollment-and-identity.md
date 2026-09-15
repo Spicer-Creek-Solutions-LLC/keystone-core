@@ -336,6 +336,8 @@ re-enrollment being P03's design, because the gap is not the mechanism — § 10
 supplies it — but the *procedure* for running it across a fleet without an
 outage. That is P10's.
 
+**Corrected at `G22`:** P10 is the *acceptance-harness design*, not a deployment or operations task — no such task exists in `REBOOT-EXECUTION-PLAN.md`. The work below is real and needs an owner; where it goes is settled when P10 disposes of the risk. The decision this ADR made is unchanged.
+
 ## Invariant coverage
 
 | Invariant | Where |
@@ -398,6 +400,8 @@ when the file is absent, and an attacker who can alter the bundle can delete a
 file. It would belong in `ADR-0002` § 14's deployment modes with refusal as the
 behaviour, its operational procedure is P10's, and `CAP-IDENT-021` is the
 catalogued capability. **Not designed here**; `RSK-14` records the acceptance.
+
+**Corrected at `G22`:** P10 is the *acceptance-harness design*, not a deployment or operations task — no such task exists in `REBOOT-EXECUTION-PLAN.md`. The work below is real and needs an owner; where it goes is settled when P10 disposes of the risk. The decision this ADR made is unchanged.
 
 The canonical subject grammar and the permission matrix (**P04**); envelope
 format, signing and encryption operations, and `RSK-12` (**P05**) — which
