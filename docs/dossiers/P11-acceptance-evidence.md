@@ -95,6 +95,9 @@ unmutated tree: PASS
 AC-2   fails as expected  — a trailing space inside a fenced block
 AC-2   fails as expected  — a trailing tab in Go source
 AC-8   fails as expected  — the version is a literal rather than derived
+config fails as expected  — an environment override may be relative, so $PWD is read
+config fails as expected  — a relative HOME builds a relative candidate
+config fails as expected  — a relative override falls through instead of being refused
 AC-9   fails as expected  — a binary imports a NATS client
 AC-9   fails as expected  — a binary opens a network connection
 AC-9   fails as expected  — a journey verb is wired
@@ -151,6 +154,26 @@ def _(r):
 @case("AC-8", "the version is a literal rather than derived", "go test -count=1 ./internal/version/")
 def _(r):
     sub(r, "internal/version/version.go", r'var commit string', 'var commit string = "deadbeef"')
+
+@case("config", "an environment override may be relative, so $PWD is read",
+      "go test -count=1 ./internal/config/")
+def _(r):
+    # The defect review of #331 found: the override returned verbatim.
+    sub(r, "internal/config/config.go",
+        r"\t\tif err := absolute\(EnvOverride\(r\), v\); err != nil \{\n\t\t\treturn nil, err\n\t\t\}\n", "")
+
+@case("config", "a relative HOME builds a relative candidate",
+      "go test -count=1 ./internal/config/")
+def _(r):
+    sub(r, "internal/config/config.go",
+        r'\t\t\tif err := absolute\("HOME", h\); err != nil \{\n\t\t\t\treturn nil, err\n\t\t\t\}\n', "")
+
+@case("config", "a relative override falls through instead of being refused",
+      "go test -count=1 ./internal/config/")
+def _(r):
+    sub(r, "internal/config/config.go",
+        r"\t\tif err := absolute\(EnvOverride\(r\), v\); err != nil \{\n\t\t\treturn nil, err\n\t\t\}\n\t\treturn \[\]string\{v\}, nil\n",
+        "\t\tif err := absolute(EnvOverride(r), v); err == nil {\n\t\t\treturn []string{v}, nil\n\t\t}\n")
 
 @case("AC-9", "a binary imports a NATS client", "go test -count=1 ./internal/cli/")
 def _(r):
@@ -247,16 +270,29 @@ requires the version to be *derived* rather than typed. The rule is scoped to
 non-test source, and the loosening is stated in the code rather than left as an
 unexplained exception.
 
-## What these cases cannot detect
+## A configuration path could still reach `$PWD`
 
-| Case | Cannot detect | Found instead by |
-|---|---|---|
-| `AC-2` | Whitespace in a file type `git ls-files --eol` does not classify as text, or in an unstaged file | The next generator that writes one; staging before trusting a green run |
-| `AC-8` | Whether the version is right in a **packaged** artifact | C13 |
-| `AC-9` | **Behaviour added later.** It is a point-in-time check on a boundary that erodes by increments, and its import list is one someone had to think of | `tools/doclint` at `P11b`; review of every C task |
-| `AC-10` | Whether the gates are the **right** ones, and whether a gate expressed as an inline CI script rather than a `make` target has been added | `ADR-0010` decided them; `dco-exempt-check` covers the one such gate that exists, by name |
-| `AC-11` | Nothing — it is a one-line fact | — |
-| All | **Whether any of this is the right design.** Nine plantings prove nine gates reject nine defects; they say nothing about the defects nobody planted | Review, and C01 being the first task to live with it |
+`internal/config`'s package comment said nothing reads the working directory.
+**It was not enforced.** `SearchPath` returned the environment override
+verbatim, so `KEYSTONE_AGENT_CONFIG=config.toml` made the agent read from
+wherever it happened to be started — and `XDG_CONFIG_HOME` or `HOME` set to a
+relative value built a relative candidate the same way.
+
+**That is a security property, not a tidiness one.** The same service would read
+different credentials depending on its working directory, and a party who can
+influence a unit's `WorkingDirectory=` would choose which file it reads.
+
+**`TestNoRoleReadsTheWorkingDirectory` passed throughout**, because it exercised
+only the default paths and never set an override. A check whose name claims more
+than it covers is worse than no check: it occupies the space where the real one
+would have gone. Review of #331 found it, and it is the third time in this task a
+case was narrower than its own title.
+
+A relative path is now **refused, not ignored** — `ErrRelativePath`, naming the
+variable that supplied it. Falling through to the next candidate would read a
+file the operator did not name, which is worse than refusing. Three plantings
+cover it: the override, a relative `HOME`, and a fall-through in place of a
+refusal.
 
 ## `AC-10` was asymmetric, and documenting that was not enough
 
@@ -294,4 +330,5 @@ case is about. Three plantings now cover it: a target CI drops, a gate CI has an
 | `AC-9` | **Behaviour added later.** It is a point-in-time check on a boundary that erodes by increments, and its import list is one someone had to think of | `tools/doclint` at `P11b`; review of every C task |
 | `AC-10` | A gate added to CI as an **inline script** rather than a `make` target. `gates-agree` compares `make` targets, and the DCO gate is the one inline gate that exists — covered by name | Review of any workflow change |
 | `AC-11` | Nothing — it is a one-line fact | — |
+| config | Whether the **content** of a configuration file is trustworthy, or its mode correct. P11a locates a path and parses nothing | C13's packaging; `ADR-0008` § 4's modes |
 | All | **Whether any of this is the right design.** Eleven plantings prove eleven gates reject eleven defects; they say nothing about the defects nobody planted | Review, and C01 being the first task to live with it |
