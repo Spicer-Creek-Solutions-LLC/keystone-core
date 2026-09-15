@@ -248,7 +248,34 @@ unresolvable for every reader but you. For anything in a control document listed
 in [`AGENTS.md`](../../AGENTS.md) § 7, treat the claim as load-bearing: it
 licenses the next agent to act, and that agent has no reason to doubt it.
 
-**Last recurrence.** `ac7974c88` — two stale cross-references written into this
+**Last recurrence.** Pull request #327, in `docs/dossiers/P00.md` — and it is the
+**oldest** instance this entry has recorded, found sixteen tasks after it was
+written. P00's § 5.3 said *"The evidence lands in the same PR as
+`docs/dossiers/P00-acceptance-evidence.md`."* It did not: the dossier landed
+in #285 and the evidence in #286. The claim was about **the author's own pull
+request**, which is the source a claim is least likely to be checked against and
+the one a reader can least easily check for themselves.
+
+**It propagated, which is what makes it worth the entry rather than a typo.**
+`docs/dossiers/README.md` — the document that defines what a dossier *is* — told
+every later reader the record sits *"alongside the dossier"*, and eight
+dossiers copied the paragraph's shape without its artifact clause. Review of
+pull request #326 then read a dossier exactly as the README instructed,
+concluded the acceptance evidence was missing, and declined to approve. **The
+reviewer was right about the documents and wrong about the process**, which is
+what a false control-document claim buys.
+
+The countermeasure's own words name the failure: *"For anything in a control
+document listed in `AGENTS.md` § 7, treat the claim as load-bearing: it licenses
+the next agent to act, and that agent has no reason to doubt it."* Ten dossiers
+had no reason to doubt it.
+
+**G21 encodes the comparison** the countermeasure asks for by hand: every
+dossier's claim about where its record landed is now checked against `git log`,
+in both directions. That assertion would have failed on the day P00's paragraph
+was written.
+
+Before that, `ac7974c88` — two stale cross-references written into this
 document: `DL-1` asserting that `DL-7` is `Held`, which had stopped being true in
 the same commit, and `DL-7` claiming to be the only occasion a countermeasure
 caught its own class, which `DL-6`'s `&&` falsifies. Both are claims about the
