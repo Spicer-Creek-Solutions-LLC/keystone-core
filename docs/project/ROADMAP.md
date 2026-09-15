@@ -28,8 +28,10 @@ the threat model are accepted: [`PRODUCT-CHARTER.md`](PRODUCT-CHARTER.md),
 [`ADR-0004`](../adr/0004-subject-authorization.md) and
 [`ADR-0005`](../adr/0005-versioned-encrypted-protocol.md) and
 [`ADR-0006`](../adr/0006-delivery-and-job-lifecycle.md) and
-[`ADR-0007`](../adr/0007-safe-execution.md), which is **incomplete**: one
-boundary decision in its § 2.1 is outstanding and blocks C07.
+[`ADR-0007`](../adr/0007-safe-execution.md), which is **incomplete for
+bookkeeping**: the boundary decision its § 2.1 raised is settled by
+[RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md), and a
+follow-up applies that ruling to the ADR.
 - **Stage C — the first command-and-control release**, ending at `v0.6.0`.
 
 ## Next
@@ -69,10 +71,12 @@ Keystone Core is not becoming a general-purpose IaC engine, a Kubernetes
 replacement, a remote-desktop product, an endpoint-detection product, or an
 unbounded shell gateway.
 
-The first release's execution surface is argv-only and non-interactive: no
-shell interpreting a command's argv, no stdin streaming, no scripts or
-pipelines, no caller-provided environment or working directory, no batch
-fan-out, no interactive session. A **caller-selected execution user** is
+The first release's execution surface is argv-only and non-interactive.
+**Keystone constructs** no shell invocation, no script, no stdin streaming, no
+pipeline, no caller-provided environment or working directory, no batch fan-out
+and no interactive session — which is what the exclusions constrain, per
+[RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md), rather than
+which programs an operator may name. A **caller-selected execution user** is
 admitted by
 [RFC 0003](../rfcs/0003-caller-selected-execution-user.md), which also admits a
 shell solely to compute that user's login environment. Widening that boundary

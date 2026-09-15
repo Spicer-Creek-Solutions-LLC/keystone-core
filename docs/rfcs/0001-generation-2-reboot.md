@@ -192,9 +192,15 @@ Remote repository changes, issue closures, milestone closures, and protection
 changes require an explicit apply approval after a dry run.
 
 The first release execution surface is argv-only and non-interactive. It has no
-shell interpreting a command's argv, stdin streaming, scripts, pipelines,
-caller-provided environment, arbitrary working directory, batch fan-out, or
-interactive session. Expanding that boundary requires an RFC amendment.
+shell Keystone interposes, no script Keystone accepts or writes, no stdin
+streaming, pipelines, caller-provided environment, arbitrary working directory,
+batch fan-out, or interactive session. Expanding that boundary requires an RFC
+amendment.
+
+**What those exclusions constrain** is settled by
+[RFC 0004](0004-what-the-execution-exclusions-constrain.md): they constrain what
+Keystone constructs on the operator's behalf, not which programs an operator may
+name.
 
 **Amended by [RFC 0003](0003-caller-selected-execution-user.md)**, which admits a
 caller-selected execution user and admits a shell solely to compute that user's
@@ -246,6 +252,18 @@ protected branch, the signed tag and the offline bundle, each independently
 sufficient and each verified.
 
 ### Amendments
+
+**2026-09-15 (`G20`).** The execution boundary's exclusions are stated as
+constraints on **what Keystone constructs**, not on which programs an operator
+may name. Items 1 and 3 are reworded; the other six are untouched and the count
+is unchanged. An operator may name a shell or a `#!` file as `argv[0]`; Keystone
+still builds no shell invocation, accepts no script body, writes no file to
+execute and chooses no interpreter.
+
+This resolves a question `ADR-0007` § 2.1 raised and declined to answer, which
+had left P07 incomplete and C07 blocked.
+[RFC 0004](0004-what-the-execution-exclusions-constrain.md) records why, and
+`THR-54` records what the reading costs.
 
 **2026-09-14 (`G19`).** The execution boundary in § Implementation governance
 admits a **caller-selected execution user**, and admits **a shell only to compute

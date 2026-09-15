@@ -305,18 +305,30 @@ Records contain no command secrets and no payload plaintext.
 
 ## 6. The argv-only execution boundary
 
-Frozen from RFC 0001 § Implementation governance, and amended once by
-[RFC 0003](../rfcs/0003-caller-selected-execution-user.md). The first release's
-execution surface is argv-only and non-interactive. It has none of:
+Frozen from RFC 0001 § Implementation governance, and amended twice — by
+[RFC 0003](../rfcs/0003-caller-selected-execution-user.md) and
+[RFC 0004](../rfcs/0004-what-the-execution-exclusions-constrain.md). The first
+release's execution surface is argv-only and non-interactive.
 
-1. a shell that interprets the command's argv;
+**These are constraints on what Keystone constructs on the operator's behalf,
+not on which programs an operator may name** (RFC 0004). Keystone provides none
+of:
+
+1. a shell it interposes — it builds no shell invocation, wraps no argv in a
+   string, and adds no `-c`;
 2. stdin streaming;
-3. scripts;
+3. a script it accepts or writes — it takes no script body, writes no file to
+   execute, and chooses no interpreter;
 4. pipelines;
 5. a caller-provided environment;
 6. an arbitrary working directory;
 7. batch fan-out; and
 8. an interactive session.
+
+An operator **may** name a shell as `argv[0]`, or a file whose first line is
+`#!`. Every element of the vector reaching `execve` was written by the operator,
+which is the property the argv-only surface exists to hold — and it does not
+depend on which binary element zero names.
 
 Execution policy is deny-by-default for unsupported forms (`ARCH-EXEC-001`).
 
@@ -332,8 +344,9 @@ Two changes to the list above, and nothing else:
   command the agent authors, with `su -l` semantics so the account's profile
   scripts run as a login would. Accounts with no usable shell fall back to the
   environment derived from the user database. The command's argv is `exec`ed as
-  a **vector** and is never given to a shell, which is why item 1 above names
-  argv rather than forbidding the binary.
+  a **vector**, and Keystone gives it to no shell. RFC 0004 settles what that
+  means: item 1 forbids a shell *Keystone interposes*, not a binary an operator
+  names.
 
 A **caller-provided environment stays excluded** and that is consistent: the
 caller supplies no variables, and its only influence over the environment is the

@@ -72,8 +72,8 @@ workstream depends on. Detailed controls are normative in the execution plan.
 ### Product and architecture foundation
 
 - [x] P00 — Product charter and canonical journeys. Charter accepted; argv-only
-  boundary frozen, and amended once by RFC 0003 (`G19`).
-- [x] P01 — Threat model. Ten actors, 53 threats, all 24 invariants mapped,
+  boundary frozen, and amended twice — by RFC 0003 (`G19`) and RFC 0004 (`G20`).
+- [x] P01 — Threat model. Ten actors, 54 threats, all 24 invariants mapped,
   fourteen residual risks, eleven still accepted.
 - [x] P02 — NATS-native capability ADR. `ADR-0002`: two accounts, decentralized
   JWT with the operator seed outside every Keystone process, six service
@@ -101,9 +101,11 @@ workstream depends on. Detailed controls are normative in the execution plan.
   command did not run, exhaustion proves only that it was received. Cancellation
   separates the accepted request (`Cancelling`) from the evidence-backed outcome
   (`Cancelled`). `RSK-9` renewed to P08.
-- [ ] P07 — Safe execution ADR. **`ADR-0007` is proposed and incomplete**: one
-  boundary decision in its § 2.1 is outstanding and blocks C07. The rest is
-  decided — argv reaches `execve` as a vector
+- [ ] P07 — Safe execution ADR. **`ADR-0007` is proposed and incomplete**, and
+  the reason is now bookkeeping rather than an open question: RFC 0004 (`G20`)
+  settled the boundary decision its § 2.1 raised, and a follow-up pull request
+  applies that ruling to the ADR. **C07 is no longer blocked on a decision**,
+  only on that application. The rest was decided in P07 — argv reaches `execve` as a vector
   and `argv[0]` resolves against a **fixed** `PATH`, never the harvested one, so
   a writable profile cannot decide which binary a name means. Two components —
   an unprivileged agent holding the NATS connection, the keys and the ledger,
@@ -111,10 +113,10 @@ workstream depends on. Detailed controls are normative in the execution plan.
   group. `RSK-9` renewed, narrowed against memory-safety compromise and not
   against logical compromise. Two findings raised: `ADR-0006` has no state for a
   resource-limit kill, and `ADR-0005`'s key placement stops the executor
-  verifying what it runs. **The third is what leaves P07 unticked**: whether an
-  operator naming `/bin/sh` or a `#!` script as `argv[0]` is inside charter § 6's
-  boundary. `ADR-0007` § 2.1 states both readings and decides neither, because
-  deciding it inside an ADR would widen the boundary by interpretation.
+  verifying what it runs. **The third — whether an operator naming `/bin/sh` or a
+  `#!` script as `argv[0]` is inside charter § 6 — is settled by RFC 0004**
+  (`G20`), which `ADR-0007` § 2.1 raised and rightly declined to answer.
+  Completing P07 against that ruling is the remaining step and its own task.
 - [ ] P08 — Persistence and audit ADR.
 - [ ] P09 — Local operator API and authorization ADR.
 - [ ] P10 — Acceptance-harness design.
@@ -220,6 +222,14 @@ limitations go in the pull request.
   agent-authored command. Operator argv still reaches no shell, which is the
   half of `THR-15`'s mitigation that protects anything. Seven forms unchanged;
   `THR-52` and `THR-53` record what the change costs.
+
+- [x] G20 — Settle what the execution exclusions constrain. RFC 0004: they
+  constrain **what Keystone constructs**, not which programs an operator may
+  name, so naming `/bin/sh` or a `#!` file as `argv[0]` is inside the boundary.
+  Items 1 and 3 reworded, the other six untouched, the count unchanged. It
+  unblocks P07's completion and C07, which `ADR-0007` § 2.1 had stopped.
+  `THR-54` records what the reading costs: an opaque payload is harder to
+  review, controlled by disclosure rather than prevention.
 
 ## Epic acceptance
 
