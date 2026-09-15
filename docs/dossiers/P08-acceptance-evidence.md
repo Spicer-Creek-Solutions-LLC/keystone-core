@@ -1,7 +1,10 @@
 # P08 acceptance evidence
 
-The eleven cases of [`P08.md`](P08.md) § 5.2, each demonstrated failing on an
-`ADR-0008` that carries its defect, then passing on the document as it stands.
+The acceptance cases of [`P08.md`](P08.md) § 5.2, each demonstrated failing on a
+document that carries its defect, then passing on the documents as they stand.
+`AC-9` states two properties and is demonstrated twice: `AC-9b` below is its
+second clause, **added in review** — see § "`AC-9` did not check what `AC-9`
+said".
 
 Four expected values are never typed here. `ARCH-OBS-001`'s transitions are read
 out of the invariant, `ADR-0006` § 3's durable boundaries out of that ADR, the
@@ -21,6 +24,7 @@ own table — so no case can agree with a mistake it shares with the document.
 | `AC-7` | Fewer than three items are marked never-stored, the harvested environment is not excluded, or the argv limit is unrestated |
 | `AC-8` | A store row has no owner or no octal mode, or ownership is not related to `ADR-0007` § 7's split |
 | `AC-9` | A risk is undisposed, carries no dated expiry, or the threat model does not record P08's disposition |
+| `AC-9b` | Any tracked document states the superseded route to the agent ledger unquoted — that an operator *"reaches it only through the server"* |
 | `AC-10` | Fewer than two corruption responses, no fail-closed, no statement of what an operator is told, or a silent repair is permitted |
 | `AC-11` | A deferral names no trigger |
 
@@ -70,6 +74,8 @@ AC-8   fails as expected  — a store has no octal mode
         - AC-8 § 4's 'Agent ledger' row has no octal mode: ['restricted']
 AC-9   fails as expected  — a risk is left without a dated expiry
         - AC-9 RSK-4 carries no dated expiry
+AC-9b  fails as expected  — a dependent site still describes the superseded state
+        - AC-9b /tmp/tmpw7avle8t/t/docs/project/THREAT-MODEL.md still states the superseded route to the agent ledger: ...reaches it 
 AC-10  fails as expected  — a corrupt store is repaired silently
         - AC-10 § 10 does not forbid a silent repair
 AC-11  fails as expected  — a deferred decision point names no trigger
@@ -221,6 +227,42 @@ for rid in ("RSK-1", "RSK-4", "RSK-9"):
         fails.append(f"AC-9 the threat model does not record P08's disposition of {rid}")
 notes.append(f"AC-9 disposed: {sorted(rr)}")
 
+# RSK-4's control changed a conclusion, not an identifier: the operator's route
+# to the agent ledger no longer runs through the server. DL-8's third tier says
+# to sweep the conclusion's SUBJECT and encode it as an assertion over every
+# tracked file, which is what this is. Every hit is classified and none is
+# filtered out: a hit is legitimate only if negated or quoted as superseded.
+ROUTE = re.compile(
+    r"reach\w*\s+(?:it|them|those ledgers?|the ledgers?)\s+only through the server", re.I)
+hits = []
+for f in sorted(ROOT.rglob("*.md")):
+    if ".git" in f.parts:
+        continue
+    body = re.sub(r"^```.*?^```", "", f.read_text(), flags=re.S | re.M)   # not our own source
+    units = []                     # a table row is its own unit (DL-8, third tier, step 4)
+    for para in re.split(r"\n\s*\n", body):
+        rows_, prose = [], []
+        for ln in para.splitlines():
+            (rows_ if ln.lstrip().startswith("|") else prose).append(ln)
+        units += [" ".join(r.split()) for r in rows_]
+        if prose:
+            units.append(" ".join(" ".join(prose).split()))
+    for flat in units:
+        for m in ROUTE.finditer(flat):
+            before = flat[:m.start()]
+            if re.search(r"no longer\s*$", before):
+                hits.append((f, "negated"))
+            elif before.count('"') % 2 == 1:
+                hits.append((f, "quoted as superseded"))
+            else:
+                hits.append((f, "LIVE"))
+                fails.append(
+                    f"AC-9b {f} still states the superseded route to the agent ledger: "
+                    f"...{flat[m.start():m.end()]}")
+if len(hits) < 3:
+    fails.append(f"AC-9b the ledger-route sweep found {len(hits)} sites — it is vacuous")
+notes.append(f"AC-9b ledger-route sweep: {[(str(f), d) for f, d in hits]}")
+
 # --- AC-10 corruption response, per store, and what the operator is told --
 c10 = rows(r"### 10\. Backup and corruption")
 if len(c10) < 2:
@@ -251,6 +293,45 @@ if fails:
 print("== 0 failures ==")
 ```
 
+## `AC-9` did not check what `AC-9` said
+
+Review of pull request #323 found `THR-46` still carrying the qualifier this ADR
+removes: the agent ledger is an independent record *"but the operator reaches it
+only through the server"*. `RSK-4`'s own row, four hundred lines further down and
+in the same commit, says the opposite.
+
+**The dossier had already found this site.** § 2's dependent-site table names
+`THR-44`, `THR-45`, `THR-46` and `THR-49` explicitly, derived by word-boundary
+search after a first enumeration missed eight sites. The derivation was right and
+was not applied.
+
+**And `AC-9` was written to catch exactly that.** Its wording in § 5.2 is *"...
+**and every dependent site in § 2's table is updated**"*, failing when *"a
+dependent describes a superseded state"*. The checker implemented the first half
+of that sentence and none of the second, while its own comment read *"the three
+risks, disposed, with dependents"*. So the case passed on a document that
+violated the property it named, and the comment asserted the coverage the code
+did not have.
+
+That is two ledger classes in one place. `DL-1` — a check that could not fail on
+the property it claimed — is why review had to find it rather than the harness.
+`DL-8`'s third tier is why it was there to find: the tier says to sweep the
+conclusion's **subject** and **encode that as an assertion over every tracked
+file, not as a search you perform and describe**. § 2's table is a search
+performed and described. Both are recorded in
+[`DEFECT-LEDGER.md`](../project/DEFECT-LEDGER.md).
+
+`AC-9b` is the assertion that was owed. It sweeps every tracked Markdown file for
+the superseded route, classifies every hit as negated, quoted-as-superseded, or
+live, and fails on any live one. **Nothing is filtered**: the four current hits
+are listed in the checker's own notes, which is how the sweep is reviewed rather
+than trusted.
+
+It found two further sites while being written — one of them a row this very
+file had just added — and it is scoped to the one conclusion P08 changed. The
+next conclusion still has no assertion, which § "What these cases cannot detect"
+now records.
+
 ## Two checker defects the first run found
 
 - **A table header was read as a durable boundary.** `ADR-0006` § 3's header row
@@ -278,6 +359,7 @@ waved through.
 | `AC-7` | Whether a secret reaches a record in practice, since argv is operator-supplied | `TESTING.md`'s canary scan; and § 9 states it as a limit |
 | `AC-8` | Whether the modes are correct on a real filesystem | C13; VM tests |
 | `AC-9` | Whether a renewal is **justified** | The maintainer, who owns each risk by name |
+| `AC-9b` | Any **other** superseded conclusion. It asserts over the one conclusion P08 changed; the next one has no assertion yet | Review, and the next task that changes a conclusion |
 | `AC-10` | Whether the response is right operationally — failing closed converts a storage fault into an outage | C14's fault matrix; C16 |
 | `AC-11` | Whether a trigger is one anybody will notice | Review |
 

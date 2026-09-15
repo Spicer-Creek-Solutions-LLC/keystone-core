@@ -119,7 +119,18 @@ tell a check that does not fire from a plant that missed. Normative for
 dossiers in [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md)
 § "Required task dossier".
 
-**Last recurrence.** Pull request #306 — `09bed9bdd`, in a form the
+**Last recurrence.** Pull request #323 — `9502f7a66`, and it is the gap below
+rather than a weak check. P08's `AC-9` was written in its dossier as two
+properties, the second being that every dependent site named in that dossier's
+§ 2 is updated. The checker implemented the first and not the second, and its own
+comment claimed *"with dependents"*. The case then passed on a document where
+`THR-46` contradicted `RSK-4`'s new conclusion. **The claim was in the acceptance
+case rather than in the prose this time**, which the entry's gap paragraph did
+not anticipate: a case that names two properties and checks one is a completeness
+claim with no check behind it, exactly as a sentence would be. Review found it;
+the harness could not. Fixed as `AC-9b` in the same pull request.
+
+Before that, pull request #306 — `09bed9bdd`, in a form the
 countermeasure does not reach. P04's ADR added the sentence "§ 8 enumerates every
 grant in § 4 and § 6" while covering one of the monitoring role's three advisory
 grants. Nothing checked the sentence, so it read as evidence and could not fail.
@@ -135,6 +146,12 @@ that exist: plant a defect, confirm the check reports it. It says nothing about
 **a claim a document makes about its own completeness with no check behind it**,
 which is the same defect with the check omitted rather than weak. A completeness
 claim needs a case that counts one list against the other, or it is prose.
+
+**#323 showed the claim can live inside the acceptance case itself.** An `AC-`
+row that states two properties joined by "and" is read as one case, demonstrated
+once, and reported as passing — while only one half is implemented. The rule
+that follows: **a case whose statement contains "and" is demonstrated once per
+conjunct, or split into two cases.** `AC-9` and `AC-9b` are the split.
 
 **Status: `Failed`.** The strengthened procedure has since been applied to five
 task dossiers' acceptance cases, which is the occasion the previous status said
@@ -488,8 +505,8 @@ a gap in it.
 
 ### `DL-8` — A finding repaired only where it was pointed out
 
-**Instances.** Thirteen occasions across ten tasks — **four** occasions on
-**three** tasks in the prose below, and **nine** occasions on **seven** tasks in
+**Instances.** Fourteen occasions across eleven tasks — **four** occasions on
+**three** tasks in the prose below, and **ten** occasions on **eight** tasks in
 the table that follows it. Two in `P01`, in consecutive rounds of
 the same review on pull request #290; a third in `G04`, on pull request #293,
 **after this entry existed and while its countermeasure was being applied**; a
@@ -563,6 +580,7 @@ hourly.
 | 09-14 13:40 | P05, #310 | `14322fdbe` | fourth round on `RSK-6`; five statements, one fixed per round |
 | 09-14 14:13 | `G15`, #311 | `8e06c6378` | the delivery gap stated three ways, and a count in a second document |
 | 09-14 14:38 | `G16`, #312 | `d0c6e7771` | the invariant gap, stated a sixth way in a summary table row |
+| 09-15 12:03 | P08, #323 | `9502f7a66` | `RSK-4`'s control stopped routing through the server; `THR-46` went on saying it did |
 
 *What the nine have that the first four did not.* The first four were about
 **identifiers and rules** — `TD-AGT`, `ACT-8`, a workstream-split rule, a
@@ -664,7 +682,22 @@ claim's reach, whether something is open or closed, a count:
    citation elsewhere in the same table — that is exactly how the ninth occasion
    survived a sweep that ran over the whole repository.
 
-**Last recurrence.** Pull request #312 — `2d00bd6a4`, fixed in `d0c6e7771`.
+**Last recurrence.** Pull request #323 — `9502f7a66`, found in review.
+
+**This is the first occasion where the enumeration was correct and was not
+applied.** The other thirteen failed at the sweep: the shape was drawn too
+narrowly, the pattern could not match wrapped prose, or the output was filtered.
+Here the task's own dossier § 2 listed `THR-46` by name, in a table derived by
+word-boundary search precisely because an earlier version of it had missed eight
+sites — and the edit went to `RSK-4`'s row and stopped.
+
+**Which is the whole argument for the third tier's step 3.** A sweep written as
+prose is a sweep performed once, by an author who then has to remember it at
+commit time; a sweep written as an assertion is performed on every run by
+something that cannot forget. The dossier did the hard half — deriving the
+subject and finding the sites — and left the half a machine does better. The
+acceptance case that should have closed the gap named the property and did not
+implement it, which is the same pull request's `DL-1`.
 
 **Status: `Failed`.** The countermeasure was in force, was applied, and the class
 recurred. That is this document's definition of `Failed`, and the steps above
@@ -675,14 +708,21 @@ about, because a revision is exactly what would let an entry return to
 **It does not.** The status stays `Failed` until the revised steps are exercised
 on a later task that offered the defect a chance and did not take it. A
 countermeasure is not credited for being rewritten, and this entry has now been
-revised three times without ever earning a different value.
+revised three times without ever earning a different value. #323 did not
+rewrite the steps — for the first time the steps were adequate and the task did
+not follow them, which is a different failure and does not call for a fourth
+revision.
 
-This entry has now been revised three times, and **each revision failed before
-the next was written**. The first revision was in force for the fourth instance.
-The second was in force for nine more, beginning with `dda58f462` at 19:07,
-ahead of its own merge at 19:21. That is the strongest argument available for
-why a rewrite does not earn a status: each of these would have sat at `Proposed`
-while the defect it was written against recurred.
+This entry has now been revised three times, and **every revision has failed,
+including the one written last**. The first was in force for the fourth
+instance. The second was in force for nine more, beginning with `dda58f462` at
+19:07, ahead of its own merge at 19:21. **The third was in force for #323**, and
+it failed in the way that is hardest to argue with: the task read the third tier,
+derived the subject, enumerated the sites correctly in its dossier — and did not
+perform step 3, which is the step that says to stop writing sweeps down and start
+asserting them. That is the strongest argument available for why a rewrite does
+not earn a status: each of these would have sat at `Proposed` while the defect it
+was written against recurred.
 
 The second revision's prediction is worth keeping as a record of how wrong a
 confident forecast can be. It said `P02` was "the first task that can exercise
