@@ -120,8 +120,10 @@ workstream depends on. Detailed controls are normative in the execution plan.
   is the one way `ARCH-JOB-003` could have lapsed. **The agent ledger's schema and
   path are published**, so `RSK-4`'s forensic reconstruction no longer routes
   through the server it is meant to check. `RSK-1`, `RSK-4` and `RSK-9` renewed
-  to P10, the first task that could demonstrate that reconstruction rather than
-  assert it.
+  to P10. **P08 called P10 the first task that could demonstrate that
+  reconstruction; it is not** — P10 designs the harness and nothing runs until
+  P11, so P10 specifies the probe and a C-stage task performs it. `G22`
+  corrected the claim where P08 wrote it.
 - [x] P09 — Local operator API and authorization ADR. `ADR-0009`: a root-owned
   socket restricted to one configured admin group, with authorization evaluated
   on `accept()` from **kernel-supplied peer credentials before any request byte
@@ -258,6 +260,16 @@ limitations go in the pull request.
   the oldest instance it has ever held — together with the fact that the
   comparison G21 ran is **not** retained in the tree, because no checker in this
   project ever has been.
+- [x] G22 — Correct what the documents say P10 is. Six of them described it
+  wrongly: `P02.md` called it *deployment and operations*, `ADR-0003` and
+  `ADR-0005` gave it rotation and deployment procedures, `TESTING.md` gave its
+  artifact-redaction work to P09, and `ADR-0008` and this epic said it would
+  demonstrate a reconstruction. **No deployment-and-operations task exists and
+  nothing runs until P11.** Three residual risks were gated on that belief. The
+  ADRs keep their decisions and gain a correction note; `TESTING.md`, `P02.md`
+  and this entry are corrected outright. `DL-3` records it, and a sweep over
+  every tracked file asserts no document describes P10 as an operations task or
+  as demonstrating anything.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

@@ -40,7 +40,7 @@ that server-to-agent and agent-to-agent direct connections fail. Tests run the
 same binary entry points and configuration loaders used by packaged deployments.
 
 The harness retains sanitized broker configuration, server and agent logs,
-audit records, job ledgers, and test assertions as CI artifacts on failure. P09
+audit records, job ledgers, and test assertions as CI artifacts on failure. P10
 defines artifact classification and redaction; tests plant credential and
 payload canaries and fail before upload if any canary or private seed remains.
 

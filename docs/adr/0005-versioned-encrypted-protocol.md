@@ -35,6 +35,8 @@ weakness — a bundle altered in transit substitutes the anchor, and the agent
 cannot check what checking is done with. That is `THR-51`, accepted as `RSK-14`,
 whose real mitigation is channel separation and a deployment mode P10 would own.
 
+**Corrected at `G22`:** P10 is the *acceptance-harness design*, not a deployment or operations task — no such task exists in `REBOOT-EXECUTION-PLAN.md`. The work below is real and needs an owner; where it goes is settled when P10 disposes of the risk. The decision this ADR made is unchanged.
+
 ## Decision
 
 ### 1. Envelope canonicalization
@@ -392,6 +394,8 @@ signature and encryption operations, fuzzing, and the **computed** vectors
 (**C01**). How the agent obtains the service public halves is no longer open
 here — `ADR-0003` § 1 and § 6 decide it — and the residue is `RSK-14`, whose
 channel-separated deployment mode belongs to **P10**.
+
+**Corrected at `G22`:** P10 is the *acceptance-harness design*, not a deployment or operations task — no such task exists in `REBOOT-EXECUTION-PLAN.md`. The work below is real and needs an owner; where it goes is settled when P10 disposes of the risk. The decision this ADR made is unchanged.
 
 ## Validation
 
