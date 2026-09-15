@@ -71,4 +71,4 @@ title, per [`ISSUE-TRACKING.md`](../project/ISSUE-TRACKING.md) § Principles.
 | P06 — Delivery and job lifecycle ADR | [P06.md](P06.md) | Complete — `ADR-0006` proposed |
 | P07 — Safe execution ADR | [P07.md](P07.md) | Complete — `ADR-0007` proposed |
 | P08 — Persistence and audit ADR | [P08.md](P08.md) | Complete — `ADR-0008` proposed |
-| P09 — Local operator API and authorization ADR | [P09.md](P09.md) | Dossier landed — P09 not yet approved |
+| P09 — Local operator API and authorization ADR | [P09.md](P09.md) | Complete — `ADR-0009` proposed |

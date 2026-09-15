@@ -60,6 +60,7 @@ Examples:
 | [ADR-0006](0006-delivery-and-job-lifecycle.md) | Delivery and job lifecycle | Proposed | 2026-09-14 |
 | [ADR-0007](0007-safe-execution.md) | Safe execution | Proposed | 2026-09-15 |
 | [ADR-0008](0008-persistence-and-audit.md) | Persistence and audit | Proposed | 2026-09-15 |
+| [ADR-0009](0009-local-operator-api-and-authorization.md) | Local operator API and authorization | Proposed | 2026-09-15 |
 
 <!-- Add new ADRs above this line -->
 

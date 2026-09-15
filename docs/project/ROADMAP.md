@@ -29,7 +29,8 @@ the threat model are accepted: [`PRODUCT-CHARTER.md`](PRODUCT-CHARTER.md),
 [`ADR-0005`](../adr/0005-versioned-encrypted-protocol.md) and
 [`ADR-0006`](../adr/0006-delivery-and-job-lifecycle.md) and
 [`ADR-0007`](../adr/0007-safe-execution.md) and
-[`ADR-0008`](../adr/0008-persistence-and-audit.md). P09 is next.
+[`ADR-0008`](../adr/0008-persistence-and-audit.md) and
+[`ADR-0009`](../adr/0009-local-operator-api-and-authorization.md). P10 is next.
 - **Stage C — the first command-and-control release**, ending at `v0.6.0`.
 
 ## Next
