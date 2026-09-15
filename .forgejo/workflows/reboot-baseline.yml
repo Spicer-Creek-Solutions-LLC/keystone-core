@@ -6,9 +6,16 @@
 # a branch requiring it can never be merged again — sequencing it this way round
 # avoided that.
 #
-# It needs no Go toolchain for the markdown and DCO checks, which is why it
-# survived the removal of the root module. The one surviving tool module brings
-# its own Go, and is checked separately below.
+# It needed no Go toolchain for the markdown and DCO checks, which is why it
+# survived the removal of the root module. **P11a changed that**: a root module
+# exists again, so the Go gates below are part of this workflow rather than a
+# separate one. A second workflow would be a second required status context to
+# keep in step with branch protection, and R06's comment above records what
+# happens when those drift.
+#
+# TESTING.md § Gate schedule is what this implements, for the work that exists.
+# Gates it schedules for work that does not exist yet are listed at the end of
+# this file as owed, rather than silently absent.
 name: reboot-baseline
 
 on:
@@ -37,6 +44,12 @@ jobs:
       # .markdownlint-cli2.yaml. No Go, no project toolchain.
       - name: markdown lint
         run: make docs-lint
+
+      # markdownlint's MD009 does not look inside fenced code blocks, which is
+      # where every generated artifact in this repository lives. This gate does.
+      # It needs no toolchain, so it runs before Go is set up.
+      - name: whitespace
+        run: make whitespace-check
 
       # lychee is fetched directly rather than through a Go toolchain, since
       # there is no root module to install tools from any more. The release
@@ -68,6 +81,39 @@ jobs:
       # commit, so it needs full history — hence fetch-depth 0 above.
       - name: capability catalog
         run: make capability-catalog-check
+
+      # The Generation 2 gates. setup-go above reads its version from
+      # tools/capcheck/go.mod; the root module declares the same one, and a
+      # mismatch is a build failure here rather than a silent divergence.
+      - name: go build
+        run: make build
+
+      - name: gofmt
+        run: make fmt-check
+
+      - name: go vet
+        run: make vet
+
+      # TESTING.md § Gate schedule requires unit tests and the race detector on
+      # every pull request. -race is the run that matters; the plain run is
+      # implied by it and is not repeated.
+      - name: go test with the race detector
+        run: make test-race
+
+      - name: dependency vulnerability scan
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          PATH="$(go env GOPATH)/bin:$PATH" make vuln
+
+      # The exemption asserts itself: if the DCO gate below is ever removed,
+      # `check`'s one named exception becomes a gate nobody runs, and this fails.
+      - name: the one CI-only gate still exists
+        run: make dco-exempt-check
+
+      # The gate-set assertion lives in the Makefile so CI and a local run
+      # execute the same code. An assertion written twice is two things to drift.
+      - name: make check agrees with this workflow, in both directions
+        run: make gates-agree
 
       # Every non-merge commit on a pull request must carry a Signed-off-by
       # trailer, per docs/project/DCO.md and AGENTS.md § 4. Skipped on push,
@@ -101,3 +147,16 @@ jobs:
           fi
           total=$(git rev-list --no-merges --count "$BASE_SHA..$HEAD_SHA")
           echo "DCO check passed: all ${total} non-merge commit(s) carry a Signed-off-by trailer."
+
+# Gates TESTING.md schedules that this workflow does not yet run, and why.
+# Listed so that an absent gate is an obligation rather than an oversight.
+#
+#   protocol compatibility and cryptographic test vectors     -> C01
+#   architecture-invariant and traceability lint              -> P11b (tools/archlint)
+#   the production Docker topology for the touched journey    -> P11b (harness shell), then C05
+#   NATS permission positive and negative tests               -> C03
+#   regression tests for every fixed defect                   -> each C task
+#   the complete Docker journey suite, fault matrix,
+#     adversarial suite, package smoke tests                  -> merge gate, C05 onward
+#   nightly scale, chaos and leak checks                      -> C15
+#   release-candidate VM install, upgrade and reboot          -> C13

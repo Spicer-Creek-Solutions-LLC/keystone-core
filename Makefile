@@ -15,7 +15,14 @@
 # Generation 2 planning state; R09 removed it. Its artifacts are in
 # docs/transition/.
 
-.PHONY: help docs-lint docs-lint-fix docs-links capability-catalog-check stray-binary-check check
+GO_PACKAGES := ./...
+VERSION_PKG := go.keystone-core.io/keystone-core/internal/version
+COMMIT      := $(shell git rev-parse HEAD 2>/dev/null)
+LDFLAGS     := -X $(VERSION_PKG).commit=$(COMMIT)
+BINARIES    := keystone keystone-server keystone-agent
+
+.PHONY: help docs-lint docs-lint-fix docs-links capability-catalog-check stray-binary-check \
+	whitespace-check build fmt fmt-check vet test test-race vuln dco-exempt-check gates-agree check
 
 help: ## Show available targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -57,5 +64,109 @@ capability-catalog-check: stray-binary-check ## Verify the archive capability ca
 	# are gone from the tip. Needs full history: CI checks out fetch-depth 0.
 	cd tools/capcheck && go run . ../..
 
-check: docs-lint docs-links capability-catalog-check ## Run every gate
+whitespace-check: ## Fail on trailing whitespace in any tracked text file
+	# markdownlint's MD009 flags trailing spaces and does NOT look inside fenced
+	# code blocks -- which is where every generated artifact in this repository
+	# lives: the demonstration records and embedded checkers in the evidence
+	# files. A trailing space there reached review on #323 with `make check`
+	# green.
+	#
+	# The file list comes from git rather than from a diff range. `git diff
+	# --check` compares the worktree to the index, which after a clean CI
+	# checkout is empty, so it would pass unconditionally -- a gate that cannot
+	# fail. Enumerating removes the assumption instead of patching it, the same
+	# reason docs-links does.
+	#
+	# `git ls-files` lists TRACKED files, so stage new work before trusting a
+	# green run. That blind spot is real and is why P11's dossier names it.
+	@command -v git >/dev/null || { echo "ERROR: whitespace-check needs git on PATH"; exit 1; }
+	@files="$$(git ls-files --eol | awk '$$2 ~ /^w\// { sub(/^[^\t]*\t/, ""); print }')"; \
+	if [ -z "$$files" ]; then echo "ERROR: whitespace-check matched no files"; exit 1; fi; \
+	echo "whitespace: $$(echo "$$files" | wc -l) tracked text files"; \
+	bad="$$(echo "$$files" | xargs -d '\n' grep -nP '[ \t]+$$' 2>/dev/null || true)"; \
+	if [ -n "$$bad" ]; then \
+		echo "$$bad" | sed 's/^/trailing whitespace: /'; \
+		echo "whitespace-check: failed"; exit 1; \
+	fi; \
+	echo "whitespace-check: ok"
+
+fmt: ## Format Go source
+	gofmt -w $$(git ls-files '*.go' ':!:tools/*')
+
+fmt-check: ## Fail if Go source is unformatted
+	@out="$$(gofmt -l $$(git ls-files '*.go' ':!:tools/*'))"; \
+	if [ -n "$$out" ]; then echo "unformatted:"; echo "$$out"; exit 1; fi; \
+	echo "fmt-check: ok"
+
+vet: ## go vet
+	go vet $(GO_PACKAGES)
+
+test: ## Unit tests
+	go test $(GO_PACKAGES)
+
+test-race: ## Unit tests under the race detector
+	go test -race $(GO_PACKAGES)
+
+vuln: ## Scan dependencies for known vulnerabilities
+	# The scan runs against the module as built. It is a release-candidate gate
+	# in TESTING.md and is run per-merge here because the dependency set is
+	# currently tiny and the cost is seconds; C13 owns the release ceremony.
+	@command -v govulncheck >/dev/null 2>&1 || { \
+		echo "govulncheck not on PATH; install with:"; \
+		echo "  go install golang.org/x/vuln/cmd/govulncheck@latest"; exit 1; }
+	govulncheck $(GO_PACKAGES)
+
+build: ## Build every binary with a derived version stamp
+	# The commit is injected rather than written into the source. VERSIONING.md
+	# fixes the form as 0.0.0-dev+g<commit>, and a literal would report a build
+	# that does not exist the moment anything is committed.
+	@mkdir -p bin
+	@for b in $(BINARIES); do \
+		echo "build: $$b"; \
+		go build -ldflags "$(LDFLAGS)" -o "bin/$$b" "./cmd/$$b" || exit 1; \
+	done
+
+# ADR-0010 § 11: one local command runs what CI runs. That is a contract, not a
+# description, so `check` carries every gate CI runs that can run at all locally
+# — build and the vulnerability scan included.
+#
+# Exactly one CI gate is not here, and it is named rather than left to be
+# noticed: the DCO sign-off check reads `git log BASE..HEAD` across a pull
+# request's base and head. There is no base locally, so it is not a gate a
+# developer can run — the workflow already skips it on push for the same reason.
+# `dco-exempt-check` asserts it still exists, so the exemption cannot become a
+# missing gate nobody spots.
+check: fmt-check vet test-race whitespace-check build vuln docs-lint docs-links \
+	capability-catalog-check dco-exempt-check gates-agree ## Run every CI gate that can run locally
 	@echo "check: ok"
+
+gates-agree: ## Assert make check and CI run the same gate set, both directions
+	# ADR-0010 § 11 requires one local command to run what CI runs. This is the
+	# assertion, and it lives here rather than inline in the workflow so that CI
+	# and a local run execute the same code -- an assertion written twice is two
+	# things to drift.
+	#
+	# Review of #331 found the reverse direction open: CI ran build and the
+	# vulnerability scan, `check` did not, and its help text claimed it ran every
+	# gate. Documenting that gap did not make the contract hold.
+	@targets="$$(sed -n '/^check:/,/[^\\]$$/p' $(MAKEFILE_LIST) \
+		| sed 's/^check://; s/##.*//; s/\\$$//' | tr ' \t' '\n\n' | grep -v '^$$' | sort -u)"; \
+	steps="$$(grep -oE '^ *run: make [a-z-]+|make [a-z-]+$$' .forgejo/workflows/reboot-baseline.yml \
+		| grep -oE 'make [a-z-]+' | awk '{print $$2}' | sort -u)"; \
+	if [ -z "$$targets" ] || [ -z "$$steps" ]; then \
+		echo "ERROR: gates-agree parsed an empty set; it is checking nothing"; exit 1; fi; \
+	: "process substitution is bash-only and make runs /bin/sh; grep -vxF takes"; \
+	: "a newline-separated pattern string, which is portable and needs no shell"; \
+	missing="$$(echo "$$targets" | grep -vxF "$$steps" || true)"; \
+	extra="$$(echo "$$steps" | grep -vxF "$$targets" || true)"; \
+	rc=0; \
+	if [ -n "$$missing" ]; then echo "make check runs these and CI does not:"; echo "$$missing"; rc=1; fi; \
+	if [ -n "$$extra" ]; then echo "CI runs these and make check does not:"; echo "$$extra"; rc=1; fi; \
+	[ $$rc -eq 0 ] || exit 1; \
+	echo "gates-agree: both directions agree on $$(echo "$$targets" | tr '\n' ' ')"
+
+dco-exempt-check: ## Assert the one CI-only gate still exists
+	@grep -q 'DCO sign-off on every pull-request commit' .forgejo/workflows/reboot-baseline.yml || { \
+		echo "ERROR: the DCO gate is named as check's only exemption and is no longer in CI"; \
+		exit 1; }
+	@echo "dco-exempt-check: the one CI-only gate is present"
