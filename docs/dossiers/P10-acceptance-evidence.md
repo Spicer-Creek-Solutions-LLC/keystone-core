@@ -3,8 +3,8 @@
 The acceptance cases of [`P10.md`](P10.md) § 5.2, each demonstrated failing on a
 document that carries its defect, then passing on the documents as they stand.
 
-**Twenty-one plantings for twelve cases.** Seven cases join two or more
-properties, and each conjunct is planted separately — the rule `DL-1` gained when
+**Twelve cases and `AC-12b`, a conjunct of `AC-12` added in review.** Each case
+joining two or more properties is planted once per conjunct — the rule `DL-1` gained when
 P08's `AC-9` checked one half of its own sentence and passed on a document
 violating the other.
 
@@ -101,9 +101,12 @@ AC-11  fails as expected  — a tracked file still gates a risk on P10
         - AC-11 docs/project/THREAT-MODEL.md still gates something on P10: …ARCH-NATS-001`, `THR-49`) | 2027-09-13, or P10 |…
 AC-8   fails as expected  — the register loses its pointer to this ADR
         - AC-8 the register still names a design owner that does not exist
+AC-12b fails as expected  — the findings section restates a count of its own bullets
+        - AC-12b § What this ADR does not decide restates a count: 'Two findings'
+AC-12b fails as expected  — a count returns in a different form
+        - AC-12b § What this ADR does not decide restates a count: '3 findings'
 AC-12  fails as expected  — a deferral names no trigger
         - AC-12 the deferral '**The real scale profile**' names no trigger
-
 ```
 
 ## The checker
@@ -395,6 +398,21 @@ if any(d == "an earlier ADR's own disposition" for _, d in hits) and \
     fails.append("AC-11 exempts earlier ADRs' risk tables without the ADR stating why")
 notes.append(f"AC-11 P10-gate sweep: {hits}")
 
+# --- AC-12b no prose restates the count of an enumeration nearby -----------
+# A number in a summary goes stale the moment the list it summarises changes.
+# Review of #329 found "Two findings" standing over three bullets. Built from
+# a derived alternation, because a typed list of number words stops at whichever
+# word the author happened to think of -- G22's did, at "six".
+WORDS = ("one two three four five six seven eight nine ten eleven twelve thirteen "
+         "fourteen fifteen sixteen seventeen eighteen nineteen twenty").split()
+COUNTED = (r"(?:findings?|bullets?|items?|deferrals?|risks?|sections?|cases?|"
+           r"harnesses|classes|boundaries|elements?|triggers?|rows?|maps?)")
+nd = section(r"## What this ADR does not decide")
+for m in re.finditer(rf"\b(?:{'|'.join(WORDS)}|\d+)\s+\*?\*?{COUNTED}\b", flat(nd), re.I):
+    if re.search(r"stale|no count|goes stale", flat(nd)[max(0, m.start()-160):m.start()]):
+        continue
+    fails.append(f"AC-12b § What this ADR does not decide restates a count: {m.group(0)!r}")
+
 # --- AC-12 every deferral names a trigger ----------------------------------
 d = drop_header([r for r in rows(r"### Deferred decision points") if len(r) == 2], "Deferred")
 if len(d) < 4:
@@ -433,6 +451,25 @@ harness rather than reported as evidence.
 **A header row read as data.** `AC-9`'s disposition map included the literal
 column heading `ID` as a risk. Harmless here and the same shape as the defect
 P08's checker shipped with.
+
+## `AC-12b` was added in review, and it is the rule rather than the instance
+
+Review of #329 found § "What this ADR does not decide" opening *"Two findings
+are raised and not repaired"* above **three** bullets. I had added the third and
+left the number.
+
+**The fix was not to write "three".** A summary's number goes stale the moment
+the list changes, which is the defect rather than the arithmetic — so the
+sentence now points at the enumeration and states no count. `AC-12b` asserts
+that none returns, in that section, in any form.
+
+Its alternation of number words is **derived, not typed**: `G22`'s equivalent
+check was written by hand, stopped at *six*, and let *"thirteen outputs"*
+through. Both a word and a digit are planted.
+
+| Case | Cannot detect | Found instead by |
+|---|---|---|
+| `AC-12b` | A stale count **anywhere else** in the ADR. It is scoped to the section whose bullets actually change | Review; the next task that adds a bullet under a number |
 
 ## What these cases cannot detect
 

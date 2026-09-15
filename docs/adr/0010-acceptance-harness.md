@@ -412,8 +412,10 @@ row; it cannot say the row's test would establish the invariant.
 
 **The distribution support set.** C13's.
 
-**Two findings are raised and not repaired**, because both live in documents out
-of this task's bounds:
+**These findings are raised and not repaired**, because each lives in a document
+out of this task's bounds. No count is stated: a summary's number goes stale the
+moment a bullet is added, which is what happened to the previous wording here —
+review of #329 found it saying *two* over three bullets.
 
 - **`TESTING.md` says "the production Docker topology" twice and `ROADMAP.md`
   says "production-process Docker tests".** All three mean *a Docker topology
