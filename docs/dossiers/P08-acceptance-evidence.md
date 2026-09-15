@@ -75,7 +75,7 @@ AC-8   fails as expected  — a store has no octal mode
 AC-9   fails as expected  — a risk is left without a dated expiry
         - AC-9 RSK-4 carries no dated expiry
 AC-9b  fails as expected  — a dependent site still describes the superseded state
-        - AC-9b /tmp/tmpw7avle8t/t/docs/project/THREAT-MODEL.md still states the superseded route to the agent ledger: ...reaches it 
+        - AC-9b docs/project/THREAT-MODEL.md still states the superseded route to the agent ledger: ...reaches it only through the se
 AC-10  fails as expected  — a corrupt store is repaired silently
         - AC-10 § 10 does not forbid a silent repair
 AC-11  fails as expected  — a deferred decision point names no trigger
