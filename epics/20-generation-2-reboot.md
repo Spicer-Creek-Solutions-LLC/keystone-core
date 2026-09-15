@@ -113,7 +113,15 @@ workstream depends on. Detailed controls are normative in the execution plan.
   `#!` script as `argv[0]` is inside charter § 6 — `ADR-0007` § 2.1 raised and
   rightly declined to answer; **RFC 0004 (`G20`) settled it** and § 2.1 now
   records the ruling.
-- [ ] P08 — Persistence and audit ADR.
+- [x] P08 — Persistence and audit ADR. `ADR-0008`: two stores with no
+  abstraction over them, receipt and start in **separate transactions** because a
+  shared one destroys the distinction `ADR-0006` § 3 pays for, and a retention
+  inequality — the job identifier's tombstone outlives `KS_CMD`'s max age — which
+  is the one way `ARCH-JOB-003` could have lapsed. **The agent ledger's schema and
+  path are published**, so `RSK-4`'s forensic reconstruction no longer routes
+  through the server it is meant to check. `RSK-1`, `RSK-4` and `RSK-9` renewed
+  to P10, the first task that could demonstrate that reconstruction rather than
+  assert it.
 - [ ] P09 — Local operator API and authorization ADR.
 - [ ] P10 — Acceptance-harness design.
 - [ ] P11 — Repository skeleton and CI.

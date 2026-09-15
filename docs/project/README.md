@@ -49,6 +49,8 @@ September 2026 and its references, guides and runbooks went with it.
   cannot know
 - [`../adr/0007-safe-execution.md`](../adr/0007-safe-execution.md) — what a
   command can touch once it is a process
+- [`../adr/0008-persistence-and-audit.md`](../adr/0008-persistence-and-audit.md) —
+  what survives, where it lives, and whether an operator can believe it later
 
 ## Governance and policy
 
