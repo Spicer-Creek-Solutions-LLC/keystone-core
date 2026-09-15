@@ -270,10 +270,25 @@ document listed in `AGENTS.md` § 7, treat the claim as load-bearing: it license
 the next agent to act, and that agent has no reason to doubt it."* Ten dossiers
 had no reason to doubt it.
 
-**G21 encodes the comparison** the countermeasure asks for by hand: every
-dossier's claim about where its record landed is now checked against `git log`,
-in both directions. That assertion would have failed on the day P00's paragraph
-was written.
+**G21 performed the comparison** the countermeasure asks for, over every
+dossier: each one's claim about where its record landed was checked against
+`git log`, in both directions, and the checker that did it is reproduced in the
+description of #327. It would have failed on the day P00's paragraph was written.
+
+**It is not retained in this repository and nothing re-runs it.** No checker
+ever has been: `git ls-files` returns no script, `make check` runs three
+documentation gates and the capability catalog, and the only checkers that
+survive at all are the inert source blocks inside the P-task acceptance-evidence
+files. So every verification this project has performed is a **one-time** one,
+and the protection against P00's claim coming back is the same protection that
+failed for it — someone remembering to look.
+
+**That was almost this entry's own next instance.** The first version of this
+paragraph said G21 *encodes* the comparison, in a control document, in the pull
+request whose subject is a false control-document claim. Review of #327 found
+it. `P11` is where a checker first has somewhere to live and something to run
+it, and until then this limitation is the honest description of every one of
+them.
 
 Before that, `ac7974c88` — two stale cross-references written into this
 document: `DL-1` asserting that `DL-7` is `Held`, which had stopped being true in

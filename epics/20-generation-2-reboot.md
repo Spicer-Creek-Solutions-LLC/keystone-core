@@ -254,9 +254,10 @@ limitations go in the pull request.
   landed in the same pull request as itself — it landed in #286, the dossier in
   #285 — and eight later dossiers copied the paragraph's shape. Review of #326
   read a dossier exactly as the README instructed and declined to approve.
-  All eleven dossiers now state where their record landed, `DL-3` records the
-  oldest instance it has ever held, and a checker compares every dossier's
-  claim against `git log`.
+  All eleven dossiers now state where their record landed, and `DL-3` records
+  the oldest instance it has ever held — together with the fact that the
+  comparison G21 ran is **not** retained in the tree, because no checker in this
+  project ever has been.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
