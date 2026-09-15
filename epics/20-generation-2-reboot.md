@@ -247,6 +247,17 @@ limitations go in the pull request.
 
 ## Epic acceptance
 
+- [x] G21 — Say where acceptance evidence lands, and be right about it.
+  `docs/dossiers/README.md` told every reader the record sits *alongside the
+  dossier*; `REBOOT-EXECUTION-PLAN.md` says it lands **with the work**, and no
+  dossier has ever shipped with its evidence. `P00.md` claimed its evidence
+  landed in the same pull request as itself — it landed in #286, the dossier in
+  #285 — and eight later dossiers copied the paragraph's shape. Review of #326
+  read a dossier exactly as the README instructed and declined to approve.
+  All eleven dossiers now state where their record landed, and `DL-3` records
+  the oldest instance it has ever held — together with the fact that the
+  comparison G21 ran is **not** retained in the tree, because no checker in this
+  project ever has been.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

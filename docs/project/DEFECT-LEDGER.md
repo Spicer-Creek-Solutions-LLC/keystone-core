@@ -248,7 +248,50 @@ unresolvable for every reader but you. For anything in a control document listed
 in [`AGENTS.md`](../../AGENTS.md) § 7, treat the claim as load-bearing: it
 licenses the next agent to act, and that agent has no reason to doubt it.
 
-**Last recurrence.** `ac7974c88` — two stale cross-references written into this
+**Last recurrence.** Pull request #327, in `docs/dossiers/P00.md` — and it is the
+**oldest** instance this entry has recorded, found sixteen tasks after it was
+written. P00's § 5.3 said *"The evidence lands in the same PR as
+`docs/dossiers/P00-acceptance-evidence.md`."* It did not: the dossier landed
+in #285 and the evidence in #286. The claim was about **the author's own pull
+request**, which is the source a claim is least likely to be checked against and
+the one a reader can least easily check for themselves.
+
+**It propagated, which is what makes it worth the entry rather than a typo.**
+`docs/dossiers/README.md` — the document that defines what a dossier *is* — told
+every later reader the record sits *"alongside the dossier"*, and eight
+dossiers copied the paragraph's shape without its artifact clause. Review of
+pull request #326 then read a dossier exactly as the README instructed,
+concluded the acceptance evidence was missing, and declined to approve. **The
+reviewer was right about the documents and wrong about the process**, which is
+what a false control-document claim buys.
+
+The countermeasure's own words name the failure: *"For anything in a control
+document listed in `AGENTS.md` § 7, treat the claim as load-bearing: it licenses
+the next agent to act, and that agent has no reason to doubt it."* Ten dossiers
+had no reason to doubt it.
+
+**G21 performed the comparison** the countermeasure asks for, over every
+dossier: each one's claim about where its record landed was checked against
+`git log`, in both directions. **The checker is reproduced in full in the
+description of #327**, which is where a `G` task's record lives, and it would
+have failed on the day P00's paragraph was written.
+
+**It is not retained in this repository and nothing re-runs it.** No checker
+ever has been: `git ls-files` returns no script, `make check` runs three
+documentation gates and the capability catalog, and the only checkers that
+survive at all are the inert source blocks inside the P-task acceptance-evidence
+files. So every verification this project has performed is a **one-time** one,
+and the protection against P00's claim coming back is the same protection that
+failed for it — someone remembering to look.
+
+**That was almost this entry's own next instance.** The first version of this
+paragraph said G21 *encodes* the comparison, in a control document, in the pull
+request whose subject is a false control-document claim. Review of #327 found
+it. `P11` is where a checker first has somewhere to live and something to run
+it, and until then this limitation is the honest description of every one of
+them.
+
+Before that, `ac7974c88` — two stale cross-references written into this
 document: `DL-1` asserting that `DL-7` is `Held`, which had stopped being true in
 the same commit, and `DL-7` claiming to be the only occasion a countermeasure
 caught its own class, which `DL-6`'s `&&` falsifies. Both are claims about the

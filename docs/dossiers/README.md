@@ -44,8 +44,13 @@ content. A field with nothing to say says so and gives the reason.
 5. **Acceptance cases** — the [`TESTING.md`](../project/TESTING.md) feature
    table, each case marked applicable or `N/A` with a per-case reason; the
    task's own cases; and, for each, what it **cannot** detect. Every case is
-   demonstrated failing before it is accepted, recorded in
-   `<TASK>-acceptance-evidence.md` alongside the dossier.
+   demonstrated failing before it is accepted, and **the record lands with the
+   work** as `<TASK>-acceptance-evidence.md` — in the pull request that performs
+   the task, never in the one that lands the dossier
+   ([`REBOOT-EXECUTION-PLAN.md`](../project/REBOOT-EXECUTION-PLAN.md)
+   § "Required task dossier", which is the authority). A dossier is a boundary
+   and ships alone: its cases are about a document the task has not written yet,
+   so there is nothing to demonstrate when it lands.
 6. **Validation commands** — what is run, and what it actually covers.
 7. **Documentation changes**.
 8. **Security reviewer** — named, or an argued statement that none is required.
