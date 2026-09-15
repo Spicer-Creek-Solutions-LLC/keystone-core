@@ -59,8 +59,20 @@ coverage.out
 test-output.log
 .idea
 
-# Rust build artifacts
-**/target/
+# Rust build artifacts.
+#
+# `target/` is scoped to the repository root. As `**/target/` it matched any
+# directory named target anywhere, which is not a build-output pattern but a
+# name collision: Generation 1's `internal/cli/target/` was a Go source package,
+# and `required_test.go` written into it on 2026-09-04 was ignored from the
+# moment it was created. It reached no commit on any branch, including the
+# archive, and survived only as an untracked file in a working tree until P11a
+# removed it.
+#
+# The risk was not historical. Generation 2's journeys are about targeting an
+# agent, so a `target` package is a plausible thing for a C task to create — and
+# it would have been invisible to `git status` and skipped by `git add -A`.
+/target/
 Cargo.lock
 !modules/sdk/rust/Cargo.lock
 
@@ -108,3 +120,4 @@ tools/moddoc/moddoc
 # the hand-written list missed capcheck the moment it became a module.
 /tools/capcheck/capcheck
 /tools/transition/transition
+bin/

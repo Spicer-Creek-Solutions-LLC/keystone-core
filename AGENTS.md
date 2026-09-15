@@ -15,12 +15,18 @@ policy-focused and low-drift.
 
 ## 2) What this repository currently is
 
-Planning, governance and transition evidence. **There is no product code here.**
+Planning, governance, transition evidence — and, since **P11a**, a Go module.
 
 The Generation 1 implementation was archived at
 `archive/2026-09-pre-v0.6-reboot` and removed from the tip by reboot task R08.
-Generation 2 code begins at P11, which reintroduces a Go module, a build, and
-the gates that go with it.
+Generation 2 code began at P11a, which reintroduced the module, three command
+binaries, a build and the gates that go with it.
+
+**There is still no product behaviour.** The binaries report their version and
+the configuration they would read; no journey verb exists, nothing connects to
+NATS or opens the operator socket, and nothing executes a process. `ADR-0010`'s
+`D-P11-4` records why, and `internal/cli/boundary_test.go` enforces it against
+the whole module rather than asserting it here.
 
 One developer tool survives, in its own module so it does not depend on a root
 module that no longer exists:

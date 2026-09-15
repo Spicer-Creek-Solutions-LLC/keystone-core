@@ -151,7 +151,28 @@ workstream depends on. Detailed controls are normative in the execution plan.
   expected here; `RSK-13` and `RSK-14` to C13, correcting a placement made when
   five documents thought P10 did deployment; `RSK-12` keeps a date and loses its
   task gate, because no Generation 2 task resolves it.
-- [ ] P11 — Repository skeleton and CI.
+- [ ] P11 — Repository skeleton and CI. **Delivered in two pull requests**, on
+  the maintainer's instruction: `P11a` the module and the gates, `P11b` the lint
+  tools and the harness shell. That deviates from `AGENTS.md` § 3's *one task,
+  one approval, one PR* — recorded rather than silent. The rule exists to stop
+  one approval covering several tasks, and this is the opposite: one task, two
+  approvals, two reviews. The seam puts every case with a `DL-1` risk in `P11b`.
+  - [x] **P11a** — the Go module returns. Three binaries that report their
+    version and the configuration they would read, and nothing else: no journey
+    verb, no NATS, no socket, no process, enforced against the whole module by
+    `internal/cli/boundary_test.go`. A **whitespace gate over every tracked text
+    file** closes the gap `markdownlint` leaves, since MD009 does not look inside
+    fenced blocks and that is where every generated artifact here lives. CI gains
+    the Go gates and **asserts that `make check` runs what it runs**, which
+    failed on its first run and found `check` using `test` where CI used
+    `test-race`. `AGENTS.md` § 2 stops saying there is no product code.
+    **A defect found rather than introduced**: `.gitignore`'s `**/target/`, from
+    a Rust section in a repository with no Rust, had silently hidden Generation
+    1's `internal/cli/target/` — one file there reached no commit on any branch,
+    including the archive. Scoped to `/target/`; the risk was live, because
+    Generation 2's journeys are about targeting an agent.
+  - [ ] **P11b** — `tools/doclint`, `tools/archlint`, the register's `Lands at`
+    column, and the Docker harness shell with the isolation probe.
 
 ### First command-and-control release
 
