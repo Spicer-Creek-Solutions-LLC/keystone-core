@@ -29,8 +29,9 @@
 # opening a pull request has neither.
 #
 # G25 made that true. Until then this asked for the label `docker` on
-# `pull_request`, and because nothing but the self-hosted runner ever served that
-# label, every pull request had already been running there.
+# `pull_request`, which the self-hosted runner advertised — so pull requests had
+# been running there. CI-RUNNER.md carries what is and is not established about
+# which runners serve that label; an unclaimed job does not report what exists.
 #
 # A push run reports on a pull request through the head commit's status, so
 # nothing is lost but the status context's name — which is a required check, and

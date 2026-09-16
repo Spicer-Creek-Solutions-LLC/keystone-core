@@ -361,7 +361,11 @@ limitations go in the pull request.
   first draft read queued jobs as proof that **nothing** serves `docker`, which
   queue state cannot show — a runner may advertise a label while offline — and it
   claimed both workflows trigger on `push` *and nothing else* while the same file
-  declares `workflow_dispatch`. **Not yet complete**: `main`'s protection rule
+  declares `workflow_dispatch`. The queue inference then survived its own removal
+  in two more places, because the first sweep matched the phrasing *"nothing
+  serves"* rather than the claim — **DL-8 again, and the sweep that found the
+  survivors matched any sentence joining an absence to a label**. `tools/doclint`
+  lands in P11b and owes a standing rule for it. **Not yet complete**: `main`'s protection rule
   still has to require the `(push)` status context, which only an owner can
   change, and `CI-RUNNER.md` carries the row that says whether it has been done.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.

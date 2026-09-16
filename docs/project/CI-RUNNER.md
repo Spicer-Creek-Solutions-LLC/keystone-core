@@ -18,12 +18,18 @@ Two dispatched probe runs, on 2026-09-15. Job conclusions rather than logs,
 because this forge's API does not expose job output.
 
 **Which machine they measured is not established, and this document used to say
-it was the forge's hosted pool.** The probe asked for `runs-on: docker`, and on
-2026-09-16 the only runner known to serve that label was this self-hosted host —
-four `docker` samples queued indefinitely once its label changed, which is
-[R1](#verification)'s evidence and is equally evidence that nothing else answers
-to `docker`. The same questions, re-asked on `keystone-docker`, returned the same
-answers. **The probe most likely measured this host.**
+it was the forge's hosted pool.** The probe asked for `runs-on: docker`, and this
+host advertised `docker` at the time. **The same questions, re-asked on
+`keystone-docker` — a label no other runner carries — returned the same answers**,
+so the findings below are reproduced on this host whatever else may exist.
+Attributing them to a hosted pool is unsupported.
+
+An earlier version of this paragraph also offered the queued `docker` samples as
+evidence that *nothing else answers to `docker`*. **They are not**, for the
+reason § Verification step 2 now gives: an unclaimed job does not report what
+labels exist. The reproduction on `keystone-docker` is the evidence here, and the
+samples say only that no runner is currently claiming `docker` jobs for this
+repository.
 
 What that changes: the table below stands as a measurement, and the conclusion —
 this repository needs a machine built for containers — is unaffected either way.
@@ -294,9 +300,13 @@ Those queued samples will never run and should be cancelled.
 **An earlier deviation, closed by G25 rather than by the rename.** The runner
 advertised `docker`, which was the label `reboot-baseline` asked for on
 `pull_request`. This document said a pull request *could* be scheduled onto this
-host. It is now clear that **every pull request was** — runs 809 to 834 ran here
-uninterrupted, at a steady 22s before P11a and 38s after, and stopped dead at the
-rename with nothing else picking them up.
+host. **The evidence says they were, and the argument is worth stating rather
+than asserting**: runs 809 to 834 were claimed uninterrupted at a steady 22s
+before P11a and 38s after, and every run after the rename went unclaimed. For
+those pull requests to have run somewhere other than this host, every other
+runner advertising `docker` would have had to stop at the same instant this one
+stopped advertising it. That is not proof, and it is the reading the timing
+supports.
 
 **The rename did not close the exposure; it only broke the gate.** Pointing
 `reboot-baseline` at `keystone-docker` would have reopened it unchanged, which is
