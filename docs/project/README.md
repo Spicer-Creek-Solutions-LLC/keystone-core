@@ -25,6 +25,8 @@ September 2026 and its references, guides and runbooks went with it.
   with stable `ARCH-*` identifiers
 - [`TESTING.md`](TESTING.md) — what "shipped" means; black-box acceptance against
   production binaries
+- [`CI-RUNNER.md`](CI-RUNNER.md) — the self-hosted container runner the forge's
+  hosted ones cannot replace, and what accepting it costs
 - [`REQUIREMENTS-TRACEABILITY.md`](REQUIREMENTS-TRACEABILITY.md) — each invariant
   mapped to its planned evidence
 - [`FUTURE-CAPABILITIES.md`](FUTURE-CAPABILITIES.md) — 703 catalogued Generation 1

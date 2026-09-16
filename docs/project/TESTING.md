@@ -128,6 +128,23 @@ not satisfy their release gate.
 - NATS permission positive and negative tests; and
 - regression tests for every fixed defect.
 
+**The container gates are triggered by the branch push, not by the pull-request
+event, and that is a security decision rather than a convenience.** The forge's
+hosted runners cannot run containers at all — there is no daemon socket and no
+privilege to start one — so those gates require a self-hosted runner, and a
+self-hosted runner on a public repository must never execute code from an
+arbitrary contributor. Triggering on `push` means only a principal with write
+access can cause it to run.
+
+**The coverage is the same and the reporting is the same.** A workflow run
+attaches its status to the commit, and a pull request's checks are its head
+commit's statuses — so a branch push reports on the pull request that carries
+it. What changes is which event starts the run.
+
+[`CI-RUNNER.md`](CI-RUNNER.md) holds the runner's provisioning and the rest of
+the reasoning, including why the container workflow carries no `pull_request`
+trigger at all rather than a condition on one.
+
 ### Every merge to `main`
 
 - complete Docker journey suite;

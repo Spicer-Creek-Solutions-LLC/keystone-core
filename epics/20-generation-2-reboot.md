@@ -306,6 +306,23 @@ limitations go in the pull request.
   and this entry are corrected outright. `DL-3` records it, and a sweep over
   every tracked file asserts no document describes P10 as an operations task or
   as demonstrating anything.
+- [x] G23 — Give the container suite a machine, and lock it down. **The forge's
+  hosted runners cannot run containers**: two dispatched probe runs established
+  there is no `/var/run/docker.sock` and no `CAP_SYS_ADMIN`, so it is structural
+  rather than a missing package — and `unshare --net` fails too, removing the
+  container-free fallback. `TESTING.md` makes Docker the integration floor and
+  `ADR-0010` § 2 designs the topology on it, so **neither could run anywhere**.
+  `CI-RUNNER.md` is the machine that fixes it, and the security decision that
+  comes with it: this repository is **public** and this forge has no
+  first-time-contributor gate, so the container workflow carries **no
+  `pull_request` trigger at all** — defence by absence rather than a guarded
+  condition — and `pull_request_target` and `issue_comment` are forbidden.
+  Reporting is unaffected, which is what makes it free: a run attaches a commit
+  status, a pull request's checks are its head commit's statuses, so a branch
+  push reports on the pull request. `TESTING.md`'s gate schedule records the
+  trigger, and **the trust boundary is stated rather than implied** — write
+  access becomes code execution on that host. The runner itself is not
+  registered: that needs a token only the owner can mint, and a host.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
