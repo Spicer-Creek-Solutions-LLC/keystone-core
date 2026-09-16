@@ -132,7 +132,7 @@ anticipated is exactly how this happened.
 |---|---|---|
 | `AC-1` | Both | **Paid.** `gates-agree` covers the three gates `P11b` adds; the container suite is deferred, and `deferred-gates-check` asserts the deferral rather than leaving it invisible |
 | `AC-2` | `P11a` | **Paid** |
-| `AC-3` | `P11b` | **Paid** — `tools/doclint`, seven rules with lifetimes |
+| `AC-3` | `P11b` | **Paid** — `tools/doclint`; every rule in `rules.go` carries a lifetime, and the tool prints the set it ran |
 | `AC-4` | `P11b` | **Paid** — `tools/archlint`, both directions |
 | `AC-5` | `P11b` | **Paid** — the register's `Lands at` column |
 | `AC-6` | `P11b` | **Paid, and not vacuous**: three rows owed by a completed task, one machine-checked and two reported as prose rather than counted |
@@ -204,6 +204,57 @@ instruction. It is a sixty-line test for a Generation 1 feature Generation 2 doe
 not have; what is worth keeping is the class — **a tool whose input set silently
 differs from what you believe it is**, which is the third instance this stage
 after the `docs-links` glob and `make check`'s staging blind spot.
+
+### The standing rule G25 left owed
+
+G25's epic entry says `tools/doclint` **owes a standing rule** for the claim it
+corrected — *"queued `runs-on: docker` jobs prove no runner advertises that
+label"*. `runner-label-absence` is that rule, and it took four shapes to get
+right.
+
+It fired on this paragraph first. An evidence file has to state the claim it
+guards against, so the sweep read its own subject — the same shape as the
+fenced-code exemption the earlier sweeps needed. The claim is quoted here, which
+is what it is, and `classify` reports it as quoted rather than live.
+
+**`Pattern` and `Stale` are the same expression**, as they are for the two CI
+rules — the construct is the defect, so zero hits is the correct state. A
+subject/stale split was tried first and abandoned: **the sentence review actually
+flagged says neither "runner" nor "label", only `docker`**, so every subject
+narrow enough to mean something missed it, and the one wide enough to catch it
+was "any paragraph mentioning Docker".
+
+Three things the drafts got wrong, each caught by running it rather than reading
+it:
+
+| Draft | What it did |
+|---|---|
+| subject `\brunners?\b` | missed the flagged sentence entirely — it never says "runner" |
+| construct with no anchor | flagged `Nothing was deleted` and `none is an agent, and each carries its reason` across **twelve** unrelated documents |
+| `[\\s\\S]` inside a Go raw string | a class of *backslash, s, S* — not "any character". It matched by accident and reported zero sites |
+
+**The rule forbids a shape, not a fact.** What the runner list shows is stated
+positively — "the list shows this label on one runner" — and four places in
+`CI-RUNNER.md` were reworded from an absence to a reading. One of them,
+§ Rebuilding it, was **wrapped across a line break**, so the grep-based sweep
+that found the others could not see it: `doclint` works on paragraphs, and that
+is the difference.
+
+```text
+unmutated tree: PASS
+AC-3   fails as expected  — an absence claim about a label, in the wording review found
+AC-3   fails as expected  — the same claim in the wording the subject sweep found
+AC-3   fails as expected  — a third wording neither sweep used
+AC-3   fails as expected  — a fourth, with the label named only as "it"
+AC-3   passes, correctly  — the same fact stated from the runner list
+AC-3   passes, correctly  — the causal direction, which is not the inference
+AC-3   passes, correctly  — ordinary English that an unanchored draft flagged
+AC-3   passes, correctly  — ordinary English, second instance
+```
+
+The last four are the control. A rule that only ever fails proves nothing about
+what it separates; these are the cases that must **pass**, and two of them are
+the ordinary English an earlier draft rejected.
 
 ## Demonstration record
 

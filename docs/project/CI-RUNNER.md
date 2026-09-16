@@ -20,7 +20,7 @@ because this forge's API does not expose job output.
 **Which machine they measured is not established, and this document used to say
 it was the forge's hosted pool.** The probe asked for `runs-on: docker`, and this
 host advertised `docker` at the time. **The same questions, re-asked on
-`keystone-docker` — a label no other runner carries — returned the same answers**,
+`keystone-docker`, which the runner list shows on this host alone — returned the same answers**,
 so the findings below are reproduced on this host whatever else may exist.
 Attributing them to a hosted pool is unsupported.
 
@@ -165,7 +165,7 @@ how each is checked.
 | R1 | **The label is not `docker`, and not `ubuntu-latest`** | A label this host shares with anything else makes the two interchangeable, and no workflow condition can separate runners that advertise the same label. `docker` and `ubuntu-latest` are the conventional labels a general-purpose runner claims, so a workflow written against either may be scheduled here by a later author who never read this file. The label is the only thing that routes a job, so it is the only thing that can hold the boundary | § Verification, step 2 |
 | R2 | **Repository scope** | An instance- or organisation-scoped runner can be claimed by another repository, which is a different trust decision than the one made here | Its entry in the repository's Actions settings |
 | R3 | **No state carries from one job to the next** | Residue from one job reaching the next is how a compromised or merely broken job spreads. **This is an isolation property, not a process lifecycle** — a persistent runner giving each job a fresh container satisfies it, and `--once` is one mechanism among others. The requirement is the property; the mechanism is the deployment's | § Verification, step 4 |
-| R4 | **A dedicated host** | The OS-test VMs are snapshot-reset for distribution testing, and a reset unregisters the runner **without failing loudly** — jobs queue against a label nobody advertises | Operational; stated here so a later reuse is a decision rather than an accident |
+| R4 | **A dedicated host** | The OS-test VMs are snapshot-reset for distribution testing, and a reset unregisters the runner **without failing loudly** — its jobs then queue indefinitely | Operational; stated here so a later reuse is a decision rather than an accident |
 | R5 | **The host holds nothing worth stealing** | The runner needs the Docker socket, and that is root on the host. Sandboxing inside a job is decoration; the host is the boundary | Review of what is on it |
 | R6 | **Docker works inside a job, through a daemon of the job's own** | `ADR-0010` § 2 requires the isolation to be *proved by a probe* rather than asserted — and proved in both directions. **Not the host's socket**: see § How a job gets Docker | § Verification, step 3 |
 | R7 | **What was installed is recorded** | So a rebuild reproduces this host rather than becoming a first install again. This is the trust anchor the checksum is not | § What is deployed |
@@ -255,7 +255,7 @@ rebuild cannot reproduce a host whose values were never written down.
 | Working directory, user, config location | *(unset)* |
 | Isolation between jobs (R3) | *(unset)* |
 | Scope (R2) | *(unset)* |
-| Labels (R1) | `keystone-docker`, and no other runner carries it — **read from the runner list by the maintainer, 2026-09-16** |
+| Labels (R1) | `keystone-docker`, which the runner list shows on this runner alone — **read from the list by the maintainer, 2026-09-16** |
 
 ### What verification has established so far
 
@@ -285,7 +285,7 @@ here, `R6` is unmet for a reason this document does not know.
 **`R1` holds, on the runner list rather than on the queue.** R1 constrains *this
 host's* configuration — that its label is neither `docker` nor `ubuntu-latest` —
 and the runner list states that directly. The maintainer read it and confirms
-`keystone-docker`, and that no other runner carries that label. **Owner
+`keystone-docker`, and the list shows that label on this runner alone. **Owner
 inspection is the authoritative evidence for R1**, and it is better than any
 probe, because it reads the configuration rather than inferring it.
 
@@ -373,8 +373,11 @@ Only after 5 does anything become a required check.
 ## Rebuilding it
 
 A rebuild, a snapshot restore, or a host migration **invalidates the
-registration**. The symptom is not an error: jobs queue against a label nobody
-advertises, and a pull request waits on a check that will never report.
+registration**. The symptom is not an error: the runner stops claiming jobs, so
+they queue indefinitely and a pull request waits on a check that will never
+report. G24's rename produced exactly this shape without a rebuild, and
+§ Verification is why it is stated as the runner's behaviour rather than as a
+conclusion about which labels exist.
 
 Re-register with a fresh token, delete the stale entry in the web interface
 first so it cannot be confused for the live one, and **fill § What is deployed

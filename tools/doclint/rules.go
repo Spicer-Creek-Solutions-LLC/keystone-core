@@ -124,6 +124,39 @@ var rules = []Rule{
 		RetireAfter: "",
 	},
 	{
+		ID:    "runner-label-absence",
+		Added: "G25",
+		Why:   "queued `runs-on: docker` jobs were read as proof that no runner advertises that label; what serves a label is read from the runner list, and an unclaimed job reports only that nothing available claimed it",
+
+		// Pattern and Stale are the same, as they are for the two rules below:
+		// the construct itself is the defect, so zero hits is the correct state
+		// and MinHits is 0. A subject/stale split was tried first and could not
+		// be made to work -- the sentence review actually flagged says neither
+		// "runner" nor "label", only `docker`, so every subject narrow enough
+		// to be meaningful missed it and every one wide enough to catch it was
+		// "any paragraph mentioning Docker".
+		//
+		// What this forbids is claiming an absence, not stating the fact. The
+		// runner list says which runners carry which labels, and text that
+		// reports what it SHOWS passes unchanged; text shaped as "nothing else
+		// serves it" does not, because that shape is what got inferred from job
+		// scheduling twice in one review cycle.
+		//
+		// The absence and the verb must land near a label, a runner, or a label
+		// name. Without that anchor the construct is ordinary English -- an
+		// unanchored draft flagged "Nothing was deleted" and "none is an agent,
+		// and each carries its reason" across twelve unrelated documents.
+		Pattern: `(?:nothing|no other|nobody|none|no runner)[\s\S]{0,80}(?:serves?|served|advertis\w*|answers? to|carr(?:y|ies|ied))[\s\S]{0,60}(?:labels?\b|runners?\b|docker|ubuntu-latest)|(?:nothing|no other|nobody|none|no runner)[\s\S]{0,60}(?:labels?\b|runners?\b|docker|ubuntu-latest)[\s\S]{0,60}(?:serves?|served|advertis\w*|answers? to|carr(?:y|ies|ied))`,
+		Stale:   `(?:nothing|no other|nobody|none|no runner)[\s\S]{0,80}(?:serves?|served|advertis\w*|answers? to|carr(?:y|ies|ied))[\s\S]{0,60}(?:labels?\b|runners?\b|docker|ubuntu-latest)|(?:nothing|no other|nobody|none|no runner)[\s\S]{0,60}(?:labels?\b|runners?\b|docker|ubuntu-latest)[\s\S]{0,60}(?:serves?|served|advertis\w*|answers? to|carr(?:y|ies|ied))`,
+
+		MinHits: 0, // zero is the correct state, as for the two rules below
+
+		// Permanent: diagnosing a stalled job is a recurring activity and this
+		// is the natural inference to draw each time -- a job that never runs
+		// feels like proof that nothing could have run it.
+		RetireAfter: "",
+	},
+	{
 		ID:          "no-pipe-to-shell",
 		Added:       "G23",
 		Why:         "the runner host's Docker socket is root on it, so an unverified root-level download is host compromise",
