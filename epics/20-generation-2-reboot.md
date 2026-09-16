@@ -333,15 +333,43 @@ limitations go in the pull request.
   names Forgejo's documentation as authoritative. The rule is the one this
   repository already applies to globs and to the invariant map: **do not restate
   a source you do not control**, because nothing can gate a restatement drifting.
-  A deviation found and closed while this landed: the runner had advertised
-  **`docker`**, which is the label the hosted pool uses and the label
-  `reboot-baseline` asks for on `pull_request` — so a pull request could have
-  been scheduled onto that host. Changing the label was sufficient;
-  **re-registration was not required**, and an earlier draft of the runbook
-  wrongly said it was. Verification against the live runner then established
-  that **`R3` holds** and **`R6` does not** — jobs run in a container with
-  neither a Docker client nor a socket — and left **`R1` unproven rather than
-  passing**, because the samples that would prove it were still queued.
+  A deviation found while this landed: the runner had advertised **`docker`**,
+  the label `reboot-baseline` asked for on `pull_request`. This entry said a pull
+  request *could have* been scheduled onto that host; **G25 established that
+  every one was**, and that the rename broke the gate rather than closing the
+  exposure. Changing the label was sufficient to rename it; **re-registration was
+  not required**, and an earlier draft of the runbook wrongly said it was.
+  Verification against the live runner then established that **`R3` holds** and
+  **`R6` does not** — jobs run in a container with neither a Docker client nor a
+  socket — and left **`R1` unproven**. G25 settled it, on the runner list rather
+  than on the queued samples: R1 constrains this host's configuration, which an
+  owner can read directly and no dispatched job can establish.
+- [x] G25 — Give the baseline gate a runner, without giving it untrusted code.
+  `reboot-baseline` asked for the label `docker`, which no runner claimed once
+  G24's rename landed, so **every gate had been dark since**. Pointing it at
+  `keystone-docker` alone would have put every pull request back on the private
+  host, so the label and the `pull_request` trigger moved together — which is
+  what actually closes G24's deviation. Removing that trigger would have left the
+  DCO step's `if: github.event_name == 'pull_request'` permanently false: **a gate
+  still present, still green, and never running again**. Its range is derived
+  from the merge base with `main` instead, and `dco-exempt-check` now asserts
+  that no step waits on an event the workflow does not trigger on — presence was
+  never the property it claimed to check. `CI-RUNNER.md`'s reasoning rested
+  throughout on a hosted pool holding the `docker` label; that premise is
+  unestablished, and with it § Verification step 2's discriminator, which
+  compared Docker on two runners that both fail it. Review found two more: the
+  first draft read queued jobs as proof that **nothing** serves `docker`, which
+  queue state cannot show — a runner may advertise a label while offline — and it
+  claimed both workflows trigger on `push` *and nothing else* while the same file
+  declares `workflow_dispatch`. The queue inference then survived its own removal
+  in two more places, because the first sweep matched the phrasing *"nothing
+  serves"* rather than the claim — **DL-8 again, and the sweep that found the
+  survivors matched any sentence joining an absence to a label**. `tools/doclint`
+  lands in P11b and owes a standing rule for it. The required external change is
+  **applied**: `main` now requires the `(push)` context. Status checks were
+  required throughout, so between G24's rename and that change `main` was
+  **unmergeable** rather than merely unverified — #334 was blocked, not just
+  missing a result.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

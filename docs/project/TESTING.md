@@ -142,8 +142,10 @@ commit's statuses — so a branch push reports on the pull request that carries
 it. What changes is which event starts the run.
 
 [`CI-RUNNER.md`](CI-RUNNER.md) holds the runner's provisioning and the rest of
-the reasoning, including why the container workflow carries no `pull_request`
-trigger at all rather than a condition on one.
+the reasoning, including why **neither workflow** carries a `pull_request`
+trigger at all rather than a condition on one. G25 brought `reboot-baseline`
+under that rule; before it, the rule bound only the container workflow, which
+does not exist yet.
 
 ### Every merge to `main`
 
