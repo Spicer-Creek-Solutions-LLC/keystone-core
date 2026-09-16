@@ -17,12 +17,16 @@
 # Gates it schedules for work that does not exist yet are listed at the end of
 # this file as owed, rather than silently absent.
 #
-# **This workflow triggers on `push` and nothing else**, for the reason
-# CI-RUNNER.md § "Why the workflow has no `pull_request` trigger" gives: the only
-# runner this repository has is a self-hosted host, the repository is public, and
-# this forge has no first-time-contributor gate. A `pull_request` trigger would
-# schedule a contributor's code onto that host. Only a principal with write
-# access can push a branch, so only they can start a run.
+# **This workflow triggers on `push` and `workflow_dispatch`, and on no event a
+# contributor can cause**, for the reason CI-RUNNER.md § "Why the workflow has no
+# `pull_request` trigger" gives: the only runner this repository has is a
+# self-hosted host, the repository is public, and this forge has no
+# first-time-contributor gate. A `pull_request` trigger would schedule a
+# contributor's code onto that host.
+#
+# The property is who can start a run, not how few triggers there are. Pushing a
+# branch and dispatching a run both require write access; an outside contributor
+# opening a pull request has neither.
 #
 # G25 made that true. Until then this asked for the label `docker` on
 # `pull_request`, and because nothing but the self-hosted runner ever served that

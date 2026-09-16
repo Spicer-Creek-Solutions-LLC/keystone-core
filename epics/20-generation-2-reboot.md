@@ -341,10 +341,12 @@ limitations go in the pull request.
   not required**, and an earlier draft of the runbook wrongly said it was.
   Verification against the live runner then established that **`R3` holds** and
   **`R6` does not** — jobs run in a container with neither a Docker client nor a
-  socket — and left **`R1` unproven**, which G25 then proved.
-- [x] G25 — Give the baseline gate a runner, without giving it untrusted code.
-  `reboot-baseline` asked for the label `docker`, which nothing serves once G24's
-  rename landed, so **every gate had been dark since**. Pointing it at
+  socket — and left **`R1` unproven**. G25 settled it, on the runner list rather
+  than on the queued samples: R1 constrains this host's configuration, which an
+  owner can read directly and no dispatched job can establish.
+- [ ] G25 — Give the baseline gate a runner, without giving it untrusted code.
+  `reboot-baseline` asked for the label `docker`, which no runner claimed once
+  G24's rename landed, so **every gate had been dark since**. Pointing it at
   `keystone-docker` alone would have put every pull request back on the private
   host, so the label and the `pull_request` trigger moved together — which is
   what actually closes G24's deviation. Removing that trigger would have left the
@@ -355,7 +357,13 @@ limitations go in the pull request.
   never the property it claimed to check. `CI-RUNNER.md`'s reasoning rested
   throughout on a hosted pool holding the `docker` label; that premise is
   unestablished, and with it § Verification step 2's discriminator, which
-  compared Docker on two runners that both fail it.
+  compared Docker on two runners that both fail it. Review found two more: the
+  first draft read queued jobs as proof that **nothing** serves `docker`, which
+  queue state cannot show — a runner may advertise a label while offline — and it
+  claimed both workflows trigger on `push` *and nothing else* while the same file
+  declares `workflow_dispatch`. **Not yet complete**: `main`'s protection rule
+  still has to require the `(push)` status context, which only an owner can
+  change, and `CI-RUNNER.md` carries the row that says whether it has been done.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

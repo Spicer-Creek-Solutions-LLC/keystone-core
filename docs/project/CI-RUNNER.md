@@ -74,9 +74,15 @@ arbitrary contributor. This repository is public, and this forge has **no
 first-time-contributor approval gate** — its only Actions gate fires on
 workflow-file edits, which does not help here.
 
-**Both workflows therefore trigger on `push` and nothing else.** Only a
-principal with write access can create a branch, so only they can cause the
-runner to run.
+**Both workflows therefore trigger on `push` and `workflow_dispatch`, and on no
+event a contributor can cause.** Pushing a branch and dispatching a run both
+require write access.
+
+**The property is who can start a run, not how few triggers there are.** An
+earlier wording here said *`push` and nothing else*, which `reboot-baseline`
+contradicted in the same change that adopted it — it also declares
+`workflow_dispatch`. Manual dispatch is a trigger; it is simply not one an
+outside contributor can reach.
 
 This was written for the container workflow, which does not exist yet, while
 `reboot-baseline` — which does — carried a `pull_request` trigger and asked for
@@ -112,6 +118,28 @@ run.
 |---|---|
 | A pull request from a **fork** | Read the diff, fetch its head to a branch in this repository, push it. That is a deliberate approval by a known account, performed rather than automated — which is the only safe form |
 | A **re-run** without a new commit | `workflow_dispatch` with a `ref` input, which the container workflow carries for this purpose |
+
+### The required status context changes with the trigger, and only an owner can move it
+
+Moving `reboot-baseline` off `pull_request` changes the name of the status it
+reports. Branch protection matches that name literally, so the rule must be moved
+too — **and this is not a change this repository can make**. The API rejects a
+non-owner with `403`, so the record of it lives here.
+
+| | Value |
+|---|---|
+| Context reported before G25, on a pull request | `reboot-baseline / verify (pull_request)` |
+| Context reported after G25 | `reboot-baseline / verify (push)` |
+| Observed on | commit `5c08e3a4c`, run 843, combined state `success` |
+| Required change | `main`'s protection rule must require the **`(push)`** context |
+| Applied | *(unset — fill when the rule is changed)* |
+
+**Until that row is filled, treat G25 as incomplete.** `R06`'s note at the top of
+the workflow file records what a required context that is never reported does: a
+branch requiring it can never be merged again. The `(pull_request)` context has
+not been reported since the label broke and will not be reported again, so a rule
+still naming it is already blocking — this change does not create that state, but
+it does make it permanent until the rule moves.
 
 ## What this project requires of the runner
 
@@ -216,7 +244,7 @@ rebuild cannot reproduce a host whose values were never written down.
 | Working directory, user, config location | *(unset)* |
 | Isolation between jobs (R3) | *(unset)* |
 | Scope (R2) | *(unset)* |
-| Labels (R1) | `keystone-docker` — **exclusive**, see below |
+| Labels (R1) | `keystone-docker`, and no other runner carries it — **read from the runner list by the maintainer, 2026-09-16** |
 
 ### What verification has established so far
 
@@ -229,7 +257,7 @@ job logs are not readable through this forge's API.
 | `actions/checkout` works there | **yes** |
 | **R3** — a marker written outside the workspace does not survive into the next job | **holds** |
 | **R6** — Docker usable inside a job | **not met** |
-| **R1** — the label is exclusive | **holds** |
+| **R1** — the label is neither `docker` nor `ubuntu-latest` | **holds**, on the runner list — not on the dispatched samples, which cannot establish it |
 
 **`R6`'s diagnosis, which is why the shape above was chosen.** Jobs run *inside a
 container* — confirmed, not inferred — and that container has **neither the
@@ -243,16 +271,25 @@ configuration or structural is therefore open** — § "How a job gets Docker" i
 the change that would settle it, and until a job runs `docker compose version`
 here, `R6` is unmet for a reason this document does not know.
 
-**`R1` holds, and the evidence is stronger than step 2 asked for.** The four
-`runs-on: docker` samples in the verification run have now been queued for hours
-alongside three `reboot-baseline` runs that ask for the same label, while the
-runner sat idle. **A queued job is not a job that ran somewhere unexpected — it
-is a job no runner claimed at all**, which establishes more than exclusivity: on
-the evidence available to this repository, *nothing* serves `docker`. The
-maintainer separately confirms that no other runner carries `keystone-docker`.
+**`R1` holds, on the runner list rather than on the queue.** R1 constrains *this
+host's* configuration — that its label is neither `docker` nor `ubuntu-latest` —
+and the runner list states that directly. The maintainer read it and confirms
+`keystone-docker`, and that no other runner carries that label. **Owner
+inspection is the authoritative evidence for R1**, and it is better than any
+probe, because it reads the configuration rather than inferring it.
 
-Those queued samples should be cancelled. They have answered, and they will not
-run.
+**What the queued samples show is less than this document first claimed.** Four
+`runs-on: docker` samples and three `reboot-baseline` runs have sat unclaimed for
+hours while the runner ran other jobs. An earlier version of this section read
+that as proof that *nothing* serves `docker`. **It is not.** A job stays queued
+when no *available* runner claims it, and a runner can advertise a label while
+offline, disabled for this repository, or at capacity — queue state does not
+report what labels exist. What the samples establish is the narrower and still
+useful fact that **no runner is currently claiming `docker` jobs for this
+repository**, which is why the gate stalled and why it could not have been
+diagnosed as a busy queue.
+
+Those queued samples will never run and should be cancelled.
 
 **An earlier deviation, closed by G25 rather than by the rename.** The runner
 advertised `docker`, which was the label `reboot-baseline` asked for on
@@ -279,14 +316,16 @@ job **that would fail on a misconfigured host** has passed.
    version` and succeeds. This is the question `R6` currently fails, so it is the
    step that decides whether the apply is finished.
 
-2. **The label is exclusive**, which is R1 and cannot be read from the API: the
-   runner list is owner-only. It is established empirically, by **whether a
-   `runs-on: docker` job is ever claimed at all**: several such jobs are
-   dispatched, and none may start. A job that stays queued was claimed by no
-   runner, which is the property R1 asserts.
+2. **The label is what R1 requires**, read from the runner list by someone who
+   can see it. The list is owner-only, so this step is the maintainer's and its
+   result is recorded in § What is deployed rather than produced by a job.
 
-   Several, not one: scheduling between matching runners is not deterministic, so
-   one sample that happens not to be picked up proves nothing.
+   **This step used to try to establish the label empirically, and no empirical
+   test can.** Dispatching `runs-on: docker` jobs and watching them queue shows
+   that nothing *claimed* them; a runner that advertises `docker` while offline
+   or unavailable to this repository produces the identical observation. The
+   configuration is readable directly, so reading it is the evidence and a probe
+   is at best corroboration.
 
    **Docker was the discriminator here until G25, and it never could be.** The
    test read: Docker succeeds on `keystone-docker`, fails on `docker`. But `R6`
