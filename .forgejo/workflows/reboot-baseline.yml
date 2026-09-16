@@ -16,12 +16,27 @@
 # TESTING.md § Gate schedule is what this implements, for the work that exists.
 # Gates it schedules for work that does not exist yet are listed at the end of
 # this file as owed, rather than silently absent.
+#
+# **This workflow triggers on `push` and nothing else**, for the reason
+# CI-RUNNER.md § "Why the workflow has no `pull_request` trigger" gives: the only
+# runner this repository has is a self-hosted host, the repository is public, and
+# this forge has no first-time-contributor gate. A `pull_request` trigger would
+# schedule a contributor's code onto that host. Only a principal with write
+# access can push a branch, so only they can start a run.
+#
+# G25 made that true. Until then this asked for the label `docker` on
+# `pull_request`, and because nothing but the self-hosted runner ever served that
+# label, every pull request had already been running there.
+#
+# A push run reports on a pull request through the head commit's status, so
+# nothing is lost but the status context's name — which is a required check, and
+# therefore branch protection's business rather than this file's.
 name: reboot-baseline
 
 on:
+  # Every branch, not just main: a pull request's branch is pushed to this
+  # repository, so this is what verifies it before it merges.
   push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 concurrency:
@@ -30,14 +45,14 @@ concurrency:
 
 jobs:
   verify:
-    runs-on: docker
+    runs-on: keystone-docker
     steps:
       - uses: actions/checkout@v4
         with:
-          # The PR head rather than the synthesized merge ref, so the DCO check
-          # reads the contributor's actual commits. fetch-depth: 0 so both the
-          # base and head SHAs are reachable for `git log A..B`.
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # fetch-depth: 0 so the merge base with main is reachable for the
+          # DCO check's `git log A..B`. There is no merge ref to avoid any more:
+          # push events check out the pushed commit itself.
+          ref: ${{ github.sha }}
           fetch-depth: 0
 
       # markdownlint-cli2 via npx: rules and globs live in
@@ -115,16 +130,38 @@ jobs:
       - name: make check agrees with this workflow, in both directions
         run: make gates-agree
 
-      # Every non-merge commit on a pull request must carry a Signed-off-by
-      # trailer, per docs/project/DCO.md and AGENTS.md § 4. Skipped on push,
-      # where there is no base to diff against and a miss could not be fixed
-      # retroactively anyway.
-      - name: DCO sign-off on every pull-request commit
-        if: github.event_name == 'pull_request'
+      # Every non-merge commit a branch adds must carry a Signed-off-by trailer,
+      # per docs/project/DCO.md and AGENTS.md § 4.
+      #
+      # The base was `github.event.pull_request.base.sha` and the condition was
+      # `github.event_name == 'pull_request'`. G25 removed that trigger, which
+      # would have left this step's condition permanently false — the gate would
+      # have stopped running and the job would still have gone green. The range
+      # is therefore derived from the merge base with main instead.
+      #
+      # merge-base rather than `github.event.before`, which is all-zeros on a
+      # branch's first push and is not an ancestor after a force-push.
+      #
+      # Skipped on main, whose pushes are merges of commits this already checked.
+      - name: DCO sign-off on every commit this branch adds
+        if: github.ref != 'refs/heads/main'
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_SHA: ${{ github.sha }}
         run: |
+          # `set -e` without `pipefail`, deliberately. The loop below pipes into
+          # `grep -q`, which exits on the first match and leaves the producer with
+          # SIGPIPE; under `pipefail` that nonzero propagates and a correctly
+          # signed commit is reported as missing. Demonstrated on a long message.
+          set -e
+          # A base this cannot resolve must fail loudly. `git log ..HEAD` with an
+          # empty base is a valid empty range, so a silent failure here would
+          # leave a gate that passes by checking nothing.
+          git fetch --quiet origin main
+          BASE_SHA="$(git merge-base FETCH_HEAD "$HEAD_SHA")"
+          if [ -z "$BASE_SHA" ]; then
+            echo "::error::DCO check could not resolve a merge base with main; it would check nothing"
+            exit 1
+          fi
           missing=()
           while IFS= read -r sha; do
             [ -z "$sha" ] && continue
@@ -146,7 +183,11 @@ jobs:
             exit 1
           fi
           total=$(git rev-list --no-merges --count "$BASE_SHA..$HEAD_SHA")
-          echo "DCO check passed: all ${total} non-merge commit(s) carry a Signed-off-by trailer."
+          if [ "$total" -eq 0 ]; then
+            echo "DCO check: this branch adds no non-merge commit over main; nothing to check."
+          else
+            echo "DCO check passed: all ${total} non-merge commit(s) carry a Signed-off-by trailer."
+          fi
 
 # Gates TESTING.md schedules that this workflow does not yet run, and why.
 # Listed so that an absent gate is an obligation rather than an oversight.

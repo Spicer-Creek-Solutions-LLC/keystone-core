@@ -131,9 +131,17 @@ build: ## Build every binary with a derived version stamp
 # — build and the vulnerability scan included.
 #
 # Exactly one CI gate is not here, and it is named rather than left to be
-# noticed: the DCO sign-off check reads `git log BASE..HEAD` across a pull
-# request's base and head. There is no base locally, so it is not a gate a
-# developer can run — the workflow already skips it on push for the same reason.
+# noticed: the DCO sign-off check. It verifies the commits a branch adds over
+# main, and locally those are still in flux — a developer amends and rebases
+# until they push, which is the moment the check exists to guard. It also needs
+# a fetched `origin/main`, so it is not a gate that runs offline.
+#
+# G25 changed its stated reason and the reason is now this one. Before G25 it
+# read the base and head of a pull request, so there was no local base at all;
+# after G25 it derives the range from the merge base, which a local run could
+# compute. Whether it should therefore become a local gate is open, and is
+# recorded in that task rather than decided here.
+#
 # `dco-exempt-check` asserts it still exists, so the exemption cannot become a
 # missing gate nobody spots.
 check: fmt-check vet test-race whitespace-check build vuln docs-lint docs-links \
@@ -165,8 +173,28 @@ gates-agree: ## Assert make check and CI run the same gate set, both directions
 	[ $$rc -eq 0 ] || exit 1; \
 	echo "gates-agree: both directions agree on $$(echo "$$targets" | tr '\n' ' ')"
 
-dco-exempt-check: ## Assert the one CI-only gate still exists
-	@grep -q 'DCO sign-off on every pull-request commit' .forgejo/workflows/reboot-baseline.yml || { \
+dco-exempt-check: ## Assert the one CI-only gate still exists, and can still run
+	@grep -q 'DCO sign-off on every commit this branch adds' .forgejo/workflows/reboot-baseline.yml || { \
 		echo "ERROR: the DCO gate is named as check's only exemption and is no longer in CI"; \
 		exit 1; }
-	@echo "dco-exempt-check: the one CI-only gate is present"
+	# Presence is not enough. G25 removed the `pull_request` trigger while a step
+	# was conditioned on `github.event_name == 'pull_request'` — the step would
+	# have stayed present, this grep would have stayed green, and the gate would
+	# never have run again. So: every event a step conditions on must be an event
+	# this workflow actually triggers on.
+	@triggers="$$(sed -n '/^on:/,/^[a-z]/p' .forgejo/workflows/reboot-baseline.yml \
+		| sed -n 's/^  \([a-z_]*\):.*/\1/p' | sort -u)"; \
+	: "Comment lines are dropped first. The workflow explains this very check in"; \
+	: "prose, and a sweep that reads its own explanation reports itself."; \
+	guarded="$$(grep -v '^[[:space:]]*#' .forgejo/workflows/reboot-baseline.yml \
+		| grep -oE "github\.event_name *== *'[a-z_]+'" \
+		| sed "s/.*'\(.*\)'/\1/" | sort -u)"; \
+	if [ -z "$$triggers" ]; then \
+		echo "ERROR: dco-exempt-check parsed no triggers; it is checking nothing"; exit 1; fi; \
+	dead="$$(echo "$$guarded" | grep -v '^$$' | grep -vxF "$$triggers" || true)"; \
+	if [ -n "$$dead" ]; then \
+		echo "ERROR: a step is conditioned on an event this workflow does not trigger on:"; \
+		echo "$$dead"; \
+		echo "Such a step is present but can never run."; \
+		exit 1; fi
+	@echo "dco-exempt-check: the one CI-only gate is present, and no step waits on an absent event"

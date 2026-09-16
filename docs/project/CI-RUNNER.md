@@ -2,8 +2,12 @@
 
 `TESTING.md` makes Docker the integration floor for every feature, and
 [`ADR-0010`](../adr/0010-acceptance-harness.md) § 2 designs the topology that
-floor runs on. **The forge's hosted runners cannot run containers**, so that
-floor needs a machine of ours.
+floor runs on. **No runner available to this repository can run containers**, so
+that floor needs a machine built to.
+
+This said *the forge's hosted runners* cannot run containers until G25. That
+claim was never established — see § What the probe established — and the weaker
+one above is what the evidence supports. It reaches the same conclusion.
 
 This is how that machine is built, registered, locked down, and rebuilt — and
 what accepting it costs.
@@ -12,6 +16,20 @@ what accepting it costs.
 
 Two dispatched probe runs, on 2026-09-15. Job conclusions rather than logs,
 because this forge's API does not expose job output.
+
+**Which machine they measured is not established, and this document used to say
+it was the forge's hosted pool.** The probe asked for `runs-on: docker`, and on
+2026-09-16 the only runner known to serve that label was this self-hosted host —
+four `docker` samples queued indefinitely once its label changed, which is
+[R1](#verification)'s evidence and is equally evidence that nothing else answers
+to `docker`. The same questions, re-asked on `keystone-docker`, returned the same
+answers. **The probe most likely measured this host.**
+
+What that changes: the table below stands as a measurement, and the conclusion —
+this repository needs a machine built for containers — is unaffected either way.
+What it removes is the claim that a *hosted pool* was measured, and with it the
+premise `R1` and § Verification step 2 were written on. Whether this repository
+has a hosted pool at all is unknown; the runner list is owner-only.
 
 | Question | Result |
 |---|---|
@@ -56,9 +74,15 @@ arbitrary contributor. This repository is public, and this forge has **no
 first-time-contributor approval gate** — its only Actions gate fires on
 workflow-file edits, which does not help here.
 
-**The container workflow therefore triggers on `push` and nothing else.** Only a
+**Both workflows therefore trigger on `push` and nothing else.** Only a
 principal with write access can create a branch, so only they can cause the
 runner to run.
+
+This was written for the container workflow, which does not exist yet, while
+`reboot-baseline` — which does — carried a `pull_request` trigger and asked for
+the label this host advertised. **Every pull request had been running here**, and
+the rule was stated in the one place it was not needed. G25 moved that workflow
+to `push` and the rule now describes the repository rather than a plan.
 
 **This is defence by absence, not by condition.** A `pull_request` trigger with
 an `if:` guard would still start a run from an untrusted event and rely on the
@@ -99,7 +123,7 @@ how each is checked.
 
 | # | Requirement | Why it is ours rather than upstream's | How it is checked |
 |---|---|---|---|
-| R1 | **The label is not `docker`, and not `ubuntu-latest`** | Codeberg's hosted pool *is* the `docker` label, and `reboot-baseline` asks for it on `pull_request`. A runner sharing that label makes the two pools interchangeable, so **any pull request can be scheduled onto this host** — the exposure the trigger design exists to prevent. No workflow condition can separate pools that advertise the same label | § Verification, step 2 |
+| R1 | **The label is not `docker`, and not `ubuntu-latest`** | A label this host shares with anything else makes the two interchangeable, and no workflow condition can separate runners that advertise the same label. `docker` and `ubuntu-latest` are the conventional labels a general-purpose runner claims, so a workflow written against either may be scheduled here by a later author who never read this file. The label is the only thing that routes a job, so it is the only thing that can hold the boundary | § Verification, step 2 |
 | R2 | **Repository scope** | An instance- or organisation-scoped runner can be claimed by another repository, which is a different trust decision than the one made here | Its entry in the repository's Actions settings |
 | R3 | **No state carries from one job to the next** | Residue from one job reaching the next is how a compromised or merely broken job spreads. **This is an isolation property, not a process lifecycle** — a persistent runner giving each job a fresh container satisfies it, and `--once` is one mechanism among others. The requirement is the property; the mechanism is the deployment's | § Verification, step 4 |
 | R4 | **A dedicated host** | The OS-test VMs are snapshot-reset for distribution testing, and a reset unregisters the runner **without failing loudly** — jobs queue against a label nobody advertises | Operational; stated here so a later reuse is a decision rather than an accident |
@@ -192,7 +216,7 @@ rebuild cannot reproduce a host whose values were never written down.
 | Working directory, user, config location | *(unset)* |
 | Isolation between jobs (R3) | *(unset)* |
 | Scope (R2) | *(unset)* |
-| Labels (R1) | `keystone-docker` — **exclusivity not yet established**, see below |
+| Labels (R1) | `keystone-docker` — **exclusive**, see below |
 
 ### What verification has established so far
 
@@ -205,25 +229,44 @@ job logs are not readable through this forge's API.
 | `actions/checkout` works there | **yes** |
 | **R3** — a marker written outside the workspace does not survive into the next job | **holds** |
 | **R6** — Docker usable inside a job | **not met** |
-| **R1** — the label is exclusive | **not yet established** |
+| **R1** — the label is exclusive | **holds** |
 
 **`R6`'s diagnosis, which is why the shape above was chosen.** Jobs run *inside a
 container* — confirmed, not inferred — and that container has **neither the
-Docker client nor a socket**, so a job cannot reach Docker at all. It is a
-configuration detail rather than the structural impossibility the hosted pool
-has, and § "How a job gets Docker" is the answer.
+Docker client nor a socket**, so a job cannot reach Docker at all.
 
-**`R1` is unproven rather than failing.** The label was changed from `docker` to
-`keystone-docker`, and the four `runs-on: docker` samples were still queued when
-this was written. They are **consistent** with the change having taken effect —
-the runner sat idle throughout and would have claimed them otherwise — but
-**consistent-with is not proven**, which is the entire reason step 2 asks for
-several samples rather than one.
+This read *a configuration detail rather than the structural impossibility the
+hosted pool has*. That contrast does not survive § What the probe established:
+the probe's findings are most likely this host's, so the two are one finding
+measured twice rather than two machines failing differently. **Whether it is
+configuration or structural is therefore open** — § "How a job gets Docker" is
+the change that would settle it, and until a job runs `docker compose version`
+here, `R6` is unmet for a reason this document does not know.
 
-**An earlier deviation, now closed.** The runner advertised `docker`, which is
-the label the hosted pool uses *and* the label `reboot-baseline` asks for on
-`pull_request` — so until it changed, a pull request could be scheduled onto this
-host. Changing the labels in the runner configuration was sufficient;
+**`R1` holds, and the evidence is stronger than step 2 asked for.** The four
+`runs-on: docker` samples in the verification run have now been queued for hours
+alongside three `reboot-baseline` runs that ask for the same label, while the
+runner sat idle. **A queued job is not a job that ran somewhere unexpected — it
+is a job no runner claimed at all**, which establishes more than exclusivity: on
+the evidence available to this repository, *nothing* serves `docker`. The
+maintainer separately confirms that no other runner carries `keystone-docker`.
+
+Those queued samples should be cancelled. They have answered, and they will not
+run.
+
+**An earlier deviation, closed by G25 rather than by the rename.** The runner
+advertised `docker`, which was the label `reboot-baseline` asked for on
+`pull_request`. This document said a pull request *could* be scheduled onto this
+host. It is now clear that **every pull request was** — runs 809 to 834 ran here
+uninterrupted, at a steady 22s before P11a and 38s after, and stopped dead at the
+rename with nothing else picking them up.
+
+**The rename did not close the exposure; it only broke the gate.** Pointing
+`reboot-baseline` at `keystone-docker` would have reopened it unchanged, which is
+why G25 removed the `pull_request` trigger in the same change that moved the
+label. What closes this is the trigger, not the name.
+
+Changing the labels in the runner configuration was sufficient to rename it;
 **re-registration was not required**, and an earlier version of this document
 wrongly said otherwise.
 
@@ -233,17 +276,24 @@ wrongly said otherwise.
 job **that would fail on a misconfigured host** has passed.
 
 1. **Docker works there.** A job on the runner's label runs `docker compose
-   version` and succeeds — the question the hosted pool fails.
+   version` and succeeds. This is the question `R6` currently fails, so it is the
+   step that decides whether the apply is finished.
 
 2. **The label is exclusive**, which is R1 and cannot be read from the API: the
-   runner list is owner-only. It is established empirically, and Docker is the
-   discriminator, because the hosted pool does not have it:
-   - a job on `keystone-docker` that runs Docker **succeeds**; and
-   - **several** jobs on `runs-on: docker` that report whether Docker works
-     **all report that it does not**.
+   runner list is owner-only. It is established empirically, by **whether a
+   `runs-on: docker` job is ever claimed at all**: several such jobs are
+   dispatched, and none may start. A job that stays queued was claimed by no
+   runner, which is the property R1 asserts.
 
    Several, not one: scheduling between matching runners is not deterministic, so
-   a single sample landing on the hosted pool proves nothing.
+   one sample that happens not to be picked up proves nothing.
+
+   **Docker was the discriminator here until G25, and it never could be.** The
+   test read: Docker succeeds on `keystone-docker`, fails on `docker`. But `R6`
+   records Docker failing on `keystone-docker` too — both sides of the comparison
+   return the same answer, so it separates nothing. It was written on the
+   assumption that a hosted pool holds the `docker` label and lacks Docker; § What
+   the probe established is why that assumption does not hold.
 
 3. **The isolation probe fails when isolation is absent.** Two networks with no
    route between them, a container on each, and the one **cannot** reach the
