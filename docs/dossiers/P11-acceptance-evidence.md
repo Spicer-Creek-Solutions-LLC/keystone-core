@@ -106,6 +106,41 @@ does not match, `doclint` now **enumerates `.forgejo/workflows` directly** and
 fails if any tracked file there is outside the swept set. An extension nobody
 anticipated is exactly how this happened.
 
+### The same false negative, one layer in
+
+The fix above parsed cells and reported prose — and then **counted a cell paid as
+soon as one path in it existed**. `len(paths) == 0 && prose` was the test for
+"unvalidated", so a mixed cell took the `default` branch:
+
+| Cell | Before | Now |
+|---|---|---|
+| `a/real_test.go`, `manual review required` | **paid** | partly checked, not paid |
+| `a/real_test.go`, `b/missing.go (generated later)` | **paid** | **fails** |
+
+The second is the sharper one. `b/missing.go (generated later)` is *path-shaped
+and does not parse*, and the code demoted it to prose — so a reference stopped
+being checked without anyone deciding that. It is named and fails now, because
+prose is a description someone writes on purpose and a malformed path is a typo.
+
+**The first fix removed the exemption-by-shape and left the exemption-by-position
+behind it.** Three cases in a row where a cell could satisfy the gate without its
+contents being checked; the lesson is the one already in this file — an escape
+hatch expressed by shape exempts the next thing by accident.
+
+```text
+control: one real path, must stay PAID                 3 rows owed, 1 paid
+mixed:   real path + prose                             3 rows owed, 0 paid, reported partly checked
+mixed:   real path + unparseable path                  fails — looks like a path and cannot be checked as one
+two paths, the second missing                          fails — its evidence does not exist
+pure prose                                             3 rows owed, 0 paid, reported unvalidated
+```
+
+The control is load-bearing: `paid` reaching 0 in four of five rows is only
+meaningful because the first row shows it can reach 1 at all. **`AC-6`'s
+non-vacuity rests on `ARCH-COMM-002`, the single owed row whose evidence is a
+path** — stated here because it is a smaller claim than "the register is
+checked".
+
 ### Five defects the demonstration found in this task's own tools
 
 - **`units()` flattened YAML.** Joining an indented `pull_request_target:` onto the line

@@ -87,7 +87,7 @@ func main() {
 	note("%d tasks in the epic, %d complete", len(tasks), len(complete))
 
 	owed, paid := 0, 0
-	var unvalidated []string
+	var unvalidated, mixed []string
 	for _, r := range rows {
 		// Every owner must name a document that exists. This is the rule that
 		// would have caught "Test architecture ADR" years before ADR-0010 did.
@@ -113,7 +113,7 @@ func main() {
 		// have their evidence.
 		if complete[r.landsAt] {
 			owed++
-			paths, prose := evidencePaths(r.evidence)
+			paths, prose, malformed := evidencePaths(r.evidence)
 			missing := []string{}
 			for _, path := range paths {
 				if !exists(*root, path) {
@@ -121,11 +121,24 @@ func main() {
 				}
 			}
 			switch {
+			case len(malformed) > 0:
+				// A token that is shaped like a path and does not parse as one
+				// is not prose. Letting it fall into that bucket is how a
+				// reference stops being checked without anyone deciding to.
+				fails = append(fails, fmt.Sprintf(
+					"%s names evidence that looks like a path and cannot be checked as one: %s",
+					r.invariant, strings.Join(malformed, ", ")))
 			case len(missing) > 0:
 				fails = append(fails, fmt.Sprintf(
 					"%s lands at %s, which the epic shows complete, and its evidence does not exist: %s",
 					r.invariant, r.landsAt, strings.Join(missing, ", ")))
-			case len(paths) == 0 && prose:
+			case prose && len(paths) > 0:
+				// Mixed. The paths were checked and the prose was not, so this
+				// is neither paid nor unvalidated -- and counting it as paid is
+				// the false negative review of #334 found: one real path made
+				// the rest of the cell invisible.
+				mixed = append(mixed, r.invariant)
+			case prose:
 				// Not a failure and not a pass. Counting it as paid is how a
 				// prose cell becomes a way to satisfy the gate by writing a
 				// sentence.
@@ -136,6 +149,12 @@ func main() {
 		}
 	}
 	note("%d rows owed by a completed task, %d paid", owed, paid)
+	if len(mixed) > 0 {
+		// Reported separately from prose: these rows DO name paths that were
+		// checked, and saying otherwise would understate what holds.
+		note("%d owed rows name both a path and prose, so they are only partly machine-checked: %s",
+			len(mixed), strings.Join(mixed, ", "))
+	}
 	if len(unvalidated) > 0 {
 		// Reported, never counted. These are evidence a human verifies, and
 		// leaving them invisible would let a sentence stand in for a test.
@@ -276,7 +295,7 @@ func ownerResolves(root, owner string) bool {
 // cell containing a space, which made EVERY multi-path cell trivially paid --
 // deleting either file named by ARCH-NATS-006 would have left this tool green.
 // A check that cannot fail on the input it exists for is not a check.
-func evidencePaths(cell string) (paths []string, prose bool) {
+func evidencePaths(cell string) (paths []string, prose bool, malformed []string) {
 	for _, tok := range strings.Split(cell, ",") {
 		tok = strings.Trim(strings.TrimSpace(tok), "`")
 		if tok == "" {
@@ -284,14 +303,21 @@ func evidencePaths(cell string) (paths []string, prose bool) {
 		}
 		// A path here is a slash-separated reference with a file extension.
 		// Anything else is prose: it describes evidence a human verifies, and
-		// it is reported as unvalidated rather than counted as paid.
-		if strings.Contains(tok, "/") && filepath.Ext(tok) != "" && !strings.Contains(tok, " ") {
+		// it is reported rather than counted as paid.
+		looksLikePath := strings.Contains(tok, "/") && filepath.Ext(tok) != ""
+		switch {
+		case looksLikePath && !strings.Contains(tok, " "):
 			paths = append(paths, tok)
-			continue
+		case looksLikePath:
+			// `a/b.go (generated later)` is not a description of evidence, it
+			// is a path with something appended. Treating it as prose is a
+			// silent demotion, so it is named and fails.
+			malformed = append(malformed, tok)
+		default:
+			prose = true
 		}
-		prose = true
 	}
-	return paths, prose
+	return paths, prose, malformed
 }
 
 func exists(root, rel string) bool {
