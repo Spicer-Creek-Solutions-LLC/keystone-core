@@ -344,7 +344,7 @@ limitations go in the pull request.
   socket — and left **`R1` unproven**. G25 settled it, on the runner list rather
   than on the queued samples: R1 constrains this host's configuration, which an
   owner can read directly and no dispatched job can establish.
-- [ ] G25 — Give the baseline gate a runner, without giving it untrusted code.
+- [x] G25 — Give the baseline gate a runner, without giving it untrusted code.
   `reboot-baseline` asked for the label `docker`, which no runner claimed once
   G24's rename landed, so **every gate had been dark since**. Pointing it at
   `keystone-docker` alone would have put every pull request back on the private
@@ -365,9 +365,11 @@ limitations go in the pull request.
   in two more places, because the first sweep matched the phrasing *"nothing
   serves"* rather than the claim — **DL-8 again, and the sweep that found the
   survivors matched any sentence joining an absence to a label**. `tools/doclint`
-  lands in P11b and owes a standing rule for it. **Not yet complete**: `main`'s protection rule
-  still has to require the `(push)` status context, which only an owner can
-  change, and `CI-RUNNER.md` carries the row that says whether it has been done.
+  lands in P11b and owes a standing rule for it. The required external change is
+  **applied**: `main` now requires the `(push)` context. Status checks were
+  required throughout, so between G24's rename and that change `main` was
+  **unmergeable** rather than merely unverified — #334 was blocked, not just
+  missing a result.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

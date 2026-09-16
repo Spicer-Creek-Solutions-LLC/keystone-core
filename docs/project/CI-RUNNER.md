@@ -138,14 +138,19 @@ non-owner with `403`, so the record of it lives here.
 | Context reported after G25 | `reboot-baseline / verify (push)` |
 | Observed on | commit `5c08e3a4c`, run 843, combined state `success` |
 | Required change | `main`'s protection rule must require the **`(push)`** context |
-| Applied | *(unset — fill when the rule is changed)* |
+| Applied | **yes — 2026-09-16, by the maintainer**, who reports the rule now holds `reboot-baseline / verify (push)` and that status checks were required before the change and remain required |
 
-**Until that row is filled, treat G25 as incomplete.** `R06`'s note at the top of
-the workflow file records what a required context that is never reported does: a
-branch requiring it can never be merged again. The `(pull_request)` context has
-not been reported since the label broke and will not be reported again, so a rule
-still naming it is already blocking — this change does not create that state, but
-it does make it permanent until the rule moves.
+**Status checks were enabled throughout**, which settles what the stalled gate
+cost. `R06`'s note at the top of the workflow file records what a required
+context that is never reported does: a branch requiring it can never be merged
+again. The `(pull_request)` context stopped being reported when the label broke
+and will not be reported again — so between G24's rename and this rule change,
+**`main` was unmergeable**, and pull request #334 was blocked rather than merely
+missing a result. G25 did not create that state; it ended it.
+
+**The evidence is owner inspection, as it is for `R1`.** The protection rule is
+not readable by a non-owner — the API returns `403` — so this row records what
+the maintainer read, dated, rather than something a job demonstrated.
 
 ## What this project requires of the runner
 
