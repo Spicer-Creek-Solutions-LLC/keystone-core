@@ -323,6 +323,20 @@ limitations go in the pull request.
   trigger, and **the trust boundary is stated rather than implied** — write
   access becomes code execution on that host. The runner itself is not
   registered: that needs a token only the owner can mint, and a host.
+- [x] G24 — Say what the runner must be, not how to install it. `CI-RUNNER.md`
+  restated Forgejo's and the distribution's instructions, and **every finding
+  raised against it in review was a defect in that restatement** — `sudo`'s
+  environment handling, then `runuser`'s, then a Docker repository path correct
+  for one of the two distributions it named. None were facts about this project.
+  It now states **seven requirements with how each is checked**, gives
+  *illustrative* registration and configuration rather than instructions, and
+  names Forgejo's documentation as authoritative. The rule is the one this
+  repository already applies to globs and to the invariant map: **do not restate
+  a source you do not control**, because nothing can gate a restatement drifting.
+  A live deviation is recorded rather than left to be found: **the runner
+  advertises `docker`**, which is the label the hosted pool uses and the label
+  `reboot-baseline` asks for on `pull_request`, so until R1 holds a pull request
+  can be scheduled onto that host.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
