@@ -151,7 +151,7 @@ workstream depends on. Detailed controls are normative in the execution plan.
   expected here; `RSK-13` and `RSK-14` to C13, correcting a placement made when
   five documents thought P10 did deployment; `RSK-12` keeps a date and loses its
   task gate, because no Generation 2 task resolves it.
-- [ ] P11 — Repository skeleton and CI. **Delivered in two pull requests**, on
+- [x] P11 — Repository skeleton and CI. **Delivered in two pull requests**, on
   the maintainer's instruction: `P11a` the module and the gates, `P11b` the lint
   tools and the harness shell. That deviates from `AGENTS.md` § 3's *one task,
   one approval, one PR* — recorded rather than silent. The rule exists to stop
@@ -171,8 +171,20 @@ workstream depends on. Detailed controls are normative in the execution plan.
     1's `internal/cli/target/` — one file there reached no commit on any branch,
     including the archive. Scoped to `/target/`; the risk was live, because
     Generation 2's journeys are about targeting an agent.
-  - [ ] **P11b** — `tools/doclint`, `tools/archlint`, the register's `Lands at`
-    column, and the Docker harness shell with the isolation probe.
+  - [x] **P11b** — `tools/doclint` carries the **standing sweeps only**, each
+    with a **retirement condition**, because a sweep guards a correction and
+    every task adds one. `tools/archlint` checks the register in both
+    directions, requires every design owner to **resolve to a document that
+    exists** — the rule that would have caught *Test architecture ADR* — and
+    derives liveness from the epic's own ticks via a new **`Lands at`** column,
+    so the register's rule becomes enforceable task by task with no dates to
+    maintain. The harness lands the topology and the **isolation probe, proved
+    in both directions**: separate networks unreachable, *and the same probe
+    reporting a deliberately joined pair reachable*, without which it would pass
+    on a topology with a route. The suite is **outside `make check`** because
+    the runner cannot run Docker in a job yet (`CI-RUNNER.md` R6), and
+    `deferred-gates-check` asserts that deferral rather than leaving a gate
+    that is in neither set and therefore invisible.
 
 ### First command-and-control release
 

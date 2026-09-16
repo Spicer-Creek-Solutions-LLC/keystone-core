@@ -4,6 +4,19 @@ This register prevents architecture requirements from existing only in prose.
 The test paths are targets for the clean baseline; they become mandatory as the
 corresponding implementation lands.
 
+**`Lands at` names the task that owes each row's evidence**, and it is what
+makes the register's own rule enforceable. That rule — *"CI must fail when an
+implemented invariant lacks its registered evidence"* — has an empty precondition
+while nothing is implemented, so it would pass as coverage for the whole of Stage
+C. With this column, `tools/archlint` derives liveness from the epic: **when a
+task is ticked, its rows must have their evidence.** No dates to maintain, and
+the rule becomes live task by task.
+
+**Design owners are identifiers, not prose.** *"NATS topology ADR"* cannot be
+checked against anything; `ADR-0002` can. That is how a *"Test architecture ADR"*
+sat in this register pointing at a document nobody had written, until `ADR-0010`
+became it.
+
 **This is the only invariant-to-evidence map.** [`ADR-0010`](../adr/0010-acceptance-harness.md)
 § 13 designs the harness that produces the evidence and deliberately holds no
 table of its own, so a row is updated here rather than in two places. `ADR-0010`
@@ -11,32 +24,32 @@ table of its own, so a row is updated here rather than in two places. `ADR-0010`
 is a target, not enforcement, and `ARCH-TEST-003` is not satisfied until one
 does.
 
-| Requirement | Design owner | Planned automated evidence | Gate |
-|---|---|---|---|
-| ARCH-COMM-001 | NATS topology ADR | `test/architecture/nats_only_test.go` | PR |
-| ARCH-COMM-002 | NATS topology ADR | `test/e2e/docker/network_isolation_test.go` | PR |
-| ARCH-COMM-003 | `ADR-0010` | `test/e2e/docker/journey_test.go` | PR |
-| ARCH-NATS-001 | NATS topology ADR | `test/e2e/docker/accounts_test.go` | PR |
-| ARCH-NATS-002 | NATS identity ADR | `test/e2e/docker/identity_inventory_test.go` | PR |
-| ARCH-NATS-003 | Subject authorization ADR | `test/e2e/docker/permissions_test.go` | PR |
-| ARCH-NATS-004 | Enrollment ADR | `test/e2e/docker/enrollment_test.go` | PR |
-| ARCH-NATS-005 | Subject authorization ADR | `test/e2e/docker/system_subject_permissions_test.go` | PR |
-| ARCH-NATS-006 | Protocol ADR | `test/e2e/docker/envelope_confidentiality_test.go`, `test/e2e/docker/envelope_signature_test.go` | PR |
-| ARCH-NATS-007 | NATS topology ADR | `test/e2e/docker/resource_limits_test.go` | Main |
-| ARCH-NATS-008 | RFC/ADR process | `tools/archlint` decision-matrix rule | PR |
-| ARCH-NATS-009 | Job lifecycle ADR | exact-filter serialized-consumer test | PR |
-| ARCH-NATS-010 | Job lifecycle ADR | redelivery exhaustion/advisory test | Main |
-| ARCH-JOB-001 | Job lifecycle ADR | protocol conformance tests | PR |
-| ARCH-JOB-002 | Job lifecycle ADR | restart boundary suite | Main |
-| ARCH-JOB-003 | Job lifecycle ADR | non-idempotent duplicate-delivery test | PR |
-| ARCH-JOB-004 | Job lifecycle ADR | crash ambiguity tests | Main |
-| ARCH-JOB-005 | Job lifecycle ADR | publish/ack fault matrix | Main |
-| ARCH-EXEC-001 | Execution ADR | execution limits black-box suite | PR |
-| ARCH-EXEC-002 | Execution ADR | descendant-process cancel test | PR + VM |
-| ARCH-OBS-001 | Audit ADR | correlated lifecycle audit test | PR |
-| ARCH-TEST-001 | `ADR-0010` | per-feature effect assertions | PR |
-| ARCH-TEST-002 | Subject authorization ADR | negative identity matrix | PR |
-| ARCH-TEST-003 | `ADR-0010` | `tools/archlint` coverage rule | PR |
+| Requirement | Design owner | Planned automated evidence | Gate | Lands at |
+|---|---|---|---|---|
+| ARCH-COMM-001 | `ADR-0002` | `test/architecture/nats_only_test.go` | PR | `C06` |
+| ARCH-COMM-002 | `ADR-0002` | `test/e2e/docker/network_isolation_test.go` | PR | `P11` |
+| ARCH-COMM-003 | `ADR-0010` | `test/e2e/docker/journey_test.go` | PR | `C05` |
+| ARCH-NATS-001 | `ADR-0002` | `test/e2e/docker/accounts_test.go` | PR | `C03` |
+| ARCH-NATS-002 | `ADR-0003` | `test/e2e/docker/identity_inventory_test.go` | PR | `C03` |
+| ARCH-NATS-003 | `ADR-0004` | `test/e2e/docker/permissions_test.go` | PR | `C03` |
+| ARCH-NATS-004 | `ADR-0003` | `test/e2e/docker/enrollment_test.go` | PR | `C05` |
+| ARCH-NATS-005 | `ADR-0004` | `test/e2e/docker/system_subject_permissions_test.go` | PR | `C03` |
+| ARCH-NATS-006 | `ADR-0005` | `test/e2e/docker/envelope_confidentiality_test.go`, `test/e2e/docker/envelope_signature_test.go` | PR | `C01` |
+| ARCH-NATS-007 | `ADR-0002` | `test/e2e/docker/resource_limits_test.go` | Main | `C15` |
+| ARCH-NATS-008 | RFC/ADR process | `tools/archlint` decision-matrix rule | PR | `P11` |
+| ARCH-NATS-009 | `ADR-0006` | exact-filter serialized-consumer test | PR | `C06` |
+| ARCH-NATS-010 | `ADR-0006` | redelivery exhaustion/advisory test | Main | `C06` |
+| ARCH-JOB-001 | `ADR-0006` | protocol conformance tests | PR | `C01` |
+| ARCH-JOB-002 | `ADR-0006` | restart boundary suite | Main | `C02` |
+| ARCH-JOB-003 | `ADR-0006` | non-idempotent duplicate-delivery test | PR | `C08` |
+| ARCH-JOB-004 | `ADR-0006` | crash ambiguity tests | Main | `C14` |
+| ARCH-JOB-005 | `ADR-0006` | publish/ack fault matrix | Main | `C14` |
+| ARCH-EXEC-001 | `ADR-0007` | execution limits black-box suite | PR | `C07` |
+| ARCH-EXEC-002 | `ADR-0007` | descendant-process cancel test | PR + VM | `C07` |
+| ARCH-OBS-001 | `ADR-0008` | correlated lifecycle audit test | PR | `C12` |
+| ARCH-TEST-001 | `ADR-0010` | per-feature effect assertions | PR | `C08` |
+| ARCH-TEST-002 | `ADR-0004` | negative identity matrix | PR | `C03` |
+| ARCH-TEST-003 | `ADR-0010` | `tools/archlint` coverage rule | PR | `P11` |
 
 ## Maintenance rules
 

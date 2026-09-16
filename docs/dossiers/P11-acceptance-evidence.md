@@ -9,22 +9,174 @@ second. Every case below names which one owes it.
 defect is planted in code, configuration or a gate, and the gate itself must
 reject it. Nothing here reads a document to see whether it says the right thing.
 
+## `P11b` — the lint tools, the register, and the harness
+
+**Every case `P11a` left owed is now paid, and `AC-6` turned out not to be
+vacuous.** I predicted it would be. Three rows land at `P11`, so ticking it makes
+them **owed** on the day this ships.
+
+**One of the three is machine-checked; two are not, and `archlint` says so
+rather than counting them.**
+
+```text
+· 3 rows owed by a completed task, 1 paid
+· 2 owed rows describe their evidence in prose and are NOT machine-checked: ARCH-NATS-008, ARCH-TEST-003
+```
+
+`ARCH-NATS-008` and `ARCH-TEST-003` name *rules* rather than files. Counting
+those as paid would make **writing a sentence** a way to satisfy the gate, so
+they are reported and excluded. `AC-6`'s non-vacuity therefore rests on **one**
+row — the isolation test — which is a smaller claim than the one this paragraph
+made before review, and a true one.
+
+### What each case fails on
+
+| Case | Fails when |
+|---|---|
+| `AC-3` | A superseded conclusion returns to any tracked file, a forbidden CI trigger appears, a rule outlives its retirement, a rule states no reason, or a rule's subject leaves the tree so it cannot fail |
+| `AC-4` | An invariant has no row, a row names an invariant that does not exist, a design owner names no document, or a gate is not one `TESTING.md` schedules |
+| `AC-5` | A row names no task that owes its evidence, or names one the epic does not have |
+| `AC-6` | A task the epic shows complete owes evidence that does not exist |
+| `AC-7` | **The probe cannot detect a route** — not merely that isolation held |
+| `AC-1` | The container suite enters `check` while CI cannot run it, or the deferral stops saying what would end it |
+
+### The lifetime mechanism fired on its first run, against its author
+
+`what-p10-is` was written with `RetireAfter: "P11"` — and ticking `P11` in the
+same commit retired it, failing the build.
+
+**That is the mechanism working, and it forced the question the guess had
+skipped.** A sweep retires when the corrected text has been **stable across
+enough tasks** that the belief is no longer available, and one task later is not
+that. Its demonstrate half shares a subject with `p10-risk-gates`, so they now
+retire together at `C14` — the task that actually attempts the reconstruction.
+
+Without the forced failure I would have shipped a rule that vanished silently
+the moment its own task completed.
+
+### The probe is demonstrated in both directions, locally
+
+`ADR-0010` § 2 requires the isolation to be *proved by a probe* — *"a topology
+that merely omits a route passes vacuously the day someone adds one."* So the
+same `reachable()` runs twice: separate networks must be unreachable, **and a
+deliberately joined pair must be reported reachable.**
+
+```text
+=== RUN   TestSeparateNetworksAreNotReachable
+--- PASS: TestSeparateNetworksAreNotReachable (5.76s)
+=== RUN   TestTheProbeDetectsAJoinedPair
+--- PASS: TestTheProbeDetectsAJoinedPair (0.61s)
+PASS
+ok      go.keystone-core.io/keystone-core/test/e2e/docker   6.379s
+```
+
+**What it does not establish**, in the file rather than in a hope: that the
+product *works* across this topology. `ARCH-COMM-002` requires the parts to
+function without a direct route, and nothing here runs a journey — no NATS
+connection exists until C06. This proves the arrangement.
+
+### The container suite is outside `make check`, and that is asserted
+
+CI cannot run it: jobs on the runner have no Docker client and no socket
+(`CI-RUNNER.md`, `R6`). Putting it in `check` today would fail `gates-agree`,
+correctly, because CI has no step for it.
+
+**A gate in neither set is invisible to `gates-agree`** — not missing from
+either, so nothing reports it. `deferred-gates-check` asserts the deferral
+instead: the target exists, it is **not** in `check`, and the recipe says what
+ends the deferral.
+
+### Two false negatives review found, and why they were the dangerous kind
+
+**`archlint` treated any evidence cell containing a space as paid.** The
+rationale was *"a description rather than a path"* — and it made every
+**multi-path** cell trivially satisfied. `ARCH-NATS-006` names two test files;
+when C01 completes, deleting either would have left the tool green. **A check
+that cannot fail on the input it exists for is not a check.** Cells are parsed
+now: every path-shaped token must exist, and prose is reported rather than
+counted.
+
+**The sweep asked `git ls-files` for `*.md` and `*.yml`, not `*.yaml`.** A
+tracked `.yaml` workflow was never scanned — so the **permanent security rule**,
+the one forbidding `pull_request_target`, could be bypassed by an extension.
+This repository's own `compose.yaml` was already unscanned.
+
+Both extensions are covered — and, because a pattern list cannot notice what it
+does not match, `doclint` now **enumerates `.forgejo/workflows` directly** and
+fails if any tracked file there is outside the swept set. An extension nobody
+anticipated is exactly how this happened.
+
+### The same false negative, one layer in
+
+The fix above parsed cells and reported prose — and then **counted a cell paid as
+soon as one path in it existed**. `len(paths) == 0 && prose` was the test for
+"unvalidated", so a mixed cell took the `default` branch:
+
+| Cell | Before | Now |
+|---|---|---|
+| `a/real_test.go`, `manual review required` | **paid** | partly checked, not paid |
+| `a/real_test.go`, `b/missing.go (generated later)` | **paid** | **fails** |
+
+The second is the sharper one. `b/missing.go (generated later)` is *path-shaped
+and does not parse*, and the code demoted it to prose — so a reference stopped
+being checked without anyone deciding that. It is named and fails now, because
+prose is a description someone writes on purpose and a malformed path is a typo.
+
+**The first fix removed the exemption-by-shape and left the exemption-by-position
+behind it.** Three cases in a row where a cell could satisfy the gate without its
+contents being checked; the lesson is the one already in this file — an escape
+hatch expressed by shape exempts the next thing by accident.
+
+```text
+control: one real path, must stay PAID                 3 rows owed, 1 paid
+mixed:   real path + prose                             3 rows owed, 0 paid, reported partly checked
+mixed:   real path + unparseable path                  fails — looks like a path and cannot be checked as one
+two paths, the second missing                          fails — its evidence does not exist
+pure prose                                             3 rows owed, 0 paid, reported unvalidated
+```
+
+The control is load-bearing: `paid` reaching 0 in four of five rows is only
+meaningful because the first row shows it can reach 1 at all. **`AC-6`'s
+non-vacuity rests on `ARCH-COMM-002`, the single owed row whose evidence is a
+path** — stated here because it is a smaller claim than "the register is
+checked".
+
+### Five defects the demonstration found in this task's own tools
+
+- **`units()` flattened YAML.** Joining an indented `pull_request_target:` onto the line
+  above stops a `^`-anchored pattern matching, so the forbidden-trigger rule
+  **silently passed**. The paragraph model is Markdown's; in YAML a line is the
+  unit.
+- **Prose sweeps were case-sensitive**, so a sentence *beginning* with the
+  subject was not examined while the same sentence mid-paragraph was.
+- **`deferred-gates-check` read only the first line of `check`'s prerequisites**,
+  so anything on a continuation line was invisible — the identical bug
+  `gates-agree` had, reintroduced three targets away.
+- **A check that read itself.** It grepped the whole `Makefile` for the phrase
+  that states the deferral's end condition — and that phrase appears in the
+  grep's own pattern, so it passed however the comment changed. Scoped to the
+  recipe.
+- **Two plantings that tested nothing**: one appended text without the rule's
+  subject, so the unit was never examined; one replaced an assertion with
+  `if false`, which makes a test pass rather than breaking the probe it was
+  aimed at.
+
 ## Which pull request owes each case
 
 | Case | Owed by | State |
 |---|---|---|
-| `AC-1` | Both | **Partly paid.** CI and `make check` are asserted to agree for the gates that exist; `P11b` adds three more and the assertion covers them automatically |
+| `AC-1` | Both | **Paid.** `gates-agree` covers the three gates `P11b` adds; the container suite is deferred, and `deferred-gates-check` asserts the deferral rather than leaving it invisible |
 | `AC-2` | `P11a` | **Paid** |
-| `AC-3` | `P11b` | Owed — `tools/doclint` |
-| `AC-4` | `P11b` | Owed — `tools/archlint` |
-| `AC-5` | `P11b` | Owed — the register's `Lands at` column |
-| `AC-6` | `P11b` | Owed — and vacuous until `AC-7` pays a row |
-| `AC-7` | `P11b` | Owed — the isolation probe |
+| `AC-3` | `P11b` | **Paid** — `tools/doclint`; every rule in `rules.go` carries a lifetime, and the tool prints the set it ran |
+| `AC-4` | `P11b` | **Paid** — `tools/archlint`, both directions |
+| `AC-5` | `P11b` | **Paid** — the register's `Lands at` column |
+| `AC-6` | `P11b` | **Paid, and not vacuous**: three rows owed by a completed task, one machine-checked and two reported as prose rather than counted |
+| `AC-7` | `P11b` | **Paid** — demonstrated locally in both directions |
 | `AC-8` | `P11a` | **Paid** |
 | `AC-9` | `P11a` | **Paid** |
 | `AC-10` | `P11a` | **Paid** |
 | `AC-11` | `P11a` | **Paid** |
-| `AC-12` | Both | Owed at `P11b`, when the deferral list is complete |
+| `AC-12` | Both | **Paid** |
 
 **The five owed cases are the ones with a `DL-1` risk**, which is why the split
 was drawn here: `AC-6`'s vacuity, `AC-4`'s register sweep and `AC-7`'s probe all
@@ -88,24 +240,80 @@ not have; what is worth keeping is the class — **a tool whose input set silent
 differs from what you believe it is**, which is the third instance this stage
 after the `docs-links` glob and `make check`'s staging blind spot.
 
+### The standing rule G25 left owed
+
+G25's epic entry says `tools/doclint` **owes a standing rule** for the claim it
+corrected — *"queued `runs-on: docker` jobs prove no runner advertises that
+label"*. `runner-label-absence` is that rule, and it took four shapes to get
+right.
+
+It fired on this paragraph first. An evidence file has to state the claim it
+guards against, so the sweep read its own subject — the same shape as the
+fenced-code exemption the earlier sweeps needed. The claim is quoted here, which
+is what it is, and `classify` reports it as quoted rather than live.
+
+**`Pattern` and `Stale` are the same expression**, as they are for the two CI
+rules — the construct is the defect, so zero hits is the correct state. A
+subject/stale split was tried first and abandoned: **the sentence review actually
+flagged says neither "runner" nor "label", only `docker`**, so every subject
+narrow enough to mean something missed it, and the one wide enough to catch it
+was "any paragraph mentioning Docker".
+
+Three things the drafts got wrong, each caught by running it rather than reading
+it:
+
+| Draft | What it did |
+|---|---|
+| subject `\brunners?\b` | missed the flagged sentence entirely — it never says "runner" |
+| construct with no anchor | flagged `Nothing was deleted` and `none is an agent, and each carries its reason` across **twelve** unrelated documents |
+| `[\\s\\S]` inside a Go raw string | a class of *backslash, s, S* — not "any character". It matched by accident and reported zero sites |
+
+**The rule forbids a shape, not a fact.** What the runner list shows is stated
+positively — "the list shows this label on one runner" — and four places in
+`CI-RUNNER.md` were reworded from an absence to a reading. One of them,
+§ Rebuilding it, was **wrapped across a line break**, so the grep-based sweep
+that found the others could not see it: `doclint` works on paragraphs, and that
+is the difference.
+
+```text
+unmutated tree: PASS
+AC-3   fails as expected  — an absence claim about a label, in the wording review found
+AC-3   fails as expected  — the same claim in the wording the subject sweep found
+AC-3   fails as expected  — a third wording neither sweep used
+AC-3   fails as expected  — a fourth, with the label named only as "it"
+AC-3   passes, correctly  — the same fact stated from the runner list
+AC-3   passes, correctly  — the causal direction, which is not the inference
+AC-3   passes, correctly  — ordinary English that an unanchored draft flagged
+AC-3   passes, correctly  — ordinary English, second instance
+```
+
+The last four are the control. A rule that only ever fails proves nothing about
+what it separates; these are the cases that must **pass**, and two of them are
+the ordinary English an earlier draft rejected.
+
 ## Demonstration record
 
 ```text
 unmutated tree: PASS
-AC-2   fails as expected  — a trailing space inside a fenced block
-AC-2   fails as expected  — a trailing tab in Go source
-AC-8   fails as expected  — the version is a literal rather than derived
-config fails as expected  — an environment override may be relative, so $PWD is read
-config fails as expected  — a relative HOME builds a relative candidate
-config fails as expected  — a relative override falls through instead of being refused
-AC-9   fails as expected  — a binary imports a NATS client
-AC-9   fails as expected  — a binary opens a network connection
-AC-9   fails as expected  — a journey verb is wired
-AC-10  fails as expected  — a check target is not run by CI
-AC-10  fails as expected  — CI runs a gate that make check does not
-AC-10  fails as expected  — the one CI-only gate is removed without removing its exemption
-AC-11  fails as expected  — AGENTS.md still says there is no product code
-gitignore fails as expected  — a source package named target is invisible to git
+AC-3   fails as expected  — a superseded conclusion returns to a tracked file
+AC-3   fails as expected  — a forbidden CI trigger is added
+AC-3   fails as expected  — a rule outlives its retirement
+AC-3   fails as expected  — a rule loses its reason and cannot be retired by anyone
+AC-3   fails as expected  — a sweep's subject leaves the tree, so it cannot fail
+AC-3   fails as expected  — a forbidden trigger hides in a .yaml workflow
+AC-3   fails as expected  — a workflow the sweep's patterns cannot match
+AC-6   fails as expected  — a listed evidence path is deleted while the cell still names two
+AC-6   fails as expected  — prose evidence is counted as paid
+AC-4   fails as expected  — an invariant loses its register row
+AC-4   fails as expected  — a register row names an invariant that does not exist
+AC-4   fails as expected  — a design owner names no document
+AC-4   fails as expected  — a gate is not one TESTING.md schedules
+AC-5   fails as expected  — a row names no task that owes its evidence
+AC-5   fails as expected  — a row lands at a task the epic does not have
+AC-6   fails as expected  — a completed task owes evidence that does not exist
+AC-7   fails as expected  — the isolation probe cannot detect a route
+AC-1   fails as expected  — the container suite is put into check while CI cannot run it
+AC-1   fails as expected  — the deferral stops saying what would end it
 ```
 
 ## The harness
