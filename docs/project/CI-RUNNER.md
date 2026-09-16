@@ -108,16 +108,26 @@ The package manager verifies signatures against a key installed out of band.
 That is the property `curl | sh` lacks, and it is why the packaged path is used
 even where it lags a release or two.
 
+**Debian and Ubuntu only.** Docker publishes a separate repository per
+distribution with its own key and its own codenames, so the path and the
+codename are both read from `/etc/os-release` rather than written for one and
+used for the other. A RHEL-family host needs a `dnf` repository instead and is
+not covered here; pick the distribution before building the machine.
+
 ```sh
-# Debian / Ubuntu. The key is fetched once and pinned by the repository entry;
-# apt refuses the repository if a later package is not signed by it.
+. /etc/os-release                      # $ID is debian or ubuntu; $VERSION_CODENAME matches it
+case "$ID" in debian|ubuntu) ;; *) echo "unsupported: $ID"; exit 1 ;; esac
+
+# The key is fetched once and pinned by the repository entry; apt refuses the
+# repository if a later package is not signed by it.
 install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/debian/gpg \
-  -o /etc/apt/keyrings/docker.asc
+curl -fsSL "https://download.docker.com/linux/$ID/gpg" -o /etc/apt/keyrings/docker.asc
 chmod a+r /etc/apt/keyrings/docker.asc
+
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
-https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+https://download.docker.com/linux/$ID $VERSION_CODENAME stable" \
   > /etc/apt/sources.list.d/docker.list
+
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
@@ -128,7 +138,7 @@ systemctl enable --now docker
 version is a host nobody can reproduce, and reproducing it is the whole point of
 a runbook.
 
-### 2. The runner binary, pinned and verified
+### 2. The runner binary, pinned — and the trust anchor it still lacks
 
 ```sh
 VERSION=<pinned at apply>        # never "latest"
@@ -152,12 +162,28 @@ install -m 0755 /tmp/forgejo-runner /usr/local/bin/forgejo-runner
 | Runner version | *(unset)* |
 | Runner binary sha256 | *(unset)* |
 
-**A published checksum served from the same host as the binary proves integrity
-in transit and nothing more.** It does not establish that the release is the one
-the project intended, and this runbook does not pretend otherwise: if Forgejo
-publishes a signature for the release, verify that instead and record which was
-used. The digest table exists so a *rebuild* can be compared against what was
-actually run here, which is the check this host can make for itself.
+**This is not yet a verified install, and calling it one would be the defect
+this repository keeps finding.** The binary and its checksum come from the same
+origin, so anything able to change one can change the other and `sha256sum -c`
+still passes. What that step gives is **detection of corruption in transit** — a
+truncated download, a bad mirror — and nothing about authenticity.
+
+**The trust anchor is the digest recorded in the table above**, and it does not
+exist until the host is built. Once recorded, it is under version control, in a
+signed commit, and reviewed — so a *rebuild* verifies against a value this
+project attested to rather than against whatever the origin serves that day.
+**Until that row is filled there is no anchor at all**, and this section says so
+rather than implying the checksum is one.
+
+**At apply time, in this order:**
+
+1. **Look for a signature on the release.** If Forgejo publishes one, verify it
+   and record the **key fingerprint** here — that is a real anchor and it
+   replaces the argument above rather than supplementing it.
+2. **If there is none**, record the digest and the date, and note that the first
+   install was trust-on-first-use. That is a weaker control, honestly labelled.
+3. **Either way, fill the table.** An unrecorded digest makes every later rebuild
+   a first install again.
 
 ### 3. A dedicated account
 
@@ -176,25 +202,38 @@ interface under the repository's Actions settings. It cannot be fetched with the
 bot credential: `actions/runners/registration-token` returns `403 — user should
 be the owner of the repo` at both repository and organisation scope.
 
+**No user switch.** Two attempts to do this under one failed review: `sudo`
+resets the environment by default and strips the token, and `runuser` resets it
+too unless `-m` is given. Both defaults are easy to get wrong and neither failure
+is loud — the register receives an empty token and reports something unhelpful.
+
+Registering **as root in the runner's working directory and then fixing
+ownership** removes the question rather than answering it:
+
 ```sh
+cd /var/lib/forgejo-runner
+
 # Repository scope, never organisation or instance: no other repository may
 # claim this runner.
 #
-# The label is distinct. Hosted jobs keep `runs-on: docker` and never reach
-# this machine; only jobs asking for `keystone-docker` do.
-#
-# `runuser`, not `sudo`. sudo resets the environment by default (`env_reset`),
-# which strips REGISTRATION_TOKEN before the command sees it -- the register
-# then fails with an empty token, or worse, appears to hang on a prompt.
-# runuser(1) does not reset the environment, so the variable survives the user
-# switch without an undocumented sudoers exception.
-runuser -u forgejo-runner -- forgejo-runner register \
+# The label is distinct. Hosted jobs keep `runs-on: docker` and never reach this
+# machine; only jobs asking for `keystone-docker` do.
+forgejo-runner register \
   --no-interactive \
   --instance https://codeberg.org \
   --token "$REGISTRATION_TOKEN" \
   --name keystone-container-runner \
   --labels keystone-docker:docker://docker:cli
+
+# The register wrote its configuration as root; the daemon runs as the runner.
+chown -R forgejo-runner:forgejo-runner /var/lib/forgejo-runner
 ```
+
+**This exact invocation is unverified against the target.** No host has been
+reachable, so the flag names and the config file's location are taken from the
+tool's documented interface and not from a run. **Verification step 1 below is
+what confirms it**, and if the flags differ, the runbook is corrected from the
+apply rather than the apply improvised around the runbook.
 
 **The token is a credential, and this command puts it in `argv`.**
 
