@@ -104,8 +104,39 @@ how each is checked.
 | R3 | **Ephemeral: one job, then exit** | Persistence between jobs is how one job's residue reaches the next. The host runs code this repository generates, so nothing should survive a job | § Verification, step 4 |
 | R4 | **A dedicated host** | The OS-test VMs are snapshot-reset for distribution testing, and a reset unregisters the runner **without failing loudly** — jobs queue against a label nobody advertises | Operational; stated here so a later reuse is a decision rather than an accident |
 | R5 | **The host holds nothing worth stealing** | The runner needs the Docker socket, and that is root on the host. Sandboxing inside a job is decoration; the host is the boundary | Review of what is on it |
-| R6 | **Docker works, and networks are genuinely isolated** | `ADR-0010` § 2 requires the isolation to be *proved by a probe* rather than asserted — and proved in both directions | § Verification, step 3 |
+| R6 | **Docker works inside a job, through a daemon of the job's own** | `ADR-0010` § 2 requires the isolation to be *proved by a probe* rather than asserted — and proved in both directions. **Not the host's socket**: see § How a job gets Docker | § Verification, step 3 |
 | R7 | **What was installed is recorded** | So a rebuild reproduces this host rather than becoming a first install again. This is the trust anchor the checksum is not | § What is deployed |
+
+## How a job gets Docker
+
+**A daemon of the job's own, not the host's socket.**
+
+The alternatives and why this one:
+
+| Shape | Why not |
+|---|---|
+| **Jobs run on the host**, where Docker already is | Simplest, and it **gives up `R3`** — a marker written to `/tmp` survives into the next job. `R3` is the only isolation between one job and the next, since `R5` concedes the host is the security boundary |
+| **A container with the host's socket mounted in** | Keeps `R3` for the job, and **containers the job creates are siblings on the host daemon** — they outlive the job unless it cleans up, and a suite that fails partway leaves them behind. That is the state that makes the *next* run fail confusingly |
+| **A daemon per job** — chosen | Containers and networks the harness creates belong to a daemon that **dies with the job**, so the sibling problem does not exist rather than being managed. Job code never touches the host's socket at all |
+
+**What it costs, stated rather than discovered:** a daemon per job starts empty,
+so **there is no image cache between jobs.** Every run pulls what it needs.
+
+**That cost is accepted for now.** Nobody has run this suite, so how slow "slow"
+is, is a guess, and optimising against a guess has a poor record here. The
+trigger to revisit is specific: **the first run that fails on a registry rate
+limit rather than on a defect.** The answer then is a pull-through cache on the
+host — upstream of the daemon, so a job still starts from an empty store.
+
+### Rejected: sharing the daemon's storage between jobs
+
+**Recorded because it is the tempting wrong answer**, and an unrecorded rejection
+gets rediscovered as a good idea.
+
+Persisting `/var/lib/docker` across jobs would remove the pull cost — and it is
+**state surviving between jobs, which is `R3` undone by the back door.** The
+whole reason for a per-job daemon is that nothing it holds outlives the job. A
+shared image store is something it holds.
 
 ## Illustrative configuration
 
@@ -157,15 +188,40 @@ rebuild cannot reproduce a host whose values were never written down.
 | Working directory, user, config location | *(unset)* |
 | Ephemeral (R3) | *(unset)* |
 | Scope (R2) | *(unset)* |
-| Labels (R1) | **`docker`, `ubuntu-latest` — violates R1, see below** |
+| Labels (R1) | `keystone-docker` — **R1 holds, though see below** |
 
-**A known deviation, recorded rather than left to be discovered.** The runner
-currently advertises `docker` and `ubuntu-latest`. `docker` is the label
-Codeberg's hosted pool uses and the label `reboot-baseline` asks for on
-`pull_request`, so **until R1 holds, a pull request can be scheduled onto this
-host**. Changing the labels in the runner configuration and restarting is
-sufficient; re-registration is not required, and § Verification step 2 is what
-confirms which list the server is actually using.
+### What verification has established so far
+
+Two dispatched runs against the live runner, 2026-09-16. Job conclusions, since
+job logs are not readable through this forge's API.
+
+| | Result |
+|---|---|
+| Jobs run on the runner's own label | **yes** |
+| `actions/checkout` works there | **yes** |
+| **R3** — a marker written outside the workspace does not survive into the next job | **holds** |
+| **R6** — Docker usable inside a job | **not met** |
+| **R1** — the label is exclusive | **not yet established** |
+
+**`R6`'s diagnosis, which is why the shape above was chosen.** Jobs run *inside a
+container* — confirmed, not inferred — and that container has **neither the
+Docker client nor a socket**, so a job cannot reach Docker at all. It is a
+configuration detail rather than the structural impossibility the hosted pool
+has, and § "How a job gets Docker" is the answer.
+
+**`R1` is unproven rather than failing.** The label was changed from `docker` to
+`keystone-docker`, and the four `runs-on: docker` samples were still queued when
+this was written. They are **consistent** with the change having taken effect —
+the runner sat idle throughout and would have claimed them otherwise — but
+**consistent-with is not proven**, which is the entire reason step 2 asks for
+several samples rather than one.
+
+**An earlier deviation, now closed.** The runner advertised `docker`, which is
+the label the hosted pool uses *and* the label `reboot-baseline` asks for on
+`pull_request` — so until it changed, a pull request could be scheduled onto this
+host. Changing the labels in the runner configuration was sufficient;
+**re-registration was not required**, and an earlier version of this document
+wrongly said otherwise.
 
 ## Verification
 
