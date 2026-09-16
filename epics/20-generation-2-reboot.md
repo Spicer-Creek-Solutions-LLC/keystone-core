@@ -333,10 +333,15 @@ limitations go in the pull request.
   names Forgejo's documentation as authoritative. The rule is the one this
   repository already applies to globs and to the invariant map: **do not restate
   a source you do not control**, because nothing can gate a restatement drifting.
-  A live deviation is recorded rather than left to be found: **the runner
-  advertises `docker`**, which is the label the hosted pool uses and the label
-  `reboot-baseline` asks for on `pull_request`, so until R1 holds a pull request
-  can be scheduled onto that host.
+  A deviation found and closed while this landed: the runner had advertised
+  **`docker`**, which is the label the hosted pool uses and the label
+  `reboot-baseline` asks for on `pull_request` — so a pull request could have
+  been scheduled onto that host. Changing the label was sufficient;
+  **re-registration was not required**, and an earlier draft of the runbook
+  wrongly said it was. Verification against the live runner then established
+  that **`R3` holds** and **`R6` does not** — jobs run in a container with
+  neither a Docker client nor a socket — and left **`R1` unproven rather than
+  passing**, because the samples that would prove it were still queued.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

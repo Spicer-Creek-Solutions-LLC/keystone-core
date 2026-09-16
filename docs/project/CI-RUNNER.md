@@ -101,7 +101,7 @@ how each is checked.
 |---|---|---|---|
 | R1 | **The label is not `docker`, and not `ubuntu-latest`** | Codeberg's hosted pool *is* the `docker` label, and `reboot-baseline` asks for it on `pull_request`. A runner sharing that label makes the two pools interchangeable, so **any pull request can be scheduled onto this host** — the exposure the trigger design exists to prevent. No workflow condition can separate pools that advertise the same label | § Verification, step 2 |
 | R2 | **Repository scope** | An instance- or organisation-scoped runner can be claimed by another repository, which is a different trust decision than the one made here | Its entry in the repository's Actions settings |
-| R3 | **Ephemeral: one job, then exit** | Persistence between jobs is how one job's residue reaches the next. The host runs code this repository generates, so nothing should survive a job | § Verification, step 4 |
+| R3 | **No state carries from one job to the next** | Residue from one job reaching the next is how a compromised or merely broken job spreads. **This is an isolation property, not a process lifecycle** — a persistent runner giving each job a fresh container satisfies it, and `--once` is one mechanism among others. The requirement is the property; the mechanism is the deployment's | § Verification, step 4 |
 | R4 | **A dedicated host** | The OS-test VMs are snapshot-reset for distribution testing, and a reset unregisters the runner **without failing loudly** — jobs queue against a label nobody advertises | Operational; stated here so a later reuse is a decision rather than an accident |
 | R5 | **The host holds nothing worth stealing** | The runner needs the Docker socket, and that is root on the host. Sandboxing inside a job is decoration; the host is the boundary | Review of what is on it |
 | R6 | **Docker works inside a job, through a daemon of the job's own** | `ADR-0010` § 2 requires the isolation to be *proved by a probe* rather than asserted — and proved in both directions. **Not the host's socket**: see § How a job gets Docker | § Verification, step 3 |
@@ -164,7 +164,11 @@ re-registering — the daemon re-declares them on start:
 runner:
   labels:
     - "keystone-docker:docker://docker:cli"      # R1
-  capacity: 1                                    # R3: one job at a time
+  capacity: 1                                    # concurrency, NOT R3 --
+                                                 # R3 is isolation between
+                                                 # jobs and is established
+                                                 # by verification, not by
+                                                 # a config line
 ```
 
 **The token is a credential and `--token` puts it in `argv`**, readable by any
@@ -188,7 +192,7 @@ rebuild cannot reproduce a host whose values were never written down.
 | Working directory, user, config location | *(unset)* |
 | Ephemeral (R3) | *(unset)* |
 | Scope (R2) | *(unset)* |
-| Labels (R1) | `keystone-docker` — **R1 holds, though see below** |
+| Labels (R1) | `keystone-docker` — **exclusivity not yet established**, see below |
 
 ### What verification has established so far
 
@@ -247,8 +251,15 @@ job **that would fail on a misconfigured host** has passed.
    demonstrated only in the passing direction is a probe that would pass on a
    topology with a route, which is what `ADR-0010` § 2 forbids.
 
-4. **Nothing survives a job.** A job writes a marker outside the workspace; the
-   next job on the same runner does not find it.
+4. **No state carries between jobs** — `R3`. A job writes a marker outside its
+   workspace; the next job does not find it.
+
+   **What this establishes and what it does not.** It shows the *isolation*,
+   which is the requirement. It does **not** show the runner process exited
+   between jobs, and it need not: a persistent runner handing each job a fresh
+   container passes this and satisfies `R3`. Cleanup could also make it pass —
+   so the check is on a path a job would not think to clean, outside the
+   workspace, rather than inside it.
 
 5. **A push produces a commit status visible on a pull request** opened from that
    branch — the claim the whole trigger design rests on.
