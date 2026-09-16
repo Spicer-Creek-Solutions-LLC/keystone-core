@@ -87,6 +87,7 @@ func main() {
 	note("%d tasks in the epic, %d complete", len(tasks), len(complete))
 
 	owed, paid := 0, 0
+	var unvalidated []string
 	for _, r := range rows {
 		// Every owner must name a document that exists. This is the rule that
 		// would have caught "Test architecture ADR" years before ADR-0010 did.
@@ -112,16 +113,35 @@ func main() {
 		// have their evidence.
 		if complete[r.landsAt] {
 			owed++
-			if exists(*root, r.evidence) {
-				paid++
-			} else {
+			paths, prose := evidencePaths(r.evidence)
+			missing := []string{}
+			for _, path := range paths {
+				if !exists(*root, path) {
+					missing = append(missing, path)
+				}
+			}
+			switch {
+			case len(missing) > 0:
 				fails = append(fails, fmt.Sprintf(
-					"%s lands at %s, which the epic shows complete, and its evidence %q does not exist",
-					r.invariant, r.landsAt, r.evidence))
+					"%s lands at %s, which the epic shows complete, and its evidence does not exist: %s",
+					r.invariant, r.landsAt, strings.Join(missing, ", ")))
+			case len(paths) == 0 && prose:
+				// Not a failure and not a pass. Counting it as paid is how a
+				// prose cell becomes a way to satisfy the gate by writing a
+				// sentence.
+				unvalidated = append(unvalidated, r.invariant)
+			default:
+				paid++
 			}
 		}
 	}
 	note("%d rows owed by a completed task, %d paid", owed, paid)
+	if len(unvalidated) > 0 {
+		// Reported, never counted. These are evidence a human verifies, and
+		// leaving them invisible would let a sentence stand in for a test.
+		note("%d owed rows describe their evidence in prose and are NOT machine-checked: %s",
+			len(unvalidated), strings.Join(unvalidated, ", "))
+	}
 	if owed == 0 {
 		note("the liveness rule has an empty population and cannot fail today — " +
 			"ADR-0010 § 14: a row naming a file that does not exist is a target, not enforcement")
@@ -249,15 +269,32 @@ func ownerResolves(root, owner string) bool {
 	return false
 }
 
+// evidencePaths splits an evidence cell into the paths it names.
+//
+// A cell may list several ("a_test.go, b_test.go") or describe a rule in prose
+// ("tools/archlint coverage rule"). An earlier version returned true for any
+// cell containing a space, which made EVERY multi-path cell trivially paid --
+// deleting either file named by ARCH-NATS-006 would have left this tool green.
+// A check that cannot fail on the input it exists for is not a check.
+func evidencePaths(cell string) (paths []string, prose bool) {
+	for _, tok := range strings.Split(cell, ",") {
+		tok = strings.Trim(strings.TrimSpace(tok), "`")
+		if tok == "" {
+			continue
+		}
+		// A path here is a slash-separated reference with a file extension.
+		// Anything else is prose: it describes evidence a human verifies, and
+		// it is reported as unvalidated rather than counted as paid.
+		if strings.Contains(tok, "/") && filepath.Ext(tok) != "" && !strings.Contains(tok, " ") {
+			paths = append(paths, tok)
+			continue
+		}
+		prose = true
+	}
+	return paths, prose
+}
+
 func exists(root, rel string) bool {
-	if rel == "" {
-		return false
-	}
-	// An evidence cell may describe a rule rather than name a path. Only paths
-	// are checked for existence; a description is checked by review.
-	if !strings.Contains(rel, "/") || strings.Contains(rel, " ") {
-		return true
-	}
 	_, err := os.Stat(filepath.Join(root, rel))
 	return err == nil
 }

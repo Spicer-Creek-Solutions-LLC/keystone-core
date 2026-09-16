@@ -42,6 +42,18 @@ func main() {
 		fmt.Fprintln(os.Stderr, "doclint:", err)
 		os.Exit(2)
 	}
+	// Belt and braces for the security rule: enumerate the workflow directory
+	// itself and require every tracked file in it to be in the swept set. An
+	// extension nobody anticipated is exactly how the .yaml gap happened, and a
+	// pattern list cannot notice what it does not match.
+	if missed, err := unsweptWorkflows(*root, files); err != nil {
+		fmt.Fprintln(os.Stderr, "doclint:", err)
+		os.Exit(2)
+	} else if len(missed) > 0 {
+		fmt.Fprintln(os.Stderr, "doclint: these workflow files are not swept:",
+			strings.Join(missed, ", "))
+		os.Exit(1)
+	}
 	if len(files) < 20 {
 		fmt.Fprintf(os.Stderr, "doclint: %d tracked files — the sweep is not reaching the repository\n", len(files))
 		os.Exit(2)
@@ -283,7 +295,11 @@ func emphasised(unit string, at int) bool {
 func trackedMarkdown(root string) ([]string, error) {
 	// From git, not a glob. The Makefile records why: a glob silently disagreed
 	// about what "every tracked file" meant.
-	cmd := exec.Command("git", "ls-files", "*.md", "*.yml")
+	// Both YAML spellings. An earlier version asked only for *.yml, so a
+	// tracked .yaml file was never scanned -- including this repository's own
+	// compose.yaml, and any future .forgejo/workflows/*.yaml, which would have
+	// bypassed the forbidden-trigger rule while doclint reported success.
+	cmd := exec.Command("git", "ls-files", "*.md", "*.yml", "*.yaml")
 	cmd.Dir = root
 	out, err := cmd.Output()
 	if err != nil {
@@ -315,6 +331,28 @@ func sum(xs []int) int {
 		n += x
 	}
 	return n
+}
+
+// unsweptWorkflows returns tracked files under .forgejo/workflows that the
+// sweep's file list does not contain.
+func unsweptWorkflows(root string, swept []string) ([]string, error) {
+	in := map[string]bool{}
+	for _, f := range swept {
+		in[f] = true
+	}
+	cmd := exec.Command("git", "ls-files", ".forgejo/workflows")
+	cmd.Dir = root
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("git ls-files .forgejo/workflows: %w", err)
+	}
+	var missed []string
+	for _, f := range strings.Fields(string(out)) {
+		if !in[f] {
+			missed = append(missed, f)
+		}
+	}
+	return missed, nil
 }
 
 func min(a, b int) int {

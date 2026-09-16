@@ -12,10 +12,22 @@ reject it. Nothing here reads a document to see whether it says the right thing.
 ## `P11b` — the lint tools, the register, and the harness
 
 **Every case `P11a` left owed is now paid, and `AC-6` turned out not to be
-vacuous.** I predicted it would be. It is not, because `ARCH-COMM-002`,
-`ARCH-NATS-008` and `ARCH-TEST-003` all land at `P11`, so ticking it makes three
-rows **owed and paid** on the day this ships — `archlint` reports
-`3 rows owed by a completed task, 3 paid`.
+vacuous.** I predicted it would be. Three rows land at `P11`, so ticking it makes
+them **owed** on the day this ships.
+
+**One of the three is machine-checked; two are not, and `archlint` says so
+rather than counting them.**
+
+```text
+· 3 rows owed by a completed task, 1 paid
+· 2 owed rows describe their evidence in prose and are NOT machine-checked: ARCH-NATS-008, ARCH-TEST-003
+```
+
+`ARCH-NATS-008` and `ARCH-TEST-003` name *rules* rather than files. Counting
+those as paid would make **writing a sentence** a way to satisfy the gate, so
+they are reported and excluded. `AC-6`'s non-vacuity therefore rests on **one**
+row — the isolation test — which is a smaller claim than the one this paragraph
+made before review, and a true one.
 
 ### What each case fails on
 
@@ -74,6 +86,26 @@ either, so nothing reports it. `deferred-gates-check` asserts the deferral
 instead: the target exists, it is **not** in `check`, and the recipe says what
 ends the deferral.
 
+### Two false negatives review found, and why they were the dangerous kind
+
+**`archlint` treated any evidence cell containing a space as paid.** The
+rationale was *"a description rather than a path"* — and it made every
+**multi-path** cell trivially satisfied. `ARCH-NATS-006` names two test files;
+when C01 completes, deleting either would have left the tool green. **A check
+that cannot fail on the input it exists for is not a check.** Cells are parsed
+now: every path-shaped token must exist, and prose is reported rather than
+counted.
+
+**The sweep asked `git ls-files` for `*.md` and `*.yml`, not `*.yaml`.** A
+tracked `.yaml` workflow was never scanned — so the **permanent security rule**,
+the one forbidding `pull_request_target`, could be bypassed by an extension.
+This repository's own `compose.yaml` was already unscanned.
+
+Both extensions are covered — and, because a pattern list cannot notice what it
+does not match, `doclint` now **enumerates `.forgejo/workflows` directly** and
+fails if any tracked file there is outside the swept set. An extension nobody
+anticipated is exactly how this happened.
+
 ### Five defects the demonstration found in this task's own tools
 
 - **`units()` flattened YAML.** Joining an indented `pull_request_target:` onto the line
@@ -103,7 +135,7 @@ ends the deferral.
 | `AC-3` | `P11b` | **Paid** — `tools/doclint`, seven rules with lifetimes |
 | `AC-4` | `P11b` | **Paid** — `tools/archlint`, both directions |
 | `AC-5` | `P11b` | **Paid** — the register's `Lands at` column |
-| `AC-6` | `P11b` | **Paid, and not vacuous**: three rows owed by a completed task, three paid |
+| `AC-6` | `P11b` | **Paid, and not vacuous**: three rows owed by a completed task, one machine-checked and two reported as prose rather than counted |
 | `AC-7` | `P11b` | **Paid** — demonstrated locally in both directions |
 | `AC-8` | `P11a` | **Paid** |
 | `AC-9` | `P11a` | **Paid** |
@@ -182,6 +214,10 @@ AC-3   fails as expected  — a forbidden CI trigger is added
 AC-3   fails as expected  — a rule outlives its retirement
 AC-3   fails as expected  — a rule loses its reason and cannot be retired by anyone
 AC-3   fails as expected  — a sweep's subject leaves the tree, so it cannot fail
+AC-3   fails as expected  — a forbidden trigger hides in a .yaml workflow
+AC-3   fails as expected  — a workflow the sweep's patterns cannot match
+AC-6   fails as expected  — a listed evidence path is deleted while the cell still names two
+AC-6   fails as expected  — prose evidence is counted as paid
 AC-4   fails as expected  — an invariant loses its register row
 AC-4   fails as expected  — a register row names an invariant that does not exist
 AC-4   fails as expected  — a design owner names no document
