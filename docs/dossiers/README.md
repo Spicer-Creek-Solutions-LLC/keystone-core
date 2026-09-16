@@ -63,6 +63,13 @@ One file per task, `docs/dossiers/<TASK>.md` — `P00.md`, `C05-A.md`. The task
 identifier matches the tracker issue's `keystone-core-task` marker, never a
 title, per [`ISSUE-TRACKING.md`](../project/ISSUE-TRACKING.md) § Principles.
 
+**A split behaviour workstream takes one dossier, not two.** `C05-A.md` above is
+a filename example rather than a requirement to split the file: `Cxx-A` and
+`Cxx-I` are two tasks and share `Cxx.md`, because the boundary between them is
+the thing most worth reading in one place. The dossier states each half's outputs
+separately — C01's § 3.1 and § 3.2 are the pattern. Decided at C01, where the
+question first arose.
+
 ## Index
 
 | Task | Dossier | State |
