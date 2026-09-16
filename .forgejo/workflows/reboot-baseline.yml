@@ -125,8 +125,6 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           PATH="$(go env GOPATH)/bin:$PATH" make vuln
 
-      # The exemption asserts itself: if the DCO gate below is ever removed,
-      # `check`'s one named exception becomes a gate nobody runs, and this fails.
       # The document sweeps and the requirements register. Both are Go tools in
       # their own modules, so they need no root-module build.
       - name: document sweeps
@@ -135,7 +133,14 @@ jobs:
       - name: requirements register
         run: make archlint
 
-      - name: the one CI-only gate still exists
+      # The exemption asserts itself: if the DCO gate is ever removed, `check`'s
+      # one named exception becomes a gate nobody runs, and this fails. G25 added
+      # the second half — presence was never the property, since a step can be
+      # present and conditioned on an event that never fires.
+      #
+      # P11b moved this comment back onto its step. Inserting the two sweeps
+      # above left it describing a gate three steps away.
+      - name: the one CI-only gate still exists, and can still run
         run: make dco-exempt-check
 
       # container-suite is deliberately absent: the runner cannot run Docker in
