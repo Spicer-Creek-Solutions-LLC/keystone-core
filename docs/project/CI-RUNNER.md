@@ -89,214 +89,182 @@ run.
 | A pull request from a **fork** | Read the diff, fetch its head to a branch in this repository, push it. That is a deliberate approval by a known account, performed rather than automated — which is the only safe form |
 | A **re-run** without a new commit | `workflow_dispatch` with a `ref` input, which the container workflow carries for this purpose |
 
-## Provisioning
+## What this project requires of the runner
 
-**A dedicated host**, not one of the OS-test VMs. Those are snapshot-reset for
-distribution testing, and a reset silently unregisters the runner — which does
-not fail loudly. It leaves jobs queued against a label nobody advertises, which
-is the worst shape of failure to diagnose.
+**These are the properties, not the procedure.** Forgejo documents how to
+install and register a runner, and that documentation changes with its releases;
+restating it here produces a worse copy that nothing can keep in step. What
+follows is what this repository needs to be true of whatever host you build, and
+how each is checked.
 
-**Nothing here is installed by piping a download into a shell.** This host's
-Docker socket is root on it, so an unverified root-level download *is* host
-compromise — and `curl … | sh` cannot be reviewed before it runs, cannot be
-pinned, and leaves no record of what executed. That convenience is exactly what
-this machine cannot afford.
+| # | Requirement | Why it is ours rather than upstream's | How it is checked |
+|---|---|---|---|
+| R1 | **The label is not `docker`, and not `ubuntu-latest`** | Codeberg's hosted pool *is* the `docker` label, and `reboot-baseline` asks for it on `pull_request`. A runner sharing that label makes the two pools interchangeable, so **any pull request can be scheduled onto this host** — the exposure the trigger design exists to prevent. No workflow condition can separate pools that advertise the same label | § Verification, step 2 |
+| R2 | **Repository scope** | An instance- or organisation-scoped runner can be claimed by another repository, which is a different trust decision than the one made here | Its entry in the repository's Actions settings |
+| R3 | **No state carries from one job to the next** | Residue from one job reaching the next is how a compromised or merely broken job spreads. **This is an isolation property, not a process lifecycle** — a persistent runner giving each job a fresh container satisfies it, and `--once` is one mechanism among others. The requirement is the property; the mechanism is the deployment's | § Verification, step 4 |
+| R4 | **A dedicated host** | The OS-test VMs are snapshot-reset for distribution testing, and a reset unregisters the runner **without failing loudly** — jobs queue against a label nobody advertises | Operational; stated here so a later reuse is a decision rather than an accident |
+| R5 | **The host holds nothing worth stealing** | The runner needs the Docker socket, and that is root on the host. Sandboxing inside a job is decoration; the host is the boundary | Review of what is on it |
+| R6 | **Docker works inside a job, through a daemon of the job's own** | `ADR-0010` § 2 requires the isolation to be *proved by a probe* rather than asserted — and proved in both directions. **Not the host's socket**: see § How a job gets Docker | § Verification, step 3 |
+| R7 | **What was installed is recorded** | So a rebuild reproduces this host rather than becoming a first install again. This is the trust anchor the checksum is not | § What is deployed |
 
-### 1. Docker, from the distribution's signed repository
+## How a job gets Docker
 
-The package manager verifies signatures against a key installed out of band.
-That is the property `curl | sh` lacks, and it is why the packaged path is used
-even where it lags a release or two.
+**A daemon of the job's own, not the host's socket.**
 
-**Debian and Ubuntu only.** Docker publishes a separate repository per
-distribution with its own key and its own codenames, so the path and the
-codename are both read from `/etc/os-release` rather than written for one and
-used for the other. A RHEL-family host needs a `dnf` repository instead and is
-not covered here; pick the distribution before building the machine.
+The alternatives and why this one:
 
-```sh
-. /etc/os-release                      # $ID is debian or ubuntu; $VERSION_CODENAME matches it
-case "$ID" in debian|ubuntu) ;; *) echo "unsupported: $ID"; exit 1 ;; esac
-
-# The key is fetched once and pinned by the repository entry; apt refuses the
-# repository if a later package is not signed by it.
-install -m 0755 -d /etc/apt/keyrings
-curl -fsSL "https://download.docker.com/linux/$ID/gpg" -o /etc/apt/keyrings/docker.asc
-chmod a+r /etc/apt/keyrings/docker.asc
-
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
-https://download.docker.com/linux/$ID $VERSION_CODENAME stable" \
-  > /etc/apt/sources.list.d/docker.list
-
-apt-get update
-apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-systemctl enable --now docker
-```
-
-**Record the installed version in this file at apply time.** An unrecorded
-version is a host nobody can reproduce, and reproducing it is the whole point of
-a runbook.
-
-### 2. The runner binary, pinned — and the trust anchor it still lacks
-
-```sh
-VERSION=<pinned at apply>        # never "latest"
-BASE=https://code.forgejo.org/forgejo/runner/releases/download/v${VERSION}
-
-curl -fsSLo /tmp/forgejo-runner "${BASE}/forgejo-runner-${VERSION}-linux-amd64"
-curl -fsSLo /tmp/forgejo-runner.sha256 \
-  "${BASE}/forgejo-runner-${VERSION}-linux-amd64.sha256"
-
-# Verify BEFORE the binary is anywhere it could be executed from. The expected
-# digest is recorded below at apply time, so a later rebuild compares against
-# what this host actually ran rather than against whatever the URL serves then.
-echo "$(cat /tmp/forgejo-runner.sha256)  /tmp/forgejo-runner" | sha256sum -c -
-
-install -m 0755 /tmp/forgejo-runner /usr/local/bin/forgejo-runner
-```
-
-| Recorded at apply | Value |
+| Shape | Why not |
 |---|---|
-| Docker version | *(unset — recorded when the host is built)* |
-| Runner version | *(unset)* |
-| Runner binary sha256 | *(unset)* |
+| **Jobs run on the host**, where Docker already is | Simplest, and it **gives up `R3`** — a marker written to `/tmp` survives into the next job. `R3` is the only isolation between one job and the next, since `R5` concedes the host is the security boundary |
+| **A container with the host's socket mounted in** | Keeps `R3` for the job, and **containers the job creates are siblings on the host daemon** — they outlive the job unless it cleans up, and a suite that fails partway leaves them behind. That is the state that makes the *next* run fail confusingly |
+| **A daemon per job** — chosen | Containers and networks the harness creates belong to a daemon that **dies with the job**, so the sibling problem does not exist rather than being managed. Job code never touches the host's socket at all |
 
-**This is not yet a verified install, and calling it one would be the defect
-this repository keeps finding.** The binary and its checksum come from the same
-origin, so anything able to change one can change the other and `sha256sum -c`
-still passes. What that step gives is **detection of corruption in transit** — a
-truncated download, a bad mirror — and nothing about authenticity.
+**What it costs, stated rather than discovered:** a daemon per job starts empty,
+so **there is no image cache between jobs.** Every run pulls what it needs.
 
-**The trust anchor is the digest recorded in the table above**, and it does not
-exist until the host is built. Once recorded, it is under version control, in a
-signed commit, and reviewed — so a *rebuild* verifies against a value this
-project attested to rather than against whatever the origin serves that day.
-**Until that row is filled there is no anchor at all**, and this section says so
-rather than implying the checksum is one.
+**That cost is accepted for now.** Nobody has run this suite, so how slow "slow"
+is, is a guess, and optimising against a guess has a poor record here. The
+trigger to revisit is specific: **the first run that fails on a registry rate
+limit rather than on a defect.** The answer then is a pull-through cache on the
+host — upstream of the daemon, so a job still starts from an empty store.
 
-**At apply time, in this order:**
+### Rejected: sharing the daemon's storage between jobs
 
-1. **Look for a signature on the release.** If Forgejo publishes one, verify it
-   and record the **key fingerprint** here — that is a real anchor and it
-   replaces the argument above rather than supplementing it.
-2. **If there is none**, record the digest and the date, and note that the first
-   install was trust-on-first-use. That is a weaker control, honestly labelled.
-3. **Either way, fill the table.** An unrecorded digest makes every later rebuild
-   a first install again.
+**Recorded because it is the tempting wrong answer**, and an unrecorded rejection
+gets rediscovered as a good idea.
 
-### 3. A dedicated account
+Persisting `/var/lib/docker` across jobs would remove the pull cost — and it is
+**state surviving between jobs, which is `R3` undone by the back door.** The
+whole reason for a per-job daemon is that nothing it holds outlives the job. A
+shared image store is something it holds.
 
-```sh
-# In the docker group, which is root-equivalent on this host — the separation
-# buys process hygiene, not privilege separation. Said plainly so nobody later
-# mistakes it for a sandbox.
-useradd --system --create-home --home-dir /var/lib/forgejo-runner forgejo-runner
-usermod -aG docker forgejo-runner
-```
+## Illustrative configuration
 
-## Registration
+**Examples, not instructions.** They exist to show what R1 and R2 look like in
+practice; **Forgejo's own documentation is authoritative** for flags, file
+locations and installation, and it is the thing to check when something here does
+not match the tool in front of you.
 
-**The registration token is obtained by the repository owner**, in the web
-interface under the repository's Actions settings. It cannot be fetched with the
-bot credential: `actions/runners/registration-token` returns `403 — user should
-be the owner of the repo` at both repository and organisation scope.
-
-**No user switch.** Two attempts to do this under one failed review: `sudo`
-resets the environment by default and strips the token, and `runuser` resets it
-too unless `-m` is given. Both defaults are easy to get wrong and neither failure
-is loud — the register receives an empty token and reports something unhelpful.
-
-Registering **as root in the runner's working directory and then fixing
-ownership** removes the question rather than answering it:
+Registration, with the two properties this project cares about marked:
 
 ```sh
-cd /var/lib/forgejo-runner
-
-# Repository scope, never organisation or instance: no other repository may
-# claim this runner.
-#
-# The label is distinct. Hosted jobs keep `runs-on: docker` and never reach this
-# machine; only jobs asking for `keystone-docker` do.
 forgejo-runner register \
   --no-interactive \
   --instance https://codeberg.org \
   --token "$REGISTRATION_TOKEN" \
   --name keystone-container-runner \
-  --labels keystone-docker:docker://docker:cli
-
-# The register wrote its configuration as root; the daemon runs as the runner.
-chown -R forgejo-runner:forgejo-runner /var/lib/forgejo-runner
+  --labels keystone-docker:docker://docker:cli   # R1: not `docker`, not `ubuntu-latest`
 ```
 
-**This exact invocation is unverified against the target.** No host has been
-reachable, so the flag names and the config file's location are taken from the
-tool's documented interface and not from a run. **Verification step 1 below is
-what confirms it**, and if the flags differ, the runbook is corrected from the
-apply rather than the apply improvised around the runbook.
+The same thing as runner configuration, where labels can be changed without
+re-registering — the daemon re-declares them on start:
 
-**The token is a credential, and this command puts it in `argv`.**
-
-That is visible to any local user through `/proc/<pid>/cmdline` for as long as
-the process runs. This project already knows the shape: `ADR-0007` § 11 records
-that **a secret placed in argv is a secret placed in the audit record**, and the
-same reasoning applies to a process table.
-
-It is accepted here rather than hidden, for reasons that have to hold at apply
-time:
-
-- **The host is single-purpose and single-user.** If it is not — if anyone else
-  has a shell on it — this command is the wrong one and the registration should
-  be done interactively instead, where the token is never an argument.
-- **The exposure lasts seconds**, and the registration runs once per host build.
-- **The token is regenerated afterwards** in the web interface, so the value that
-  was briefly exposed stops being usable.
-
-**It must not reach a shell history, a log, or this file.** Export it in the
-current shell only, and prefix the export with a space where the shell's
-`HISTCONTROL` honours `ignorespace`.
-
-## Running it, ephemerally
-
-```ini
-# /etc/systemd/system/forgejo-runner.service
-[Unit]
-Description=Forgejo runner (keystone container suite)
-After=docker.service
-Requires=docker.service
-
-[Service]
-User=forgejo-runner
-WorkingDirectory=/var/lib/forgejo-runner
-# One job, then exit. systemd restarts it, so every job begins on a machine
-# that has run nothing else. Persistence between jobs is the thing worth
-# denying: it is how one job's residue reaches the next.
-ExecStart=/usr/local/bin/forgejo-runner daemon --once
-Restart=always
-RestartSec=2
-
-[Install]
-WantedBy=multi-user.target
+```yaml
+# config.yml (illustrative)
+runner:
+  labels:
+    - "keystone-docker:docker://docker:cli"      # R1
+  capacity: 1                                    # concurrency, NOT R3 --
+                                                 # R3 is isolation between
+                                                 # jobs and is established
+                                                 # by verification, not by
+                                                 # a config line
 ```
 
-## Verifying it, before anything depends on it
+**The token is a credential and `--token` puts it in `argv`**, readable by any
+local user through `/proc/<pid>/cmdline`. This project already knows the shape —
+`ADR-0007` § 11 records that a secret placed in argv is a secret placed in the
+audit record. Prefer whatever non-argv mechanism the current tool offers; where
+there is none, register on a host where nobody else has a shell, and **regenerate
+the token afterwards** so the exposed value stops being usable.
 
-The apply is not finished when the runner registers. It is finished when a job
-**that would fail on a misconfigured host** has passed:
+## What is deployed
 
-1. The runner appears in the repository's Actions settings with the
-   `keystone-docker` label and no other.
-2. A dispatched job on that label runs `docker compose version` and succeeds —
-   the question the hosted runner failed.
-3. The same job brings up two networks with no route between them and proves a
-   container on one **cannot** reach a container on the other. **A probe that
-   passes when isolation is absent is worse than no probe** (`ADR-0010` § 2), so
-   the verification runs it in both directions: isolated networks must pass, and
-   a deliberately-joined pair must fail.
-4. A push to a scratch branch produces a **commit status**, and that status is
-   visible on a pull request opened from it.
+**Filled from the host, not from this document.** Empty rows are owed, and a
+rebuild cannot reproduce a host whose values were never written down.
 
-Only after 4 does anything become a required check.
+| | Value |
+|---|---|
+| Installed how (package, binary, container) | *(unset)* |
+| Runner version | *(unset)* |
+| Runner binary digest, if installed as a binary | *(unset)* |
+| Docker version | *(unset)* |
+| Working directory, user, config location | *(unset)* |
+| Isolation between jobs (R3) | *(unset)* |
+| Scope (R2) | *(unset)* |
+| Labels (R1) | `keystone-docker` — **exclusivity not yet established**, see below |
+
+### What verification has established so far
+
+Two dispatched runs against the live runner, 2026-09-16. Job conclusions, since
+job logs are not readable through this forge's API.
+
+| | Result |
+|---|---|
+| Jobs run on the runner's own label | **yes** |
+| `actions/checkout` works there | **yes** |
+| **R3** — a marker written outside the workspace does not survive into the next job | **holds** |
+| **R6** — Docker usable inside a job | **not met** |
+| **R1** — the label is exclusive | **not yet established** |
+
+**`R6`'s diagnosis, which is why the shape above was chosen.** Jobs run *inside a
+container* — confirmed, not inferred — and that container has **neither the
+Docker client nor a socket**, so a job cannot reach Docker at all. It is a
+configuration detail rather than the structural impossibility the hosted pool
+has, and § "How a job gets Docker" is the answer.
+
+**`R1` is unproven rather than failing.** The label was changed from `docker` to
+`keystone-docker`, and the four `runs-on: docker` samples were still queued when
+this was written. They are **consistent** with the change having taken effect —
+the runner sat idle throughout and would have claimed them otherwise — but
+**consistent-with is not proven**, which is the entire reason step 2 asks for
+several samples rather than one.
+
+**An earlier deviation, now closed.** The runner advertised `docker`, which is
+the label the hosted pool uses *and* the label `reboot-baseline` asks for on
+`pull_request` — so until it changed, a pull request could be scheduled onto this
+host. Changing the labels in the runner configuration was sufficient;
+**re-registration was not required**, and an earlier version of this document
+wrongly said otherwise.
+
+## Verification
+
+**The apply is not finished when the runner registers.** It is finished when a
+job **that would fail on a misconfigured host** has passed.
+
+1. **Docker works there.** A job on the runner's label runs `docker compose
+   version` and succeeds — the question the hosted pool fails.
+
+2. **The label is exclusive**, which is R1 and cannot be read from the API: the
+   runner list is owner-only. It is established empirically, and Docker is the
+   discriminator, because the hosted pool does not have it:
+   - a job on `keystone-docker` that runs Docker **succeeds**; and
+   - **several** jobs on `runs-on: docker` that report whether Docker works
+     **all report that it does not**.
+
+   Several, not one: scheduling between matching runners is not deterministic, so
+   a single sample landing on the hosted pool proves nothing.
+
+3. **The isolation probe fails when isolation is absent.** Two networks with no
+   route between them, a container on each, and the one **cannot** reach the
+   other — **and a deliberately joined pair must fail the same probe.** A probe
+   demonstrated only in the passing direction is a probe that would pass on a
+   topology with a route, which is what `ADR-0010` § 2 forbids.
+
+4. **No state carries between jobs** — `R3`. A job writes a marker outside its
+   workspace; the next job does not find it.
+
+   **What this establishes and what it does not.** It shows the *isolation*,
+   which is the requirement. It does **not** show the runner process exited
+   between jobs, and it need not: a persistent runner handing each job a fresh
+   container passes this and satisfies `R3`. Cleanup could also make it pass —
+   so the check is on a path a job would not think to clean, outside the
+   workspace, rather than inside it.
+
+5. **A push produces a commit status visible on a pull request** opened from that
+   branch — the claim the whole trigger design rests on.
+
+Only after 5 does anything become a required check.
 
 ## Rebuilding it
 
@@ -304,9 +272,23 @@ A rebuild, a snapshot restore, or a host migration **invalidates the
 registration**. The symptom is not an error: jobs queue against a label nobody
 advertises, and a pull request waits on a check that will never report.
 
-Re-run Provisioning and Registration with a fresh token. The old runner entry
-should be deleted in the web interface first, so a stale entry cannot be
-confused for the live one.
+Re-register with a fresh token, delete the stale entry in the web interface
+first so it cannot be confused for the live one, and **fill § What is deployed
+again** — an unrecorded rebuild is a first install with extra steps.
+
+## What this document does not cover, deliberately
+
+**Installing anything.** The runner binary, its service unit, and Docker itself
+are Forgejo's and the distribution's documentation respectively. An earlier
+version of this file restated all three, and **every finding raised against it in
+review was a defect in that restatement** — the environment behaviour of `sudo`,
+then of `runuser`, then a Docker repository path correct for one of the two
+distributions it named. None of those were facts about this project.
+
+The rule this repository already applies elsewhere: **do not restate a source you
+do not control.** `docs-links` enumerates from git rather than duplicating a
+glob; `ADR-0010` § 13 refused to copy the invariant map into the ADR. A
+restatement has no gate that can catch it drifting.
 
 ## What this does not decide
 
