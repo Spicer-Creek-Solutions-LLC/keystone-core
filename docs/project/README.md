@@ -24,10 +24,9 @@ September 2026 and its references, guides and runbooks went with it.
 - [`ARCHITECTURE-INVARIANTS.md`](ARCHITECTURE-INVARIANTS.md) — 24 normative rules
   with stable `ARCH-*` identifiers
 - [`TESTING.md`](TESTING.md) — what "shipped" means; black-box acceptance against
-- [`CI-RUNNER.md`](CI-RUNNER.md) — the self-hosted container runner:
-  why the hosted runners cannot do this, why the workflow has no `pull_request`
-  trigger, and what accepting it costs
   production binaries
+- [`CI-RUNNER.md`](CI-RUNNER.md) — the self-hosted container runner the forge's
+  hosted ones cannot replace, and what accepting it costs
 - [`REQUIREMENTS-TRACEABILITY.md`](REQUIREMENTS-TRACEABILITY.md) — each invariant
   mapped to its planned evidence
 - [`FUTURE-CAPABILITIES.md`](FUTURE-CAPABILITIES.md) — 703 catalogued Generation 1

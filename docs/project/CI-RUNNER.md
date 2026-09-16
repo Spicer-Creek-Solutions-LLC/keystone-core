@@ -96,21 +96,75 @@ distribution testing, and a reset silently unregisters the runner — which does
 not fail loudly. It leaves jobs queued against a label nobody advertises, which
 is the worst shape of failure to diagnose.
 
+**Nothing here is installed by piping a download into a shell.** This host's
+Docker socket is root on it, so an unverified root-level download *is* host
+compromise — and `curl … | sh` cannot be reviewed before it runs, cannot be
+pinned, and leaves no record of what executed. That convenience is exactly what
+this machine cannot afford.
+
+### 1. Docker, from the distribution's signed repository
+
+The package manager verifies signatures against a key installed out of band.
+That is the property `curl | sh` lacks, and it is why the packaged path is used
+even where it lags a release or two.
+
 ```sh
-# 1. A current Docker engine. The runner needs the engine, not just a client.
-curl -fsSL https://get.docker.com | sh
+# Debian / Ubuntu. The key is fetched once and pinned by the repository entry;
+# apt refuses the repository if a later package is not signed by it.
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg \
+  -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+  > /etc/apt/sources.list.d/docker.list
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
 systemctl enable --now docker
+```
 
-# 2. The runner binary. Pin a release; :latest turns a green pipeline into an
-#    unannounced upgrade, which is the lesson the lychee pin in the Makefile
-#    already records.
-VERSION=<pinned>
-curl -fsSLo /usr/local/bin/forgejo-runner \
-  "https://code.forgejo.org/forgejo/runner/releases/download/v${VERSION}/forgejo-runner-${VERSION}-linux-amd64"
-chmod +x /usr/local/bin/forgejo-runner
+**Record the installed version in this file at apply time.** An unrecorded
+version is a host nobody can reproduce, and reproducing it is the whole point of
+a runbook.
 
-# 3. A dedicated account. It is in the docker group, which is root-equivalent —
-#    the separation buys process hygiene, not privilege separation.
+### 2. The runner binary, pinned and verified
+
+```sh
+VERSION=<pinned at apply>        # never "latest"
+BASE=https://code.forgejo.org/forgejo/runner/releases/download/v${VERSION}
+
+curl -fsSLo /tmp/forgejo-runner "${BASE}/forgejo-runner-${VERSION}-linux-amd64"
+curl -fsSLo /tmp/forgejo-runner.sha256 \
+  "${BASE}/forgejo-runner-${VERSION}-linux-amd64.sha256"
+
+# Verify BEFORE the binary is anywhere it could be executed from. The expected
+# digest is recorded below at apply time, so a later rebuild compares against
+# what this host actually ran rather than against whatever the URL serves then.
+echo "$(cat /tmp/forgejo-runner.sha256)  /tmp/forgejo-runner" | sha256sum -c -
+
+install -m 0755 /tmp/forgejo-runner /usr/local/bin/forgejo-runner
+```
+
+| Recorded at apply | Value |
+|---|---|
+| Docker version | *(unset — recorded when the host is built)* |
+| Runner version | *(unset)* |
+| Runner binary sha256 | *(unset)* |
+
+**A published checksum served from the same host as the binary proves integrity
+in transit and nothing more.** It does not establish that the release is the one
+the project intended, and this runbook does not pretend otherwise: if Forgejo
+publishes a signature for the release, verify that instead and record which was
+used. The digest table exists so a *rebuild* can be compared against what was
+actually run here, which is the check this host can make for itself.
+
+### 3. A dedicated account
+
+```sh
+# In the docker group, which is root-equivalent on this host — the separation
+# buys process hygiene, not privilege separation. Said plainly so nobody later
+# mistakes it for a sandbox.
 useradd --system --create-home --home-dir /var/lib/forgejo-runner forgejo-runner
 usermod -aG docker forgejo-runner
 ```
@@ -128,7 +182,13 @@ be the owner of the repo` at both repository and organisation scope.
 #
 # The label is distinct. Hosted jobs keep `runs-on: docker` and never reach
 # this machine; only jobs asking for `keystone-docker` do.
-sudo -u forgejo-runner forgejo-runner register \
+#
+# `runuser`, not `sudo`. sudo resets the environment by default (`env_reset`),
+# which strips REGISTRATION_TOKEN before the command sees it -- the register
+# then fails with an empty token, or worse, appears to hang on a prompt.
+# runuser(1) does not reset the environment, so the variable survives the user
+# switch without an undocumented sudoers exception.
+runuser -u forgejo-runner -- forgejo-runner register \
   --no-interactive \
   --instance https://codeberg.org \
   --token "$REGISTRATION_TOKEN" \
@@ -136,8 +196,26 @@ sudo -u forgejo-runner forgejo-runner register \
   --labels keystone-docker:docker://docker:cli
 ```
 
-**The token is a credential.** Pass it through the environment; it must not
-reach a shell history, a log, or this file.
+**The token is a credential, and this command puts it in `argv`.**
+
+That is visible to any local user through `/proc/<pid>/cmdline` for as long as
+the process runs. This project already knows the shape: `ADR-0007` § 11 records
+that **a secret placed in argv is a secret placed in the audit record**, and the
+same reasoning applies to a process table.
+
+It is accepted here rather than hidden, for reasons that have to hold at apply
+time:
+
+- **The host is single-purpose and single-user.** If it is not — if anyone else
+  has a shell on it — this command is the wrong one and the registration should
+  be done interactively instead, where the token is never an argument.
+- **The exposure lasts seconds**, and the registration runs once per host build.
+- **The token is regenerated afterwards** in the web interface, so the value that
+  was briefly exposed stops being usable.
+
+**It must not reach a shell history, a log, or this file.** Export it in the
+current shell only, and prefix the export with a space where the shell's
+`HISTCONTROL` honours `ignorespace`.
 
 ## Running it, ephemerally
 
