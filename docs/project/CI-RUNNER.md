@@ -190,7 +190,7 @@ rebuild cannot reproduce a host whose values were never written down.
 | Runner binary digest, if installed as a binary | *(unset)* |
 | Docker version | *(unset)* |
 | Working directory, user, config location | *(unset)* |
-| Ephemeral (R3) | *(unset)* |
+| Isolation between jobs (R3) | *(unset)* |
 | Scope (R2) | *(unset)* |
 | Labels (R1) | `keystone-docker` — **exclusivity not yet established**, see below |
 
