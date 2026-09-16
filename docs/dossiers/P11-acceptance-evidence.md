@@ -9,22 +9,107 @@ second. Every case below names which one owes it.
 defect is planted in code, configuration or a gate, and the gate itself must
 reject it. Nothing here reads a document to see whether it says the right thing.
 
+## `P11b` — the lint tools, the register, and the harness
+
+**Every case `P11a` left owed is now paid, and `AC-6` turned out not to be
+vacuous.** I predicted it would be. It is not, because `ARCH-COMM-002`,
+`ARCH-NATS-008` and `ARCH-TEST-003` all land at `P11`, so ticking it makes three
+rows **owed and paid** on the day this ships — `archlint` reports
+`3 rows owed by a completed task, 3 paid`.
+
+### What each case fails on
+
+| Case | Fails when |
+|---|---|
+| `AC-3` | A superseded conclusion returns to any tracked file, a forbidden CI trigger appears, a rule outlives its retirement, a rule states no reason, or a rule's subject leaves the tree so it cannot fail |
+| `AC-4` | An invariant has no row, a row names an invariant that does not exist, a design owner names no document, or a gate is not one `TESTING.md` schedules |
+| `AC-5` | A row names no task that owes its evidence, or names one the epic does not have |
+| `AC-6` | A task the epic shows complete owes evidence that does not exist |
+| `AC-7` | **The probe cannot detect a route** — not merely that isolation held |
+| `AC-1` | The container suite enters `check` while CI cannot run it, or the deferral stops saying what would end it |
+
+### The lifetime mechanism fired on its first run, against its author
+
+`what-p10-is` was written with `RetireAfter: "P11"` — and ticking `P11` in the
+same commit retired it, failing the build.
+
+**That is the mechanism working, and it forced the question the guess had
+skipped.** A sweep retires when the corrected text has been **stable across
+enough tasks** that the belief is no longer available, and one task later is not
+that. Its demonstrate half shares a subject with `p10-risk-gates`, so they now
+retire together at `C14` — the task that actually attempts the reconstruction.
+
+Without the forced failure I would have shipped a rule that vanished silently
+the moment its own task completed.
+
+### The probe is demonstrated in both directions, locally
+
+`ADR-0010` § 2 requires the isolation to be *proved by a probe* — *"a topology
+that merely omits a route passes vacuously the day someone adds one."* So the
+same `reachable()` runs twice: separate networks must be unreachable, **and a
+deliberately joined pair must be reported reachable.**
+
+```text
+=== RUN   TestSeparateNetworksAreNotReachable
+--- PASS: TestSeparateNetworksAreNotReachable (5.76s)
+=== RUN   TestTheProbeDetectsAJoinedPair
+--- PASS: TestTheProbeDetectsAJoinedPair (0.61s)
+PASS
+ok      go.keystone-core.io/keystone-core/test/e2e/docker   6.379s
+```
+
+**What it does not establish**, in the file rather than in a hope: that the
+product *works* across this topology. `ARCH-COMM-002` requires the parts to
+function without a direct route, and nothing here runs a journey — no NATS
+connection exists until C06. This proves the arrangement.
+
+### The container suite is outside `make check`, and that is asserted
+
+CI cannot run it: jobs on the runner have no Docker client and no socket
+(`CI-RUNNER.md`, `R6`). Putting it in `check` today would fail `gates-agree`,
+correctly, because CI has no step for it.
+
+**A gate in neither set is invisible to `gates-agree`** — not missing from
+either, so nothing reports it. `deferred-gates-check` asserts the deferral
+instead: the target exists, it is **not** in `check`, and the recipe says what
+ends the deferral.
+
+### Five defects the demonstration found in this task's own tools
+
+- **`units()` flattened YAML.** Joining an indented `pull_request_target:` onto the line
+  above stops a `^`-anchored pattern matching, so the forbidden-trigger rule
+  **silently passed**. The paragraph model is Markdown's; in YAML a line is the
+  unit.
+- **Prose sweeps were case-sensitive**, so a sentence *beginning* with the
+  subject was not examined while the same sentence mid-paragraph was.
+- **`deferred-gates-check` read only the first line of `check`'s prerequisites**,
+  so anything on a continuation line was invisible — the identical bug
+  `gates-agree` had, reintroduced three targets away.
+- **A check that read itself.** It grepped the whole `Makefile` for the phrase
+  that states the deferral's end condition — and that phrase appears in the
+  grep's own pattern, so it passed however the comment changed. Scoped to the
+  recipe.
+- **Two plantings that tested nothing**: one appended text without the rule's
+  subject, so the unit was never examined; one replaced an assertion with
+  `if false`, which makes a test pass rather than breaking the probe it was
+  aimed at.
+
 ## Which pull request owes each case
 
 | Case | Owed by | State |
 |---|---|---|
-| `AC-1` | Both | **Partly paid.** CI and `make check` are asserted to agree for the gates that exist; `P11b` adds three more and the assertion covers them automatically |
+| `AC-1` | Both | **Paid.** `gates-agree` covers the three gates `P11b` adds; the container suite is deferred, and `deferred-gates-check` asserts the deferral rather than leaving it invisible |
 | `AC-2` | `P11a` | **Paid** |
-| `AC-3` | `P11b` | Owed — `tools/doclint` |
-| `AC-4` | `P11b` | Owed — `tools/archlint` |
-| `AC-5` | `P11b` | Owed — the register's `Lands at` column |
-| `AC-6` | `P11b` | Owed — and vacuous until `AC-7` pays a row |
-| `AC-7` | `P11b` | Owed — the isolation probe |
+| `AC-3` | `P11b` | **Paid** — `tools/doclint`, seven rules with lifetimes |
+| `AC-4` | `P11b` | **Paid** — `tools/archlint`, both directions |
+| `AC-5` | `P11b` | **Paid** — the register's `Lands at` column |
+| `AC-6` | `P11b` | **Paid, and not vacuous**: three rows owed by a completed task, three paid |
+| `AC-7` | `P11b` | **Paid** — demonstrated locally in both directions |
 | `AC-8` | `P11a` | **Paid** |
 | `AC-9` | `P11a` | **Paid** |
 | `AC-10` | `P11a` | **Paid** |
 | `AC-11` | `P11a` | **Paid** |
-| `AC-12` | Both | Owed at `P11b`, when the deferral list is complete |
+| `AC-12` | Both | **Paid** |
 
 **The five owed cases are the ones with a `DL-1` risk**, which is why the split
 was drawn here: `AC-6`'s vacuity, `AC-4`'s register sweep and `AC-7`'s probe all
@@ -92,20 +177,21 @@ after the `docs-links` glob and `make check`'s staging blind spot.
 
 ```text
 unmutated tree: PASS
-AC-2   fails as expected  — a trailing space inside a fenced block
-AC-2   fails as expected  — a trailing tab in Go source
-AC-8   fails as expected  — the version is a literal rather than derived
-config fails as expected  — an environment override may be relative, so $PWD is read
-config fails as expected  — a relative HOME builds a relative candidate
-config fails as expected  — a relative override falls through instead of being refused
-AC-9   fails as expected  — a binary imports a NATS client
-AC-9   fails as expected  — a binary opens a network connection
-AC-9   fails as expected  — a journey verb is wired
-AC-10  fails as expected  — a check target is not run by CI
-AC-10  fails as expected  — CI runs a gate that make check does not
-AC-10  fails as expected  — the one CI-only gate is removed without removing its exemption
-AC-11  fails as expected  — AGENTS.md still says there is no product code
-gitignore fails as expected  — a source package named target is invisible to git
+AC-3   fails as expected  — a superseded conclusion returns to a tracked file
+AC-3   fails as expected  — a forbidden CI trigger is added
+AC-3   fails as expected  — a rule outlives its retirement
+AC-3   fails as expected  — a rule loses its reason and cannot be retired by anyone
+AC-3   fails as expected  — a sweep's subject leaves the tree, so it cannot fail
+AC-4   fails as expected  — an invariant loses its register row
+AC-4   fails as expected  — a register row names an invariant that does not exist
+AC-4   fails as expected  — a design owner names no document
+AC-4   fails as expected  — a gate is not one TESTING.md schedules
+AC-5   fails as expected  — a row names no task that owes its evidence
+AC-5   fails as expected  — a row lands at a task the epic does not have
+AC-6   fails as expected  — a completed task owes evidence that does not exist
+AC-7   fails as expected  — the isolation probe cannot detect a route
+AC-1   fails as expected  — the container suite is put into check while CI cannot run it
+AC-1   fails as expected  — the deferral stops saying what would end it
 ```
 
 ## The harness

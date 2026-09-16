@@ -22,7 +22,7 @@ LDFLAGS     := -X $(VERSION_PKG).commit=$(COMMIT)
 BINARIES    := keystone keystone-server keystone-agent
 
 .PHONY: help docs-lint docs-lint-fix docs-links capability-catalog-check stray-binary-check \
-	whitespace-check build fmt fmt-check vet test test-race vuln dco-exempt-check gates-agree check
+	whitespace-check build fmt fmt-check vet test test-race vuln doclint archlint container-suite dco-exempt-check deferred-gates-check gates-agree check
 
 help: ## Show available targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -145,8 +145,53 @@ build: ## Build every binary with a derived version stamp
 # `dco-exempt-check` asserts it still exists, so the exemption cannot become a
 # missing gate nobody spots.
 check: fmt-check vet test-race whitespace-check build vuln docs-lint docs-links \
-	capability-catalog-check dco-exempt-check gates-agree ## Run every CI gate that can run locally
+	capability-catalog-check doclint archlint dco-exempt-check deferred-gates-check \
+	gates-agree ## Run every CI gate that can run locally
 	@echo "check: ok"
+
+doclint: ## Standing document sweeps, with lifetimes
+	# Sweeps only. An acceptance case proves a document was correct when it was
+	# accepted and then passes forever; a sweep asserts a conclusion has not been
+	# contradicted since. Every cross-task regression in Stage P was caught by a
+	# sweep, and no per-ADR structural case ever caught a later one.
+	#
+	# --tasks-complete makes a rule past its retirement a FAILURE. A sweep guards
+	# a correction and every task adds one; without forced retirement the set
+	# grows until its failures stop being read.
+	@cd tools/doclint && go run . -root ../.. \
+		-tasks-complete "$$(sed -n 's/^ *- \[x\] \([PCRG][0-9][0-9][ab]\?\) .*/\1/p' ../../epics/20-generation-2-reboot.md | paste -sd,)"
+
+archlint: ## The requirements register, both directions, with liveness from the epic
+	cd tools/archlint && go run . -root ../..
+
+container-suite: ## The Docker topology and its probes
+	# DELIBERATELY NOT IN `check`, and `deferred-gates-check` asserts that rather
+	# than leaving it as an absence. The runner that would run this in CI cannot
+	# yet: jobs there have no Docker client and no socket (CI-RUNNER.md, R6).
+	#
+	# Putting it in `check` today would make `gates-agree` fail, because CI has
+	# no step for it -- correctly, since there is nowhere to run it. It lands in
+	# `check` and in CI together, when R6 goes green.
+	go test -count=1 ./test/...
+
+deferred-gates-check: ## Assert a deferred gate is deferred on purpose, and says what lands it
+	# A gate in neither `check` nor CI is invisible to `gates-agree`: it is not
+	# missing from either set, so nothing reports it. That is a gap tolerated
+	# rather than asserted, which is the shape this repository keeps finding.
+	@ok=1; \
+	grep -q '^container-suite:' $(MAKEFILE_LIST) || { \
+		echo "deferred-gates-check: container-suite is named as deferred and does not exist"; ok=0; }; \
+	: "the prerequisite list spans continuations; reading only the first line"; \
+	: "is the bug gates-agree already had, and it hides anything on line two"; \
+	if sed -n '/^check:/,/[^\\]$$/p' $(MAKEFILE_LIST) | sed 's/##.*//' | grep -qw container-suite; then \
+		echo "deferred-gates-check: container-suite is in check; remove it from the deferred list"; ok=0; fi; \
+	: "scoped to the container-suite recipe. Searching the whole file finds the"; \
+	: "phrase in THIS grep's own pattern, so the check would read itself and"; \
+	: "pass however the comment changed -- which the demonstration caught"; \
+	sed -n '/^container-suite:/,/^$$/p' $(MAKEFILE_LIST) | grep -q 'R6 goes green' || { \
+		echo "deferred-gates-check: the deferral does not say what would end it"; ok=0; }; \
+	[ $$ok -eq 1 ] || exit 1; \
+	echo "deferred-gates-check: container-suite deferred until CI-RUNNER.md's R6 holds"
 
 gates-agree: ## Assert make check and CI run the same gate set, both directions
 	# ADR-0010 § 11 requires one local command to run what CI runs. This is the

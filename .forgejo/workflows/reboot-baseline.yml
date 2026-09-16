@@ -127,8 +127,22 @@ jobs:
 
       # The exemption asserts itself: if the DCO gate below is ever removed,
       # `check`'s one named exception becomes a gate nobody runs, and this fails.
+      # The document sweeps and the requirements register. Both are Go tools in
+      # their own modules, so they need no root-module build.
+      - name: document sweeps
+        run: make doclint
+
+      - name: requirements register
+        run: make archlint
+
       - name: the one CI-only gate still exists
         run: make dco-exempt-check
+
+      # container-suite is deliberately absent: the runner cannot run Docker in
+      # a job yet (CI-RUNNER.md, R6). This asserts the deferral rather than
+      # leaving a gate that is in neither set and therefore invisible.
+      - name: the deferred gate is deferred on purpose
+        run: make deferred-gates-check
 
       # The gate-set assertion lives in the Makefile so CI and a local run
       # execute the same code. An assertion written twice is two things to drift.

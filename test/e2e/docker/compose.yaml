@@ -1,0 +1,47 @@
+# The minimum topology TESTING.md § "Required test topology" requires, as far as
+# P11b can build it: the networks and their isolation are real, and the services
+# are the three binaries P11a landed, which start and report their version.
+#
+# They do not yet talk to each other. C05 is the first task with a journey to
+# run across this, and C03 generates the production NATS configuration the
+# broker will use -- ADR-0010 § 3 forbids a test-only one, so there is no
+# placeholder here pretending to be it.
+name: keystone-acceptance
+
+services:
+  # NATS is the only service attached to both networks. That is the whole shape:
+  # ARCH-COMM-002 requires server and agents to work with no direct route.
+  broker:
+    image: nats:2-alpine
+    command: ["-js", "-m", "8222"]
+    networks: [server-net, agent-net]
+
+  server:
+    build: {context: ../../.., dockerfile: test/e2e/docker/Dockerfile, args: {BIN: keystone-server}}
+    command: ["--version"]
+    networks: [server-net]
+
+  # Two agents with different identities. TESTING.md requires at least two: the
+  # non-target assertion ARCH-TEST-001 asks for is meaningless with one.
+  agent-1:
+    build: {context: ../../.., dockerfile: test/e2e/docker/Dockerfile, args: {BIN: keystone-agent}}
+    command: ["--version"]
+    networks: [agent-net]
+
+  agent-2:
+    build: {context: ../../.., dockerfile: test/e2e/docker/Dockerfile, args: {BIN: keystone-agent}}
+    command: ["--version"]
+    networks: [agent-net]
+
+  operator:
+    build: {context: ../../.., dockerfile: test/e2e/docker/Dockerfile, args: {BIN: keystone}}
+    command: ["--version"]
+    networks: [server-net]
+
+# No route between them, and no host ports published anywhere: TESTING.md
+# requires that no agent publishes one.
+networks:
+  server-net:
+    internal: true
+  agent-net:
+    internal: true
