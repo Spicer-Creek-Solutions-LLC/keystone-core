@@ -318,12 +318,16 @@ limitations go in the pull request.
   and this entry are corrected outright. `DL-3` records it, and a sweep over
   every tracked file asserts no document describes P10 as an operations task or
   as demonstrating anything.
-- [x] G23 — Give the container suite a machine, and lock it down. **The forge's
-  hosted runners cannot run containers**: two dispatched probe runs established
-  there is no `/var/run/docker.sock` and no `CAP_SYS_ADMIN`, so it is structural
-  rather than a missing package — and `unshare --net` fails too, removing the
-  container-free fallback. `TESTING.md` makes Docker the integration floor and
-  `ADR-0010` § 2 designs the topology on it, so **neither could run anywhere**.
+- [x] G23 — Give the container suite a machine, and lock it down. This entry
+  said *the forge's hosted runners cannot run containers*, established by two
+  probe runs finding no `/var/run/docker.sock`, no `CAP_SYS_ADMIN` and no
+  `unshare --net`, and called it structural. **G25 found the attribution was
+  never made and G27 found the subject was wrong**: the probe measured the
+  container a **job** runs inside, not a machine, and its own row *a job runs
+  inside a container* passed. The measurements stand. What holds is that **no job
+  on a runner available here can reach Docker**, which is enough — `TESTING.md`
+  makes Docker the integration floor and `ADR-0010` § 2 designs the topology on
+  it, so neither could run.
   `CI-RUNNER.md` is the machine that fixes it, and the security decision that
   comes with it: this repository is **public** and this forge has no
   first-time-contributor gate, so the container workflow carries **no
@@ -393,6 +397,15 @@ limitations go in the pull request.
   execution plan untouched. A convention recorded in one place and contradicted
   in two looks settled, which is worse than one that is merely ambiguous.
   `tools/doclint` carries the sweep.
+- [x] G27 — Say what the probe measured. Four documents read *the runner cannot
+  run containers*; the probe measured **a job's container**, and one of its own
+  rows — *a job runs inside a container* — passed, so the host starts containers.
+  The maintainer states this runner has run Docker since before the reboot. **The
+  worst instance was introduced by G25** while correcting the attribution in the
+  same sentence: it replaced a claim about a hosted pool with a claim about every
+  runner, and neither was measured. `R6` is unchanged and still unmet — a job
+  reaches Docker when its image carries a client and a daemon comes with it, both
+  configuration. `tools/doclint` carries the sweep.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

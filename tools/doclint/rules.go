@@ -189,6 +189,34 @@ var rules = []Rule{
 		RetireAfter: "C05",
 	},
 	{
+		ID:    "runner-cannot-run-containers",
+		Added: "G27",
+		Why:   "four documents said a runner cannot run containers; the probe measured the container a JOB runs inside, and its own row `a job runs inside a container` passed -- the host starts containers, which is how the job existed",
+
+		// Pattern and Stale are the same: the claim is the defect. What a job
+		// is handed and what a machine can do are different statements, and the
+		// second was never measured here.
+		//
+		// The third alternative is negation by "NO runner ... CAN run", which
+		// the first draft missed -- and that is the exact form G25 introduced,
+		// so the rule did not catch the instance it was written for. Second
+		// time in one session: a sweep aimed at a defect, tested only against
+		// paraphrases of it.
+		//
+		// Say it about the job -- "no job on a runner available here can reach
+		// Docker" -- which is what the probe establishes and is sufficient for
+		// every conclusion the documents draw from it.
+		Pattern: `(?:runners?|pool|machine|host)[\s\S]{0,70}(?:can ?not|cannot|could not|unable to)[\s\S]{0,50}containers?|(?:can ?not|cannot|could not|unable to)[\s\S]{0,50}(?:run|start)[\s\S]{0,25}containers?|\bno\b[\s\S]{0,40}(?:runners?|pool|machine|host)[\s\S]{0,60}\bcan\b[\s\S]{0,30}(?:run|start)[\s\S]{0,25}containers?`,
+		Stale:   `(?:runners?|pool|machine|host)[\s\S]{0,70}(?:can ?not|cannot|could not|unable to)[\s\S]{0,50}containers?|(?:can ?not|cannot|could not|unable to)[\s\S]{0,50}(?:run|start)[\s\S]{0,25}containers?|\bno\b[\s\S]{0,40}(?:runners?|pool|machine|host)[\s\S]{0,60}\bcan\b[\s\S]{0,30}(?:run|start)[\s\S]{0,25}containers?`,
+
+		MinHits: 0, // zero is the correct state, as for the rules below
+
+		// Permanent: the probe's rows read like facts about a machine, and the
+		// shortest way to summarise them is the wrong one. G25 made exactly
+		// that substitution while correcting the sentence's other error.
+		RetireAfter: "",
+	},
+	{
 		ID:          "no-pipe-to-shell",
 		Added:       "G23",
 		Why:         "the runner host's Docker socket is root on it, so an unverified root-level download is host compromise",
