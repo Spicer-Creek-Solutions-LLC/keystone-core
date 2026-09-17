@@ -2,12 +2,21 @@
 
 `TESTING.md` makes Docker the integration floor for every feature, and
 [`ADR-0010`](../adr/0010-acceptance-harness.md) § 2 designs the topology that
-floor runs on. **No runner available to this repository can run containers**, so
-that floor needs a machine built to.
+floor runs on. **No job on this self-hosted runner can reach Docker**, so that
+runner needs configuring to give one.
 
-This said *the forge's hosted runners* cannot run containers until G25. That
-claim was never established — see § What the probe established — and the weaker
-one above is what the evidence supports. It reaches the same conclusion.
+**Three earlier versions of this sentence claimed more than was measured, each
+time about a different thing.** It said *the forge's hosted runners* cannot run
+containers — a pool never established to exist. G25 replaced that with *no runner
+available to this repository can run containers* — false, since the probe
+measured a **job's container** and the host plainly starts containers. G27's
+first draft said *no job on a runner available to this repository can reach
+Docker* — still quantified over runners nobody measured.
+
+**One runner was probed and that is the claim.** Whether a hosted runner is
+available here is unknown (§ What the probe established), and if one exists its
+job image could differ. The conclusion is unaffected: this is the runner claiming
+this repository's jobs, so it is the one that has to change.
 
 This is how that machine is built, registered, locked down, and rebuilt — and
 what accepting it costs.
@@ -17,12 +26,16 @@ what accepting it costs.
 Two dispatched probe runs, on 2026-09-15. Job conclusions rather than logs,
 because this forge's API does not expose job output.
 
-**Which machine they measured is not established, and this document used to say
-it was the forge's hosted pool.** The probe asked for `runs-on: docker`, and this
-host advertised `docker` at the time. **The same questions, re-asked on
-`keystone-docker`, which the runner list shows on this host alone — returned the same answers**,
-so the findings below are reproduced on this host whatever else may exist.
-Attributing them to a hosted pool is unsupported.
+**What the probe measured is a job, not a machine**, and every row below is a
+statement about the container a job runs inside.
+
+The probe asked for `runs-on: docker`, which this host advertised at the time,
+and the same questions re-asked on `keystone-docker` — a label the runner list
+shows on this host alone — returned the same answers. So the findings are
+reproduced on this host. **Attributing them to a hosted pool was unsupported, and
+attributing them to the host's capability was wrong**: one of the probe's own
+rows says the job *ran inside a container*, so the host starts containers. It is
+how the job existed.
 
 An earlier version of this paragraph also offered the queued `docker` samples as
 evidence that *nothing else answers to `docker`*. **They are not**, for the
@@ -49,10 +62,15 @@ has a hosted pool at all is unknown; the runner list is owner-only.
 | `unshare --net` | fails |
 | the Go toolchain works | succeeds |
 
-**The decisive two are the socket and the capability.** There is no daemon to
-talk to and no privilege to start one, so this is structural rather than a
-missing package — and the installable client is a trap, since it would install
-cleanly and have nothing to reach. `unshare --net` failing removes the
+**The decisive two are the socket and the capability.** A job has no daemon to
+talk to and no privilege to start one — and the installable client is a trap,
+since it would install cleanly and have nothing to reach.
+
+**This said the shortage was *structural rather than a missing package*. It is
+not, and nothing here established that it was.** A job reaches Docker when the
+image its label maps to carries a client and the job is given a daemon; both are
+configuration. The host's own ability to run containers was never in question and
+is not what these rows measure. `unshare --net` failing removes the
 container-free fallback as well: there is no way to build an isolated network on
 that runner at all.
 
@@ -274,13 +292,18 @@ job logs are not readable through this forge's API.
 container* — confirmed, not inferred — and that container has **neither the
 Docker client nor a socket**, so a job cannot reach Docker at all.
 
-This read *a configuration detail rather than the structural impossibility the
-hosted pool has*. That contrast does not survive § What the probe established:
-the probe's findings are most likely this host's, so the two are one finding
-measured twice rather than two machines failing differently. **Whether it is
-configuration or structural is therefore open** — § "How a job gets Docker" is
-the change that would settle it, and until a job runs `docker compose version`
-here, `R6` is unmet for a reason this document does not know.
+**It is configuration, and the host was never the constraint.** The maintainer
+states this runner has run Docker containers since before the reboot, and the
+probe agrees with them: the row *a job runs inside a container* passed, so the
+host starts containers. `R6` is about what a **job** is handed — the image its
+label maps to, and whether a daemon comes with it — and § "How a job gets Docker"
+is the change that closes it.
+
+Two earlier readings are superseded. This first said *a configuration detail
+rather than the structural impossibility the hosted pool has*, which assumed a
+hosted pool that was never established; G25 replaced it with **whether it is
+configuration or structural is open**, which treated a job's container as if it
+were evidence about a machine. Neither survives contact with the row above.
 
 **`R1` holds, on the runner list rather than on the queue.** R1 constrains *this
 host's* configuration — that its label is neither `docker` nor `ubuntu-latest` —

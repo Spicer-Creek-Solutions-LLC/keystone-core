@@ -318,12 +318,17 @@ limitations go in the pull request.
   and this entry are corrected outright. `DL-3` records it, and a sweep over
   every tracked file asserts no document describes P10 as an operations task or
   as demonstrating anything.
-- [x] G23 — Give the container suite a machine, and lock it down. **The forge's
-  hosted runners cannot run containers**: two dispatched probe runs established
-  there is no `/var/run/docker.sock` and no `CAP_SYS_ADMIN`, so it is structural
-  rather than a missing package — and `unshare --net` fails too, removing the
-  container-free fallback. `TESTING.md` makes Docker the integration floor and
-  `ADR-0010` § 2 designs the topology on it, so **neither could run anywhere**.
+- [x] G23 — Give the container suite a machine, and lock it down. This entry
+  said *the forge's hosted runners cannot run containers*, established by two
+  probe runs finding no `/var/run/docker.sock`, no `CAP_SYS_ADMIN` and no
+  `unshare --net`, and called it structural. **G25 found the attribution was
+  never made and G27 found the subject was wrong**: the probe measured the
+  container a **job** runs inside, not a machine, and its own row *a job runs
+  inside a container* passed. The measurements stand. What holds is that **no job
+  on this self-hosted runner can reach Docker** — one runner was probed, and
+  whether a hosted one is available here is unknown. That is enough:
+  `TESTING.md` makes Docker the integration floor, `ADR-0010` § 2 designs the
+  topology on it, and this is the runner claiming this repository's jobs.
   `CI-RUNNER.md` is the machine that fixes it, and the security decision that
   comes with it: this repository is **public** and this forge has no
   first-time-contributor gate, so the container workflow carries **no
@@ -393,6 +398,46 @@ limitations go in the pull request.
   execution plan untouched. A convention recorded in one place and contradicted
   in two looks settled, which is worse than one that is merely ambiguous.
   `tools/doclint` carries the sweep.
+- [ ] G27 — Say what the probe measured. Four documents read *the runner cannot
+  run containers*; the probe measured **a job's container**, and one of its own
+  rows — *a job runs inside a container* — passed, so the host starts containers.
+  The maintainer states this runner has run Docker since before the reboot. **The
+  worst instance was introduced by G25** while correcting the attribution in the
+  same sentence: it replaced a claim about a hosted pool with a claim about every
+  runner, and neither was measured. **Review caught a third turn of the same
+  screw in this task's own first draft** — *no job on a runner available to this
+  repository* still quantified over runners nobody probed. One runner was
+  measured; that is the claim. `R6` is unchanged and still unmet — a job reaches
+  Docker when its image carries a client and a daemon comes with it, both
+  configuration. **The sweep this task owed is deferred to `G28` and the reason is
+  a defect in `doclint` itself**: `emphasised()` disposes of any hit with an
+  asterisk somewhere before and after it, so a claim written in `**bold**` — which
+  is how this repository writes its load-bearing claims — can never fire a rule.
+  Every superseded wording here is bold. Fixing it surfaces three previously
+  masked hits that need adjudicating, and shipping a sweep that cannot catch its
+  own motivating instance is the `DL-1` shape this ledger exists for. **`G28`
+  carries it, and this entry stays unticked until `G28` is ticked** — every other
+  correction in this series shipped with its sweep, and a correction whose guard
+  is owed is not finished. The document changes are merged; the task is not
+  closed. `G25` was held the same way while its branch-protection change was
+  outstanding.
+- [ ] G28 — Stop `doclint` disposing of claims because they are bold, and give
+  G27 its sweep. `emphasised()` returns true when a unit holds any asterisk
+  before the hit and any after it — unpaired, and not distinguishing `*` from
+  `**`. This repository asserts in bold, so **the claims most worth sweeping are
+  the ones no rule can fire on**, and that has been true of all nine rules since
+  P11b. Three parts, and the second is why this is not a one-line fix:
+  - Require a genuine single-asterisk span. Bold is assertion here, not
+    quotation.
+  - **Adjudicate the three hits the fix surfaces.** All three are false positives
+    of `runner-label-absence`, whose pattern joins `nothing`, a label word and a
+    serving verb across clause boundaries — one of them is a sentence whose whole
+    point is that queue state does *not* establish label absence. That rule needs
+    tightening, not exempting.
+  - Land `runner-cannot-run-containers`, which G27 wrote and withdrew, and
+    **demonstrate it against the verbatim text of all three superseded versions
+    read out of git history** — every one of them is bold, and every one passed
+    against the current classifier.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
