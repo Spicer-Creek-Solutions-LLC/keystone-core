@@ -34,9 +34,21 @@ applicable requirement IDs, acceptance cases and N/A rationale, validation
 commands, documentation changes, security reviewer, rollback, and handoff
 artifacts.
 
-Dossiers live in [`docs/dossiers/`](../dossiers/), one file per task, named for
-the task identifier. A dossier is a boundary, not an approval: landing one does
-not authorize the work it describes.
+Dossiers live in [`docs/dossiers/`](../dossiers/), **one file per workstream**,
+named for the workstream identifier — `P00.md`, `C01.md`.
+
+**A behaviour workstream splits into two repository tasks and they share one
+dossier.** `Cxx-A` and `Cxx-I` are separate tasks with separate agents, separate
+pull requests and separate acceptance evidence; what they are not is separate
+boundaries. The dossier states each half's outputs in their own sections — C01's
+§ 3.1 and § 3.2 — because the line between them is the thing most worth reading
+in one place, and a boundary split across two files is a boundary with a seam.
+
+`Cxx-A` and `Cxx-I` remain task identifiers for issues, commits and evidence
+files. They are not dossier filenames.
+
+A dossier is a boundary, not an approval: landing one does not authorize the work
+it describes.
 
 **Every applicable acceptance case is demonstrated failing before it is
 accepted.** For each case marked applicable, and for each task-specific case,
