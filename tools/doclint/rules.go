@@ -128,6 +128,13 @@ var rules = []Rule{
 		Added: "G25",
 		Why:   "queued `runs-on: docker` jobs were read as proof that no runner advertises that label; what serves a label is read from the runner list, and an unclaimed job reports only that nothing available claimed it",
 
+		// The spans forbid `.` and `;` so a match stays inside one clause. With
+		// `[\s\S]` they joined across sentence boundaries and flagged prose whose
+		// whole point IS the correction -- "watching them queue shows that
+		// nothing *claimed* them; a runner that advertises `docker` while
+		// offline ... produces the identical observation". An absence claim about
+		// a label is one clause; two clauses sharing three words are not one.
+		//
 		// Pattern and Stale are the same, as they are for the two rules below:
 		// the construct itself is the defect, so zero hits is the correct state
 		// and MinHits is 0. A subject/stale split was tried first and could not
@@ -146,8 +153,8 @@ var rules = []Rule{
 		// name. Without that anchor the construct is ordinary English -- an
 		// unanchored draft flagged "Nothing was deleted" and "none is an agent,
 		// and each carries its reason" across twelve unrelated documents.
-		Pattern: `(?:nothing|no other|nobody|none|no runner)[\s\S]{0,80}(?:serves?|served|advertis\w*|answers? to|carr(?:y|ies|ied))[\s\S]{0,60}(?:labels?\b|runners?\b|docker|ubuntu-latest)|(?:nothing|no other|nobody|none|no runner)[\s\S]{0,60}(?:labels?\b|runners?\b|docker|ubuntu-latest)[\s\S]{0,60}(?:serves?|served|advertis\w*|answers? to|carr(?:y|ies|ied))`,
-		Stale:   `(?:nothing|no other|nobody|none|no runner)[\s\S]{0,80}(?:serves?|served|advertis\w*|answers? to|carr(?:y|ies|ied))[\s\S]{0,60}(?:labels?\b|runners?\b|docker|ubuntu-latest)|(?:nothing|no other|nobody|none|no runner)[\s\S]{0,60}(?:labels?\b|runners?\b|docker|ubuntu-latest)[\s\S]{0,60}(?:serves?|served|advertis\w*|answers? to|carr(?:y|ies|ied))`,
+		Pattern: `(?:nothing|no other|nobody|none|no runner)[^.;]{0,80}(?:serves?|served|advertis\w*|answers? to|carr(?:y|ies|ied))[^.;]{0,60}(?:labels?\b|runners?\b|docker|ubuntu-latest)|(?:nothing|no other|nobody|none|no runner)[^.;]{0,60}(?:labels?\b|runners?\b|docker|ubuntu-latest)[^.;]{0,60}(?:serves?|served|advertis\w*|answers? to|carr(?:y|ies|ied))`,
+		Stale:   `(?:nothing|no other|nobody|none|no runner)[^.;]{0,80}(?:serves?|served|advertis\w*|answers? to|carr(?:y|ies|ied))[^.;]{0,60}(?:labels?\b|runners?\b|docker|ubuntu-latest)|(?:nothing|no other|nobody|none|no runner)[^.;]{0,60}(?:labels?\b|runners?\b|docker|ubuntu-latest)[^.;]{0,60}(?:serves?|served|advertis\w*|answers? to|carr(?:y|ies|ied))`,
 
 		MinHits: 0, // zero is the correct state, as for the two rules below
 
@@ -187,6 +194,37 @@ var rules = []Rule{
 		// Retires after C05: by then several behaviour workstreams have split
 		// and the convention has been exercised rather than merely written.
 		RetireAfter: "C05",
+	},
+	{
+		ID:    "runner-cannot-run-containers",
+		Added: "G28",
+		Why:   "four documents said a runner cannot run containers; the probe measured the container a JOB runs inside, and its own row `a job runs inside a container` passed -- the host starts containers, which is how the job existed",
+
+		// Written at G27, withdrawn there, landed here. It could not be
+		// demonstrated at G27: every superseded wording is bold, and the
+		// emphasis classifier disposed of bold as though it were quotation, so
+		// all three verbatim plantings passed. G28 fixed that first.
+		//
+		// Pattern and Stale are the same: the claim is the defect. What a job is
+		// handed and what a machine can do are different statements, and the
+		// second was never measured here. Say it about the job -- "no job on
+		// this self-hosted runner can reach Docker" -- which is what the probe
+		// establishes and is sufficient for every conclusion drawn from it.
+		//
+		// Four alternatives because the claim was rewritten three times and each
+		// rewrite kept the error in a new grammar: "cannot run", "No X can run",
+		// and finally "no job on a runner available to this repository", which
+		// fixes the subject and keeps the quantifier. Spans forbid `.` and `;`
+		// for the reason given on runner-label-absence above.
+		Pattern: `(?:runners?|pool|machine|host)[^.;]{0,70}(?:can ?not|cannot|could not|unable to)[^.;]{0,50}containers?|(?:can ?not|cannot|could not|unable to)[^.;]{0,50}(?:run|start)[^.;]{0,25}containers?|\bno\b[^.;]{0,40}(?:runners?|pool|machine|host)[^.;]{0,60}\bcan\b[^.;]{0,30}(?:run|start)[^.;]{0,25}containers?|no (?:job|jobs)[^.;]{0,40}(?:a runner available|any runner|runners? available|every runner)[^.;]{0,60}(?:reach|run|start)`,
+		Stale:   `(?:runners?|pool|machine|host)[^.;]{0,70}(?:can ?not|cannot|could not|unable to)[^.;]{0,50}containers?|(?:can ?not|cannot|could not|unable to)[^.;]{0,50}(?:run|start)[^.;]{0,25}containers?|\bno\b[^.;]{0,40}(?:runners?|pool|machine|host)[^.;]{0,60}\bcan\b[^.;]{0,30}(?:run|start)[^.;]{0,25}containers?|no (?:job|jobs)[^.;]{0,40}(?:a runner available|any runner|runners? available|every runner)[^.;]{0,60}(?:reach|run|start)`,
+
+		MinHits: 0, // zero is the correct state, as for the rules below
+
+		// Permanent: the probe's rows read like facts about a machine, and the
+		// shortest summary of them is the wrong one. G25 made exactly that
+		// substitution while correcting the sentence's other error.
+		RetireAfter: "",
 	},
 	{
 		ID:          "no-pipe-to-shell",

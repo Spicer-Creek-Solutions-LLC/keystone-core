@@ -64,7 +64,7 @@ capability-catalog-check: stray-binary-check ## Verify the archive capability ca
 	# are gone from the tip. Needs full history: CI checks out fetch-depth 0.
 	cd tools/capcheck && go run . ../..
 
-whitespace-check: ## Fail on trailing whitespace in any tracked text file
+whitespace-check: ## Fail on trailing whitespace or control characters in any tracked text file
 	# markdownlint's MD009 flags trailing spaces and does NOT look inside fenced
 	# code blocks -- which is where every generated artifact in this repository
 	# lives: the demonstration records and embedded checkers in the evidence
@@ -86,6 +86,16 @@ whitespace-check: ## Fail on trailing whitespace in any tracked text file
 	bad="$$(echo "$$files" | xargs -d '\n' grep -nP '[ \t]+$$' 2>/dev/null || true)"; \
 	if [ -n "$$bad" ]; then \
 		echo "$$bad" | sed 's/^/trailing whitespace: /'; \
+		echo "whitespace-check: failed"; exit 1; \
+	fi; \
+	: "Control characters. tools/doclint/main.go carried two literal backspace"; \
+	: "bytes inside a regex literal since P11b -- (?i)\\x08it is not\\x08|... --"; \
+	: "so that alternative could never match. gofmt, vet and every editor show"; \
+	: "the line as correct, and the tool reported a clean classification for"; \
+	: "hits it should have caught. Tab and newline are the only ones allowed."; \
+	ctrl="$$(echo "$$files" | xargs -d '\n' grep -nP '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' 2>/dev/null || true)"; \
+	if [ -n "$$ctrl" ]; then \
+		echo "$$ctrl" | sed 's/^/control character: /' | cat -v; \
 		echo "whitespace-check: failed"; exit 1; \
 	fi; \
 	echo "whitespace-check: ok"
@@ -144,7 +154,7 @@ build: ## Build every binary with a derived version stamp
 #
 # `dco-exempt-check` asserts it still exists, so the exemption cannot become a
 # missing gate nobody spots.
-check: fmt-check vet test-race whitespace-check build vuln docs-lint docs-links \
+check: fmt-check vet test-race tools-test whitespace-check build vuln docs-lint docs-links \
 	capability-catalog-check doclint archlint dco-exempt-check deferred-gates-check \
 	gates-agree ## Run every CI gate that can run locally
 	@echo "check: ok"
@@ -217,6 +227,23 @@ gates-agree: ## Assert make check and CI run the same gate set, both directions
 	if [ -n "$$extra" ]; then echo "CI runs these and make check does not:"; echo "$$extra"; rc=1; fi; \
 	[ $$rc -eq 0 ] || exit 1; \
 	echo "gates-agree: both directions agree on $$(echo "$$targets" | tr '\n' ' ')"
+
+tools-test: ## Run the tests in each tools module, which `go test ./...` does not reach
+	# Each tool is its own module, so the root `./...` never sees it. capcheck
+	# has had a main_test.go since R08 and NOTHING HAS EVER RUN IT -- found while
+	# adding doclint's, which review of #339 asked for. A test no gate executes
+	# reports nothing, which is the shape `DL-1` describes.
+	@found=0; \
+	for m in tools/*/; do \
+		[ -f "$$m/go.mod" ] || continue; \
+		found=$$((found+1)); \
+		echo "tools-test: $$m"; \
+		( cd "$$m" && go test ./... ) || exit 1; \
+	done; \
+	if [ "$$found" -eq 0 ]; then \
+		echo "ERROR: tools-test found no modules; it is checking nothing"; exit 1; \
+	fi; \
+	echo "tools-test: $$found module(s) ok"
 
 dco-exempt-check: ## Assert the one CI-only gate still exists, and can still run
 	@grep -q 'DCO sign-off on every commit this branch adds' .forgejo/workflows/reboot-baseline.yml || { \
