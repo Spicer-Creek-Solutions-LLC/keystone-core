@@ -415,7 +415,25 @@ limitations go in the pull request.
   is how this repository writes its load-bearing claims — can never fire a rule.
   Every superseded wording here is bold. Fixing it surfaces three previously
   masked hits that need adjudicating, and shipping a sweep that cannot catch its
-  own motivating instance is the `DL-1` shape this ledger exists for.
+  own motivating instance is the `DL-1` shape this ledger exists for. **`G28`
+  carries it**, and G27 does not close until that entry does.
+- [ ] G28 — Stop `doclint` disposing of claims because they are bold, and give
+  G27 its sweep. `emphasised()` returns true when a unit holds any asterisk
+  before the hit and any after it — unpaired, and not distinguishing `*` from
+  `**`. This repository asserts in bold, so **the claims most worth sweeping are
+  the ones no rule can fire on**, and that has been true of all nine rules since
+  P11b. Three parts, and the second is why this is not a one-line fix:
+  - Require a genuine single-asterisk span. Bold is assertion here, not
+    quotation.
+  - **Adjudicate the three hits the fix surfaces.** All three are false positives
+    of `runner-label-absence`, whose pattern joins `nothing`, a label word and a
+    serving verb across clause boundaries — one of them is a sentence whose whole
+    point is that queue state does *not* establish label absence. That rule needs
+    tightening, not exempting.
+  - Land `runner-cannot-run-containers`, which G27 wrote and withdrew, and
+    **demonstrate it against the verbatim text of all three superseded versions
+    read out of git history** — every one of them is bold, and every one passed
+    against the current classifier.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
