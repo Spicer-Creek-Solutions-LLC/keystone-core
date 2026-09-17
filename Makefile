@@ -64,7 +64,7 @@ capability-catalog-check: stray-binary-check ## Verify the archive capability ca
 	# are gone from the tip. Needs full history: CI checks out fetch-depth 0.
 	cd tools/capcheck && go run . ../..
 
-whitespace-check: ## Fail on trailing whitespace in any tracked text file
+whitespace-check: ## Fail on trailing whitespace or control characters in any tracked text file
 	# markdownlint's MD009 flags trailing spaces and does NOT look inside fenced
 	# code blocks -- which is where every generated artifact in this repository
 	# lives: the demonstration records and embedded checkers in the evidence
@@ -86,6 +86,16 @@ whitespace-check: ## Fail on trailing whitespace in any tracked text file
 	bad="$$(echo "$$files" | xargs -d '\n' grep -nP '[ \t]+$$' 2>/dev/null || true)"; \
 	if [ -n "$$bad" ]; then \
 		echo "$$bad" | sed 's/^/trailing whitespace: /'; \
+		echo "whitespace-check: failed"; exit 1; \
+	fi; \
+	: "Control characters. tools/doclint/main.go carried two literal backspace"; \
+	: "bytes inside a regex literal since P11b -- (?i)\\x08it is not\\x08|... --"; \
+	: "so that alternative could never match. gofmt, vet and every editor show"; \
+	: "the line as correct, and the tool reported a clean classification for"; \
+	: "hits it should have caught. Tab and newline are the only ones allowed."; \
+	ctrl="$$(echo "$$files" | xargs -d '\n' grep -nP '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]' 2>/dev/null || true)"; \
+	if [ -n "$$ctrl" ]; then \
+		echo "$$ctrl" | sed 's/^/control character: /' | cat -v; \
 		echo "whitespace-check: failed"; exit 1; \
 	fi; \
 	echo "whitespace-check: ok"

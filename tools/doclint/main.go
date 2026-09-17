@@ -278,18 +278,53 @@ func (r Rule) classify(file, unit, next string, at int) string {
 var (
 	negated    = regexp.MustCompile(`(?i)no longer\s*$|not\s*$|never\s*$`)
 	correction = regexp.MustCompile(`Corrected at ` + "`" + `G\d\d` + "`" + `|corrected the claim|G2\d corrected`)
-	describes  = regexp.MustCompile(`(?i)it is not|was carried (?:here|to)|wrongly said|had advertised|an earlier (?:draft|version)`)
+	// `describes` carried two literal backspace bytes around its first
+	// alternative -- `(?i)\x08it is not\x08|...` -- so that alternative could
+	// never match anything. It went in with the tool at P11b and was invisible:
+	// gofmt and vet do not care, the file looks correct in an editor, and the
+	// old emphasised() disposed of the hits it would have caught anyway. G28
+	// found it only after fixing emphasised() left a hit LIVE whose unit plainly
+	// contained "it is not". `make whitespace-check` now rejects control
+	// characters in any tracked text file.
+	describes = regexp.MustCompile(`(?i)it is not|was carried (?:here|to)|wrongly said|had advertised|an earlier (?:draft|version)`)
 )
 
-// emphasised reports whether the hit sits inside a markdown emphasis span,
-// which is how this repository quotes wording it is superseding.
+// emphasised reports whether the hit sits inside a SINGLE-asterisk emphasis
+// span, which is how this repository quotes wording it is superseding.
+//
+// **Bold is excluded, and that is the whole point of this function.** This
+// repository asserts in bold -- every load-bearing claim in every document is
+// written that way -- so treating bold as quotation meant the claims most worth
+// sweeping were the ones no rule could fire on.
+//
+// The first implementation was weaker still: it returned true when the unit held
+// any asterisk before the hit and any asterisk after it, unpaired and
+// undistinguished, so one bold phrase anywhere in a paragraph disposed of every
+// hit in it. G27 found it by planting the verbatim text of three superseded
+// claims and watching all three pass.
 func emphasised(unit string, at int) bool {
-	open := strings.LastIndex(unit[:at], "*")
-	if open < 0 {
-		return false
+	inSpan := false
+	for i := 0; i < len(unit); {
+		if unit[i] != '*' {
+			i++
+			continue
+		}
+		n := 0
+		for i+n < len(unit) && unit[i+n] == '*' {
+			n++
+		}
+		// Only a run of exactly one asterisk opens or closes a quotation span.
+		// A run of two is emphasis, and a run of three is both -- treated as
+		// bold here, because that is what it reads as.
+		if n == 1 {
+			if i > at {
+				return inSpan
+			}
+			inSpan = !inSpan
+		}
+		i += n
 	}
-	close := strings.Index(unit[at:], "*")
-	return close >= 0
+	return false
 }
 
 func trackedMarkdown(root string) ([]string, error) {
