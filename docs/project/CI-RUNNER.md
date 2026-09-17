@@ -21,10 +21,25 @@ this repository's jobs, so it is the one that has to change.
 This is how that machine is built, registered, locked down, and rebuilt — and
 what accepting it costs.
 
-## What the probe established
+## What the probes established
 
-Two dispatched probe runs, on 2026-09-15. Job conclusions rather than logs,
-because this forge's API does not expose job output.
+**Three probe events, and they are not the same thing.** Review of #343 found
+them conflated — the dates disagreed and "two dispatched runs" named two of them.
+Times are the forge's, `+02:00`.
+
+| Event | Runs | When | What it produced |
+|---|---|---|---|
+| **P1** the original probe | `828`, `829` | 2026-09-15 22:08, 22:11 | the table below — `docker version`, the socket, `CAP_SYS_ADMIN`, `unshare` |
+| **P2** verification | `835`, `836` | 2026-09-16 12:57, 13:02 | § What verification has established — the `v`/`w` series, `R3`'s marker test, `R1`'s samples |
+| **P3** the diagnostic probe | `876` **attempts 1 and 3** | 2026-09-18 00:42 and 01:07 | § What is deployed — the image, hostnames, and both socket paths either side of the mount |
+
+**P3 is one run re-run, not two runs.** Attempt 2 (01:01) is not cited: attempt 1
+is the before and attempt 3 the after.
+
+### P1 — the original probe
+
+Two dispatched probe runs, 2026-09-15. Job conclusions rather than logs, because
+this forge's API does not expose job output.
 
 **What the probe measured is a job, not a machine**, and every row below is a
 statement about the container a job runs inside.
@@ -78,7 +93,7 @@ both paths, and both now read present.
 a container* from `/.dockerenv`, and G31 objected that a containerised runner
 would produce the same reading. The objection was sound in general and false
 here: **the runner's own log shows it `docker create`-ing a container per job**,
-and two dispatched runs reported different hostnames. Recorded because doubting a
+and P3's two cited attempts reported different hostnames. Recorded because doubting a
 correct result is as much an error as trusting a wrong one, and this document has
 now done both about the same probe.
 
@@ -206,8 +221,9 @@ how each is checked.
 
 ## How a job gets Docker
 
-**The host's socket, mounted into the job's container.** Applied 2026-09-17 and
-measured: see § What is deployed.
+**The host's socket, mounted into the job's container.** Applied by the
+maintainer between P3's attempts 1 and 3, **2026-09-18**, and measured either
+side: see § What is deployed.
 
 | Shape | Assessment |
 |---|---|
@@ -308,21 +324,21 @@ rebuild cannot reproduce a host whose values were never written down.
 | **Job user** | **`uid=0(root)`** — which is why the socket's `srw-rw---- root:983` is readable without the job being in group 983 |
 | Docker version | *(unset)* — the host's, and no job could ask until a client exists |
 | Working directory, user, config location | *(unset)* |
-| **Isolation between jobs (R3)** | **holds** — a fresh container per job, observed directly: the runner `docker create`s it, and two dispatched runs reported hostnames `75edc82fe619` and `65c47ef08f31` |
-| **Host socket, in the job** | **`/run/docker.sock`, `srw-rw---- 1 root 983`**, mounted 2026-09-17. `/var/run` is a symlink to `/run`, so both paths resolve to it |
+| **Isolation between jobs (R3)** | **holds** — a fresh container per job, observed directly: the runner `docker create`s it, and P3's attempts 1 and 3 reported hostnames `75edc82fe619` and `65c47ef08f31` |
+| **Host socket, in the job** | **`/run/docker.sock`, `srw-rw---- 1 root 983`** — absent in P3 attempt 1, present in attempt 3, mounted between them on **2026-09-18**. `/var/run` is a symlink to `/run`, so both paths resolve to it |
 | Scope (R2) | *(unset)* |
 | Labels (R1) | `keystone-docker`, which the runner list shows on this runner alone — **read from the list by the maintainer, 2026-09-16** |
 
 ### What verification has established so far
 
-Two dispatched runs against the live runner, 2026-09-16. Job conclusions, since
-job logs are not readable through this forge's API.
+**P2**, two dispatched runs against the live runner, 2026-09-16. Job conclusions,
+since job logs are not readable through this forge's API.
 
 | | Result |
 |---|---|
 | Jobs run on the runner's own label | **yes** |
 | `actions/checkout` works there | **yes** |
-| **R3** — a marker written outside the workspace does not survive into the next job | **holds**, and G32 corroborated it independently: a fresh container per job, two runs, two hostnames |
+| **R3** — a marker written outside the workspace does not survive into the next job | **holds**, and **P3** corroborated it independently: a fresh container per job, two attempts, two hostnames |
 | **R6** — Docker usable inside a job | **not met, and its cause is now measured rather than inferred**: the socket is present since 2026-09-17; `node:22-bookworm` carries no `docker` binary |
 | **R1** — the label is neither `docker` nor `ubuntu-latest` | **holds**, on the runner list — not on the dispatched samples, which cannot establish it |
 

@@ -531,8 +531,12 @@ limitations go in the pull request.
     quantified over runners nobody probed. The pattern is the same each time: a
     measurement of a job read as a fact about a machine.
 - [x] G32 — Write down what the runner actually is. § What is deployed had been
-  `*(unset)*` since G23; two dispatched probes either side of a configuration
-  change filled it with measurements.
+  `*(unset)*` since G23; run `876`'s attempts 1 and 3, either side of a
+  configuration change on 2026-09-18, filled it with measurements. **Review found
+  the document conflating three separate probe events** — the 2026-09-15 probe,
+  the 2026-09-16 verification runs and this one — with dates that could not all
+  be true. `CI-RUNNER.md` now opens with one timeline naming each, and every
+  finding cites which produced it.
   - **The job image is `node:22-bookworm`** and carries no `docker` binary. That
     is the whole of `R6`'s cause, and it is not a deployment mistake: `docs-lint`
     needs `npx`, and `actions/checkout` and `setup-go` are JavaScript actions
@@ -544,7 +548,7 @@ limitations go in the pull request.
     `srw-rw---- root:983`, with the job running as `uid=0`. Measured absent
     before the change and present after.
   - **`R3` corroborated independently**: the runner `docker create`s a container
-    per job, and two runs reported different hostnames.
+    per job, and the two cited attempts reported different hostnames.
   - **The design changed, and the reason is `R5`.** G23 chose *a daemon of the
     job's own, not the host's socket*. `R5` already conceded that the runner holds
     the host's socket, that this is root on the host, and that **"sandboxing
