@@ -325,9 +325,10 @@ limitations go in the pull request.
   never made and G27 found the subject was wrong**: the probe measured the
   container a **job** runs inside, not a machine, and its own row *a job runs
   inside a container* passed. The measurements stand. What holds is that **no job
-  on a runner available here can reach Docker**, which is enough — `TESTING.md`
-  makes Docker the integration floor and `ADR-0010` § 2 designs the topology on
-  it, so neither could run.
+  on this self-hosted runner can reach Docker** — one runner was probed, and
+  whether a hosted one is available here is unknown. That is enough:
+  `TESTING.md` makes Docker the integration floor, `ADR-0010` § 2 designs the
+  topology on it, and this is the runner claiming this repository's jobs.
   `CI-RUNNER.md` is the machine that fixes it, and the security decision that
   comes with it: this repository is **public** and this forge has no
   first-time-contributor gate, so the container workflow carries **no
@@ -403,9 +404,18 @@ limitations go in the pull request.
   The maintainer states this runner has run Docker since before the reboot. **The
   worst instance was introduced by G25** while correcting the attribution in the
   same sentence: it replaced a claim about a hosted pool with a claim about every
-  runner, and neither was measured. `R6` is unchanged and still unmet — a job
-  reaches Docker when its image carries a client and a daemon comes with it, both
-  configuration. `tools/doclint` carries the sweep.
+  runner, and neither was measured. **Review caught a third turn of the same
+  screw in this task's own first draft** — *no job on a runner available to this
+  repository* still quantified over runners nobody probed. One runner was
+  measured; that is the claim. `R6` is unchanged and still unmet — a job reaches
+  Docker when its image carries a client and a daemon comes with it, both
+  configuration. **The sweep this task owed is deferred to `G28` and the reason is
+  a defect in `doclint` itself**: `emphasised()` disposes of any hit with an
+  asterisk somewhere before and after it, so a claim written in `**bold**` — which
+  is how this repository writes its load-bearing claims — can never fire a rule.
+  Every superseded wording here is bold. Fixing it surfaces three previously
+  masked hits that need adjudicating, and shipping a sweep that cannot catch its
+  own motivating instance is the `DL-1` shape this ledger exists for.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

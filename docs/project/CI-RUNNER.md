@@ -2,14 +2,21 @@
 
 `TESTING.md` makes Docker the integration floor for every feature, and
 [`ADR-0010`](../adr/0010-acceptance-harness.md) § 2 designs the topology that
-floor runs on. **No job on a runner available to this repository can reach
-Docker**, so that floor needs a runner configured to give one.
+floor runs on. **No job on this self-hosted runner can reach Docker**, so that
+runner needs configuring to give one.
 
-Two earlier versions of this sentence were wrong in the same direction. It said
-*the forge's hosted runners* cannot run containers, which was never established
-(§ What the probe established), and G25 replaced that with *no runner available
-to this repository can run containers* — **which is false**. The probe measured
-what a **job** could do. The host runs Docker; G27 corrected the conflation.
+**Three earlier versions of this sentence claimed more than was measured, each
+time about a different thing.** It said *the forge's hosted runners* cannot run
+containers — a pool never established to exist. G25 replaced that with *no runner
+available to this repository can run containers* — false, since the probe
+measured a **job's container** and the host plainly starts containers. G27's
+first draft said *no job on a runner available to this repository can reach
+Docker* — still quantified over runners nobody measured.
+
+**One runner was probed and that is the claim.** Whether a hosted runner is
+available here is unknown (§ What the probe established), and if one exists its
+job image could differ. The conclusion is unaffected: this is the runner claiming
+this repository's jobs, so it is the one that has to change.
 
 This is how that machine is built, registered, locked down, and rebuilt — and
 what accepting it costs.
