@@ -1,0 +1,67 @@
+# A diagnostic probe of the container runner. Manual, and it changes nothing.
+#
+# It exists because the previous probe answered the wrong questions and the
+# answers were recorded as findings. `w2` tested `/var/run/docker.sock` when this
+# host's socket is `/run/docker.sock`; `/var/run` is usually a symlink to `/run`
+# but a minimal image need not carry one, so a negative there established
+# nothing. `CI-RUNNER.md` called that result one of "the decisive two".
+#
+# **It prints rather than passing or failing.** The earlier probe encoded one
+# question per job because this forge's API does not expose job logs -- but the
+# maintainer can read them in the web interface, so a single job that reports
+# values beats nine that report a bit each. No step may fail the run: a
+# diagnostic that stops at the first missing thing hides everything after it.
+#
+# `workflow_dispatch` only. It is not a gate, it must never run on a push, and
+# CI-RUNNER.md's rule against contributor-triggered events applies here as it
+# does to everything else on this runner.
+name: runner-probe
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: keystone-docker
+    steps:
+      - name: what this job can see
+        run: |
+          set +e
+          section() { printf '\n===== %s =====\n' "$1"; }
+
+          section "identity of the environment this job runs in"
+          echo "hostname : $(hostname 2>&1)"
+          echo "whoami   : $(id 2>&1)"
+          echo "os       : $(cat /etc/os-release 2>/dev/null | head -2 | tr '\n' ' ')"
+          echo "/.dockerenv present: $(test -f /.dockerenv && echo yes || echo no)"
+          echo "pid 1 cgroup:"; cat /proc/1/cgroup 2>&1 | head -5
+          echo "pid 1 cmdline: $(tr '\0' ' ' < /proc/1/cmdline 2>&1)"
+
+          section "the docker client"
+          echo "command -v docker : $(command -v docker 2>&1)"
+          echo "docker --version  : $(docker --version 2>&1)"
+          echo "compose           : $(docker compose version 2>&1 | head -1)"
+
+          section "sockets, BOTH paths -- this is what the last probe got wrong"
+          for s in /run/docker.sock /var/run/docker.sock; do
+            printf '%-24s ' "$s"
+            if [ -S "$s" ]; then echo "socket present  $(ls -l "$s" 2>&1)"
+            elif [ -e "$s" ]; then echo "exists, not a socket  $(ls -ld "$s" 2>&1)"
+            else echo "absent"; fi
+          done
+          echo "/var/run -> $(readlink /var/run 2>&1 || echo '(not a symlink)')"
+          echo "DOCKER_HOST=${DOCKER_HOST:-(unset)}"
+
+          section "can this job actually reach a daemon"
+          echo "--- docker version (client and server separately) ---"
+          docker version 2>&1 | head -20
+          echo "--- docker info, first lines ---"
+          docker info 2>&1 | head -12
+
+          section "privilege, for a daemon of the job's own"
+          echo "capsh  : $(capsh --print 2>&1 | grep -i 'cap_sys_admin' || echo 'capsh unavailable or CAP_SYS_ADMIN absent')"
+          echo "unshare: $(unshare --net true 2>&1 && echo ok || echo failed)"
+
+          section "done"
+          echo "Paste this whole log back. Nothing here was changed."
+          exit 0
