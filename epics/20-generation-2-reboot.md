@@ -508,6 +508,28 @@ limitations go in the pull request.
     now, so it exercises the hazard rather than depending on its absence.
   - Only visible at all because `G28` made the tools-module tests run for the
     first time since R08.
+- [x] G31 — Ask the runner the right questions. `R6`'s diagnosis rested on two
+  readings and **neither holds**. The probe tested `/var/run/docker.sock` when
+  this host's socket is **`/run/docker.sock`** — `/var/run` is usually a symlink
+  to `/run` but a minimal image need not carry one, so the negative established
+  nothing, and `CI-RUNNER.md` called that row one of *"the decisive two"*. And
+  `w3` inferred *jobs run inside a container* from `/.dockerenv`, which is
+  **equally true if the runner itself is containerised** and therefore cannot
+  distinguish the two arrangements — the difference is what decides what `R6`
+  needs.
+  - The row is **withdrawn rather than reinterpreted**. `R6` stays unmet, because
+    a job did not reach Docker; **its cause is now recorded as open.**
+  - `.forgejo/workflows/runner-probe.yml` replaces nine pass/fail jobs with one
+    that **prints**. The original shape existed because job logs are not readable
+    through this forge's API — but the maintainer reads them in the web
+    interface, so reporting values beats reporting a bit each. No step can fail
+    the run: a diagnostic that stops at the first missing thing hides the rest.
+  - `workflow_dispatch` only. It is not a gate and must never run on a push.
+  - Found by the maintainer saying plainly that the runner has Docker and the
+    `docker` command. **That was the third correction of this kind in a day** —
+    the first two were about a hosted pool that was never measured and a claim
+    quantified over runners nobody probed. The pattern is the same each time: a
+    measurement of a job read as a fact about a machine.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

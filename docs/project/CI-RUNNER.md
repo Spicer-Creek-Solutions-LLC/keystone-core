@@ -56,15 +56,29 @@ has a hosted pool at all is unknown; the runner list is owner-only.
 | `docker compose version` | fails |
 | a nested container runs | fails |
 | two user-defined networks, isolated | fails |
-| **`/var/run/docker.sock` exists** | **fails** |
+| ~~**`/var/run/docker.sock` exists**~~ | **withdrawn — the probe asked about the wrong path; see below** |
 | a Docker client can be installed | succeeds |
 | `CAP_SYS_ADMIN` is held | fails |
 | `unshare --net` | fails |
 | the Go toolchain works | succeeds |
 
-**The decisive two are the socket and the capability.** A job has no daemon to
-talk to and no privilege to start one — and the installable client is a trap,
-since it would install cleanly and have nothing to reach.
+**The socket row is withdrawn, and it was half of "the decisive two".** This
+host's socket is **`/run/docker.sock`**; the probe tested `/var/run/docker.sock`.
+`/var/run` is usually a symlink to `/run`, but a minimal image need not carry
+one, so a negative on the second path establishes nothing about the first. `G31`
+withdrew the row rather than reinterpreting it, and `G31`'s probe reports both.
+
+**What survives is the capability**, and it is weaker alone: a job held no
+`CAP_SYS_ADMIN` and `unshare --net` failed, so a job could not start a daemon of
+its own — but whether it needed to is exactly what the withdrawn row would have
+answered.
+
+**A second reading that should not be leaned on either.** `w3` concluded *jobs
+run inside a container* from `/.dockerenv` or a containerd cgroup. **If the
+runner itself is containerised, that is true whether or not each job gets a
+fresh container**, so it does not distinguish the two arrangements — and the
+difference decides what `R6` needs. `G31`'s probe prints `/proc/1/cmdline` and
+the hostname so the two can be told apart.
 
 **This said the shortage was *structural rather than a missing package*. It is
 not, and nothing here established that it was.** A job reaches Docker when the
@@ -292,12 +306,17 @@ job logs are not readable through this forge's API.
 container* — confirmed, not inferred — and that container has **neither the
 Docker client nor a socket**, so a job cannot reach Docker at all.
 
-**It is configuration, and the host was never the constraint.** The maintainer
-states this runner has run Docker containers since before the reboot, and the
-probe agrees with them: the row *a job runs inside a container* passed, so the
-host starts containers. `R6` is about what a **job** is handed — the image its
-label maps to, and whether a daemon comes with it — and § "How a job gets Docker"
-is the change that closes it.
+**`R6`'s cause is not established.** The maintainer states the runner has run
+Docker containers since before the reboot, and that `command -v docker` returns a
+path on the ci-agent. Both are consistent with what the probe measured **inside a
+job**, and they are also consistent with the probe having measured the wrong
+things: one of its two decisive rows is withdrawn above, and the other reading it
+rested on cannot distinguish a per-job container from the runner's own.
+
+**`R6` is unmet — a job did not reach Docker — and why is open.** It could be the
+image the label maps to, a socket at a path the job does not see, or a daemon the
+job is not given. `G31`'s probe reports all three rather than inferring between
+them, and § "How a job gets Docker" stays the design whichever it turns out to be.
 
 Two earlier readings are superseded. This first said *a configuration detail
 rather than the structural impossibility the hosted pool has*, which assumed a
@@ -366,6 +385,14 @@ job **that would fail on a misconfigured host** has passed.
 1. **Docker works there.** A job on the runner's label runs `docker compose
    version` and succeeds. This is the question `R6` currently fails, so it is the
    step that decides whether the apply is finished.
+
+   **Diagnose before changing anything.** `.forgejo/workflows/runner-probe.yml`
+   is a manual `workflow_dispatch` job that reports what a job can see — the
+   client, **both** socket paths, `docker version` split into client and server,
+   the capability, and enough of `/proc/1` to tell a per-job container from the
+   runner's own. It **prints**; nothing in it can pass or fail, because a
+   diagnostic that stops at the first missing thing hides everything after it.
+   Read the log in the web interface and record the values in § What is deployed.
 
 2. **The label is what R1 requires**, read from the runner list by someone who
    can see it. The list is owner-only, so this step is the maintainer's and its
