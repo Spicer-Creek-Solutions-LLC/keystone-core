@@ -398,7 +398,7 @@ limitations go in the pull request.
   execution plan untouched. A convention recorded in one place and contradicted
   in two looks settled, which is worse than one that is merely ambiguous.
   `tools/doclint` carries the sweep.
-- [x] G27 — Say what the probe measured. Four documents read *the runner cannot
+- [ ] G27 — Say what the probe measured. Four documents read *the runner cannot
   run containers*; the probe measured **a job's container**, and one of its own
   rows — *a job runs inside a container* — passed, so the host starts containers.
   The maintainer states this runner has run Docker since before the reboot. **The
@@ -416,7 +416,11 @@ limitations go in the pull request.
   Every superseded wording here is bold. Fixing it surfaces three previously
   masked hits that need adjudicating, and shipping a sweep that cannot catch its
   own motivating instance is the `DL-1` shape this ledger exists for. **`G28`
-  carries it**, and G27 does not close until that entry does.
+  carries it, and this entry stays unticked until `G28` is ticked** — every other
+  correction in this series shipped with its sweep, and a correction whose guard
+  is owed is not finished. The document changes are merged; the task is not
+  closed. `G25` was held the same way while its branch-protection change was
+  outstanding.
 - [ ] G28 — Stop `doclint` disposing of claims because they are bold, and give
   G27 its sweep. `emphasised()` returns true when a unit holds any asterisk
   before the hit and any after it — unpaired, and not distinguishing `*` from
