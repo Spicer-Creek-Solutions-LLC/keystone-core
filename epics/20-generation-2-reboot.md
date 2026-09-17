@@ -473,11 +473,14 @@ limitations go in the pull request.
   between them. **Review caught the first draft stating two different totals** —
   the document double-counted three runs and this entry said six, a count that
   came from including three runs `cancel-in-progress` had already superseded. A
-  task correcting an operational record cannot leave contradictory totals in it. **A document that records an open
-  action and is not updated when the action is taken reads as an obligation
-  forever**, and this one survived G25, G27 and G28 — each of which edited the
-  paragraph above it. The observation is stated in the past tense now, with what
-  happened to the samples.
+  task correcting an operational record cannot leave contradictory totals in it,
+  and a second round found the corrected paragraph still ending in the request
+  itself — quoted, but quoted is not the same as evidently finished.
+
+  **A document that records an open action and is not updated when the action is
+  taken reads as an obligation forever**, and this one survived G25, G27 and G28
+  — each of which edited the paragraph above it. The observation is in the past
+  tense now, and the paragraph says outright that it asks for nothing.
 
   **No sweep, deliberately.** `tools/doclint` guards superseded *conclusions*,
   and this was a stale *fact* — the claim was true when written. A rule keyed to

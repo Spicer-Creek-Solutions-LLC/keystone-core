@@ -332,8 +332,11 @@ workflow's own `cancel-in-progress` when later commits landed on the same
 branches; they were superseded rather than stalled and are not part of either
 count. Nothing is queued against `docker` any more.
 
-This read *will never run and should be cancelled*, which outlived the action it
-asked for.
+**Nothing above asks for anything.** Until G29 this paragraph ended with a
+request for that cancellation, and the request stayed in place after it was
+carried out — so the document went on asking for work that was already done.
+That is the defect G29 corrected, and the sentence you are reading is a record
+of it rather than a further request.
 
 **An earlier deviation, closed by G25 rather than by the rename.** The runner
 advertised `docker`, which was the label `reboot-baseline` asked for on
