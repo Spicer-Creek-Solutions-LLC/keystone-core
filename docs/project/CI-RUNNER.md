@@ -56,29 +56,31 @@ has a hosted pool at all is unknown; the runner list is owner-only.
 | `docker compose version` | fails |
 | a nested container runs | fails |
 | two user-defined networks, isolated | fails |
-| ~~**`/var/run/docker.sock` exists**~~ | **withdrawn — the probe asked about the wrong path; see below** |
+| ~~**`/var/run/docker.sock` exists**~~ | **superseded.** Withdrawn at G31 because the probe asked about a path that need not exist; G32 measured both and found **neither present then, both present now** |
 | a Docker client can be installed | succeeds |
 | `CAP_SYS_ADMIN` is held | fails |
 | `unshare --net` | fails |
 | the Go toolchain works | succeeds |
 
-**The socket row is withdrawn, and it was half of "the decisive two".** This
-host's socket is **`/run/docker.sock`**; the probe tested `/var/run/docker.sock`.
-`/var/run` is usually a symlink to `/run`, but a minimal image need not carry
-one, so a negative on the second path establishes nothing about the first. `G31`
-withdrew the row rather than reinterpreting it, and `G31`'s probe reports both.
+**The socket row was withdrawn at G31 and is now superseded by measurement.**
+This host's socket is `/run/docker.sock`; the old probe tested only
+`/var/run/docker.sock`. `/var/run` is *usually* a symlink to `/run` — and in
+`node:22-bookworm` it is — so the original negative happened to be sound. **The
+test was still unsound and withdrawing it was still right**: it asked a question
+whose answer depended on an image detail nobody had checked. G32's probe reports
+both paths, and both now read present.
 
-**What survives is the capability**, and it is weaker alone: a job held no
-`CAP_SYS_ADMIN` and `unshare --net` failed, so a job could not start a daemon of
-its own — but whether it needed to is exactly what the withdrawn row would have
-answered.
+**The capability rows stand and no longer matter.** A job holds no
+`CAP_SYS_ADMIN` and `unshare --net` fails, so it cannot start a daemon of its own
+— which the chosen shape does not ask it to. See § How a job gets Docker.
 
-**A second reading that should not be leaned on either.** `w3` concluded *jobs
-run inside a container* from `/.dockerenv` or a containerd cgroup. **If the
-runner itself is containerised, that is true whether or not each job gets a
-fresh container**, so it does not distinguish the two arrangements — and the
-difference decides what `R6` needs. `G31`'s probe prints `/proc/1/cmdline` and
-the hostname so the two can be told apart.
+**`w3` was right, and G31 was wrong to doubt it.** It concluded *jobs run inside
+a container* from `/.dockerenv`, and G31 objected that a containerised runner
+would produce the same reading. The objection was sound in general and false
+here: **the runner's own log shows it `docker create`-ing a container per job**,
+and two dispatched runs reported different hostnames. Recorded because doubting a
+correct result is as much an error as trusting a wrong one, and this document has
+now done both about the same probe.
 
 **This said the shortage was *structural rather than a missing package*. It is
 not, and nothing here established that it was.** A job reaches Docker when the
@@ -199,39 +201,58 @@ how each is checked.
 | R3 | **No state carries from one job to the next** | Residue from one job reaching the next is how a compromised or merely broken job spreads. **This is an isolation property, not a process lifecycle** — a persistent runner giving each job a fresh container satisfies it, and `--once` is one mechanism among others. The requirement is the property; the mechanism is the deployment's | § Verification, step 4 |
 | R4 | **A dedicated host** | The OS-test VMs are snapshot-reset for distribution testing, and a reset unregisters the runner **without failing loudly** — its jobs then queue indefinitely | Operational; stated here so a later reuse is a decision rather than an accident |
 | R5 | **The host holds nothing worth stealing** | The runner needs the Docker socket, and that is root on the host. Sandboxing inside a job is decoration; the host is the boundary | Review of what is on it |
-| R6 | **Docker works inside a job, through a daemon of the job's own** | `ADR-0010` § 2 requires the isolation to be *proved by a probe* rather than asserted — and proved in both directions. **Not the host's socket**: see § How a job gets Docker | § Verification, step 3 |
+| R6 | **Docker works inside a job** | `ADR-0010` § 2 requires the isolation to be *proved by a probe* rather than asserted — and proved in both directions. **How** a job reaches Docker is § How a job gets Docker's to decide, and it has changed once; this row states the property, not the mechanism. It read *through a daemon of the job's own* and **not the host's socket**, which is now the declined shape | § Verification, step 3 |
 | R7 | **What was installed is recorded** | So a rebuild reproduces this host rather than becoming a first install again. This is the trust anchor the checksum is not | § What is deployed |
 
 ## How a job gets Docker
 
-**A daemon of the job's own, not the host's socket.**
+**The host's socket, mounted into the job's container.** Applied 2026-09-17 and
+measured: see § What is deployed.
 
-The alternatives and why this one:
-
-| Shape | Why not |
+| Shape | Assessment |
 |---|---|
-| **Jobs run on the host**, where Docker already is | Simplest, and it **gives up `R3`** — a marker written to `/tmp` survives into the next job. `R3` is the only isolation between one job and the next, since `R5` concedes the host is the security boundary |
-| **A container with the host's socket mounted in** | Keeps `R3` for the job, and **containers the job creates are siblings on the host daemon** — they outlive the job unless it cleans up, and a suite that fails partway leaves them behind. That is the state that makes the *next* run fail confusingly |
-| **A daemon per job** — chosen | Containers and networks the harness creates belong to a daemon that **dies with the job**, so the sibling problem does not exist rather than being managed. Job code never touches the host's socket at all |
+| **Jobs run on the host**, where Docker already is | **Considered and declined.** It gives up `R3` — a marker written to `/tmp` survives into the next job — and `R3` is the only thing separating one job from the next |
+| **A container with the host's socket mounted in** — **chosen** | Keeps `R3`'s filesystem isolation. Containers the job creates are **siblings on the host daemon** and outlive it unless the suite cleans up, so cleanup is the suite's job and has to be visible there. Keeps the host's **image cache** |
+| A daemon per job | **Was chosen at G23, now declined.** It removes the sibling problem — and costs the image cache entirely, needs privileged containers, and needs a client in the image anyway |
 
-**What it costs, stated rather than discovered:** a daemon per job starts empty,
-so **there is no image cache between jobs.** Every run pulls what it needs.
+**Why the choice moved, since G23 argued the other way.** The case for a per-job
+daemon was that job code *"never touches the host's socket at all"*. `R5`, two
+rows above in § What this project requires, says the quiet part: **the runner
+needs the Docker socket, that is root on the host, and "sandboxing inside a job is
+decoration; the host is the boundary."**
 
-**That cost is accepted for now.** Nobody has run this suite, so how slow "slow"
-is, is a guess, and optimising against a guess has a poor record here. The
-trigger to revisit is specific: **the first run that fails on a registry rate
-limit rather than on a defect.** The answer then is a pull-through cache on the
-host — upstream of the daemon, so a job still starts from an empty store.
+**Once a job can reach Docker by any route, the container around it is not a
+security boundary** — dind included, since the daemon it talks to is started by a
+runner that holds the host's socket. So the per-job daemon was buying hygiene,
+not safety, and paying the whole image cache for it. G23 weighed it as though it
+were buying safety. That was wrong, and the maintainer asked the question that
+exposed it: *why run Docker commands in a container instead of on the host?*
 
-### Rejected: sharing the daemon's storage between jobs
+**What the chosen shape costs, stated rather than discovered:** a failed run can
+leave containers and networks behind on the host daemon, and the next run meets
+them. **The suite must tear down what it creates, including when it fails** —
+that is a requirement on the suite, and it is where this cost is paid.
 
-**Recorded because it is the tempting wrong answer**, and an unrecorded rejection
-gets rediscovered as a good idea.
+**What it keeps:** the host's image cache, so a run does not re-pull what it
+already has. G23 accepted *"every run pulls what it needs"* as the price of the
+per-job daemon; that price is no longer paid, and the registry-rate-limit trigger
+it recorded is moot.
 
-Persisting `/var/lib/docker` across jobs would remove the pull cost — and it is
-**state surviving between jobs, which is `R3` undone by the back door.** The
-whole reason for a per-job daemon is that nothing it holds outlives the job. A
-shared image store is something it holds.
+### Rejected: sharing a per-job daemon's storage between jobs
+
+**Recorded because it was the tempting wrong answer to a question that is now
+moot**, and an unrecorded rejection gets rediscovered as a good idea.
+
+While a per-job daemon was the design, persisting `/var/lib/docker` across jobs
+would have removed the pull cost — and it was **state surviving between jobs,
+which is `R3` undone by the back door.** The whole reason for a per-job daemon
+was that nothing it holds outlives the job; a shared image store is something it
+holds.
+
+The chosen shape uses the host's daemon and therefore its store, deliberately.
+**That is not this rejection reappearing**: the sharing here is of images, which
+no job writes as part of its work, and `R3` is measured on the job's filesystem —
+see § What verification has established.
 
 ## Illustrative configuration
 
@@ -280,12 +301,15 @@ rebuild cannot reproduce a host whose values were never written down.
 
 | | Value |
 |---|---|
-| Installed how (package, binary, container) | *(unset)* |
-| Runner version | *(unset)* |
-| Runner binary digest, if installed as a binary | *(unset)* |
-| Docker version | *(unset)* |
+| Installed how (package, binary, container) | *(unset — not observable from a job)* |
+| Runner version | *(unset)* — the probe log's `forgejo(version:v12.10.1)` is the **instance** it reports to, not the runner |
+| Runner binary digest, if installed as a binary | *(unset — not observable from a job)* |
+| **Job image** | **`node:22-bookworm`**, Debian 12. The label carries `docker://`, so each job gets a container from this image |
+| **Job user** | **`uid=0(root)`** — which is why the socket's `srw-rw---- root:983` is readable without the job being in group 983 |
+| Docker version | *(unset)* — the host's, and no job could ask until a client exists |
 | Working directory, user, config location | *(unset)* |
-| Isolation between jobs (R3) | *(unset)* |
+| **Isolation between jobs (R3)** | **holds** — a fresh container per job, observed directly: the runner `docker create`s it, and two dispatched runs reported hostnames `75edc82fe619` and `65c47ef08f31` |
+| **Host socket, in the job** | **`/run/docker.sock`, `srw-rw---- 1 root 983`**, mounted 2026-09-17. `/var/run` is a symlink to `/run`, so both paths resolve to it |
 | Scope (R2) | *(unset)* |
 | Labels (R1) | `keystone-docker`, which the runner list shows on this runner alone — **read from the list by the maintainer, 2026-09-16** |
 
@@ -298,25 +322,32 @@ job logs are not readable through this forge's API.
 |---|---|
 | Jobs run on the runner's own label | **yes** |
 | `actions/checkout` works there | **yes** |
-| **R3** — a marker written outside the workspace does not survive into the next job | **holds** |
-| **R6** — Docker usable inside a job | **not met** |
+| **R3** — a marker written outside the workspace does not survive into the next job | **holds**, and G32 corroborated it independently: a fresh container per job, two runs, two hostnames |
+| **R6** — Docker usable inside a job | **not met, and its cause is now measured rather than inferred**: the socket is present since 2026-09-17; `node:22-bookworm` carries no `docker` binary |
 | **R1** — the label is neither `docker` nor `ubuntu-latest` | **holds**, on the runner list — not on the dispatched samples, which cannot establish it |
 
 **`R6`'s diagnosis, which is why the shape above was chosen.** Jobs run *inside a
 container* — confirmed, not inferred — and that container has **neither the
 Docker client nor a socket**, so a job cannot reach Docker at all.
 
-**`R6`'s cause is not established.** The maintainer states the runner has run
-Docker containers since before the reboot, and that `command -v docker` returns a
-path on the ci-agent. Both are consistent with what the probe measured **inside a
-job**, and they are also consistent with the probe having measured the wrong
-things: one of its two decisive rows is withdrawn above, and the other reading it
-rested on cannot distinguish a per-job container from the runner's own.
+**`R6`'s cause is established, and it is one thing.** `node:22-bookworm` carries
+**no `docker` binary** — `command -v docker` returns nothing inside a job, while
+it returns a path on the ci-agent, because those are two different filesystems.
+Everything else a job needs is now present: the host's socket is mounted, and the
+job runs as root, so it can open it.
 
-**`R6` is unmet — a job did not reach Docker — and why is open.** It could be the
-image the label maps to, a socket at a path the job does not see, or a daemon the
-job is not given. `G31`'s probe reports all three rather than inferring between
-them, and § "How a job gets Docker" stays the design whichever it turns out to be.
+The label carries `docker://`, which is what puts the job in a container at all;
+the image it names is what decides whether a client is there. **G23 asked for
+`docker:cli`; the deployed label names a Node image**, and that is not a mistake
+— `docs-lint` runs `npx markdownlint-cli2`, and `actions/checkout` and
+`actions/setup-go` are JavaScript actions needing Node in the container. Neither
+stock image carries both: `docker:cli` has the client, compose and git but no
+Node; `node:22-bookworm` the reverse. Measured, not assumed.
+
+**So the client is the repository's to supply, not the deployment's**, and it
+lands the way `reboot-baseline` already installs lychee: a pinned tarball,
+verified, in the job. `R6` goes green when a job runs `docker compose version`
+against the mounted socket, which is § Verification step 1.
 
 Two earlier readings are superseded. This first said *a configuration detail
 rather than the structural impossibility the hosted pool has*, which assumed a
