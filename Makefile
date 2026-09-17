@@ -154,7 +154,7 @@ build: ## Build every binary with a derived version stamp
 #
 # `dco-exempt-check` asserts it still exists, so the exemption cannot become a
 # missing gate nobody spots.
-check: fmt-check vet test-race whitespace-check build vuln docs-lint docs-links \
+check: fmt-check vet test-race tools-test whitespace-check build vuln docs-lint docs-links \
 	capability-catalog-check doclint archlint dco-exempt-check deferred-gates-check \
 	gates-agree ## Run every CI gate that can run locally
 	@echo "check: ok"
@@ -227,6 +227,23 @@ gates-agree: ## Assert make check and CI run the same gate set, both directions
 	if [ -n "$$extra" ]; then echo "CI runs these and make check does not:"; echo "$$extra"; rc=1; fi; \
 	[ $$rc -eq 0 ] || exit 1; \
 	echo "gates-agree: both directions agree on $$(echo "$$targets" | tr '\n' ' ')"
+
+tools-test: ## Run the tests in each tools module, which `go test ./...` does not reach
+	# Each tool is its own module, so the root `./...` never sees it. capcheck
+	# has had a main_test.go since R08 and NOTHING HAS EVER RUN IT -- found while
+	# adding doclint's, which review of #339 asked for. A test no gate executes
+	# reports nothing, which is the shape `DL-1` describes.
+	@found=0; \
+	for m in tools/*/; do \
+		[ -f "$$m/go.mod" ] || continue; \
+		found=$$((found+1)); \
+		echo "tools-test: $$m"; \
+		( cd "$$m" && go test ./... ) || exit 1; \
+	done; \
+	if [ "$$found" -eq 0 ]; then \
+		echo "ERROR: tools-test found no modules; it is checking nothing"; exit 1; \
+	fi; \
+	echo "tools-test: $$found module(s) ok"
 
 dco-exempt-check: ## Assert the one CI-only gate still exists, and can still run
 	@grep -q 'DCO sign-off on every commit this branch adds' .forgejo/workflows/reboot-baseline.yml || { \

@@ -120,6 +120,11 @@ jobs:
       - name: go test with the race detector
         run: make test-race
 
+      # Each tool is its own module, so the root `./...` does not reach it and
+      # `test-race` above never saw these. capcheck's tests had never run.
+      - name: tools module tests
+        run: make tools-test
+
       - name: dependency vulnerability scan
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest

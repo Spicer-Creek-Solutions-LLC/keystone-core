@@ -276,7 +276,11 @@ func (r Rule) classify(file, unit, next string, at int) string {
 }
 
 var (
-	negated    = regexp.MustCompile(`(?i)no longer\s*$|not\s*$|never\s*$`)
+	// Word boundaries on every alternative. Without them `not\s*$` matches a
+	// unit whose preceding text ends in "cannot", and `describes` matched
+	// "it is notable that". Review of #339 found the second; the first is the
+	// same defect in the classifier beside it, found by looking.
+	negated    = regexp.MustCompile(`(?i)\bno longer\s*$|\bnot\s*$|\bnever\s*$`)
 	correction = regexp.MustCompile(`Corrected at ` + "`" + `G\d\d` + "`" + `|corrected the claim|G2\d corrected`)
 	// `describes` carried two literal backspace bytes around its first
 	// alternative -- `(?i)\x08it is not\x08|...` -- so that alternative could
@@ -286,7 +290,7 @@ var (
 	// found it only after fixing emphasised() left a hit LIVE whose unit plainly
 	// contained "it is not". `make whitespace-check` now rejects control
 	// characters in any tracked text file.
-	describes = regexp.MustCompile(`(?i)it is not|was carried (?:here|to)|wrongly said|had advertised|an earlier (?:draft|version)`)
+	describes = regexp.MustCompile(`(?i)\bit is not\b|\bwas carried (?:here|to)\b|\bwrongly said\b|\bhad advertised\b|\ban earlier (?:draft|version)\b`)
 )
 
 // emphasised reports whether the hit sits inside a SINGLE-asterisk emphasis

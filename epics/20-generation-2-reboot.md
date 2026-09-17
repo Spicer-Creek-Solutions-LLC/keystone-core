@@ -453,6 +453,20 @@ limitations go in the pull request.
     stayed `LIVE` whose unit plainly contained *it is not*.
     `make whitespace-check` now rejects control characters in any tracked text
     file, with the backspace re-planted as its demonstration.
+
+  **And two more from review**, both the same shape as the backspace: a pattern
+  that reads correctly and matches the wrong thing.
+
+  - **`describes` and `negated` lost their word boundaries.** `it is not` matched
+    *it is notable*, and `not\s*$` matched a unit ending in *cannot* — so a stale
+    hit in either unit was reported as handled. Restored on every alternative.
+    **The backspaces were almost certainly `\b` to begin with**: these files are
+    written by generator scripts, and `\b` in a non-raw Python string is a
+    backspace byte. The defect and its repair have the same origin.
+  - **No gate ran any tools-module test.** Each tool is its own module, so the
+    root `go test ./...` never reached them: `tools/capcheck` has had a
+    `main_test.go` since R08 that **has never executed**. Found while adding
+    `doclint`'s. `make tools-test` runs them all and CI runs it.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
