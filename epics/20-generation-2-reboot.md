@@ -467,6 +467,20 @@ limitations go in the pull request.
     root `go test ./...` never reached them: `tools/capcheck` has had a
     `main_test.go` since R08 that **has never executed**. Found while adding
     `doclint`'s. `make tools-test` runs them all and CI runs it.
+- [x] G29 — Stop `CI-RUNNER.md` asking for something already done. It read
+  *"Those queued samples will never run and should be cancelled"*; the maintainer
+  cancelled all six stalled runs on 2026-09-17. **A document that records an open
+  action and is not updated when the action is taken reads as an obligation
+  forever**, and this one survived G25, G27 and G28 — each of which edited the
+  paragraph above it. The observation is stated in the past tense now, with what
+  happened to the samples.
+
+  **No sweep, deliberately.** `tools/doclint` guards superseded *conclusions*,
+  and this was a stale *fact* — the claim was true when written. A rule keyed to
+  "should be" would fire on every legitimate recommendation in the tree. What
+  would catch this class is a check that an action a document asks for has an
+  owner and an end, which nothing here has and which is a larger idea than this
+  task.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

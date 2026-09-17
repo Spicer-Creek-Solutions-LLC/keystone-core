@@ -312,9 +312,9 @@ and the runner list states that directly. The maintainer read it and confirms
 inspection is the authoritative evidence for R1**, and it is better than any
 probe, because it reads the configuration rather than inferring it.
 
-**What the queued samples show is less than this document first claimed.** Four
-`runs-on: docker` samples and three `reboot-baseline` runs have sat unclaimed for
-hours while the runner ran other jobs. An earlier version of this section read
+**What the queued samples showed is less than this document first claimed.**
+Four `runs-on: docker` samples and three `reboot-baseline` runs sat unclaimed for
+hours on 2026-09-16 and 17 while the runner ran other jobs. An earlier version of this section read
 that as proof that *nothing* serves `docker`. **It is not.** A job stays queued
 when no *available* runner claims it, and a runner can advertise a label while
 offline, disabled for this repository, or at capacity — queue state does not
@@ -323,7 +323,9 @@ useful fact that **no runner is currently claiming `docker` jobs for this
 repository**, which is why the gate stalled and why it could not have been
 diagnosed as a busy queue.
 
-Those queued samples will never run and should be cancelled.
+**The maintainer cancelled them on 2026-09-17**, along with the three stalled
+`reboot-baseline` runs — nothing is queued against `docker` any more. This read
+*will never run and should be cancelled*, which outlived the action it asked for.
 
 **An earlier deviation, closed by G25 rather than by the rename.** The runner
 advertised `docker`, which was the label `reboot-baseline` asked for on
