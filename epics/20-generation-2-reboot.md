@@ -382,6 +382,17 @@ limitations go in the pull request.
   required throughout, so between G24's rename and that change `main` was
   **unmergeable** rather than merely unverified — #334 was blocked, not just
   missing a result.
+- [x] G26 — Say which unit a dossier is named for. `REBOOT-EXECUTION-PLAN.md`
+  and `docs/dossiers/README.md` both read **one file per task** while a
+  behaviour workstream's two tasks share one dossier, and the index's
+  `C05-A.md` example implied the opposite. The unit is the **workstream**. C01
+  raised it and could not fix it: both documents are outside a task's paths, and
+  amending a source of truth under a task approval is what its own § 1 refuses on
+  `ADR-0005`'s behalf. **The first attempt made it worse** — a clarification
+  added to the index while *one file per task* stood four lines above it, and the
+  execution plan untouched. A convention recorded in one place and contradicted
+  in two looks settled, which is worse than one that is merely ambiguous.
+  `tools/doclint` carries the sweep.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

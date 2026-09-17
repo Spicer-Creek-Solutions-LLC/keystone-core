@@ -157,6 +157,38 @@ var rules = []Rule{
 		RetireAfter: "",
 	},
 	{
+		ID:    "dossier-file-per-task",
+		Added: "G26",
+		Why:   "two source documents said dossiers are one file per task while a behaviour workstream's two tasks share one; the unit is the workstream",
+
+		// Subject: any statement of the counting rule, in either wording. The
+		// corrected text says "file per workstream", so sweeping only the old
+		// phrasing would stop finding anything the moment it was fixed and the
+		// rule could not tell a correction from an absence.
+		//
+		// The emphasis markers are not decoration. The index writes the unit as
+		// `per **workstream**`, and a pattern without them matched the plan and
+		// silently missed the index -- which made the site count look right for
+		// the wrong reason.
+		//
+		// WHAT THIS CANNOT DETECT: the rule being deleted outright. MinHits is
+		// satisfied by the passages that QUOTE the superseded wording, so both
+		// live statements can vanish and this still passes. It guards the wrong
+		// unit coming back, not the right one going away. A check that both
+		// documents state the rule would catch that, and does not exist.
+		Pattern: `file per \*{0,2}(?:task|workstream)`,
+
+		// Stale is the superseded unit. A hit that still says "per task" is the
+		// defect; "per workstream" matches Pattern and not this, and passes.
+		Stale: `file per \*{0,2}task`,
+
+		MinHits: 2,
+
+		// Retires after C05: by then several behaviour workstreams have split
+		// and the convention has been exercised rather than merely written.
+		RetireAfter: "C05",
+	},
+	{
 		ID:          "no-pipe-to-shell",
 		Added:       "G23",
 		Why:         "the runner host's Docker socket is root on it, so an unverified root-level download is host compromise",

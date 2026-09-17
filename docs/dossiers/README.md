@@ -59,9 +59,22 @@ content. A field with nothing to say says so and gives the reason.
 
 ## Naming
 
-One file per task, `docs/dossiers/<TASK>.md` — `P00.md`, `C05-A.md`. The task
-identifier matches the tracker issue's `keystone-core-task` marker, never a
-title, per [`ISSUE-TRACKING.md`](../project/ISSUE-TRACKING.md) § Principles.
+One file per **workstream**, `docs/dossiers/<WORKSTREAM>.md` — `P00.md`,
+`C01.md`. The identifier matches the tracker issue's `keystone-core-task`
+marker, never a title, per
+[`ISSUE-TRACKING.md`](../project/ISSUE-TRACKING.md) § Principles.
+
+**A split behaviour workstream shares one dossier.** `Cxx-A` and `Cxx-I` are two
+tasks — separate agents, separate pull requests, separate
+`<TASK>-acceptance-evidence.md` — and one dossier, `Cxx.md`, whose § 3 states
+each half's outputs separately.
+
+This said *one file per task* and gave `C05-A.md` as the filename example, which
+[`REBOOT-EXECUTION-PLAN.md`](../project/REBOOT-EXECUTION-PLAN.md) § "Required
+task dossier" repeated independently. C01 is where the ambiguity surfaced and
+G26 is where both were corrected. **`C05-A` is still a task identifier** and
+`C05-A-acceptance-evidence.md` is still its evidence file; neither is a dossier
+name.
 
 ## Index
 
