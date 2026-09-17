@@ -323,9 +323,17 @@ established is the narrower and still useful fact that **no runner claimed
 `docker` jobs for this repository over that window**, which is why the gate
 stalled and why it could not have been diagnosed as a busy queue.
 
-**The maintainer cancelled them on 2026-09-17**, along with the three stalled
-`reboot-baseline` runs — nothing is queued against `docker` any more. This read
-*will never run and should be cancelled*, which outlived the action it asked for.
+**The maintainer cancelled them on 2026-09-17.** Counted two ways, because the
+first draft of this paragraph counted them twice: **four runs** — `835`, `839`,
+`840` and `842` — carrying **seven queued jobs**, the four `docker`-labelled
+samples in `835` plus one `verify` job in each of the three `reboot-baseline`
+runs. Three further runs, `837`, `838` and `841`, were already cancelled by the
+workflow's own `cancel-in-progress` when later commits landed on the same
+branches; they were superseded rather than stalled and are not part of either
+count. Nothing is queued against `docker` any more.
+
+This read *will never run and should be cancelled*, which outlived the action it
+asked for.
 
 **An earlier deviation, closed by G25 rather than by the rename.** The runner
 advertised `docker`, which was the label `reboot-baseline` asked for on

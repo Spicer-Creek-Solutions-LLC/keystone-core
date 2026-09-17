@@ -469,7 +469,11 @@ limitations go in the pull request.
     `doclint`'s. `make tools-test` runs them all and CI runs it.
 - [x] G29 — Stop `CI-RUNNER.md` asking for something already done. It read
   *"Those queued samples will never run and should be cancelled"*; the maintainer
-  cancelled all six stalled runs on 2026-09-17. **A document that records an open
+  cancelled the four stalled runs on 2026-09-17, carrying seven queued jobs
+  between them. **Review caught the first draft stating two different totals** —
+  the document double-counted three runs and this entry said six, a count that
+  came from including three runs `cancel-in-progress` had already superseded. A
+  task correcting an operational record cannot leave contradictory totals in it. **A document that records an open
   action and is not updated when the action is taken reads as an obligation
   forever**, and this one survived G25, G27 and G28 — each of which edited the
   paragraph above it. The observation is stated in the past tense now, with what
