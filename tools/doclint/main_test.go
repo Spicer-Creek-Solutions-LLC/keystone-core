@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os/exec"
 	"regexp"
 	"strings"
 	"testing"
@@ -88,5 +89,47 @@ func TestNoControlCharactersInPatterns(t *testing.T) {
 	for _, r := range rules {
 		check(r.ID+".Pattern", r.Pattern)
 		check(r.ID+".Stale", r.Stale)
+	}
+}
+
+// G30: doclint enumerates the files it sweeps with `git ls-files`. With GIT_DIR
+// set it listed the environment's repository instead of its root -- so the rules
+// would sweep the wrong tree and report `0 live` while checking nothing.
+func TestTrackedMarkdownIgnoresAmbientGitDir(t *testing.T) {
+	t.Setenv("GIT_DIR", realGitDir(t))
+	if _, err := trackedMarkdown(t.TempDir()); err == nil {
+		t.Fatal("GIT_DIR reached git: doclint enumerated the environment's repository, not its root")
+	}
+}
+
+// realGitDir returns this checkout's git directory, or skips. It is what makes
+// the GIT_DIR tests meaningful: pointing GIT_DIR at a non-repository would make
+// git fail for the wrong reason and the test would pass without the fix.
+func realGitDir(t *testing.T) string {
+	t.Helper()
+	out, err := exec.Command("git", "rev-parse", "--absolute-git-dir").Output()
+	if err != nil {
+		t.Skip("not running inside a git checkout")
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func TestWithoutGitEnvStripsDiscoveryVars(t *testing.T) {
+	env := []string{"PATH=/bin", "GIT_DIR=/x", "GIT_WORK_TREE=/y", "HOME=/h", "GITHUB_TOKEN=keep"}
+	got := strings.Join(withoutGitEnv(env), " ")
+	for _, bad := range []string{"GIT_DIR=", "GIT_WORK_TREE="} {
+		if strings.Contains(got, bad) {
+			t.Errorf("withoutGitEnv kept %q: %s", bad, got)
+		}
+	}
+	for _, keep := range []string{"PATH=/bin", "HOME=/h", "GITHUB_TOKEN=keep"} {
+		if !strings.Contains(got, keep) {
+			t.Errorf("withoutGitEnv dropped %q: %s", keep, got)
+		}
+	}
+	// A variable whose name merely starts with one of the stripped names must
+	// survive: prefix matching without the `=` would take GIT_DIRECTORY too.
+	if kept := withoutGitEnv([]string{"GIT_DIRECTORY=/z"}); len(kept) != 1 {
+		t.Errorf("withoutGitEnv stripped GIT_DIRECTORY, which is a different variable")
 	}
 }

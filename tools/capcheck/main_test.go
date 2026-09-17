@@ -3,6 +3,7 @@
 package main
 
 import (
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -144,6 +145,17 @@ func TestEnumerateSourcesUnknownPin(t *testing.T) {
 	}
 }
 
+// G30: the test above passed for a reason it did not control. GIT_DIR overrides
+// repository discovery, so with one set -- every git hook sets it -- the call
+// read the real repository instead of the temp directory and succeeded. Setting
+// it here makes the test exercise the hazard instead of depending on its absence.
+func TestEnumerateSourcesIgnoresAmbientGitDir(t *testing.T) {
+	t.Setenv("GIT_DIR", realGitDir(t))
+	if _, err := enumerateSources(t.TempDir()); err == nil {
+		t.Fatal("GIT_DIR reached git: capcheck read the environment's repository, not its root")
+	}
+}
+
 func TestCheckVocabularies(t *testing.T) {
 	bad := []Entry{
 		{ID: "CAP-X-001", Name: "a", Status: "banana", Scope: "Future"},
@@ -187,5 +199,37 @@ func TestParseCatalogRejectsMalformedBullet(t *testing.T) {
 	md := sampleCatalog + "\nKnown gaps and limitations:\n\n- `CAP-NATS-001` a gap with no em dash\n"
 	if _, err := parseCatalog(md); err == nil {
 		t.Fatal("expected a malformed bullet to be rejected rather than silently ignored")
+	}
+}
+
+// realGitDir returns this checkout's git directory, or skips. It is what makes
+// the GIT_DIR tests meaningful: pointing GIT_DIR at a non-repository would make
+// git fail for the wrong reason and the test would pass without the fix.
+func realGitDir(t *testing.T) string {
+	t.Helper()
+	out, err := exec.Command("git", "rev-parse", "--absolute-git-dir").Output()
+	if err != nil {
+		t.Skip("not running inside a git checkout")
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func TestWithoutGitEnvStripsDiscoveryVars(t *testing.T) {
+	env := []string{"PATH=/bin", "GIT_DIR=/x", "GIT_WORK_TREE=/y", "HOME=/h", "GITHUB_TOKEN=keep"}
+	got := strings.Join(withoutGitEnv(env), " ")
+	for _, bad := range []string{"GIT_DIR=", "GIT_WORK_TREE="} {
+		if strings.Contains(got, bad) {
+			t.Errorf("withoutGitEnv kept %q: %s", bad, got)
+		}
+	}
+	for _, keep := range []string{"PATH=/bin", "HOME=/h", "GITHUB_TOKEN=keep"} {
+		if !strings.Contains(got, keep) {
+			t.Errorf("withoutGitEnv dropped %q: %s", keep, got)
+		}
+	}
+	// A variable whose name merely starts with one of the stripped names must
+	// survive: prefix matching without the `=` would take GIT_DIRECTORY too.
+	if kept := withoutGitEnv([]string{"GIT_DIRECTORY=/z"}); len(kept) != 1 {
+		t.Errorf("withoutGitEnv stripped GIT_DIRECTORY, which is a different variable")
 	}
 }

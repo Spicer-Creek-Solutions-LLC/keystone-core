@@ -15,9 +15,22 @@
 # Generation 2 planning state; R09 removed it. Its artifacts are in
 # docs/transition/.
 
+# GIT_DIR and its relatives override repository discovery, so every `git` below
+# would read whatever repository the environment names rather than this one.
+# **Git hooks set GIT_DIR**, which makes `make check` from a pre-commit hook
+# enough to reach it, and the failure is silent: the gates pass against the wrong
+# tree. `unexport` keeps them out of every recipe; `$(shell ...)` below runs
+# before that applies, so it strips them itself.
+unexport GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE
+unexport GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+unexport GIT_CEILING_DIRECTORIES GIT_DISCOVERY_ACROSS_FILESYSTEM
+unexport GIT_NAMESPACE GIT_PREFIX
+
 GO_PACKAGES := ./...
 VERSION_PKG := go.keystone-core.io/keystone-core/internal/version
-COMMIT      := $(shell git rev-parse HEAD 2>/dev/null)
+COMMIT      := $(shell env -u GIT_DIR -u GIT_WORK_TREE -u GIT_COMMON_DIR \
+                        -u GIT_INDEX_FILE -u GIT_OBJECT_DIRECTORY \
+                        git rev-parse HEAD 2>/dev/null)
 LDFLAGS     := -X $(VERSION_PKG).commit=$(COMMIT)
 BINARIES    := keystone keystone-server keystone-agent
 

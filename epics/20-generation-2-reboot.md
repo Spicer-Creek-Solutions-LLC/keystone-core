@@ -488,6 +488,26 @@ limitations go in the pull request.
   would catch this class is a check that an action a document asks for has an
   owner and an end, which nothing here has and which is a larger idea than this
   task.
+- [x] G30 — Stop the tools reading whatever repository `GIT_DIR` names.
+  `capcheck` and `doclint` both set `cmd.Dir = root` and inherited the ambient
+  environment, and **`GIT_DIR` overrides discovery entirely** — so each read the
+  repository the environment named rather than the root it was given. **Git hooks
+  set `GIT_DIR`**, which makes `make check` from a pre-commit hook enough to
+  reach it.
+  - **`doclint` is the dangerous one.** It enumerates what it sweeps with
+    `git ls-files`; pointed at another tree it would sweep nothing relevant and
+    report `0 live`, which reads exactly like success.
+  - **The Makefile had it too**, in every recipe and in
+    `COMMIT := $(shell git rev-parse HEAD)` — a build from a hook stamps the
+    wrong commit into the binaries, or an empty one. Demonstrated: under
+    `GIT_DIR=/tmp`, `whitespace-check` matched no files and `commit=` was blank.
+  - Found by review of `G29`, which noticed `capcheck`'s
+    `TestEnumerateSourcesUnknownPin` failing under an injected `GIT_DIR`. **That
+    test had been passing for a reason it did not control** — it expected failure
+    on a temp directory, and only got it when no `GIT_DIR` was set. It sets one
+    now, so it exercises the hazard rather than depending on its absence.
+  - Only visible at all because `G28` made the tools-module tests run for the
+    first time since R08.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

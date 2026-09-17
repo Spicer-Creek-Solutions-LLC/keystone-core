@@ -225,8 +225,7 @@ func showAtPin(root, file string) ([]byte, error) {
 	// #nosec G204 -- generationOneFinalSHA is a compile-time constant and file
 	// is one of this tool's own fixed source paths or a name listed by
 	// git ls-tree at that commit; neither is caller-supplied.
-	cmd := exec.Command("git", "show", generationOneFinalSHA+":"+file)
-	cmd.Dir = root
+	cmd := gitAt(root, "show", generationOneFinalSHA+":"+file)
 	b, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("git show %s:%s: %w", generationOneFinalSHA[:9], file, err)
@@ -238,8 +237,7 @@ func showAtPin(root, file string) ([]byte, error) {
 func lsAtPin(root, dir string) ([]string, error) {
 	// #nosec G204 -- generationOneFinalSHA is a compile-time constant and dir is
 	// one of three literals in this file.
-	cmd := exec.Command("git", "ls-tree", "--name-only", generationOneFinalSHA, dir+"/")
-	cmd.Dir = root
+	cmd := gitAt(root, "ls-tree", "--name-only", generationOneFinalSHA, dir+"/")
 	b, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("git ls-tree %s %s: %w", generationOneFinalSHA[:9], dir, err)
@@ -548,4 +546,52 @@ func main() {
 func fail(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, "capcheck: "+format+"\n", a...)
 	os.Exit(1)
+}
+
+// gitEnvVars are the variables that let git find a repository without looking
+// at the working directory. GIT_DIR is the one that bites: it overrides
+// discovery entirely, so a process that sets cmd.Dir and inherits the ambient
+// environment reads whatever repository the environment names.
+//
+// **Git hooks set GIT_DIR.** Running `make check` from a pre-commit hook is
+// enough to reach this, and the failure is silent: the tool succeeds against
+// the wrong tree.
+var gitEnvVars = []string{
+	"GIT_DIR",
+	"GIT_WORK_TREE",
+	"GIT_COMMON_DIR",
+	"GIT_INDEX_FILE",
+	"GIT_OBJECT_DIRECTORY",
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+	"GIT_CEILING_DIRECTORIES",
+	"GIT_DISCOVERY_ACROSS_FILESYSTEM",
+	"GIT_NAMESPACE",
+	"GIT_PREFIX",
+}
+
+// withoutGitEnv removes those variables from an environment.
+func withoutGitEnv(env []string) []string {
+	out := make([]string, 0, len(env))
+	for _, kv := range env {
+		drop := false
+		for _, v := range gitEnvVars {
+			if strings.HasPrefix(kv, v+"=") {
+				drop = true
+				break
+			}
+		}
+		if !drop {
+			out = append(out, kv)
+		}
+	}
+	return out
+}
+
+// gitAt builds a git command rooted at dir, with the ambient repository
+// environment removed so that dir is what decides which repository is read.
+func gitAt(dir string, args ...string) *exec.Cmd {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = withoutGitEnv(os.Environ())
+	return cmd
 }
