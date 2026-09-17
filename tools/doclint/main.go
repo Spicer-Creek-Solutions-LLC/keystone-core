@@ -338,8 +338,7 @@ func trackedMarkdown(root string) ([]string, error) {
 	// tracked .yaml file was never scanned -- including this repository's own
 	// compose.yaml, and any future .forgejo/workflows/*.yaml, which would have
 	// bypassed the forbidden-trigger rule while doclint reported success.
-	cmd := exec.Command("git", "ls-files", "*.md", "*.yml", "*.yaml")
-	cmd.Dir = root
+	cmd := gitAt(root, "ls-files", "*.md", "*.yml", "*.yaml")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("git ls-files: %w", err)
@@ -379,8 +378,7 @@ func unsweptWorkflows(root string, swept []string) ([]string, error) {
 	for _, f := range swept {
 		in[f] = true
 	}
-	cmd := exec.Command("git", "ls-files", ".forgejo/workflows")
-	cmd.Dir = root
+	cmd := gitAt(root, "ls-files", ".forgejo/workflows")
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("git ls-files .forgejo/workflows: %w", err)
@@ -399,4 +397,52 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// gitEnvVars are the variables that let git find a repository without looking
+// at the working directory. GIT_DIR is the one that bites: it overrides
+// discovery entirely, so a process that sets cmd.Dir and inherits the ambient
+// environment reads whatever repository the environment names.
+//
+// **Git hooks set GIT_DIR.** Running `make check` from a pre-commit hook is
+// enough to reach this, and the failure is silent: the tool succeeds against
+// the wrong tree.
+var gitEnvVars = []string{
+	"GIT_DIR",
+	"GIT_WORK_TREE",
+	"GIT_COMMON_DIR",
+	"GIT_INDEX_FILE",
+	"GIT_OBJECT_DIRECTORY",
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES",
+	"GIT_CEILING_DIRECTORIES",
+	"GIT_DISCOVERY_ACROSS_FILESYSTEM",
+	"GIT_NAMESPACE",
+	"GIT_PREFIX",
+}
+
+// withoutGitEnv removes those variables from an environment.
+func withoutGitEnv(env []string) []string {
+	out := make([]string, 0, len(env))
+	for _, kv := range env {
+		drop := false
+		for _, v := range gitEnvVars {
+			if strings.HasPrefix(kv, v+"=") {
+				drop = true
+				break
+			}
+		}
+		if !drop {
+			out = append(out, kv)
+		}
+	}
+	return out
+}
+
+// gitAt builds a git command rooted at dir, with the ambient repository
+// environment removed so that dir is what decides which repository is read.
+func gitAt(dir string, args ...string) *exec.Cmd {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = withoutGitEnv(os.Environ())
+	return cmd
 }
