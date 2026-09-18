@@ -1,0 +1,18 @@
+{
+  "requirements": [
+    {"case":"AC-1","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"AC-2","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"AC-3","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"AC-4","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"AC-5","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"AC-6","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"AC-7","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"AC-8","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"AC-9","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"AC-10","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"AC-11","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"AC-12","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"AC-13","owner":"C01-I","expiry":"C01-I","reason":"protocol implementation does not exist yet"},
+    {"case":"nightly-fuzz-search","owner":"C01-I","expiry":"C01-I","reason":"TESTING.md has no nightly fuzz-search gate yet"}
+  ]
+}

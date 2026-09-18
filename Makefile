@@ -36,7 +36,7 @@ BINARIES    := keystone keystone-server keystone-agent
 
 .PHONY: help docs-lint docs-lint-fix docs-links capability-catalog-check stray-binary-check \
 	whitespace-check build fmt fmt-check vet test test-race vuln doclint approved-documents-check \
-	archlint container-suite dco-exempt-check gates-agree check
+	contract pending-contract archlint container-suite dco-exempt-check gates-agree check
 
 help: ## Show available targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -176,7 +176,7 @@ build: ## Build every binary with a derived version stamp
 # `dco-exempt-check` asserts it still exists, so the exemption cannot become a
 # missing gate nobody spots.
 check: fmt-check vet test-race tools-test whitespace-check build vuln docs-lint docs-links \
-	capability-catalog-check doclint approved-documents-check archlint container-suite dco-exempt-check \
+	capability-catalog-check doclint approved-documents-check contract pending-contract archlint container-suite dco-exempt-check \
 	gates-agree ## Run every CI gate that can run locally
 	@echo "check: ok"
 
@@ -194,6 +194,12 @@ doclint: ## Standing document sweeps, with lifetimes
 
 approved-documents-check: ## Compare merged documents with explicit approval snapshots
 	@cd tools/doclint && go run . -root ../.. -approved-documents tools/doclint/approved-documents.json -approval-only
+
+pending-contract: ## Prove every registered C01-A case still fails for its reason
+	@cd tools/pendingcontract && go run . -root ../..
+
+contract: ## Run the C01-A contract, skipping only registered pending cases
+	go test -tags contract ./test/contract/protocol
 
 archlint: ## The requirements register, both directions, with liveness from the epic
 	cd tools/archlint && go run . -root ../..

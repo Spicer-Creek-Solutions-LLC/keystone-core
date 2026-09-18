@@ -92,4 +92,4 @@ name.
 | P09 — Local operator API and authorization ADR | [P09.md](P09.md) | Complete — `ADR-0009` proposed |
 | P10 — Acceptance-harness design | [P10.md](P10.md) | Complete — `ADR-0010` proposed |
 | P11 — Repository skeleton and CI | [P11.md](P11.md) | Complete — P11a and P11b merged |
-| C01 — Protocol types and cryptographic vectors | [C01.md](C01.md) | Dossier landed — C01 not yet approved |
+| C01 — Protocol types and cryptographic vectors | [C01.md](C01.md) | Dossier landed; C01-A contract landed — C01-I pending |
