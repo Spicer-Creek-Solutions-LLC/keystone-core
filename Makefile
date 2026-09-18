@@ -35,7 +35,7 @@ LDFLAGS     := -X $(VERSION_PKG).commit=$(COMMIT)
 BINARIES    := keystone keystone-server keystone-agent
 
 .PHONY: help docs-lint docs-lint-fix docs-links capability-catalog-check stray-binary-check \
-	whitespace-check build fmt fmt-check vet test test-race vuln doclint archlint container-suite dco-exempt-check deferred-gates-check gates-agree check
+	whitespace-check build fmt fmt-check vet test test-race vuln doclint archlint container-suite dco-exempt-check gates-agree check
 
 help: ## Show available targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -153,6 +153,13 @@ build: ## Build every binary with a derived version stamp
 # description, so `check` carries every gate CI runs that can run at all locally
 # — build and the vulnerability scan included.
 #
+# G33 added `container-suite`, and with it a working Docker daemon to the things
+# `check` requires of a developer machine. That cost was weighed against letting
+# the suite skip where Docker is absent, and the skip lost: a gate that reports
+# green on a machine that could not have run it is the defect this repository
+# keeps finding, and § 11's contract is not met by a gate CI runs and a local
+# run silently omits.
+#
 # Exactly one CI gate is not here, and it is named rather than left to be
 # noticed: the DCO sign-off check. It verifies the commits a branch adds over
 # main, and locally those are still in flux — a developer amends and rebases
@@ -168,7 +175,7 @@ build: ## Build every binary with a derived version stamp
 # `dco-exempt-check` asserts it still exists, so the exemption cannot become a
 # missing gate nobody spots.
 check: fmt-check vet test-race tools-test whitespace-check build vuln docs-lint docs-links \
-	capability-catalog-check doclint archlint dco-exempt-check deferred-gates-check \
+	capability-catalog-check doclint archlint container-suite dco-exempt-check \
 	gates-agree ## Run every CI gate that can run locally
 	@echo "check: ok"
 
@@ -188,33 +195,27 @@ archlint: ## The requirements register, both directions, with liveness from the 
 	cd tools/archlint && go run . -root ../..
 
 container-suite: ## The Docker topology and its probes
-	# DELIBERATELY NOT IN `check`, and `deferred-gates-check` asserts that rather
-	# than leaving it as an absence. The runner that would run this in CI cannot
-	# yet: jobs there have no Docker client and no socket (CI-RUNNER.md, R6).
+	# In `check` and in CI, landed together at G33 so `gates-agree` never saw a
+	# set it could not reconcile. R6 held once the job had a client: the host's
+	# socket was already mounted, and node:22-bookworm carries no docker binary,
+	# so the client is the repository's to supply (CI-RUNNER.md, R6).
 	#
-	# Putting it in `check` today would make `gates-agree` fail, because CI has
-	# no step for it -- correctly, since there is nowhere to run it. It lands in
-	# `check` and in CI together, when R6 goes green.
-	go test -count=1 ./test/...
-
-deferred-gates-check: ## Assert a deferred gate is deferred on purpose, and says what lands it
-	# A gate in neither `check` nor CI is invisible to `gates-agree`: it is not
-	# missing from either set, so nothing reports it. That is a gap tolerated
-	# rather than asserted, which is the shape this repository keeps finding.
-	@ok=1; \
-	grep -q '^container-suite:' $(MAKEFILE_LIST) || { \
-		echo "deferred-gates-check: container-suite is named as deferred and does not exist"; ok=0; }; \
-	: "the prerequisite list spans continuations; reading only the first line"; \
-	: "is the bug gates-agree already had, and it hides anything on line two"; \
-	if sed -n '/^check:/,/[^\\]$$/p' $(MAKEFILE_LIST) | sed 's/##.*//' | grep -qw container-suite; then \
-		echo "deferred-gates-check: container-suite is in check; remove it from the deferred list"; ok=0; fi; \
-	: "scoped to the container-suite recipe. Searching the whole file finds the"; \
-	: "phrase in THIS grep's own pattern, so the check would read itself and"; \
-	: "pass however the comment changed -- which the demonstration caught"; \
-	sed -n '/^container-suite:/,/^$$/p' $(MAKEFILE_LIST) | grep -q 'R6 goes green' || { \
-		echo "deferred-gates-check: the deferral does not say what would end it"; ok=0; }; \
-	[ $$ok -eq 1 ] || exit 1; \
-	echo "deferred-gates-check: container-suite deferred until CI-RUNNER.md's R6 holds"
+	# THIS GATE REQUIRES DOCKER AND DOES NOT SKIP WITHOUT IT. Until G33 the
+	# suite called t.Skip when the client or the daemon was absent, so a CI job
+	# whose client install had silently failed would have reported a green gate
+	# -- DL-1, a check that cannot fail mistaken for evidence. The environment
+	# variable below is what turns that skip into a failure, and it is set HERE
+	# rather than in the workflow so there is one setter: `check` and CI both
+	# reach it by running this target. A developer invoking `go test ./test/...`
+	# directly still gets the skip, which is the only path that should.
+	#
+	# Containers this suite creates are SIBLINGS on the host's daemon and
+	# outlive the job that created them -- CI-RUNNER.md "How a job gets Docker"
+	# states that as the cost of mounting the host socket, and this is where it
+	# is paid. Teardown is by label and runs on entry as well as exit, because
+	# t.Cleanup does not run when the test binary is killed by a timeout or the
+	# run is cancelled, and this forge cancels in-progress runs on push.
+	KEYSTONE_REQUIRE_DOCKER=1 go test -count=1 ./test/...
 
 gates-agree: ## Assert make check and CI run the same gate set, both directions
 	# ADR-0010 § 11 requires one local command to run what CI runs. This is the

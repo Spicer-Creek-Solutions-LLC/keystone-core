@@ -146,6 +146,12 @@ the attribution was never established, and G27 found the observation was about a
 is how a job's own container exists. Why the container gates need a self-hosted
 runner is in `CI-RUNNER.md`; it does not rest on that claim.
 
+**The container gates run.** G33 supplied the Docker client the job image lacks
+and landed `container-suite` in `make check` and in `reboot-baseline` together;
+`CI-RUNNER.md`'s `R6` was met at P4. What is still owed of § Every pull request's
+Docker line is a **journey** across the topology, which is C05's — the topology
+itself is now exercised on every push.
+
 [`CI-RUNNER.md`](CI-RUNNER.md) holds the runner's provisioning and the rest of
 the reasoning, including why **neither workflow** carries a `pull_request`
 trigger at all rather than a condition on one. G25 brought `reboot-baseline`

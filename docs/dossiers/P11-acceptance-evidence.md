@@ -77,9 +77,16 @@ connection exists until C06. This proves the arrangement.
 
 ### The container suite is outside `make check`, and that is asserted
 
-CI cannot run it: jobs on the runner have no Docker client and no socket
-(`CI-RUNNER.md`, `R6`). Putting it in `check` today would fail `gates-agree`,
-correctly, because CI has no step for it.
+**This records what was demonstrable at P11, and G33 has since superseded it.**
+The suite is now in `check` and in CI, `R6` was met at P4, and
+`deferred-gates-check` no longer exists — with nothing deferred, an assertion
+that the deferred list is empty would pass by checking nothing. The rest of this
+section is left as written because it is P11's evidence, not a description of the
+tree; `CI-RUNNER.md` is authoritative for the runner's state.
+
+As of P11, CI could not run it: jobs on the runner had no Docker client and no
+socket (`CI-RUNNER.md`, `R6`). Putting it in `check` then would have failed
+`gates-agree`, correctly, because CI had no step for it.
 
 **A gate in neither set is invisible to `gates-agree`** — not missing from
 either, so nothing reports it. `deferred-gates-check` asserts the deferral
@@ -165,7 +172,7 @@ checked".
 
 | Case | Owed by | State |
 |---|---|---|
-| `AC-1` | Both | **Paid.** `gates-agree` covers the three gates `P11b` adds; the container suite is deferred, and `deferred-gates-check` asserts the deferral rather than leaving it invisible |
+| `AC-1` | Both | **Paid.** `gates-agree` covers the three gates `P11b` adds; the container suite was deferred at P11, and `deferred-gates-check` asserted the deferral rather than leaving it invisible. **G33 landed the suite in both sets and removed that target** |
 | `AC-2` | `P11a` | **Paid** |
 | `AC-3` | `P11b` | **Paid** — `tools/doclint`; every rule in `rules.go` carries a lifetime, and the tool prints the set it ran |
 | `AC-4` | `P11b` | **Paid** — `tools/archlint`, both directions |

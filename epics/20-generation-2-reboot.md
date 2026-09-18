@@ -566,6 +566,64 @@ limitations go in the pull request.
     And G31 doubted `w3`'s per-job-container finding; **`w3` was right.** Doubting
     a correct result is as much an error as trusting a wrong one, and this
     document has now done both about the same probe.
+- [x] G33 — Give a job the Docker client, and land the container suite in both
+  gate sets. `R6` was unmet for one measured reason — `node:22-bookworm` carries
+  no `docker` binary — and G32 established that the client is therefore the
+  repository's to supply. The workflow installs it pinned, runs `docker compose
+  version` against the socket mounted in at P3, and `container-suite` moves into
+  `check` and `reboot-baseline` together so `gates-agree` never sees a set it
+  cannot reconcile. **`R6` was met at P4** — run `881`, `reboot-baseline` itself
+  rather than a dispatched diagnostic, which is what § Verification asks for: a
+  job that would fail on a misconfigured host, passing.
+  - **The suite could not have failed in CI as written.** `requireDocker` called
+    `t.Skip` when the client or the daemon was absent, so a job whose client
+    install had silently failed would have reported a **green** gate. That is
+    `DL-1` — a check that cannot fail, mistaken for evidence — recorded as a
+    recurrence. The gate path now fails and names which of the two is missing;
+    a developer running `go test` directly still skips, which is the only path
+    that should. `make check` therefore requires Docker, and that cost was
+    weighed against the skip and accepted.
+  - **Debian packages rather than the static tarball, on provenance.**
+    `download.docker.com` publishes **no checksum** for `docker-<version>.tgz` —
+    `.sha256`, `.sha256sum` and `.asc` are each a `404` — so a pinned hash there
+    asserts bytes someone fetched once. The two `.deb` hashes come from a
+    `Packages` index covered by a PGP-signed `InRelease`. A binary that runs as
+    root against the host's socket is worth the stronger chain. Size agreed
+    rather than decided: **24 MiB against 118 MB**, the tarball's `docker/docker`
+    being its second-to-last member so streaming less is not available. G32 said
+    *a pinned tarball*; that settled **who supplies the client**, and the archive
+    format moved on evidence.
+  - **The deferral ends rather than empties.** `deferred-gates-check` existed
+    because a gate in neither set is invisible to `gates-agree`. With nothing
+    deferred, asserting the deferred list is empty passes by checking nothing —
+    the shape it was written to prevent — so it is removed from `check`, the
+    workflow and the Makefile together.
+  - **Teardown is by label, on entry as well as exit.** `t.Cleanup` covers a
+    failing test; it does not cover a timeout panic or a run this forge cancels
+    on push, and containers created here are **siblings on the host daemon** that
+    outlive the job. That is the cost `CI-RUNNER.md` states for mounting the host
+    socket, and this is where it is paid.
+  - **Compose is load-bearing or it is not installed.** `docker compose config`
+    validates the tracked `compose.yaml` — which no gate read, though it has been
+    in the tree since P11b — with a negative case proving the validator rejects a
+    topology it should.
+  - **Two stale claims in a merged dossier, found by the new sweep rather than
+    by reading.** `C01.md` told C01 to assert its owed fuzz schedule with
+    `deferred-gates-check`, a target this task deletes; and it rejected writing
+    Docker tests at C01 partly because *`R6` is unmet with no owner and no
+    diagnosis*. Both corrected as facts; **`D-C01-3` and `D-C01-4`'s decisions
+    are untouched**, each standing on a reason that never depended on the runner.
+  - **`doclint`'s `correction` classifier matched `G2\d corrected`** and would
+    have stopped matching silently at G30 — a classifier narrower than its name,
+    disposing of nothing while reading as though it disposed of corrections.
+    Widened in touched scope.
+  - **The workflow's owed-gate list named `archlint` as owed after it was paid.**
+    `make archlint` had been a step above it since P11b. An obligation listed as
+    owed after it is met makes the rest of the list read as less than binding.
+  - `ARCH-COMM-002`'s register row has claimed gate `PR` with evidence at a path
+    since P11, and **no pull request ran it**. The claim is now true. **Nothing
+    in `archlint` checks that a `PR`-gated row's evidence actually runs on a pull
+    request** — raised, not fixed.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

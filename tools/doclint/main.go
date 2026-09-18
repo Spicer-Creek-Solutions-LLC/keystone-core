@@ -280,8 +280,12 @@ var (
 	// unit whose preceding text ends in "cannot", and `describes` matched
 	// "it is notable that". Review of #339 found the second; the first is the
 	// same defect in the classifier beside it, found by looking.
-	negated    = regexp.MustCompile(`(?i)\bno longer\s*$|\bnot\s*$|\bnever\s*$`)
-	correction = regexp.MustCompile(`Corrected at ` + "`" + `G\d\d` + "`" + `|corrected the claim|G2\d corrected`)
+	negated = regexp.MustCompile(`(?i)\bno longer\s*$|\bnot\s*$|\bnever\s*$`)
+	// `G2\d corrected` was written when G2x was the live range and would have
+	// stopped matching silently at G30 -- a classifier narrower than its name,
+	// disposing of nothing while reading as though it disposed of corrections.
+	// Widened at G33, which is the task that first wrote "G33 corrected".
+	correction = regexp.MustCompile(`Corrected at ` + "`" + `G\d\d` + "`" + `|corrected the claim|G\d\d corrected`)
 	// `describes` carried two literal backspace bytes around its first
 	// alternative -- `(?i)\x08it is not\x08|...` -- so that alternative could
 	// never match anything. It went in with the tool at P11b and was invisible:
