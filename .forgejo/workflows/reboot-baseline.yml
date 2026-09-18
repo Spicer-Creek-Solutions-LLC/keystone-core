@@ -280,9 +280,15 @@ jobs:
 # Gates TESTING.md schedules that this workflow does not yet run, and why.
 # Listed so that an absent gate is an obligation rather than an oversight.
 #
+# Two entries left this list at G33, and one of them had been wrong for longer.
+# "architecture-invariant and traceability lint" named P11b as its landing task
+# while `make archlint` was already a step above -- an obligation listed as owed
+# after it was paid, which makes the rest of the list read as less than binding.
+# The Docker entry is now narrowed to the half still owed: the topology itself is
+# exercised by `make container-suite`, and what C05 adds is a journey across it.
+#
 #   protocol compatibility and cryptographic test vectors     -> C01
-#   architecture-invariant and traceability lint              -> P11b (tools/archlint)
-#   the production Docker topology for the touched journey    -> P11b (harness shell), then C05
+#   a journey across the production Docker topology           -> C05
 #   NATS permission positive and negative tests               -> C03
 #   regression tests for every fixed defect                   -> each C task
 #   the complete Docker journey suite, fault matrix,

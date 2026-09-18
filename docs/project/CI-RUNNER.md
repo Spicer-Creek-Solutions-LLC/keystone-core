@@ -23,18 +23,26 @@ what accepting it costs.
 
 ## What the probes established
 
-**Three probe events, and they are not the same thing.** Review of #343 found
-them conflated — the dates disagreed and "two dispatched runs" named two of them.
-Times are the forge's, `+02:00`.
+**Four probe events, and they are not the same thing.** Review of #343 found
+the first three conflated — the dates disagreed and "two dispatched runs" named
+two of them. Times are the forge's, `+02:00`.
 
 | Event | Runs | When | What it produced |
 |---|---|---|---|
 | **P1** the original probe | `828`, `829` | 2026-09-15 22:08, 22:11 | the table below — `docker version`, the socket, `CAP_SYS_ADMIN`, `unshare` |
 | **P2** verification | `835`, `836` | 2026-09-16 12:57, 13:02 | § What verification has established — the `v`/`w` series, `R3`'s marker test, `R1`'s samples |
 | **P3** the diagnostic probe | `876` **attempts 1 and 3** | 2026-09-18 00:42 and 01:07 | § What is deployed — the image, hostnames, and both socket paths either side of the mount |
+| **P4** the gate itself | `881` | 2026-09-18 11:45 | `R6` met — § What verification has established, and § Verification steps 1 and 3 |
 
 **P3 is one run re-run, not two runs.** Attempt 2 (01:01) is not cited: attempt 1
 is the before and attempt 3 the after.
+
+**P4 is not a probe, and that is what makes it the last one.** P1 to P3 were
+dispatched diagnostics that printed and could not fail. P4 is `reboot-baseline`
+itself, on `g33-container-suite-lands` at `24d2bf184` — a gate that fails when
+Docker is absent, passing. § Verification's opening asks for exactly that: the
+apply is finished when *"a job that would fail on a misconfigured host has
+passed."*
 
 ### P1 — the original probe
 
@@ -216,7 +224,7 @@ how each is checked.
 | R3 | **No state carries from one job to the next** | Residue from one job reaching the next is how a compromised or merely broken job spreads. **This is an isolation property, not a process lifecycle** — a persistent runner giving each job a fresh container satisfies it, and `--once` is one mechanism among others. The requirement is the property; the mechanism is the deployment's | § Verification, step 4 |
 | R4 | **A dedicated host** | The OS-test VMs are snapshot-reset for distribution testing, and a reset unregisters the runner **without failing loudly** — its jobs then queue indefinitely | Operational; stated here so a later reuse is a decision rather than an accident |
 | R5 | **The host holds nothing worth stealing** | The runner needs the Docker socket, and that is root on the host. Sandboxing inside a job is decoration; the host is the boundary | Review of what is on it |
-| R6 | **Docker works inside a job** | `ADR-0010` § 2 requires the isolation to be *proved by a probe* rather than asserted — and proved in both directions. **How** a job reaches Docker is § How a job gets Docker's to decide, and it has changed once; this row states the property, not the mechanism. It read *through a daemon of the job's own* and **not the host's socket**, which is now the declined shape | § Verification, step 3 |
+| R6 | **Docker works inside a job** — **met at P4** | `ADR-0010` § 2 requires the isolation to be *proved by a probe* rather than asserted — and proved in both directions. **How** a job reaches Docker is § How a job gets Docker's to decide, and it has changed once; this row states the property, not the mechanism. It read *through a daemon of the job's own* and **not the host's socket**, which is now the declined shape. **The client is the repository's to supply and the workflow installs it**; the socket is the host's and was mounted at P3 | § Verification, steps 1 and 3 |
 | R7 | **What was installed is recorded** | So a rebuild reproduces this host rather than becoming a first install again. This is the trust anchor the checksum is not | § What is deployed |
 
 ## How a job gets Docker
@@ -322,7 +330,8 @@ rebuild cannot reproduce a host whose values were never written down.
 | Runner binary digest, if installed as a binary | *(unset — not observable from a job)* |
 | **Job image** | **`node:22-bookworm`**, Debian 12. The label carries `docker://`, so each job gets a container from this image |
 | **Job user** | **`uid=0(root)`** — which is why the socket's `srw-rw---- root:983` is readable without the job being in group 983 |
-| Docker version | *(unset)* — the host's, and no job could ask until a client exists |
+| Docker version | *(still unset)* — a job can ask now, and P4's job did, but **this forge exposes no job log through its API**: `actions/tasks/<id>/logs`, `actions/runs/<id>/logs` and `actions/runs/<id>/jobs` are each a `404`. The value is in run `881`'s log in the web interface, readable by the maintainer. The third time this limit has shaped what could be recorded |
+| **Docker client, in the job** | **`docker-ce-cli` 29.8.1 and `docker-compose-plugin` 5.5.1**, Debian packages pinned by SHA256 in `reboot-baseline.yml` and installed per job. **Supplied by the repository, not the host** — see § What verification has established |
 | Working directory, user, config location | *(unset)* |
 | **Isolation between jobs (R3)** | **holds** — a fresh container per job, observed directly: the runner `docker create`s it, and P3's attempts 1 and 3 reported hostnames `75edc82fe619` and `65c47ef08f31` |
 | **Host socket, in the job** | **`/run/docker.sock`, `srw-rw---- 1 root 983`** — absent in P3 attempt 1, present in attempt 3, mounted between them on **2026-09-18**. `/var/run` is a symlink to `/run`, so both paths resolve to it |
@@ -339,7 +348,7 @@ since job logs are not readable through this forge's API.
 | Jobs run on the runner's own label | **yes** |
 | `actions/checkout` works there | **yes** |
 | **R3** — a marker written outside the workspace does not survive into the next job | **holds**, and **P3** corroborated it independently: a fresh container per job, two attempts, two hostnames |
-| **R6** — Docker usable inside a job | **not met.** P2 established that and no more; **its cause was measured by P3, not here** — `node:22-bookworm` carries no `docker` binary, and the socket became present between P3's attempts on 2026-09-18, which is after P2 and could not have been observed by it |
+| **R6** — Docker usable inside a job | **met at P4.** P2 saw it failing and could establish no more, which is the whole of what it could see. **Its cause was measured by P3, not here** — `node:22-bookworm` carries no `docker` binary, and the socket became present between P3's attempts on 2026-09-18, which is after P2 and could not have been observed by it. What closed it is below |
 | **R1** — the label is neither `docker` nor `ubuntu-latest` | **holds**, on the runner list — not on the dispatched samples, which cannot establish it |
 
 **`R6`'s diagnosis, which is why the shape above was chosen.** Jobs run *inside a
@@ -361,9 +370,32 @@ stock image carries both: `docker:cli` has the client, compose and git but no
 Node; `node:22-bookworm` the reverse. Measured, not assumed.
 
 **So the client is the repository's to supply, not the deployment's**, and it
-lands the way `reboot-baseline` already installs lychee: a pinned tarball,
+lands the way `reboot-baseline` already installs lychee: a pinned artifact,
 verified, in the job. `R6` goes green when a job runs `docker compose version`
 against the mounted socket, which is § Verification step 1.
+
+**G33 supplied it, and P4 is the run where `R6` went green.**
+
+**Debian packages rather than the static tarball, and the reason is provenance
+before size.** G32 said *a pinned tarball*, settling who supplies the client
+rather than the archive format; G33 kept the first and changed the second on
+evidence. `download.docker.com` publishes **no checksum for
+`docker-<version>.tgz`** — `.sha256`, `.sha256sum` and `.asc` are each a `404` —
+so a pinned hash there asserts bytes whoever wrote it fetched once. The two
+`.deb` hashes in the workflow are the ones the repository's `Packages` index
+carries, and that index is covered by a **PGP-signed `InRelease`**. A binary that
+runs as root against the host's Docker socket is worth the stronger chain.
+
+Size is the smaller argument and still one-sided: **24 MiB against 118 MB**,
+because the static tarball ships a 101 MB `dockerd` this job never runs, and
+`docker/docker` is its second-to-last member, so streaming less is not an option.
+
+**What it costs, stated rather than discovered:** the install needs a
+Debian-family job image, because it unpacks `.deb` files. `node:22-bookworm` is
+one and § What is deployed records it. The workflow guards on `dpkg-deb` and
+fails **naming that cause**, so a changed job image is reported as itself rather
+than as a confusing `dpkg-deb: not found`. No apt repository is registered and no
+keyring installed: the packages are fetched by URL and unpacked.
 
 Two earlier readings are superseded. This first said *a configuration detail
 rather than the structural impossibility the hosted pool has*, which assumed a
@@ -430,8 +462,11 @@ wrongly said otherwise.
 job **that would fail on a misconfigured host** has passed.
 
 1. **Docker works there.** A job on the runner's label runs `docker compose
-   version` and succeeds. This is the question `R6` currently fails, so it is the
-   step that decides whether the apply is finished.
+   version` and succeeds. **Discharged at P4** — run `881`, on
+   `g33-container-suite-lands` at `24d2bf184`. It is a step of
+   `reboot-baseline` rather than a dispatched diagnostic, so it fails the run
+   when it fails, and the client it exercises is the one the workflow installed
+   a step earlier.
 
    **Diagnose before changing anything.** `.forgejo/workflows/runner-probe.yml`
    is a manual `workflow_dispatch` job that reports what a job can see — the
@@ -464,6 +499,12 @@ job **that would fail on a misconfigured host** has passed.
    other — **and a deliberately joined pair must fail the same probe.** A probe
    demonstrated only in the passing direction is a probe that would pass on a
    topology with a route, which is what `ADR-0010` § 2 forbids.
+
+   **Discharged at P4**, by `make container-suite` in the same run. Both
+   directions are in `test/e2e/docker/network_isolation_test.go` and both ran:
+   the gate sets `KEYSTONE_REQUIRE_DOCKER`, and G33 demonstrated that with it set
+   and no client present the suite **exits 1 rather than skipping**. So the run's
+   green is evidence the probe executed, which is the property a skip destroyed.
 
 4. **No state carries between jobs** — `R3`. A job writes a marker outside its
    workspace; the next job does not find it.

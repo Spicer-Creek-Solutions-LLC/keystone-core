@@ -119,7 +119,26 @@ tell a check that does not fire from a plant that missed. Normative for
 dossiers in [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md)
 § "Required task dossier".
 
-**Last recurrence.** Pull request #323 — `9502f7a66`, and it is the gap below
+**Last recurrence.** `G33` — the container suite's `requireDocker` called
+`t.Skip` when the Docker client or daemon was absent, landed at P11b and unread
+until G33 moved the suite into `check` and CI. Had it landed in CI as written, a
+job whose client install silently failed would have reported a **green** gate:
+the skip made *did not run* and *passed* indistinguishable, which is this
+entry's headline with the check omitted rather than weak.
+
+**A new gap, and it is about when the countermeasure is applied.** The
+countermeasure says to plant a defect and confirm the check reports it. **P11b
+could not**: the suite was deferred because no runner could run it, so there was
+nowhere to plant anything, and the skip path shipped unexercised behind a target
+nothing invoked. A check deferred for want of an environment is never planted
+against — and it is the one most likely to be trusted on the day it is finally
+switched on, because it has been in the tree looking finished for months. The
+rule that follows: **the task that lands a deferred gate plants against it
+before trusting its first green**, including the path that decides whether to
+run at all. G33 did, in both directions and with the exit codes captured rather
+than piped away.
+
+Before that, pull request #323 — `9502f7a66`, and it is the gap below
 rather than a weak check. P08's `AC-9` was written in its dossier as two
 properties, the second being that every dependent site named in that dossier's
 § 2 is updated. The checker implemented the first and not the second, and its own

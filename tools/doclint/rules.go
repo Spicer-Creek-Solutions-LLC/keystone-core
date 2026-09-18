@@ -227,6 +227,50 @@ var rules = []Rule{
 		RetireAfter: "",
 	},
 	{
+		ID:    "r6-unmet-suite-deferred",
+		Added: "G33",
+		Why:   "R6 was unmet and the container suite deferred; P4 (run 881) met R6, the suite is in `check` and in CI, and `deferred-gates-check` is gone",
+
+		// Pattern is the SUBJECT, Stale the superseded conclusion. Mentioning
+		// R6 or the suite is not a defect -- several documents must, and
+		// CI-RUNNER.md records both states with dates. Asserting the old
+		// conclusion in the present tense is.
+		//
+		// Three grammars, because the claim was written three ways before G33:
+		// as a property of R6 ("not met", "unmet"), as a property of the gate
+		// ("deliberately absent", "deferred"), and as a property of the job
+		// ("no Docker client"). A fix that changed only the first would leave
+		// the other two reading correct. Spans forbid `.` and `;` for the
+		// reason runner-label-absence gives.
+		//
+		// The deferral alternatives require a VERB -- "is deferred", "remains
+		// deferred", "deliberately absent" -- rather than the bare word. A
+		// first draft matched `deferred` alone and hit `deferred-gates-check`
+		// itself, so naming the target G33 deleted, in order to say it was
+		// deleted, read as the claim it was written to forbid. RE2 has no
+		// lookahead, so the verb is the discriminator.
+		Pattern: `\bR6\b|container[- ]suite|container suite`,
+		Stale: `\bR6\b[^.;]{0,70}(?:is|remains|currently)?[^.;]{0,20}(?:not met|unmet|currently fails)` +
+			`|(?:not met|unmet)[^.;]{0,40}\bR6\b` +
+			`|container[- ]suite[^.;]{0,90}(?:is deferred|deliberately absent|deliberately not in|remains deferred)` +
+			`|(?:is|remains|stays) deferred[^.;]{0,70}container[- ]suite` +
+			`|deliberately absent[^.;]{0,70}container[- ]suite` +
+			`|(?:jobs?|runner|CI)[^.;]{0,70}(?:have|has|had) no Docker client`,
+
+		// The subject is everywhere -- CI-RUNNER.md alone carries many -- so a
+		// vanished subject means the rule stopped reading what it claims to.
+		MinHits: 8,
+
+		Exempt: map[string]string{
+			"docs/dossiers/P11-acceptance-evidence.md": "P11's own acceptance record, dated and marked superseded in place; it is evidence of what was true then, not a claim about the tree",
+		},
+
+		// Retires after C05: by then the suite runs a real journey across the
+		// topology, and a document claiming it is deferred would contradict
+		// something far louder than this sweep.
+		RetireAfter: "C05",
+	},
+	{
 		ID:          "no-pipe-to-shell",
 		Added:       "G23",
 		Why:         "the runner host's Docker socket is root on it, so an unverified root-level download is host compromise",
