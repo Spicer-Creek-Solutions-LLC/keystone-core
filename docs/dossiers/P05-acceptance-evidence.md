@@ -125,6 +125,17 @@ classification table did not mention.
 they assert that every message is classified and every vector dimension named,
 and neither can tell you an answer is correct or a coverage complete.
 
+**A third limit, added at `G36`, and it is the one that actually bit.** Every
+case above reasons *about* § 1 — `AC-1` classifies messages, `AC-5` names vector
+dimensions, and the finding at `AC-5` reads § 1's field order against § 7's
+leakage cells. **No case asked whether § 1 was sufficient to produce a byte**,
+and it was not: it said *length-prefixed* and defined neither width nor byte
+order, so no framing vector could be derived from it and no two implementations
+had to agree. The suite passed on an unencodable specification, and `C01-A` found
+it only when it tried to use § 1 for the thing the dossier promised it for. A
+case that checks a section is *internally consistent* is not a case that checks
+it is *sufficient*, and nothing here distinguished the two.
+
 **Two limits no case reaches, stated because this ADR rests on them.**
 Every recipient here is trusted because the token bundle said so. `ADR-0003` § 1
 and § 6 deliver the service public halves, and `THR-51` records that a bundle

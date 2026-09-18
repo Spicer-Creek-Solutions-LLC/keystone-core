@@ -271,6 +271,54 @@ var rules = []Rule{
 		RetireAfter: "C05",
 	},
 	{
+		ID:    "encoder-format-is-c01s",
+		Added: "G36",
+		Why:   "ADR-0005 said C01 owns `the canonical encoder` while section 1 defined no framing, so the length prefix belonged to nobody and C01-A stopped; G36 gave the format to the ADR and the implementation to C01",
+
+		// Pattern is the SUBJECT -- the encoder, the encoding, the framing, the
+		// length prefix -- and Stale the superseded conclusion: that any of it
+		// is C01's to choose. Naming C01 as the encoder's IMPLEMENTER is correct
+		// and must not hit, which is why the stale side requires a verb of
+		// choosing rather than mere adjacency.
+		//
+		// C01-A is the very next task and is the most likely place to re-derive
+		// the old reading, since its dossier asks it to hand-write framing
+		// vectors and the temptation is to settle an undefined byte locally.
+		//
+		// WHAT THIS CANNOT DETECT: an ownership list naming C01 in a third
+		// grammar -- neither a verb of choosing nor `encoder,` before a
+		// `(**C01**)` parenthetical. The two forms covered are the ones that
+		// have actually been written; a third needs adding when it appears.
+		Pattern: `canonical encoder|length[- ]prefix|framing|wire format|encoding`,
+		Stale: `(?:encoder|encoding|framing|length[- ]prefix|wire format)[^.;]{0,80}(?:is|are|remains?)[^.;]{0,30}\bC01\b` +
+			`|\bC01\b[^.;]{0,60}(?:chooses?|choose|decides?|defines?|picks?|selects?)[^.;]{0,40}(?:encoder|encoding|framing|length[- ]prefix|wire format|byte order|prefix width)` +
+			`|(?:encoder|encoding|framing|length[- ]prefix)[^.;]{0,60}(?:to be (?:chosen|decided|defined))[^.;]{0,40}(?:by |at |in )?\bC01\b` +
+			// The shape that actually caused the blocker, and the first draft of
+			// this rule MISSED it: a bare list ending in a parenthetical owner --
+			// "the canonical encoder, the signature ... vectors (**C01**)". There
+			// is no verb to match, so the discriminator is the comma or "and"
+			// straight after `encoder`; the corrected text reads `encoder's
+			// **implementation**`, which this must not hit and which RE2 cannot
+			// express as a negative lookahead.
+			`|canonical encoder(?:,| and)[^.;]{0,160}\(\*\*C01\*\*\)`,
+
+		// The subject is unavoidable in ADR-0005, C01.md and TESTING.md, so a
+		// vanished subject means the sweep stopped reading what it claims to.
+		MinHits: 6,
+
+		// Retires after C01: by then the encoder exists and its bytes are frozen
+		// as goldens, so a document claiming C01 may choose them contradicts
+		// something louder than this sweep.
+		//
+		// `C01`, not `C01-I`, and the difference is not cosmetic. The lifetime
+		// list is built by the Makefile's `sed -n 's/^ *- \[x\] \([PCRG][0-9][0-9][ab]\?\) .*/\1/p'`,
+		// which cannot capture a workstream half. `RetireAfter: "C01-I"` would
+		// never be found in that list, so the rule would never be forced out and
+		// would become permanent with a lifetime that reads finite. Nothing in
+		// the tool checks that RetireAfter names a task the list can contain.
+		RetireAfter: "C01",
+	},
+	{
 		ID:          "no-pipe-to-shell",
 		Added:       "G23",
 		Why:         "the runner host's Docker socket is root on it, so an unverified root-level download is host compromise",

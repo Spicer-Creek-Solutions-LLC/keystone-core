@@ -2,9 +2,9 @@
   "documents": [
     {
       "path": "docs/dossiers/C01.md",
-      "snapshot_commit": "028019924a359328e11ad19d8d3a1d67f5c30a43",
-      "approved_sha256": "49698adc77d609381b3c65c42af19ffe6cd7bc1d65f0fd8bec3d315b2746e330",
-      "why": "G34 returned the deferral mechanism to C01's own approval."
+      "snapshot_commit": "27c8d1b4e54cc35f2ff774967a08e0899b7bf6a2",
+      "approved_sha256": "fb309fb8437651883e20b45a4467d2a170a8b7b0ee31a6715a8da4f0da47eec4",
+      "why": "G36 added ADR-0005's framing amendment as a C01 dependency; D-C01-1 deliberately untouched."
     }
   ]
 }

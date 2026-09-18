@@ -654,6 +654,60 @@ limitations go in the pull request.
   merge commit. The regression test replays C01's original approval through
   G26 and G27, catches both verbatim G33 additions, and passes after the G34
   correction is recorded. The current C01 snapshot is `028019924`.
+- [x] G36 — Define the envelope's framing in `ADR-0005` § 1. The section said
+  *length-prefixed fields* with *explicit lengths* and defined neither width nor
+  byte order, so **no implementation could emit a single framing byte from it**
+  and no framing vector could be derived. `C01-A` stopped on it, correctly:
+  `C01.md` says every wire-visible choice is `ADR-0005`'s, and `docs/adr/` is out
+  of C01's paths. **A G task amending an accepted ADR, no RFC** — the precedent is
+  `G15` (`59cd56d1f`), which amended `ADR-0003` and `ADR-0005` the same way;
+  RFCs 0002–0004 were for architecture invariants and RFC 0001's scope, and this
+  is neither.
+  - **`uint32` big-endian on every field, the signature included, and the prefix
+    is part of the signed input.** That last is a security property, not a
+    detail: sign the values alone and `"AB"+"CD"` and `"A"+"BCD"` are the same
+    signed bytes, so an attacker re-splits fields and the signature still
+    verifies — the ambiguity § 1 rejects canonical JSON to avoid. Demonstrated
+    both ways in the pull request.
+  - **Representable maximum stated here, enforced maximum referenced.**
+    `2³²−1` is a property of the encoding; the 1 MiB cap is `ADR-0002` § 9's
+    policy and is pointed at rather than copied. A receiver enforces the smaller,
+    and **validates before it allocates** — four bytes can declare 4 GiB.
+  - **Review found the same class of gap one paragraph later, and was right.**
+    The first draft validated *"a length against the enforced maximum"* while
+    that cap is `ADR-0002`'s **account payload limit** — a bound on the whole
+    NATS message, not on a field — and never said whether the limit was
+    per-field, cumulative, or both. § 10's *"field at its maximum length"* and
+    *"field one byte over"* were still unwritable. **There is no per-field
+    maximum**: the bound is on the envelope, enforced as a running budget, and
+    the order of checks is now normative because § 9's coarse codes leak through
+    a difference in ordering — which is what `D-C01-5` tests. Closing a gap and
+    leaving its neighbour open is how this task came to exist in the first place.
+  - **No new refusal codes.** § 9's *malformed envelope* and *payload too large*
+    already cover truncation, disagreement and over-limit lengths, so framing
+    adds no wire-visible error surface.
+  - **The sentence that caused it is sharpened.** "What this ADR does not decide"
+    gave C01 *"the canonical encoder"* unqualified; between that and an unstated
+    format, the length prefix belonged to nobody. C01 owns the encoder as **code**.
+  - **What this does not fix, said rather than left to be found.** The field
+    *value* encodings — the version integer, the timestamp, the nonce — are still
+    structural. That is sufficient for the framing vectors `C01-A` owes, which
+    take values as inputs, and **not** sufficient to hand-write a complete
+    interoperable envelope. Raised, not fixed: widening to cover it is the move
+    that produced this task.
+  - **`P05`'s acceptance suite passed on an unencodable specification.** Its cases
+    reason *about* § 1 — classification, vector dimensions, leakage cells — and
+    none asked whether § 1 was *sufficient to produce a byte*. A case that checks
+    a section is internally consistent is not one that checks it is sufficient.
+    Recorded as a third limit in `P05-acceptance-evidence.md`.
+  - **First task to pay G35's gate.** `C01.md` gains a dependency row, so its
+    ledger entry moves in the same pull request or the build fails.
+  - `doclint` gains `encoder-format-is-c01s`. **Its first draft missed the
+    verbatim sentence it was written for** — a list ending in a parenthetical
+    owner has no verb to match — and was only found by planting the original
+    text. **A `RetireAfter` of `C01-I` would also have been silently permanent**:
+    the lifetime list cannot capture a workstream half, and nothing checks that
+    a rule's lifetime names a task the list can contain. Raised, not fixed.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
