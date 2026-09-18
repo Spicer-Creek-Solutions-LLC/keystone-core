@@ -2,7 +2,8 @@
   "documents": [
     {
       "path": "docs/dossiers/C01.md",
-      "approved_commit": "028019924a359328e11ad19d8d3a1d67f5c30a43",
+      "snapshot_commit": "028019924a359328e11ad19d8d3a1d67f5c30a43",
+      "approved_sha256": "49698adc77d609381b3c65c42af19ffe6cd7bc1d65f0fd8bec3d315b2746e330",
       "why": "G34 returned the deferral mechanism to C01's own approval."
     }
   ]

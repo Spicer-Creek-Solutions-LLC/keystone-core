@@ -647,13 +647,14 @@ limitations go in the pull request.
     fixed — a diff against the approving commit is a check that could exist.
 - [x] G35 — Check a merged document against what approved it. Git history records
   which commits changed a document, not which paragraphs a task actually
-  approved. `tools/doclint -approved-documents` therefore uses an explicit,
-  post-merge approval ledger and reports the complete diff from each document's
-  recorded snapshot. It is a review obligation rather than a `make check` gate:
-  a pre-merge gate cannot know the eventual merge commit, and moving its own
-  baseline would make it meaningless. The regression test reproduces C01 after
-  G26 and G27, catches both verbatim G33 additions, and passes after the G34
-  correction is recorded. The current C01 snapshot is `028019924`.
+  approved. `tools/doclint -approved-documents` therefore uses an explicit
+  ledger containing the last sanctioned snapshot commit and the exact approved
+  content digest. A document edit must update its ledger entry in the same pull
+  request, so the check is a real `make check` gate without needing the future
+  merge commit. The regression test starts at C01's original approval, proves
+  G26 and G27's sanctioned edits pass, catches both verbatim G33 additions, and
+  passes after the G34 correction is recorded. The current C01 snapshot is
+  `028019924`.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

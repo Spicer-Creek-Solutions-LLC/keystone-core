@@ -29,6 +29,7 @@ func main() {
 	verbose := flag.Bool("v", false, "list every hit that needed a judgement")
 	done := flag.String("tasks-complete", "", "comma-separated tasks the epic shows complete, for lifetime checks")
 	approved := flag.String("approved-documents", "", "compare documents with the post-merge approval manifest")
+	approvalOnly := flag.Bool("approval-only", false, "run only the approved-document check")
 	flag.Parse()
 
 	complete := map[string]bool{}
@@ -73,6 +74,9 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println("approved-documents: all documents match their approved snapshots")
+		if *approvalOnly {
+			return
+		}
 	}
 
 	var fails []string

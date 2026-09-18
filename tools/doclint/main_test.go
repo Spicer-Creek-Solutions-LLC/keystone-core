@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -12,6 +14,7 @@ import (
 
 func TestApprovedDocumentsReportsUnapprovedTextButAllowsApprovedEdits(t *testing.T) {
 	root := t.TempDir()
+	t.Setenv("GIT_DIR", filepath.Join(t.TempDir(), "not-a-repository"))
 	runGit(t, root, "init")
 	writeApprovalDocument(t, root, "approved text\n")
 	runGit(t, root, "add", ".")
@@ -23,7 +26,7 @@ func TestApprovedDocumentsReportsUnapprovedTextButAllowsApprovedEdits(t *testing
 	approvedLater := gitOutput(t, root, "rev-parse", "HEAD")
 
 	writeApprovalDocument(t, root, "approved text\nG26 edit\nG27 edit\nC01 therefore builds the assertion for its own deferral rather than reusing one.\nwhich target asserts it was never this dossier's to fix\n")
-	writeManifest(t, root, approvalManifest{Documents: []approvedDocument{{Path: "docs/dossiers/C01.md", Commit: approvedLater}}})
+	writeManifest(t, root, approvalManifestFor(t, root, approvedLater))
 
 	findings, err := checkApprovedDocuments(root, "approved.json")
 	if err != nil {
@@ -37,7 +40,7 @@ func TestApprovedDocumentsReportsUnapprovedTextButAllowsApprovedEdits(t *testing
 	runGit(t, root, "add", ".")
 	runGit(t, root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "approved correction")
 	approvedCorrection := gitOutput(t, root, "rev-parse", "HEAD")
-	writeManifest(t, root, approvalManifest{Documents: []approvedDocument{{Path: "docs/dossiers/C01.md", Commit: approvedCorrection}}})
+	writeManifest(t, root, approvalManifestFor(t, root, approvedCorrection))
 	findings, err = checkApprovedDocuments(root, "approved.json")
 	if err != nil {
 		t.Fatal(err)
@@ -48,6 +51,7 @@ func TestApprovedDocumentsReportsUnapprovedTextButAllowsApprovedEdits(t *testing
 }
 
 func TestHistoricalC01ApprovalCase(t *testing.T) {
+	t.Setenv("GIT_DIR", filepath.Join(t.TempDir(), "not-a-repository"))
 	repo := gitOutput(t, ".", "rev-parse", "--show-toplevel")
 	approvedText := gitShow(t, repo, "88ae5d1bb:docs/dossiers/C01.md")
 	g33Text := gitShow(t, repo, "72cd2f9a2:docs/dossiers/C01.md")
@@ -61,7 +65,7 @@ func TestHistoricalC01ApprovalCase(t *testing.T) {
 	approvedCommit := gitOutput(t, root, "rev-parse", "HEAD")
 
 	writeApprovalDocument(t, root, g33Text)
-	writeManifest(t, root, approvalManifest{Documents: []approvedDocument{{Path: "docs/dossiers/C01.md", Commit: approvedCommit}}})
+	writeManifest(t, root, approvalManifestFor(t, root, approvedCommit))
 	findings, err := checkApprovedDocuments(root, "approved.json")
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +78,7 @@ func TestHistoricalC01ApprovalCase(t *testing.T) {
 	runGit(t, root, "add", ".")
 	runGit(t, root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "approved G34 snapshot")
 	approvedG34 := gitOutput(t, root, "rev-parse", "HEAD")
-	writeManifest(t, root, approvalManifest{Documents: []approvedDocument{{Path: "docs/dossiers/C01.md", Commit: approvedG34}}})
+	writeManifest(t, root, approvalManifestFor(t, root, approvedG34))
 	findings, err = checkApprovedDocuments(root, "approved.json")
 	if err != nil {
 		t.Fatal(err)
@@ -106,10 +110,23 @@ func writeManifest(t *testing.T, root string, manifest approvalManifest) {
 	}
 }
 
+func approvalManifestFor(t *testing.T, root, commit string) approvalManifest {
+	t.Helper()
+	b, err := gitAt(root, "show", commit+":docs/dossiers/C01.md").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(b)
+	return approvalManifest{Documents: []approvedDocument{{
+		Path:   "docs/dossiers/C01.md",
+		Commit: commit,
+		Digest: hex.EncodeToString(digest[:]),
+	}}}
+}
+
 func runGit(t *testing.T, root string, args ...string) {
 	t.Helper()
-	cmd := exec.Command("git", args...)
-	cmd.Dir = root
+	cmd := gitAt(root, args...)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("git %v: %v\n%s", args, err, out)
 	}
@@ -117,8 +134,7 @@ func runGit(t *testing.T, root string, args ...string) {
 
 func gitOutput(t *testing.T, root string, args ...string) string {
 	t.Helper()
-	cmd := exec.Command("git", args...)
-	cmd.Dir = root
+	cmd := gitAt(root, args...)
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("git %v: %v", args, err)
@@ -128,8 +144,7 @@ func gitOutput(t *testing.T, root string, args ...string) string {
 
 func gitShow(t *testing.T, root, object string) string {
 	t.Helper()
-	cmd := exec.Command("git", "show", object)
-	cmd.Dir = root
+	cmd := gitAt(root, "show", object)
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("git show %s: %v", object, err)
