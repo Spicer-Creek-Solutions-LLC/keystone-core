@@ -1,11 +1,184 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 )
+
+func TestApprovedDocumentsReportsUnapprovedTextButAllowsApprovedEdits(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("GIT_DIR", filepath.Join(t.TempDir(), "not-a-repository"))
+	runGit(t, root, "init")
+	writeApprovalDocument(t, root, "approved text\n")
+	runGit(t, root, "add", ".")
+	runGit(t, root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "approved")
+
+	writeApprovalDocument(t, root, "approved text\nG26 edit\nG27 edit\n")
+	runGit(t, root, "add", ".")
+	runGit(t, root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "approved later edits")
+	approvedLater := gitOutput(t, root, "rev-parse", "HEAD")
+
+	writeApprovalDocument(t, root, "approved text\nG26 edit\nG27 edit\nC01 therefore builds the assertion for its own deferral rather than reusing one.\nwhich target asserts it was never this dossier's to fix\n")
+	writeManifest(t, root, approvalManifestFor(t, root, approvedLater))
+
+	findings, err := checkApprovedDocuments(root, "approved.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 1 || !containsNormalized(findings[0], "C01 therefore builds the assertion for its own deferral rather than reusing one.") || !containsNormalized(findings[0], "which target asserts it was never this dossier's to fix") {
+		t.Fatalf("findings = %q, want both G33 sentences", findings)
+	}
+
+	writeApprovalDocument(t, root, "approved text\nG26 edit\nG27 edit\nG34 correction\n")
+	runGit(t, root, "add", ".")
+	runGit(t, root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "approved correction")
+	approvedCorrection := gitOutput(t, root, "rev-parse", "HEAD")
+	writeManifest(t, root, approvalManifestFor(t, root, approvedCorrection))
+	findings, err = checkApprovedDocuments(root, "approved.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("findings after approved correction = %q", findings)
+	}
+}
+
+func TestHistoricalC01ApprovalCase(t *testing.T) {
+	t.Setenv("GIT_DIR", filepath.Join(t.TempDir(), "not-a-repository"))
+	repo := gitOutput(t, ".", "rev-parse", "--show-toplevel")
+	originalText := gitShow(t, repo, "743d32868:docs/dossiers/C01.md")
+	g26Text := gitShow(t, repo, "9944e35ea:docs/dossiers/C01.md")
+	g27Text := gitShow(t, repo, "88ae5d1bb:docs/dossiers/C01.md")
+	g33Text := gitShow(t, repo, "72cd2f9a2:docs/dossiers/C01.md")
+	g34Text := gitShow(t, repo, "028019924a359328e11ad19d8d3a1d67f5c30a43:docs/dossiers/C01.md")
+
+	root := t.TempDir()
+	runGit(t, root, "init")
+	writeApprovalDocument(t, root, originalText)
+	runGit(t, root, "add", ".")
+	runGit(t, root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "approved C01 snapshot")
+
+	writeApprovalDocument(t, root, g26Text)
+	runGit(t, root, "add", ".")
+	runGit(t, root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "approved G26 snapshot")
+
+	writeApprovalDocument(t, root, g27Text)
+	runGit(t, root, "add", ".")
+	runGit(t, root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "approved G27 snapshot")
+	approvedCommit := gitOutput(t, root, "rev-parse", "HEAD")
+	writeManifest(t, root, approvalManifestFor(t, root, approvedCommit))
+	findings, err := checkApprovedDocuments(root, "approved.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("findings for sanctioned G26/G27 sequence = %q", findings)
+	}
+
+	writeApprovalDocument(t, root, g33Text)
+	writeManifest(t, root, approvalManifestFor(t, root, approvedCommit))
+	findings, err = checkApprovedDocuments(root, "approved.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 1 || !containsNormalized(findings[0], "C01 therefore builds the assertion for its own deferral rather than reusing one.") || !containsNormalized(findings[0], "which target asserts it was never this dossier's to fix") {
+		t.Fatalf("historical findings = %q, want both G33 sentences", findings)
+	}
+
+	writeApprovalDocument(t, root, g34Text)
+	runGit(t, root, "add", ".")
+	runGit(t, root, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "approved G34 snapshot")
+	approvedG34 := gitOutput(t, root, "rev-parse", "HEAD")
+	writeManifest(t, root, approvalManifestFor(t, root, approvedG34))
+	findings, err = checkApprovedDocuments(root, "approved.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("historical findings after G34 = %q", findings)
+	}
+}
+
+func writeApprovalDocument(t *testing.T, root, content string) {
+	t.Helper()
+	path := filepath.Join(root, "docs/dossiers")
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(path, "C01.md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeManifest(t *testing.T, root string, manifest approvalManifest) {
+	t.Helper()
+	b, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "approved.json"), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func approvalManifestFor(t *testing.T, root, commit string) approvalManifest {
+	t.Helper()
+	b, err := gitAt(root, "show", commit+":docs/dossiers/C01.md").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(b)
+	return approvalManifest{Documents: []approvedDocument{{
+		Path:   "docs/dossiers/C01.md",
+		Commit: commit,
+		Digest: hex.EncodeToString(digest[:]),
+	}}}
+}
+
+func runGit(t *testing.T, root string, args ...string) {
+	t.Helper()
+	cmd := gitAt(root, args...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+func gitOutput(t *testing.T, root string, args ...string) string {
+	t.Helper()
+	cmd := gitAt(root, args...)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git %v: %v", args, err)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func gitShow(t *testing.T, root, object string) string {
+	t.Helper()
+	cmd := gitAt(root, "show", object)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("git show %s: %v", object, err)
+	}
+	return string(out)
+}
+
+func containsNormalized(text, phrase string) bool {
+	var lines []string
+	for _, line := range strings.Split(text, "\n") {
+		lines = append(lines, strings.TrimPrefix(strings.TrimPrefix(line, "+"), "-"))
+	}
+	normalized := strings.Join(strings.Fields(strings.Join(lines, " ")), " ")
+	wanted := strings.Join(strings.Fields(phrase), " ")
+	return strings.Contains(normalized, wanted)
+}
 
 // The classifiers decide whether a hit on a superseded conclusion is reported.
 // A classifier that fires too readily disposes of live hits silently, which is

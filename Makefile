@@ -35,7 +35,8 @@ LDFLAGS     := -X $(VERSION_PKG).commit=$(COMMIT)
 BINARIES    := keystone keystone-server keystone-agent
 
 .PHONY: help docs-lint docs-lint-fix docs-links capability-catalog-check stray-binary-check \
-	whitespace-check build fmt fmt-check vet test test-race vuln doclint archlint container-suite dco-exempt-check gates-agree check
+	whitespace-check build fmt fmt-check vet test test-race vuln doclint approved-documents-check \
+	archlint container-suite dco-exempt-check gates-agree check
 
 help: ## Show available targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -175,7 +176,7 @@ build: ## Build every binary with a derived version stamp
 # `dco-exempt-check` asserts it still exists, so the exemption cannot become a
 # missing gate nobody spots.
 check: fmt-check vet test-race tools-test whitespace-check build vuln docs-lint docs-links \
-	capability-catalog-check doclint archlint container-suite dco-exempt-check \
+	capability-catalog-check doclint approved-documents-check archlint container-suite dco-exempt-check \
 	gates-agree ## Run every CI gate that can run locally
 	@echo "check: ok"
 
@@ -190,6 +191,9 @@ doclint: ## Standing document sweeps, with lifetimes
 	# grows until its failures stop being read.
 	@cd tools/doclint && go run . -root ../.. \
 		-tasks-complete "$$(sed -n 's/^ *- \[x\] \([PCRG][0-9][0-9][ab]\?\) .*/\1/p' ../../epics/20-generation-2-reboot.md | paste -sd,)"
+
+approved-documents-check: ## Compare merged documents with explicit approval snapshots
+	@cd tools/doclint && go run . -root ../.. -approved-documents tools/doclint/approved-documents.json -approval-only
 
 archlint: ## The requirements register, both directions, with liveness from the epic
 	cd tools/archlint && go run . -root ../..
