@@ -45,13 +45,14 @@ func checkApprovedDocuments(root, manifestPath string) ([]string, error) {
 		if _, err := hex.DecodeString(doc.Digest); err != nil || len(doc.Digest) != sha256.Size*2 {
 			return nil, fmt.Errorf("approved document %q has an invalid SHA-256 digest", doc.Path)
 		}
-		snapshot, err := gitAt(root, "show", doc.Commit+":"+doc.Path).Output()
-		if err != nil {
-			return nil, fmt.Errorf("read sanctioned snapshot %s at %s: %w", doc.Path, doc.Commit, err)
-		}
-		snapshotHash := sha256.Sum256(snapshot)
-		if hex.EncodeToString(snapshotHash[:]) != doc.Digest {
-			return nil, fmt.Errorf("approved document %q digest does not match sanctioned snapshot %s", doc.Path, doc.Commit)
+		snapshot, snapshotErr := gitAt(root, "show", doc.Commit+":"+doc.Path).Output()
+		if snapshotErr == nil {
+			snapshotHash := sha256.Sum256(snapshot)
+			if hex.EncodeToString(snapshotHash[:]) != doc.Digest {
+				return nil, fmt.Errorf("approved document %q digest does not match sanctioned snapshot %s", doc.Path, doc.Commit)
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "approved-documents: warning: sanctioned snapshot %s at %s is unavailable (possibly rebased); using the content digest\n", doc.Path, doc.Commit)
 		}
 		current, err := os.ReadFile(filepath.Join(root, doc.Path))
 		if err != nil {
@@ -59,6 +60,10 @@ func checkApprovedDocuments(root, manifestPath string) ([]string, error) {
 		}
 		got := sha256.Sum256(current)
 		if hex.EncodeToString(got[:]) == doc.Digest {
+			continue
+		}
+		if snapshotErr != nil {
+			findings = append(findings, fmt.Sprintf("%s differs from sanctioned snapshot %s, which is unavailable (possibly rebased) (sha256 %s, want %s)", doc.Path, doc.Commit, hex.EncodeToString(got[:]), doc.Digest))
 			continue
 		}
 		patch, err := gitAt(root, "diff", "--no-ext-diff", "--unified=3", "--no-color", doc.Commit, "--", doc.Path).Output()

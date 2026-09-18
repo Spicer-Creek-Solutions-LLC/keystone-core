@@ -135,6 +135,9 @@ jobs:
       - name: document sweeps
         run: make doclint
 
+      - name: approved document snapshots
+        run: make approved-documents-check
+
       - name: requirements register
         run: make archlint
 
