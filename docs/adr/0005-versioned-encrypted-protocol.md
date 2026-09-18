@@ -65,6 +65,64 @@ security reason — or worse, makes two different messages produce the same byte
 A fixed field order with explicit lengths is **deterministic by construction**:
 there is nothing to canonicalize.
 
+#### The length prefix
+
+**Added at `G36`.** This section said *length-prefixed* and *explicit lengths*
+and defined neither the width nor the encoding, so no implementation could emit
+a single framing byte from it and no framing vector could be derived. `C01-A`
+stopped on exactly that, correctly: § "What this ADR does not decide" gives C01
+the encoder's implementation, and every wire-visible choice is this ADR's.
+
+**Every field carries a `uint32` big-endian length prefix**, immediately before
+its bytes. All nine, the signature included — one rule, no exceptions, because a
+per-field rule is nine places two implementations can disagree.
+
+**The prefix is part of the signed input.** Field 9 is computed over the framed
+bytes of fields 1–8: each field's prefix followed by its value, concatenated in
+order. This is not a detail. Sign the values alone and two different field
+splits produce a byte-identical signed input — an attacker moves a byte from the
+end of one field to the start of the next and the signature still verifies. That
+is precisely the ambiguity this section rejects canonical JSON to avoid, so
+excluding the prefix would defeat the reason the encoding was chosen.
+
+| Property | Value |
+|---|---|
+| Prefix width | 4 bytes, `uint32`, unsigned |
+| Byte order | Big-endian (network order) |
+| Representable field length | `0` to `2³²−1` |
+| Enforced maximum | **Not stated here.** `ADR-0002` § 9 caps the payload, and that value is its to change |
+| Zero-length field | Prefix `00 00 00 00` and no bytes. Representable, and **distinct from absent** — fields 3 and 4 require it |
+| Envelope length | The sum of its framed fields. Nothing follows field 9 |
+
+**The representable maximum and the enforced maximum are different numbers, and
+a receiver enforces the smaller.** The first is a property of this encoding; the
+second is policy `ADR-0002` § 9 owns. Restating that policy here would create a
+second copy to drift, which is why the row above points instead of repeating.
+
+**A receiver validates a length against the enforced maximum before it
+allocates.** A malformed envelope can declare nearly 4 GiB in four bytes, and a
+parser that trusts the prefix first is a denial of service reachable by anyone
+who can publish. This is a requirement on the receiver, not a quality-of-
+implementation note for C01 to weigh.
+
+**Refusals reuse § 9's existing set**; framing adds no code. A truncated prefix,
+a field shorter than its prefix declares, a prefix that disagrees with its field,
+or bytes after field 9 are all **malformed envelope**. A length over the enforced
+maximum is **payload too large**.
+
+**What this fixes and what it does not, stated so the boundary is not discovered
+the way the last one was.** The framing is now fully determined: given nine field
+*values*, the bytes on the wire follow from this section and nothing else. The
+**value encodings do not follow from it** — this ADR is structural about the
+version integer (§ 2), the timestamp and the nonce (§ 6), and it remains so.
+
+That is sufficient for the framing vectors `C01-A` owes, because a framing vector
+takes field values as inputs and asserts the bytes they produce. It is **not**
+sufficient to write a complete interoperable envelope by hand, and two
+implementations could still encode the same version integer differently. **G36
+raised that and did not fix it**: it is a distinct wire-visible gap, and widening
+a task to cover it is the move that produced this one.
+
 ### 2. Version negotiation, and why the version is in two places
 
 The protocol version is a single integer, **readable in cleartext as field 1**
@@ -275,7 +333,7 @@ an attacker cannot.
 | Must tolerate | Must refuse |
 |---|---|
 | An unknown **header** it does not use | An unknown **version** |
-| Additional trailing bytes in a field it does not interpret, **if the signature still verifies** | A **known** version whose envelope does not match that version's field sequence |
+| Additional trailing bytes in a field it does not interpret, **if the signature still verifies** — that is, bytes **within that field's declared length** (§ 1) | A **known** version whose envelope does not match that version's field sequence |
 | — | An unknown **class** |
 
 Tolerance stops where verification does. A receiver never accepts something it
@@ -389,9 +447,15 @@ extension. That is a cost with versions and a benefit without ambiguity.
 
 Job lifecycle, delivery semantics and `UNKNOWN` (**P06**); execution limits and
 argv handling (**P07**); the audit record's schema and retention (**P08**);
-operator-facing error presentation (**P09**); the canonical encoder, the
-signature and encryption operations, fuzzing, and the **computed** vectors
-(**C01**). How the agent obtains the service public halves is no longer open
+operator-facing error presentation (**P09**); the canonical encoder's
+**implementation**, the signature and encryption operations, fuzzing, and the
+**computed** vectors (**C01**).
+
+**Sharpened at `G36`, because the earlier wording is what went wrong.** This read
+*the canonical encoder* without qualification, which can be taken as the encoder's
+**format** — and § 1 did not state the format either, so the two documents
+together left the length prefix belonging to nobody. C01 owns the encoder as
+code. **The bytes it emits are this ADR's**, as § 1 now says outright. How the agent obtains the service public halves is no longer open
 here — `ADR-0003` § 1 and § 6 decide it — and the residue is `RSK-14`, whose
 channel-separated deployment mode belongs to **P10**.
 
