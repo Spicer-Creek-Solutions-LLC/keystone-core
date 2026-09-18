@@ -339,7 +339,7 @@ since job logs are not readable through this forge's API.
 | Jobs run on the runner's own label | **yes** |
 | `actions/checkout` works there | **yes** |
 | **R3** — a marker written outside the workspace does not survive into the next job | **holds**, and **P3** corroborated it independently: a fresh container per job, two attempts, two hostnames |
-| **R6** — Docker usable inside a job | **not met, and its cause is now measured rather than inferred**: the socket is present since 2026-09-17; `node:22-bookworm` carries no `docker` binary |
+| **R6** — Docker usable inside a job | **not met.** P2 established that and no more; **its cause was measured by P3, not here** — `node:22-bookworm` carries no `docker` binary, and the socket became present between P3's attempts on 2026-09-18, which is after P2 and could not have been observed by it |
 | **R1** — the label is neither `docker` nor `ubuntu-latest` | **holds**, on the runner list — not on the dispatched samples, which cannot establish it |
 
 **`R6`'s diagnosis, which is why the shape above was chosen.** Jobs run *inside a
