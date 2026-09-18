@@ -90,7 +90,7 @@ excluding the prefix would defeat the reason the encoding was chosen.
 | Prefix width | 4 bytes, `uint32`, unsigned |
 | Byte order | Big-endian (network order) |
 | Representable field length | `0` to `2³²−1` |
-| Enforced maximum | **Not stated here.** `ADR-0002` § 9 caps the payload, and that value is its to change |
+| Enforced maximum | **On the envelope, not the field.** `ADR-0002` § 9's account payload cap bounds the whole NATS message, which is the whole envelope. There is **no separate per-field limit** |
 | Zero-length field | Prefix `00 00 00 00` and no bytes. Representable, and **distinct from absent** — fields 3 and 4 require it |
 | Envelope length | The sum of its framed fields. Nothing follows field 9 |
 
@@ -99,16 +99,40 @@ a receiver enforces the smaller.** The first is a property of this encoding; the
 second is policy `ADR-0002` § 9 owns. Restating that policy here would create a
 second copy to drift, which is why the row above points instead of repeating.
 
-**A receiver validates a length against the enforced maximum before it
-allocates.** A malformed envelope can declare nearly 4 GiB in four bytes, and a
-parser that trusts the prefix first is a denial of service reachable by anyone
-who can publish. This is a requirement on the receiver, not a quality-of-
-implementation note for C01 to weigh.
+**There is no per-field maximum, and the bound is cumulative.** `ADR-0002` § 9's
+cap is the account's NATS payload limit: it bounds the complete message, and the
+complete message is the complete envelope. A field is therefore bounded only by
+what the envelope has left. This is said outright because reading that cap as a
+per-field limit is the natural mistake, and it would admit nine fields of the
+full cap each — an envelope nine times the size the transport will carry.
 
-**Refusals reuse § 9's existing set**; framing adds no code. A truncated prefix,
-a field shorter than its prefix declares, a prefix that disagrees with its field,
-or bytes after field 9 are all **malformed envelope**. A length over the enforced
-maximum is **payload too large**.
+**A receiver enforces it as a running budget, and checks before it allocates.**
+The budget starts at the enforced cap and every byte consumed draws it down,
+prefixes included. A malformed envelope can declare nearly 4 GiB in four bytes,
+and a parser that allocates on the strength of a prefix it has not checked is a
+denial of service reachable by anyone who can publish.
+
+**The order of those checks is normative, because the refusal code depends on
+it.** § 9's set is deliberately coarse so a sender cannot learn where parsing
+stopped; two receivers checking in different orders would return different codes
+for the same envelope, and the difference would leak exactly what the coarseness
+protects. For each field in order:
+
+1. Four bytes remain for the prefix — otherwise **malformed envelope**.
+2. The declared length is within the remaining budget — otherwise **payload too
+   large**. This precedes step 3, so an over-budget length is reported as too
+   large whether or not the bytes are present.
+3. The declared length of bytes is actually present — otherwise **malformed
+   envelope**.
+
+After field 9, any remaining bytes are **malformed envelope**. A prefix that
+disagrees with its field is step 3.
+
+**So § 10's "field at its maximum length" is well-defined once the envelope's
+shape is pinned**: the cap, less the thirty-six bytes of prefixes, less the other
+eight field values. It is a property of a stated shape and not a universal
+constant, which is what a vector needs — and *"field one byte over"* is that
+value plus one, refused at step 2.
 
 **What this fixes and what it does not, stated so the boundary is not discovered
 the way the last one was.** The framing is now fully determined: given nine field

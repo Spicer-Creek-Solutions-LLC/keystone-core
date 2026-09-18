@@ -673,6 +673,16 @@ limitations go in the pull request.
     `2³²−1` is a property of the encoding; the 1 MiB cap is `ADR-0002` § 9's
     policy and is pointed at rather than copied. A receiver enforces the smaller,
     and **validates before it allocates** — four bytes can declare 4 GiB.
+  - **Review found the same class of gap one paragraph later, and was right.**
+    The first draft validated *"a length against the enforced maximum"* while
+    that cap is `ADR-0002`'s **account payload limit** — a bound on the whole
+    NATS message, not on a field — and never said whether the limit was
+    per-field, cumulative, or both. § 10's *"field at its maximum length"* and
+    *"field one byte over"* were still unwritable. **There is no per-field
+    maximum**: the bound is on the envelope, enforced as a running budget, and
+    the order of checks is now normative because § 9's coarse codes leak through
+    a difference in ordering — which is what `D-C01-5` tests. Closing a gap and
+    leaving its neighbour open is how this task came to exist in the first place.
   - **No new refusal codes.** § 9's *malformed envelope* and *payload too large*
     already cover truncation, disagreement and over-limit lengths, so framing
     adds no wire-visible error surface.
