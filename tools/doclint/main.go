@@ -28,7 +28,7 @@ func main() {
 	root := flag.String("root", ".", "repository root")
 	verbose := flag.Bool("v", false, "list every hit that needed a judgement")
 	done := flag.String("tasks-complete", "", "comma-separated tasks the epic shows complete, for lifetime checks")
-	approved := flag.String("approved-documents", "", "compare documents with the post-merge approval manifest")
+	approved := flag.String("approved-documents", "", "compare documents with the sanctioned-document manifest")
 	approvalOnly := flag.Bool("approval-only", false, "run only the approved-document check")
 	flag.Parse()
 

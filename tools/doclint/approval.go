@@ -45,6 +45,14 @@ func checkApprovedDocuments(root, manifestPath string) ([]string, error) {
 		if _, err := hex.DecodeString(doc.Digest); err != nil || len(doc.Digest) != sha256.Size*2 {
 			return nil, fmt.Errorf("approved document %q has an invalid SHA-256 digest", doc.Path)
 		}
+		snapshot, err := gitAt(root, "show", doc.Commit+":"+doc.Path).Output()
+		if err != nil {
+			return nil, fmt.Errorf("read sanctioned snapshot %s at %s: %w", doc.Path, doc.Commit, err)
+		}
+		snapshotHash := sha256.Sum256(snapshot)
+		if hex.EncodeToString(snapshotHash[:]) != doc.Digest {
+			return nil, fmt.Errorf("approved document %q digest does not match sanctioned snapshot %s", doc.Path, doc.Commit)
+		}
 		current, err := os.ReadFile(filepath.Join(root, doc.Path))
 		if err != nil {
 			return nil, fmt.Errorf("read approved document %s: %w", doc.Path, err)
