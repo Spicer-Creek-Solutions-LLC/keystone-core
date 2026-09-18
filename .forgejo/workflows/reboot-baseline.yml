@@ -147,6 +147,9 @@ jobs:
       - name: protocol acceptance contract
         run: make contract
 
+      - name: contract immutability
+        run: make contract-immutability-check
+
       - name: requirements register
         run: make archlint
 

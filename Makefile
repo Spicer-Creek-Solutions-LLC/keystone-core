@@ -36,7 +36,7 @@ BINARIES    := keystone keystone-server keystone-agent
 
 .PHONY: help docs-lint docs-lint-fix docs-links capability-catalog-check stray-binary-check \
 	whitespace-check build fmt fmt-check vet test test-race vuln doclint approved-documents-check \
-	contract pending-contract archlint container-suite dco-exempt-check gates-agree check
+	contract pending-contract contract-immutability-check archlint container-suite dco-exempt-check gates-agree check
 
 help: ## Show available targets
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -176,7 +176,7 @@ build: ## Build every binary with a derived version stamp
 # `dco-exempt-check` asserts it still exists, so the exemption cannot become a
 # missing gate nobody spots.
 check: fmt-check vet test-race tools-test whitespace-check build vuln docs-lint docs-links \
-	capability-catalog-check doclint approved-documents-check contract pending-contract archlint container-suite dco-exempt-check \
+	capability-catalog-check doclint approved-documents-check contract pending-contract contract-immutability-check archlint container-suite dco-exempt-check \
 	gates-agree ## Run every CI gate that can run locally
 	@echo "check: ok"
 
@@ -200,6 +200,15 @@ pending-contract: ## Prove every registered C01-A case still fails for its reaso
 
 contract: ## Run the C01-A contract, skipping only registered pending cases
 	go test -tags contract ./test/contract/protocol
+
+contract-immutability-check: ## Reject edits to the accepted C01-A contract
+	@sha="$$(sed -n 's/^Contract commit: `\([0-9a-f]\{40\}\)`.*/\1/p' docs/dossiers/C01-A-acceptance-evidence.md)"; \
+	if [ -z "$$sha" ]; then echo "contract-immutability-check: missing recorded contract commit"; exit 1; fi; \
+	git cat-file -e "$$sha^{commit}" || { echo "contract-immutability-check: recorded commit $$sha is unavailable"; exit 1; }; \
+	git diff --quiet "$$sha" -- test/contract/protocol || { \
+		echo "contract-immutability-check: C01-I changed the accepted contract at $$sha"; exit 1; \
+	}; \
+	echo "contract-immutability-check: contract matches $$sha"
 
 archlint: ## The requirements register, both directions, with liveness from the epic
 	cd tools/archlint && go run . -root ../..
