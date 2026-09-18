@@ -28,6 +28,7 @@ func main() {
 	root := flag.String("root", ".", "repository root")
 	verbose := flag.Bool("v", false, "list every hit that needed a judgement")
 	done := flag.String("tasks-complete", "", "comma-separated tasks the epic shows complete, for lifetime checks")
+	approved := flag.String("approved-documents", "", "compare documents with the post-merge approval manifest")
 	flag.Parse()
 
 	complete := map[string]bool{}
@@ -57,6 +58,21 @@ func main() {
 	if len(files) < 20 {
 		fmt.Fprintf(os.Stderr, "doclint: %d tracked files — the sweep is not reaching the repository\n", len(files))
 		os.Exit(2)
+	}
+	if *approved != "" {
+		findings, err := checkApprovedDocuments(*root, *approved)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "doclint:", err)
+			os.Exit(2)
+		}
+		if len(findings) > 0 {
+			fmt.Println("approved-documents: review required")
+			for _, finding := range findings {
+				fmt.Println(finding)
+			}
+			os.Exit(1)
+		}
+		fmt.Println("approved-documents: all documents match their approved snapshots")
 	}
 
 	var fails []string
