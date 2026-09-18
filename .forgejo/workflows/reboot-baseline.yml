@@ -148,11 +148,70 @@ jobs:
       - name: the one CI-only gate still exists, and can still run
         run: make dco-exempt-check
 
-      # container-suite is deliberately absent: the runner cannot run Docker in
-      # a job yet (CI-RUNNER.md, R6). This asserts the deferral rather than
-      # leaving a gate that is in neither set and therefore invisible.
-      - name: the deferred gate is deferred on purpose
-        run: make deferred-gates-check
+      # The Docker client, pinned, in the shape lychee above already uses.
+      #
+      # CI-RUNNER.md § What is deployed records why this step exists: the job
+      # image is node:22-bookworm and carries no docker binary, the host's
+      # socket is mounted in, and no stock image carries Node and the client
+      # both -- so supplying the client is the repository's job.
+      #
+      # DEBIAN PACKAGES RATHER THAN THE STATIC TARBALL, and the reason is
+      # provenance before size. download.docker.com publishes no checksum for
+      # docker-<version>.tgz at all -- .sha256, .sha256sum and .asc are each a
+      # 404 -- so pinning a hash there asserts bytes someone fetched once. The
+      # hashes below are the ones the repository's `Packages` index carries, and
+      # that index is covered by a PGP-signed `InRelease`. The size is the
+      # smaller argument: 24 MiB against 118 MB, because the tarball ships a
+      # 101 MB dockerd this job never runs.
+      #
+      # No apt repository is registered and no keyring installed: the .deb is
+      # fetched by URL and unpacked. What that costs is a Debian-family job
+      # image, which is why the guard below names that cause rather than
+      # letting the failure surface as `dpkg-deb: not found`.
+      - name: install the pinned Docker client and compose plugin
+        env:
+          DOCKER_DEB: docker-ce-cli_29.8.1-1~debian.12~bookworm_amd64.deb
+          DOCKER_DEB_SHA: ff812c5853c52ef120ec73132320805d179a376e42785085e2053ce7f2479860
+          COMPOSE_DEB: docker-compose-plugin_5.5.1-1~debian.12~bookworm_amd64.deb
+          COMPOSE_DEB_SHA: 0455e6a54bcc07b1bcb5d92d9e6e77dedc485433c87c1b75572e6d837a96e459
+          DEB_BASE: https://download.docker.com/linux/debian/dists/bookworm/pool/stable/amd64
+        run: |
+          set -euo pipefail
+          command -v dpkg-deb >/dev/null || {
+            echo "::error::this step unpacks .deb packages and needs a Debian-family job image."
+            echo "::error::CI-RUNNER.md records the image as node:22-bookworm; it appears to have changed."
+            exit 1
+          }
+          tmp="$(mktemp -d)"
+          for pair in "$DOCKER_DEB:$DOCKER_DEB_SHA" "$COMPOSE_DEB:$COMPOSE_DEB_SHA"; do
+            deb="${pair%:*}"; want="${pair##*:}"
+            curl -fsSL -o "$tmp/$deb" "$DEB_BASE/$deb"
+            echo "$want  $tmp/$deb" | sha256sum -c -
+            dpkg-deb -x "$tmp/$deb" "$tmp/root"
+          done
+          # Copied by explicit path rather than by unpacking over /, so what
+          # this step puts on the host is auditable from the file.
+          install -m 0755 "$tmp/root/usr/bin/docker" /usr/local/bin/docker
+          install -d /usr/local/libexec/docker/cli-plugins
+          install -m 0755 "$tmp/root/usr/libexec/docker/cli-plugins/docker-compose" \
+            /usr/local/libexec/docker/cli-plugins/docker-compose
+          rm -rf "$tmp"
+
+      # CI-RUNNER.md § Verification, step 1: the question R6 asks. It runs here,
+      # before the suite, so a client or socket problem is reported as itself
+      # rather than as a test failure fifty lines further down.
+      - name: R6 -- Docker works inside a job
+        run: |
+          set -euo pipefail
+          docker --version
+          docker compose version
+          docker info --format 'server {{.ServerVersion}}, {{.Driver}}'
+
+      # CI-RUNNER.md § Verification, step 3: the isolation probe, in both
+      # directions. The target sets KEYSTONE_REQUIRE_DOCKER, so this cannot skip
+      # its way to green if the step above somehow left a broken client.
+      - name: container suite
+        run: make container-suite
 
       # The gate-set assertion lives in the Makefile so CI and a local run
       # execute the same code. An assertion written twice is two things to drift.
