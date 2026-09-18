@@ -624,6 +624,27 @@ limitations go in the pull request.
     since P11, and **no pull request ran it**. The claim is now true. **Nothing
     in `archlint` checks that a `PR`-gated row's evidence actually runs on a pull
     request** — raised, not fixed.
+- [x] G34 — Return C01's deferral mechanism to C01. G33 corrected `D-C01-4`,
+  which had told C01 to assert its owed nightly fuzz search with
+  `deferred-gates-check` — a target G33 deleted. The correction went further than
+  the fact required: it also assigned C01 new work (*"C01 therefore **builds** the
+  assertion"*, where the approved text had it **reuse** one) and asserted, in the
+  dossier's own voice, that *"which target asserts it was never this dossier's to
+  fix."* Neither was approved at C01, and **a G task may correct a fact in a
+  merged dossier without deciding scope for the task that owns it.**
+  - **The decision was never in doubt and is unchanged**: the deferral is
+    asserted rather than left as an absence, because a gate in neither `check`
+    nor CI is invisible to `gates-agree`. The removal of `deferred-gates-check`
+    and why still stand. What returns to C01 is only **how** the deferral is
+    asserted, settled at C01's own approval.
+  - Whether it folds into the `pending-requirements` manifest `D-C01-2` already
+    has `C01-A` building is **open, and deliberately left so** — that manifest is
+    for contract cases with missing behaviour, and an owed nightly *gate* is not
+    obviously one. It is a design question for `C01-A` and its reviewer.
+  - **Found by re-reading the approved text against the current one**, not by a
+    gate. `doclint` compares a document against conclusions it must not restate;
+    nothing compares a merged document against what was approved. Raised, not
+    fixed — a diff against the approving commit is a check that could exist.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
