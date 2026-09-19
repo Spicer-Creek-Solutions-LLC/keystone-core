@@ -760,6 +760,45 @@ limitations go in the pull request.
     shell and **not checked in**, which is exactly why the second reached review:
     `TestPrimitiveOwnershipRuleCatchesConcreteNames` is the demonstration in the
     tree, and it fails against the pre-fix rule on precisely those cases.
+- [x] G38 — Complete the envelope's field encodings, and make silence a build
+  failure. `C01-I` stopped a second time: field 2, the message class, had **no
+  wire encoding at all**, and field 5 had one only for agent senders. `G37` had
+  specified §§ 2, 4, 5 and 6 and left both — the third task running to close one
+  field's gap and leave its neighbour, each found by the next task rather than by
+  the fix.
+  - **Field 2 is the class's canonical ASCII token** — `command`, `cancellation`,
+    `lifecycle-event` and the rest — **the same bytes § 8's header carries**. A
+    token rather than an integer because the header already names the class, and
+    two vocabularies for one concept is a mapping table that drifts; a wrong
+    integer is a silent interop bug where a wrong token is a visible one.
+  - **The header and field 2 must agree, and disagreement is `malformed
+    envelope`.** Stated with its limit: field 2 is signed and the header is not,
+    so this is **not** an authenticity control — the signature already decides the
+    class. It exists so a broker-side router and a receiver cannot act on
+    different classes for the same message. Field 2 is authoritative.
+  - **Field 5's service principals get reserved tokens, and the reservation is
+    the finding.** Every one of them — `command-publisher`, `enrollment-service`
+    and the rest — is a **valid agent identifier** under `ADR-0004`'s grammar, so
+    without a reservation an agent could be assigned `command-publisher` and sign
+    as one. Nothing in the grammar prevented it and nothing would have noticed. A
+    structural separation would be better and the charset has nowhere to put one.
+  - **`ADR-0005` § 1 now indexes all nine fields against their encodings, and
+    `archlint` fails the build if a row is blank, deferred, missing or the
+    heading is gone.** The `doclint` sweeps added at `G36` and `G37` catch a
+    document naming the **wrong owner**; nothing caught a document **saying
+    nothing**, which is what actually blocked `C01-A` once and `C01-I` twice.
+  - **The check's first draft read the wrong table**, and only planting told
+    them apart. Section 1 already held a three-column table with a leading digit,
+    so the regex matched it first: blanking a cell in the **encoding index** left
+    `archlint` green while blanking one in the **older table** failed it. A check
+    that names one table and reads another is the exact defect it exists to
+    prevent. It is now anchored to its own heading, and removing that heading is
+    itself a failure so the check cannot be quietly switched off.
+  - **The demonstration is checked in, which `G37`'s review is why.** `archlint`
+    had no test file at all; it has one now, carrying the decoy table that fooled
+    the first draft and six mutations that must each be caught. It **fails
+    against the unanchored check** on the decoy case. A demonstration run in a
+    shell proves a check worked once and guards nothing afterwards.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
