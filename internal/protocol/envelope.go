@@ -89,6 +89,13 @@ func Decode(b []byte, maxEnvelope int) (Envelope, error) {
 	if len(fields[5]) != TimestampBytes || len(fields[6]) != NonceBytes {
 		return Envelope{}, MalformedEnvelope
 	}
+	// Field 9 is fixed at SignatureBytes for v1 (ADR-0005 § 4 as amended at
+	// G37). A different length is not a signature that fails to verify; it is
+	// an envelope that does not match this version's field sequence, which § 9
+	// requires a receiver to refuse.
+	if len(fields[8]) != SignatureBytes {
+		return Envelope{}, MalformedEnvelope
+	}
 	for _, id := range [][]byte{fields[2], fields[3]} {
 		if len(id) != 0 && !ValidIdentifier(string(id)) {
 			return Envelope{}, MalformedEnvelope

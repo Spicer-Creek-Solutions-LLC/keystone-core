@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"go.keystone-core.io/keystone-core/internal/protocol"
 )
@@ -92,15 +93,136 @@ func TestAC2Framing(t *testing.T) {
 }
 
 func TestAC3SignedFields(t *testing.T) {
-	pending(t, "AC-3")
+	k := signingKey(t)
+	signed, err := protocol.SignEnvelope(k, commandEnvelope())
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire, ok := signed.Encode()
+	if !ok {
+		t.Fatal("Encode refused a signed envelope")
+	}
+	input, ok := signed.SignedInput()
+	if !ok {
+		t.Fatal("SignedInput refused a signed envelope")
+	}
+	// Fields 1 to 8 framed are exactly the leading bytes of the envelope, so
+	// every offset below is a byte of those fields -- values AND the length
+	// prefixes, which ADR-0005 § 1 puts inside the signed input so a field
+	// boundary cannot be moved under a valid signature.
+	if len(input) == 0 || len(input) >= len(wire) {
+		t.Fatalf("signed input is %d bytes of a %d-byte envelope; the fixture is wrong", len(input), len(wire))
+	}
+
+	// The flip goes through the WIRE and back, not into the signed input
+	// directly. Verifying a mutated input against its own signature would only
+	// show that Verify notices a changed message; it would pass even if
+	// SignedInput omitted a region entirely. Decoding the mutated envelope and
+	// verifying it is what asserts the region is covered at all.
+	for i := 0; i < len(input); i++ {
+		bent := append([]byte{}, wire...)
+		bent[i] ^= 0x01
+
+		envelope, err := protocol.Decode(bent, protocol.DefaultMaxEnvelope)
+		if err != nil {
+			continue // refused before verification, which is still refused
+		}
+		if err := protocol.VerifyEnvelope(k.Verifying(), envelope); err == nil {
+			t.Fatalf("a flipped byte at offset %d of fields 1-8 was accepted", i)
+		}
+	}
 }
 
 func TestAC4WrongSignatureKey(t *testing.T) {
-	pending(t, "AC-4")
+	k, wrong := signingKey(t), signingKey(t)
+	signed, err := protocol.SignEnvelope(k, commandEnvelope())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := protocol.VerifyEnvelope(k.Verifying(), signed); err != nil {
+		t.Fatalf("the genuine key must verify: %v", err)
+	}
+	if err := protocol.VerifyEnvelope(wrong.Verifying(), signed); !is(err, protocol.SignatureInvalid) {
+		t.Errorf("a signature from the wrong key gave %v, want signature invalid", err)
+	}
+
+	// Half a hybrid signature is not a signature. Splicing a genuine Ed25519
+	// half onto a foreign ML-DSA half must fail, or the envelope has the
+	// security of whichever primitive an attacker prefers.
+	foreign, err := protocol.SignEnvelope(wrong, commandEnvelope())
+	if err != nil {
+		t.Fatal(err)
+	}
+	spliced := signed
+	spliced.Signature = append(append([]byte{}, signed.Signature[:protocol.Ed25519SignatureBytes]...),
+		foreign.Signature[protocol.Ed25519SignatureBytes:]...)
+	if err := protocol.VerifyEnvelope(k.Verifying(), spliced); !is(err, protocol.SignatureInvalid) {
+		t.Errorf("a spliced hybrid signature gave %v, want signature invalid", err)
+	}
 }
 
 func TestAC5SignedClasses(t *testing.T) {
-	pending(t, "AC-5")
+	seven := []protocol.Class{
+		protocol.ClassEnrollmentRequest, protocol.ClassEnrollmentReply,
+		protocol.ClassCommand, protocol.ClassCancellation, protocol.ClassResult,
+		protocol.ClassLifecycleEvent, protocol.ClassPresence,
+	}
+	k := signingKey(t)
+
+	// Every one of the seven signs and verifies, and each names the role
+	// ADR-0005 § 7's Signer row assigns it.
+	for _, class := range seven {
+		t.Run(string(class), func(t *testing.T) {
+			if _, ok := protocol.SignerOf(class); !ok {
+				t.Fatalf("%s has no signer role", class)
+			}
+			e := commandEnvelope()
+			e.Class = class
+			signed, err := protocol.SignEnvelope(k, e)
+			if err != nil {
+				t.Fatalf("signing %s: %v", class, err)
+			}
+			if err := protocol.VerifyEnvelope(k.Verifying(), signed); err != nil {
+				t.Errorf("%s did not verify: %v", class, err)
+			}
+		})
+	}
+
+	// "Exactly" the seven: nothing outside the set is signed, and it is refused
+	// as a class rather than as a signing failure.
+	for _, class := range []protocol.Class{"", "telemetry", "COMMAND", "command "} {
+		e := commandEnvelope()
+		e.Class = class
+		if _, err := protocol.SignEnvelope(k, e); !is(err, protocol.UnknownClass) {
+			t.Errorf("signing %q gave %v, want unknown class", class, err)
+		}
+		if _, ok := protocol.SignerOf(class); ok {
+			t.Errorf("%q has a signer role and is not one of the seven", class)
+		}
+	}
+}
+
+// Keys are generated per test rather than checked in. Committing private key
+// material, even for tests, is a habit worth not starting.
+func signingKey(t *testing.T) *protocol.SigningKey {
+	t.Helper()
+	k, err := protocol.GenerateSigningKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return k
+}
+
+func commandEnvelope() protocol.Envelope {
+	return protocol.Envelope{
+		Version:   protocol.Version,
+		Class:     protocol.ClassCommand,
+		JobID:     "job-01hx9yq",
+		Sender:    protocol.SenderCommandPublisher,
+		Timestamp: time.UnixMilli(1758240000000).UTC(),
+		Nonce:     make([]byte, protocol.NonceBytes),
+		Payload:   []byte("payload"),
+	}
 }
 
 func TestAC6CiphertextRefusal(t *testing.T) {
