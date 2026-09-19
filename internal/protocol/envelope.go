@@ -1,6 +1,7 @@
 package protocol
 
 import (
+	"crypto/rand"
 	"encoding/binary"
 	"time"
 )
@@ -17,6 +18,26 @@ const (
 	TimestampBytes = 8  // § 6, int64 big-endian Unix milliseconds UTC
 	NonceBytes     = 16 // § 6, from a cryptographic random source
 )
+
+// NewNonce returns field 7: sixteen bytes from a cryptographic random source,
+// per ADR-0005 § 6.
+//
+// It exists so the rule has one home. The field's PURPOSE is to bound
+// repetition, so a zero-filled or reused value is not a weaker nonce but no
+// nonce at all -- and a caller reaching for make([]byte, NonceBytes) gets a
+// well-formed envelope that a length check cannot distinguish from a correct
+// one. Review of #354 found exactly that in the vector producer.
+//
+// A FIXTURE may still pin the field: a golden has to be reproducible, and a
+// signing test does not care what the bytes are. What may not do it is anything
+// emitting an envelope as an example of the production shape.
+func NewNonce() ([]byte, error) {
+	n := make([]byte, NonceBytes)
+	if _, err := rand.Read(n); err != nil {
+		return nil, err
+	}
+	return n, nil
+}
 
 // Envelope is a v1 envelope's nine fields, decoded.
 //
