@@ -4,7 +4,8 @@
       "case": "nightly-fuzz-search",
       "owner": "C15",
       "expiry": "C15",
-      "reason": "TESTING.md has no nightly fuzz-search gate; the nightly bucket is C15s"
+      "reason": "TESTING.md has no nightly fuzz-search gate; the nightly bucket is C15s",
+      "deferred": true
     }
   ]
 }

@@ -65,12 +65,27 @@ docs-links: ## Check internal relative links via lychee (offline)
 	echo "$$files" | xargs lychee --offline --config .lychee.toml --root-dir "$(CURDIR)"
 
 stray-binary-check: ## Fail if a `go build` left a binary inside a tool module
-	# `go build` inside a nested module drops a binary named after its directory,
-	# and `git add -A` will happily commit it. This caught a 10MB binary once.
-	@for d in tools/*/; do \
-		b="$${d}$$(basename $$d)"; \
-		[ -f "$$b" ] && { echo "stray binary $$b — remove it"; exit 1; } || true; \
-	done
+	# `go build` inside a nested module drops a binary and `git add -A` will
+	# happily commit it. This has caught three now, the third only because the
+	# check was wrong about the name.
+	#
+	# It predicted `tools/<dir>/<dir>` -- the binary named after its DIRECTORY.
+	# Go names it after the module path's last element, which is the same thing
+	# only when they happen to match. `tools/pendingcontract/` declares module
+	# `go.keystone-core.io/pending-contract`, so `go build` drops
+	# `pending-contract`, the check looked for `pendingcontract`, and a 4.7MB
+	# binary was committed at G39 with the gate green.
+	#
+	# So it ENUMERATES rather than predicts: any executable regular file under
+	# tools/ is a stray, because none belongs there. A check that has to guess a
+	# name is a check that is wrong whenever the name is.
+	@found="$$(find tools -type f -perm -u+x 2>/dev/null)"; \
+	if [ -n "$$found" ]; then \
+		echo "stray binaries under tools/ — remove them:"; \
+		echo "$$found" | sed 's/^/  /'; \
+		exit 1; \
+	fi; \
+	echo "stray-binary-check: no built binaries under tools/"
 
 capability-catalog-check: stray-binary-check ## Verify the archive capability catalog still covers the archived sources
 	# Reads the Generation 1 sources at the commit recorded in
