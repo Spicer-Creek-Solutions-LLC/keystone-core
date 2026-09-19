@@ -3,15 +3,40 @@
 package protocol_test
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 )
+
+type pendingManifest struct {
+	Requirements []struct {
+		Case string `json:"case"`
+	} `json:"requirements"`
+}
 
 // These named tests are the immutable acceptance surface. C01-I supplies the
 // production protocol and removes only its entries from the pending manifest;
 // it must not alter these case names or their scope.
 func pending(t *testing.T, id, requirement string) {
 	t.Helper()
+	b, err := os.ReadFile("pending-requirements.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest pendingManifest
+	if err := json.Unmarshal(b, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	registered := false
+	for _, r := range manifest.Requirements {
+		if r.Case == id {
+			registered = true
+			break
+		}
+	}
+	if !registered {
+		t.Fatalf("%s is no longer registered as pending; implement the production assertion", id)
+	}
 	if os.Getenv("KEYSTONE_PENDING_CONTRACT") == "" {
 		t.Skip("pending C01-I: " + requirement)
 	}

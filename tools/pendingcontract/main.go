@@ -23,6 +23,10 @@ type manifest struct {
 	Requirements []requirement `json:"requirements"`
 }
 
+var nonTestRequirements = map[string]bool{
+	"nightly-fuzz-search": true,
+}
+
 var tests = map[string]string{
 	"AC-1": "TestAC1RoundTrip", "AC-2": "TestAC2Framing",
 	"AC-3": "TestAC3SignedFields", "AC-4": "TestAC4WrongSignatureKey",
@@ -65,12 +69,17 @@ func main() {
 		if !epicTask(string(epic), r.Expiry) {
 			fatal("requirement %q names expiry %q, which is not a task in the epic", r.Case, r.Expiry)
 		}
+		if complete, known := epicTaskStatus(string(epic), r.Expiry); known && complete {
+			fatal("requirement %q expired at completed task %q", r.Case, r.Expiry)
+		}
 		if seen[r.Case] {
 			fatal("duplicate requirement %q", r.Case)
 		}
 		seen[r.Case] = true
 		if testName := tests[r.Case]; testName != "" {
 			cases = append(cases, r)
+		} else if !nonTestRequirements[r.Case] {
+			fatal("requirement %q is neither a contract test nor a known deferred gate", r.Case)
 		}
 	}
 	if len(cases) != len(tests) {
@@ -91,6 +100,11 @@ func main() {
 			fatal("%s failed without diagnostic output", r.Case)
 		}
 		fmt.Printf("%s fails as expected: %s\n", r.Case, r.Reason)
+	}
+	for _, r := range m.Requirements {
+		if tests[r.Case] == "" {
+			fmt.Printf("%s remains registered as a deferred gate: %s\n", r.Case, r.Reason)
+		}
 	}
 	fmt.Printf("pending-contract: %d registered cases fail for their documented reasons\n", len(cases))
 }
@@ -116,4 +130,23 @@ func epicTask(epic, name string) bool {
 		return epicTask(epic, parent)
 	}
 	return false
+}
+
+func epicTaskStatus(epic, name string) (complete, known bool) {
+	for _, line := range strings.Split(epic, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "- [") {
+			continue
+		}
+		match := taskRE.FindStringSubmatch(line)
+		if len(match) == 0 || match[1] != name {
+			continue
+		}
+		return strings.HasPrefix(trimmed, "- [x]"), true
+	}
+	if strings.HasSuffix(name, "-A") || strings.HasSuffix(name, "-I") {
+		parent := strings.TrimSuffix(strings.TrimSuffix(name, "-A"), "-I")
+		return epicTaskStatus(epic, parent)
+	}
+	return false, false
 }

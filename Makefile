@@ -205,7 +205,8 @@ contract-immutability-check: ## Reject edits to the accepted C01-A contract
 	@sha="$$(sed -n 's/^Contract commit: `\([0-9a-f]\{40\}\)`.*/\1/p' docs/dossiers/C01-A-acceptance-evidence.md)"; \
 	if [ -z "$$sha" ]; then echo "contract-immutability-check: missing recorded contract commit"; exit 1; fi; \
 	git cat-file -e "$$sha^{commit}" || { echo "contract-immutability-check: recorded commit $$sha is unavailable"; exit 1; }; \
-	git diff --quiet "$$sha" -- test/contract/protocol || { \
+	git diff --quiet "$$sha" -- test/contract/protocol \
+		':!test/contract/protocol/pending-requirements.json' || { \
 		echo "contract-immutability-check: C01-I changed the accepted contract at $$sha"; exit 1; \
 	}; \
 	echo "contract-immutability-check: contract matches $$sha"

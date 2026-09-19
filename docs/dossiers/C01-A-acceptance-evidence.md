@@ -16,7 +16,10 @@ derived from ADR-0005 § 1 with the signature bytes zeroed.
 
 All thirteen cases are pending under `C01-I`. `make pending-contract` runs each
 case separately with the pending mode enabled and captures a non-zero exit code;
-normal contract execution skips only the registered pending cases.
+normal contract execution verifies the manifest before skipping only registered
+pending cases. The manifest remains mutable so C01-I can remove entries in the
+same pull request that makes their production assertions pass; the accepted
+case source and framing tests remain immutable.
 
 The nightly timed fuzz-search deferral is also registered explicitly in the
 manifest. It is a gate deferral, not a protocol behavior case, but recording it
@@ -35,16 +38,16 @@ broker-observation case remains C08's responsibility.
 | Case | Demonstration | Result |
 |---|---|---|
 | `AC-1`–`AC-13` | `make pending-contract` | Each registered case fails with its documented C01-I reason |
-| Nightly fuzz search | Manifest entry `nightly-fuzz-search` | Explicitly pending; no nightly gate is silently absent |
+| Nightly fuzz search | Manifest validation and deferred-gate report from `make pending-contract` | Explicitly pending; no nightly gate is silently absent |
 
 ## Limits
 
 The pending contract proves that missing behavior cannot be mistaken for a
 passing acceptance suite. It does not prove protocol behavior until C01-I
 removes the entries and supplies the implementation. The framing vectors check
-field order, uint32 big-endian prefixes, cumulative envelope budgeting, and a
-zeroed signature field; they do not choose the still-structural value encodings
-for version, timestamp, or nonce.
+field order, uint32 big-endian prefixes, cumulative envelope boundary arithmetic,
+length disagreement, and a zeroed signature field; they do not choose the still-
+structural value encodings for version, timestamp, or nonce.
 
 ## Validation
 
