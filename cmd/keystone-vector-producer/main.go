@@ -29,9 +29,23 @@ func main() {
 }
 
 func produce(class protocol.Class, payload []byte, jobID, sender string) error {
-	signing, err := protocol.GenerateSigningKey()
+	v, err := vector(class, payload, jobID, sender)
 	if err != nil {
 		return err
+	}
+	return protocol.WriteVector(os.Stdout, v)
+}
+
+// vector is produce without the writing, so a test can inspect what a run
+// actually emits rather than trust that it emits the right thing.
+func vector(class protocol.Class, payload []byte, jobID, sender string) (protocol.Vector, error) {
+	signing, err := protocol.GenerateSigningKey()
+	if err != nil {
+		return protocol.Vector{}, err
+	}
+	nonce, err := protocol.NewNonce()
+	if err != nil {
+		return protocol.Vector{}, err
 	}
 	e := protocol.Envelope{
 		Version:   protocol.Version,
@@ -39,7 +53,7 @@ func produce(class protocol.Class, payload []byte, jobID, sender string) error {
 		JobID:     jobID,
 		Sender:    sender,
 		Timestamp: time.UnixMilli(time.Now().UnixMilli()).UTC(),
-		Nonce:     make([]byte, protocol.NonceBytes),
+		Nonce:     nonce,
 		Payload:   payload,
 	}
 
@@ -48,10 +62,10 @@ func produce(class protocol.Class, payload []byte, jobID, sender string) error {
 	if protocol.Encrypted(class) {
 		recipient, err := protocol.GenerateDecryptionKey()
 		if err != nil {
-			return err
+			return protocol.Vector{}, err
 		}
 		if e, err = protocol.SealEnvelope(recipient.Recipient(), e); err != nil {
-			return err
+			return protocol.Vector{}, err
 		}
 		v.RecipientKeyHex = protocol.Hex(recipient.Recipient().Bytes())
 		// The private half travels too, because the verifier is a separate
@@ -62,14 +76,13 @@ func produce(class protocol.Class, payload []byte, jobID, sender string) error {
 
 	signed, err := protocol.SignEnvelope(signing, e)
 	if err != nil {
-		return err
+		return protocol.Vector{}, err
 	}
 	wire, ok := signed.Encode()
 	if !ok {
-		return fmt.Errorf("encode refused a signed envelope")
+		return protocol.Vector{}, fmt.Errorf("encode refused a signed envelope")
 	}
 	v.EnvelopeHex = protocol.Hex(wire)
 	v.Headers = protocol.Headers(signed, "")
-
-	return protocol.WriteVector(os.Stdout, v)
+	return v, nil
 }

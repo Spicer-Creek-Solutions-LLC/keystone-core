@@ -76,6 +76,23 @@ pointed at a task that could not discharge it** — which is the failure mode
 `D-C01-4` names when it says a pending entry blocked on someone else's work is
 how a pending list becomes permanent.
 
+## What review found in the binaries
+
+**The producer emitted a zero nonce**, identically on every run. `ADR-0005` § 6
+requires sixteen bytes from a cryptographic random source, and field 7's purpose
+is to bound repetition — so a zero-filled value is not a weaker nonce but no
+nonce at all.
+
+**Nothing else could have caught it.** A zero nonce is the right *length*, so
+`Decode` accepts it, the signature covers it, and the verifier says `accepted`.
+Every structural check passes on an envelope that is not a valid example of the
+production shape. Only something that reads the *value* can see it.
+
+`protocol.NewNonce` now gives the rule one home, and the producer's test asserts
+three runs yield three different non-zero nonces. A fixture may still pin the
+field — a golden has to be reproducible — and the doc comment says which callers
+may and which may not.
+
 ## Reproducing
 
 ```text
