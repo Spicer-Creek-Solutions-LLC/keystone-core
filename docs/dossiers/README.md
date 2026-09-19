@@ -93,3 +93,4 @@ name.
 | P10 — Acceptance-harness design | [P10.md](P10.md) | Complete — `ADR-0010` proposed |
 | P11 — Repository skeleton and CI | [P11.md](P11.md) | Complete — P11a and P11b merged |
 | C01 — Protocol types and cryptographic vectors | [C01.md](C01.md) | **Complete** — C01-A's contract and C01-I's implementation both merged |
+| C02 — SQLite migrations and durable ledgers | [C02.md](C02.md) | Dossier landed — C02 not yet approved |
