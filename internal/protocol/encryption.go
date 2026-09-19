@@ -234,3 +234,33 @@ func OpenEnvelope(k *DecryptionKey, e Envelope) ([]byte, error) {
 	}
 	return Open(k, e.Payload)
 }
+
+// MarshalDecryptionKey and ParseDecryptionKey exist for the vector binaries and
+// for nothing else.
+//
+// A private half never leaves the host in this product: ADR-0003 § 4 generates
+// all three keys on the agent and sends only public halves. A cross-process
+// VECTOR is the exception, because the verifying process has no enrollment to
+// have recorded anything. Naming that here is the point -- a marshaller for a
+// secret should say why it exists, so its next caller has to argue with the
+// reason rather than just find the function.
+func MarshalDecryptionKey(k *DecryptionKey) []byte {
+	out := make([]byte, 0, X25519PublicBytes+len(k.ml.Bytes()))
+	out = append(out, k.x.Bytes()...)
+	return append(out, k.ml.Bytes()...)
+}
+
+func ParseDecryptionKey(b []byte) (*DecryptionKey, error) {
+	if len(b) <= X25519PublicBytes {
+		return nil, DecryptionFailed
+	}
+	x, err := ecdh.X25519().NewPrivateKey(b[:X25519PublicBytes])
+	if err != nil {
+		return nil, DecryptionFailed
+	}
+	ml, err := mlkem.NewDecapsulationKey768(b[X25519PublicBytes:])
+	if err != nil {
+		return nil, DecryptionFailed
+	}
+	return &DecryptionKey{x: x, ml: ml}, nil
+}

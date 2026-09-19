@@ -188,7 +188,38 @@ workstream depends on. Detailed controls are normative in the execution plan.
 
 ### First command-and-control release
 
-- [ ] C01 — Protocol types and cryptographic vectors.
+- [x] C01 — Protocol types and cryptographic vectors. **The first Stage C task,
+  and the first code in this repository that does something rather than reports
+  what it would do.** Split into `C01-A`, which Codex wrote and Claude reviewed,
+  and `C01-I`, the reverse; `C01-I` landed in four stages — framing, signatures,
+  encryption, then the vector binaries and goldens.
+  - **Three blockers had to be cleared first, and each was the same shape.**
+    `ADR-0005` was structural where it needed to be normative: `G36` defined the
+    length prefix, `G37` named the primitives, `G38` closed fields 2 and 5 and
+    added the index that fails the build when a field's encoding is silent.
+    Each fix left its neighbour, and each neighbour was found by the next task.
+  - **All thirteen contract cases are live.** `pending-requirements` is down to
+    `nightly-fuzz-search`, which `D-C01-4` leaves owed on purpose.
+  - **Two properties no acceptance case could reach**, both found while
+    demonstrating a case rather than by review. Removing the transcript from the
+    hybrid KDF left `AC-1` green, because a weaker self-consistent construction
+    round-trips perfectly — asserted directly instead. And `AC-3`'s first
+    version flipped bytes of the signed input and verified against that same
+    input, which would have passed had `SignedInput` omitted a region entirely.
+  - **The expiry mechanism caught a mis-assigned owner at exactly the right
+    moment.** `nightly-fuzz-search` was registered at `C01-A` with owner and
+    expiry `C01-I` — a task that was never going to build a nightly schedule.
+    Ticking C01 expired the entry and failed `pending-contract`, which is the
+    check working rather than an obstacle. Reassigned to **C15**, which owns the
+    nightly bucket in `TESTING.md` § Nightly and in the workflow's owed-gate
+    list. `TESTING.md` still schedules no fuzzing at all, so `D-C01-4`'s *"a
+    schedule that does not exist"* remains literally true.
+  - **Review found a real leak.** `SealEnvelope` left field 4 alone, so an
+    encrypted command could carry a cleartext correlation identifier — past
+    § 7's accepted leakage, and defeating what § 3 says the field is empty for.
+    Refused now at three boundaries. The sharper half of that finding was that
+    **no case exercised field 4 in either direction**: the gap was in what the
+    fixture did not contain, not in what an assertion said.
 - [ ] C02 — SQLite migrations and durable ledgers.
 - [ ] C03 — NATS operator, account, identity, and permission generation.
 - [ ] C04 — Local operator control substrate.

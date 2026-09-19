@@ -28,7 +28,7 @@ does.
 |---|---|---|---|---|
 | ARCH-COMM-001 | `ADR-0002` | `test/architecture/nats_only_test.go` | PR | `C06` |
 | ARCH-COMM-002 | `ADR-0002` | `test/e2e/docker/network_isolation_test.go` | PR | `P11` |
-| ARCH-COMM-003 | `ADR-0010` | `test/e2e/docker/journey_test.go` | PR | `C05` |
+| ARCH-COMM-003 | `ADR-0010` | `test/contract/protocol/contract_test.go`, `test/e2e/docker/journey_test.go` | PR | `C05` |
 | ARCH-NATS-001 | `ADR-0002` | `test/e2e/docker/accounts_test.go` | PR | `C03` |
 | ARCH-NATS-002 | `ADR-0003` | `test/e2e/docker/identity_inventory_test.go` | PR | `C03` |
 | ARCH-NATS-003 | `ADR-0004` | `test/e2e/docker/permissions_test.go` | PR | `C03` |
@@ -50,6 +50,15 @@ does.
 | ARCH-TEST-001 | `ADR-0010` | per-feature effect assertions | PR | `C08` |
 | ARCH-TEST-002 | `ADR-0004` | negative identity matrix | PR | `C03` |
 | ARCH-TEST-003 | `ADR-0010` | `tools/archlint` coverage rule | PR | `P11` |
+
+**`ARCH-COMM-003` is paid in two halves, and only the second completes it.**
+`D-C01-3` gives C01 the serialization-across-processes half — production
+encoding crossing a real address-space boundary, which `AC-9` exercises with two
+binaries — and says C01 *"structurally cannot pay the rest"*, because the
+invariant also requires production NATS subjects and the protocol precedes the
+transport. So the row above lists both pieces of evidence and still lands at
+**C05**: a half-paid invariant is not a satisfied one, and the `Lands at` column
+says when it becomes true rather than when work on it began.
 
 ## Maintenance rules
 

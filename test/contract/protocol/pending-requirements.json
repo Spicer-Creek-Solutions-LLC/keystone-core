@@ -1,40 +1,10 @@
 {
   "requirements": [
     {
-      "case": "AC-8",
-      "owner": "C01-I",
-      "expiry": "C01-I",
-      "reason": "protocol implementation does not exist yet"
-    },
-    {
-      "case": "AC-9",
-      "owner": "C01-I",
-      "expiry": "C01-I",
-      "reason": "protocol implementation does not exist yet"
-    },
-    {
-      "case": "AC-10",
-      "owner": "C01-I",
-      "expiry": "C01-I",
-      "reason": "protocol implementation does not exist yet"
-    },
-    {
-      "case": "AC-11",
-      "owner": "C01-I",
-      "expiry": "C01-I",
-      "reason": "protocol implementation does not exist yet"
-    },
-    {
-      "case": "AC-12",
-      "owner": "C01-I",
-      "expiry": "C01-I",
-      "reason": "protocol implementation does not exist yet"
-    },
-    {
       "case": "nightly-fuzz-search",
-      "owner": "C01-I",
-      "expiry": "C01-I",
-      "reason": "TESTING.md has no nightly fuzz-search gate yet"
+      "owner": "C15",
+      "expiry": "C15",
+      "reason": "TESTING.md has no nightly fuzz-search gate; the nightly bucket is C15s"
     }
   ]
 }
