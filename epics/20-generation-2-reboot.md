@@ -860,6 +860,15 @@ limitations go in the pull request.
     enumerating itself and asserted only that `seen` is scoped per manifest.
     True, and not the property its name claimed. It now runs the real entry
     point and fails when a package is missed.
+  - **`stray-binary-check` was wrong about the name, and this task is how that
+    surfaced — by committing a 4.7 MB binary with the gate green.** It predicted
+    `tools/<dir>/<dir>`, the binary named after its **directory**. Go names it
+    after the module path's last element, and `tools/pendingcontract/` declares
+    module `…/pending-contract`, so the two differ by one hyphen. The gate now
+    **enumerates** any executable regular file under `tools/` instead of
+    guessing: a check that has to predict a name is wrong whenever the name is.
+    Demonstrated both ways — the old form returns **0** on the binary that was
+    committed; the new one catches it and three other spellings.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
