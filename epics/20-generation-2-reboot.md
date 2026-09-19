@@ -830,6 +830,36 @@ limitations go in the pull request.
     the first draft and six mutations that must each be caught. It **fails
     against the unanchored check** on the decoy case. A demonstration run in a
     shell proves a check worked once and guards nothing afterwards.
+- [x] G39 — Generalise `pending-contract` to more than one contract package.
+  `C01-A` built the manifest, the expiry check and the immutability guard as
+  general machinery, and the runner underneath was coupled to a single package
+  in **three** places: a hardcoded case-to-test map, a hardcoded manifest path,
+  and `./test/contract/protocol` passed to `go test`. `C02-A` could not have
+  registered a case without changing it.
+  - **`C02.md`'s `D-C02-4` named the collision and § 3.3 did not grant the path
+    to fix it**, one section away. That is the same defect `G36` and `G37`
+    produced — close a gap, leave its neighbour — and this one was mine, in a
+    dossier written after the pattern had been recorded twice.
+  - **A better fix than the decision proposed.** `D-C02-4` asked for
+    package-qualified identifiers (`C02/AC-1`). Enumerating
+    `test/contract/*/pending-requirements.json` and scoping each manifest's
+    identifiers to its own package removes the need: **the directory already
+    qualifies them**. The enumeration comes from the filesystem for the reason
+    `docs-links` enumerates from git — a list beside the thing it lists is a
+    second copy, and the copy goes stale.
+  - **The case-to-test map became data.** The tool cannot import a contract
+    package, so a hardcoded map was the only way to know the mapping — and a
+    hardcoded map is single-package by construction. Manifest entries now carry
+    a `test` field. A wrong name **self-reports**: `go test -run ^Nonexistent$`
+    exits zero, and a case that passes is already fatal, so a typo surfaces as
+    *"passed; pending-contract must fail"* rather than a case checking nothing.
+    Demonstrated.
+  - **The tool had no test file**, exactly as `archlint` had none when `G38`
+    added a check to it. It has one now — and the first draft of its central
+    case **passed against a single-package glob**, because the test did the
+    enumerating itself and asserted only that `seen` is scoped per manifest.
+    True, and not the property its name claimed. It now runs the real entry
+    point and fails when a package is missed.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

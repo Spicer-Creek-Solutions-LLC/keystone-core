@@ -17,93 +17,128 @@ type requirement struct {
 	Owner  string `json:"owner"`
 	Expiry string `json:"expiry"`
 	Reason string `json:"reason"`
+
+	// Test names the Go test function this case is registered against, and is
+	// empty for a deferred gate that has no test at all.
+	//
+	// It is DATA rather than a table in this tool because the tool cannot
+	// import a contract package -- tools/ are separate modules -- so a
+	// hardcoded map was the only way to know the mapping, and a hardcoded map
+	// is single-package by construction. That is what G39 removed.
+	//
+	// A wrong name is self-reporting: `go test -run ^Nonexistent$` exits zero,
+	// and a case that PASSES is already fatal here, so a typo surfaces as
+	// "passed; pending-contract must fail" rather than as a case that quietly
+	// checks nothing.
+	Test string `json:"test"`
 }
 
 type manifest struct {
 	Requirements []requirement `json:"requirements"`
 }
 
-var nonTestRequirements = map[string]bool{
-	"nightly-fuzz-search": true,
-}
-
-var tests = map[string]string{
-	"AC-1": "TestAC1RoundTrip", "AC-2": "TestAC2Framing",
-	"AC-3": "TestAC3SignedFields", "AC-4": "TestAC4WrongSignatureKey",
-	"AC-5": "TestAC5SignedClasses", "AC-6": "TestAC6CiphertextRefusal",
-	"AC-7": "TestAC7VersionAndSequenceRefusal", "AC-8": "TestAC8HeaderTolerance",
-	"AC-9": "TestAC9CrossProcess", "AC-10": "TestAC10CoarseRefusals",
-	"AC-11": "TestAC11IndistinguishableRefusals", "AC-12": "TestAC12GoldenStability",
-	"AC-13": "TestAC13SeedCorpus",
-}
+// contractGlob is where a contract package's manifest lives. The set of
+// packages is ENUMERATED from the filesystem rather than listed here, for the
+// reason docs-links enumerates from git: a list beside the thing it lists is a
+// second copy, and the copy is what goes stale.
+const contractGlob = "test/contract/*/pending-requirements.json"
 
 func main() {
 	root := flag.String("root", "../..", "repository root")
-	manifestPath := flag.String("manifest", "test/contract/protocol/pending-requirements.json", "manifest path")
 	flag.Parse()
 
-	b, err := os.ReadFile(filepath.Join(*root, *manifestPath))
+	manifests, err := filepath.Glob(filepath.Join(*root, contractGlob))
 	if err != nil {
-		fatal("read manifest: %v", err)
+		fatal("enumerate contract packages: %v", err)
 	}
-	var m manifest
-	if err := json.Unmarshal(b, &m); err != nil {
-		fatal("parse manifest: %v", err)
-	}
-	if len(m.Requirements) == 0 {
-		fatal("manifest has no pending requirements")
+	sort.Strings(manifests)
+	if len(manifests) == 0 {
+		fatal("no contract package carries a manifest; %s matched nothing", contractGlob)
 	}
 	epic, err := os.ReadFile(filepath.Join(*root, "epics/20-generation-2-reboot.md"))
 	if err != nil {
 		fatal("read epic: %v", err)
 	}
+
+	total := 0
+	for _, path := range manifests {
+		total += checkPackage(*root, path, string(epic))
+	}
+	fmt.Printf("pending-contract: %d registered case(s) across %d package(s) fail for their documented reasons\n",
+		total, len(manifests))
+}
+
+// checkPackage runs one contract package's registered cases, and returns how
+// many it ran.
+//
+// Case identifiers are scoped to their own manifest. Two packages may both
+// register AC-1 and neither is lost, which is why they need no
+// package-qualified form: the directory already qualifies them.
+func checkPackage(root, manifestPath, epic string) int {
+	pkgDir := filepath.Dir(manifestPath)
+	rel, err := filepath.Rel(root, pkgDir)
+	if err != nil {
+		fatal("locate %s: %v", pkgDir, err)
+	}
+	pkg := "./" + filepath.ToSlash(rel)
+
+	b, err := os.ReadFile(manifestPath)
+	if err != nil {
+		fatal("read %s: %v", rel, err)
+	}
+	var m manifest
+	if err := json.Unmarshal(b, &m); err != nil {
+		fatal("parse %s: %v", rel, err)
+	}
+	if len(m.Requirements) == 0 {
+		fatal("%s has no pending requirements", rel)
+	}
+
 	seen := map[string]bool{}
 	var cases []requirement
 	for _, r := range m.Requirements {
 		if r.Case == "" || r.Owner == "" || r.Expiry == "" || r.Reason == "" {
-			fatal("requirement %q is missing Case, Owner, Expiry, or Reason", r.Case)
+			fatal("%s: requirement %q is missing Case, Owner, Expiry, or Reason", rel, r.Case)
 		}
-		if !epicTask(string(epic), r.Owner) {
-			fatal("requirement %q names owner %q, which is not a task in the epic", r.Case, r.Owner)
+		if !epicTask(epic, r.Owner) {
+			fatal("%s: requirement %q names owner %q, which is not a task in the epic", rel, r.Case, r.Owner)
 		}
-		if !epicTask(string(epic), r.Expiry) {
-			fatal("requirement %q names expiry %q, which is not a task in the epic", r.Case, r.Expiry)
+		if !epicTask(epic, r.Expiry) {
+			fatal("%s: requirement %q names expiry %q, which is not a task in the epic", rel, r.Case, r.Expiry)
 		}
-		if complete, known := epicTaskStatus(string(epic), r.Expiry); known && complete {
-			fatal("requirement %q expired at completed task %q", r.Case, r.Expiry)
+		if complete, known := epicTaskStatus(epic, r.Expiry); known && complete {
+			fatal("%s: requirement %q expired at completed task %q", rel, r.Case, r.Expiry)
 		}
 		if seen[r.Case] {
-			fatal("duplicate requirement %q", r.Case)
+			fatal("%s: duplicate requirement %q", rel, r.Case)
 		}
 		seen[r.Case] = true
-		if testName := tests[r.Case]; testName != "" {
+		if r.Test != "" {
 			cases = append(cases, r)
-		} else if !nonTestRequirements[r.Case] {
-			fatal("requirement %q is neither a contract test nor a known deferred gate", r.Case)
 		}
 	}
 	sort.Slice(cases, func(i, j int) bool { return cases[i].Case < cases[j].Case })
 
 	for _, r := range cases {
-		pattern := "^" + tests[r.Case] + "$"
-		cmd := exec.Command("go", "test", "-tags", "contract", "./test/contract/protocol", "-run", pattern, "-count=1")
-		cmd.Dir = *root
+		pattern := "^" + regexp.QuoteMeta(r.Test) + "$"
+		cmd := exec.Command("go", "test", "-tags", "contract", pkg, "-run", pattern, "-count=1")
+		cmd.Dir = root
 		cmd.Env = append(os.Environ(), "KEYSTONE_PENDING_CONTRACT=1")
 		output, runErr := cmd.CombinedOutput()
 		if runErr == nil {
-			fatal("%s passed; pending-contract must fail for: %s", r.Case, r.Reason)
+			fatal("%s: %s passed; pending-contract must fail for: %s", rel, r.Case, r.Reason)
 		}
 		if len(output) == 0 {
-			fatal("%s failed without diagnostic output", r.Case)
+			fatal("%s: %s failed without diagnostic output", rel, r.Case)
 		}
-		fmt.Printf("%s fails as expected: %s\n", r.Case, r.Reason)
+		fmt.Printf("%s %s fails as expected: %s\n", rel, r.Case, r.Reason)
 	}
 	for _, r := range m.Requirements {
-		if tests[r.Case] == "" {
-			fmt.Printf("%s remains registered as a deferred gate: %s\n", r.Case, r.Reason)
+		if r.Test == "" {
+			fmt.Printf("%s %s remains registered as a deferred gate: %s\n", rel, r.Case, r.Reason)
 		}
 	}
-	fmt.Printf("pending-contract: %d registered cases fail for their documented reasons\n", len(cases))
+	return len(cases)
 }
 
 func fatal(format string, args ...any) {
