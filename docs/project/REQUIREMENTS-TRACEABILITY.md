@@ -34,12 +34,12 @@ does.
 | ARCH-NATS-003 | `ADR-0004` | `test/e2e/docker/permissions_test.go` | PR | `C03` |
 | ARCH-NATS-004 | `ADR-0003` | `test/e2e/docker/enrollment_test.go` | PR | `C05` |
 | ARCH-NATS-005 | `ADR-0004` | `test/e2e/docker/system_subject_permissions_test.go` | PR | `C03` |
-| ARCH-NATS-006 | `ADR-0005` | `test/e2e/docker/envelope_confidentiality_test.go`, `test/e2e/docker/envelope_signature_test.go` | PR | `C01` |
+| ARCH-NATS-006 | `ADR-0005` | `test/e2e/docker/envelope_confidentiality_test.go`, `test/e2e/docker/envelope_signature_test.go` | PR | `C08` |
 | ARCH-NATS-007 | `ADR-0002` | `test/e2e/docker/resource_limits_test.go` | Main | `C15` |
 | ARCH-NATS-008 | RFC/ADR process | `tools/archlint` decision-matrix rule | PR | `P11` |
 | ARCH-NATS-009 | `ADR-0006` | exact-filter serialized-consumer test | PR | `C06` |
 | ARCH-NATS-010 | `ADR-0006` | redelivery exhaustion/advisory test | Main | `C06` |
-| ARCH-JOB-001 | `ADR-0006` | protocol conformance tests | PR | `C01` |
+| ARCH-JOB-001 | `ADR-0006` | `test/contract/protocol/contract_test.go` | PR | `C01` |
 | ARCH-JOB-002 | `ADR-0006` | restart boundary suite | Main | `C02` |
 | ARCH-JOB-003 | `ADR-0006` | non-idempotent duplicate-delivery test | PR | `C08` |
 | ARCH-JOB-004 | `ADR-0006` | crash ambiguity tests | Main | `C14` |

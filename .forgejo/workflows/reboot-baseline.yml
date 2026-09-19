@@ -138,6 +138,18 @@ jobs:
       - name: approved document snapshots
         run: make approved-documents-check
 
+      # C01-A's contract is intentionally pending until C01-I supplies the
+      # production protocol. This proves each registered case still fails for
+      # its documented reason rather than silently disappearing.
+      - name: pending acceptance contract
+        run: make pending-contract
+
+      - name: protocol acceptance contract
+        run: make contract
+
+      - name: contract immutability
+        run: make contract-immutability-check
+
       - name: requirements register
         run: make archlint
 

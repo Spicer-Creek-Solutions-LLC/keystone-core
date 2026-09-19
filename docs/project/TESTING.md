@@ -123,6 +123,7 @@ not satisfy their release gate.
 - formatting, lint, static analysis, and dependency-boundary checks;
 - unit tests and race detector;
 - protocol compatibility and cryptographic test vectors;
+- the protocol parser's deterministic seed corpus on every pull request;
 - architecture-invariant and traceability lint;
 - the production Docker topology for the touched operator journey;
 - NATS permission positive and negative tests; and
