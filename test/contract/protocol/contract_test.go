@@ -56,7 +56,86 @@ func pending(t *testing.T, id string) {
 }
 
 func TestAC1RoundTrip(t *testing.T) {
-	pending(t, "AC-1")
+	signing := signingKey(t)
+	recipientKey, err := protocol.GenerateDecryptionKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A signed-only class and an encrypted one, both through the whole
+	// production path: seal where the class has a recipient, sign, encode,
+	// decode, verify, open.
+	for _, tc := range []struct {
+		name    string
+		class   protocol.Class
+		payload []byte
+	}{
+		{"signed only", protocol.ClassPresence, []byte("alive")},
+		{"encrypted", protocol.ClassCommand, []byte(`{"argv":["systemctl","restart","nginx"]}`)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out := commandEnvelope()
+			out.Class = tc.class
+			out.Payload = tc.payload
+			if tc.class == protocol.ClassPresence {
+				out.JobID, out.Sender = "", "agent-7"
+				// Field 4 is legitimate on a class with no encryption
+				// recipient, and must survive the round trip. On an encrypted
+				// class it must be empty -- ADR-0005 § 1 and § 3 -- which the
+				// package tests assert by refusal.
+				out.CorrelationID = "corr-01hx9yq"
+			}
+
+			if protocol.Encrypted(tc.class) {
+				if out, err = protocol.SealEnvelope(recipientKey.Recipient(), out); err != nil {
+					t.Fatalf("seal: %v", err)
+				}
+			}
+			signed, err := protocol.SignEnvelope(signing, out)
+			if err != nil {
+				t.Fatalf("sign: %v", err)
+			}
+			wire, ok := signed.Encode()
+			if !ok {
+				t.Fatal("encode refused a signed envelope")
+			}
+
+			back, err := protocol.Decode(wire, protocol.DefaultMaxEnvelope)
+			if err != nil {
+				t.Fatalf("decode refused a well-formed envelope: %v", err)
+			}
+			if err := protocol.VerifyEnvelope(signing.Verifying(), back); err != nil {
+				t.Fatalf("verify: %v", err)
+			}
+
+			if back.CorrelationID != signed.CorrelationID {
+				t.Errorf("correlation identifier = %q, want %q", back.CorrelationID, signed.CorrelationID)
+			}
+			if back.Class != tc.class || back.JobID != signed.JobID ||
+				back.Sender != signed.Sender || back.Version != signed.Version ||
+				!back.Timestamp.Equal(signed.Timestamp) {
+				t.Errorf("round trip changed the envelope's fields")
+			}
+
+			plaintext := back.Payload
+			if protocol.Encrypted(tc.class) {
+				if plaintext, err = protocol.OpenEnvelope(recipientKey, back); err != nil {
+					t.Fatalf("open: %v", err)
+				}
+			}
+			if !bytes.Equal(plaintext, tc.payload) {
+				t.Errorf("payload = %q, want %q", plaintext, tc.payload)
+			}
+
+			// Re-encoding what was decoded must give the same bytes. A parser
+			// that accepts an input it cannot reproduce has accepted two
+			// encodings of one envelope.
+			again, ok := back.Encode()
+			if !ok || !bytes.Equal(again, wire) {
+				t.Error("decode/encode is not a round trip at the byte level")
+			}
+		})
+	}
 }
 
 func TestAC2Framing(t *testing.T) {
@@ -226,8 +305,56 @@ func commandEnvelope() protocol.Envelope {
 }
 
 func TestAC6CiphertextRefusal(t *testing.T) {
-	pending(t, "AC-6")
+	intended, err := protocol.GenerateDecryptionKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := protocol.GenerateDecryptionKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e := commandEnvelope()
+	e.Payload = []byte(`{"argv":["id"]}`)
+	sealed, err := protocol.SealEnvelope(intended.Recipient(), e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := protocol.OpenEnvelope(intended, sealed); err != nil {
+		t.Fatalf("the intended recipient must open it: %v", err)
+	}
+
+	// Wrong recipient.
+	wrongRecipient := errOf(protocol.OpenEnvelope(other, sealed))
+	if !is(wrongRecipient, protocol.DecryptionFailed) {
+		t.Errorf("wrong recipient gave %v, want decryption failed", wrongRecipient)
+	}
+
+	// Truncated, at several depths: inside the AEAD output, inside the KEM
+	// ciphertext, and inside the ephemeral key.
+	for _, cut := range []int{1, protocol.AEADOverheadBytes + 1, protocol.MLKEMCiphertext, len(sealed.Payload) - 4} {
+		if cut <= 0 || cut >= len(sealed.Payload) {
+			continue
+		}
+		short := sealed
+		short.Payload = sealed.Payload[:len(sealed.Payload)-cut]
+		if err := errOf(protocol.OpenEnvelope(intended, short)); !is(err, protocol.DecryptionFailed) {
+			t.Errorf("truncation by %d gave %v, want decryption failed", cut, err)
+		}
+	}
+
+	// AC-11's second pair: the two must be one answer, not two.
+	truncated := errOf(protocol.OpenEnvelope(intended, func() protocol.Envelope {
+		short := sealed
+		short.Payload = sealed.Payload[:len(sealed.Payload)-1]
+		return short
+	}()))
+	if wrongRecipient.Error() != truncated.Error() {
+		t.Errorf("wrong-recipient and truncated refusals differ: %q vs %q", wrongRecipient, truncated)
+	}
 }
+
+func errOf(_ []byte, err error) error { return err }
 
 func TestAC7VersionAndSequenceRefusal(t *testing.T) {
 	base := func() [][]byte {

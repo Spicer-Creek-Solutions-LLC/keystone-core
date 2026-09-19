@@ -105,6 +105,16 @@ func Decode(b []byte, maxEnvelope int) (Envelope, error) {
 	if !ValidIdentifier(sender) && !ReservedSender(sender) {
 		return Envelope{}, MalformedEnvelope
 	}
+	// Field 4 is EMPTY on encrypted classes (ADR-0005 § 1 and § 3): the
+	// correlation identifier travels inside the sealed payload, because it is
+	// what groups an operator's several actions and § 3 exists so an observer
+	// cannot link them. § 7's accepted leakage for a command names the job
+	// identifier in cleartext and NOT this one, so a non-empty field 4 here
+	// leaks beyond what the class permits -- which makes it part of the version's
+	// field sequence rather than a caller's business.
+	if Encrypted(class) && len(fields[3]) != 0 {
+		return Envelope{}, MalformedEnvelope
+	}
 
 	return Envelope{
 		Version:       v,

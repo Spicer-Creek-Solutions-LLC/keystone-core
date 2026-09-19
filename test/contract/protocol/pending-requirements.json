@@ -1,18 +1,6 @@
 {
   "requirements": [
     {
-      "case": "AC-1",
-      "owner": "C01-I",
-      "expiry": "C01-I",
-      "reason": "protocol implementation does not exist yet"
-    },
-    {
-      "case": "AC-6",
-      "owner": "C01-I",
-      "expiry": "C01-I",
-      "reason": "protocol implementation does not exist yet"
-    },
-    {
       "case": "AC-8",
       "owner": "C01-I",
       "expiry": "C01-I",
