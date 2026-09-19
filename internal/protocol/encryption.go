@@ -206,6 +206,13 @@ func SealEnvelope(r *RecipientKey, e Envelope) (Envelope, error) {
 	if !Encrypted(e.Class) {
 		return Envelope{}, MalformedEnvelope
 	}
+	// Refused at the sending boundary as well as the receiving one. Sealing an
+	// envelope that carries a cleartext correlation identifier would produce a
+	// well-formed ciphertext wrapped around a leak, and the caller would have
+	// no reason to look.
+	if e.CorrelationID != "" {
+		return Envelope{}, MalformedEnvelope
+	}
 	sealed, err := Seal(r, e.Payload)
 	if err != nil {
 		return Envelope{}, err
@@ -220,6 +227,9 @@ func OpenEnvelope(k *DecryptionKey, e Envelope) ([]byte, error) {
 		return nil, UnknownClass
 	}
 	if !Encrypted(e.Class) {
+		return nil, MalformedEnvelope
+	}
+	if e.CorrelationID != "" {
 		return nil, MalformedEnvelope
 	}
 	return Open(k, e.Payload)

@@ -198,3 +198,64 @@ func TestDeriveBindsTheTranscript(t *testing.T) {
 		t.Error("swapping the two shared secrets gave the same key")
 	}
 }
+
+// Review of #353 found this: SealEnvelope sealed only the payload and left
+// field 4 alone, so an encrypted command could carry a cleartext correlation
+// identifier -- and Decode accepted it.
+//
+// ADR-0005 § 1 and § 3 require field 4 to be EMPTY on encrypted classes,
+// because the correlation identifier is what groups an operator's several
+// actions and § 3 exists so an observer cannot link them. § 7's accepted
+// leakage for a command names the job identifier in cleartext and not this one,
+// so the shape leaked beyond what the class permits. The AC-1 fixture left
+// CorrelationID empty, so no acceptance case exercised the violating input.
+func TestEncryptedClassesRefuseACleartextCorrelationIdentifier(t *testing.T) {
+	rk := recipient(t)
+	sk := key(t)
+
+	leaky := valid() // an encrypted class
+	leaky.CorrelationID = "corr-secret-1234"
+
+	if _, err := SealEnvelope(rk.Recipient(), leaky); !errors.Is(err, error(MalformedEnvelope)) {
+		t.Errorf("SealEnvelope accepted a cleartext correlation identifier: %v", err)
+	}
+	if _, err := OpenEnvelope(rk, leaky); !errors.Is(err, error(MalformedEnvelope)) {
+		t.Errorf("OpenEnvelope accepted one: %v", err)
+	}
+
+	// And a receiver refuses the wire form, whatever a sender did.
+	signed, err := SignEnvelope(sk, leaky)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wire, ok := signed.Encode()
+	if !ok {
+		t.Fatal("Encode refused")
+	}
+	if !bytes.Contains(wire, []byte("corr-secret-1234")) {
+		t.Fatal("fixture is wrong: the identifier should be in the bytes to make the point")
+	}
+	if _, err := Decode(wire, DefaultMaxEnvelope); !errors.Is(err, error(MalformedEnvelope)) {
+		t.Errorf("Decode accepted an encrypted envelope with a non-empty field 4: %v", err)
+	}
+}
+
+// The field is legitimate on the four classes that are not encrypted, and the
+// fix must not have taken that away.
+func TestUnencryptedClassesStillCarryACorrelationIdentifier(t *testing.T) {
+	e := valid()
+	e.Class = ClassPresence
+	e.JobID, e.Sender = "", "agent-7"
+	e.CorrelationID = "corr-1234"
+	wire, ok := e.Encode()
+	if !ok {
+		t.Fatal("Encode refused")
+	}
+	back, err := Decode(wire, DefaultMaxEnvelope)
+	if err != nil {
+		t.Fatalf("Decode refused a signed-only class carrying a correlation identifier: %v", err)
+	}
+	if back.CorrelationID != "corr-1234" {
+		t.Errorf("CorrelationID = %q, want it preserved", back.CorrelationID)
+	}
+}

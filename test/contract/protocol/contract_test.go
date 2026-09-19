@@ -79,6 +79,11 @@ func TestAC1RoundTrip(t *testing.T) {
 			out.Payload = tc.payload
 			if tc.class == protocol.ClassPresence {
 				out.JobID, out.Sender = "", "agent-7"
+				// Field 4 is legitimate on a class with no encryption
+				// recipient, and must survive the round trip. On an encrypted
+				// class it must be empty -- ADR-0005 § 1 and § 3 -- which the
+				// package tests assert by refusal.
+				out.CorrelationID = "corr-01hx9yq"
 			}
 
 			if protocol.Encrypted(tc.class) {
@@ -103,6 +108,9 @@ func TestAC1RoundTrip(t *testing.T) {
 				t.Fatalf("verify: %v", err)
 			}
 
+			if back.CorrelationID != signed.CorrelationID {
+				t.Errorf("correlation identifier = %q, want %q", back.CorrelationID, signed.CorrelationID)
+			}
 			if back.Class != tc.class || back.JobID != signed.JobID ||
 				back.Sender != signed.Sender || back.Version != signed.Version ||
 				!back.Timestamp.Equal(signed.Timestamp) {
