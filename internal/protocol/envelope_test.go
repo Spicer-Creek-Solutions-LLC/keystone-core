@@ -16,7 +16,7 @@ func valid() Envelope {
 		Timestamp: time.UnixMilli(1758240000000).UTC(),
 		Nonce:     make([]byte, NonceBytes),
 		Payload:   []byte("payload"),
-		Signature: make([]byte, 8),
+		Signature: make([]byte, SignatureBytes),
 	}
 }
 
