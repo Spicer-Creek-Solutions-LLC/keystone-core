@@ -319,6 +319,46 @@ var rules = []Rule{
 		RetireAfter: "C01",
 	},
 	{
+		ID:    "primitives-are-c01s",
+		Added: "G37",
+		Why:   "ADR-0005 named three key roles and no algorithm, so the signature and encryption primitives belonged to nobody and C01-I stopped; G37 gave the primitives to the ADR and their implementation to C01",
+
+		// The sibling of encoder-format-is-c01s, and it exists because that rule
+		// was not enough: G36 sharpened `the canonical encoder` and left `the
+		// signature and encryption operations` in the same sentence untouched,
+		// so the identical defect sat one clause to the right until C01-I hit
+		// it. Pattern is the SUBJECT, Stale the superseded conclusion.
+		//
+		// WHAT THIS CANNOT DETECT, and the second half was learned by trying:
+		//
+		//  1. An algorithm chosen silently in code with no document claiming the
+		//     right to choose it. That is archlint's and review's ground.
+		//  2. The ownership LIST itself. encoder-format-is-c01s can match
+		//     `canonical encoder,` before a `(**C01**)` parenthetical because the
+		//     corrected text reads `encoder's`. There is no equivalent here: the
+		//     phrase `the signature and encryption operations ... (**C01**)`
+		//     survives the correction verbatim, since C01 still owns those
+		//     operations as implementations. A first draft matched it and fired
+		//     on the fixed sentence. The verbs below are all that discriminate.
+		// The subject list must cover every noun the Stale side names, or a
+		// stale claim is invisible because the SUBJECT never matched. A first
+		// draft listed only `primitive|algorithm` and silently missed planted
+		// claims about a `cipher`, a `curve` and a `signature scheme` -- the
+		// rule read as though it swept them and did not.
+		Pattern: `signature (?:and|or) encryption|primitives?|algorithms?|cipher|curve|signature scheme|Ed25519|ML-DSA|ML-KEM|X25519|AES-`,
+		Stale: `(?:algorithms?|primitives?|cipher|signature scheme|curve)[^.;]{0,70}(?:is|are|remains?)[^.;]{0,25}\bC01\b` +
+			`|\bC01\b[^.;]{0,60}(?:chooses?|choose|decides?|picks?|selects?)[^.;]{0,45}(?:algorithms?|primitives?|cipher|curve|signature scheme)` +
+			`|(?:algorithms?|primitives?)[^.;]{0,60}(?:to be (?:chosen|decided|selected))[^.;]{0,40}(?:by |at |in )?\bC01\b`,
+
+		// The subject is unavoidable in ADR-0005, ADR-0003 and THREAT-MODEL.md.
+		MinHits: 6,
+
+		// Retires after C01: by then the primitives are implemented and frozen
+		// in goldens, and a document claiming C01 may choose them contradicts
+		// something louder than this sweep.
+		RetireAfter: "C01",
+	},
+	{
 		ID:          "no-pipe-to-shell",
 		Added:       "G23",
 		Why:         "the runner host's Docker socket is root on it, so an unverified root-level download is host compromise",

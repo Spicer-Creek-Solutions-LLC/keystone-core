@@ -708,6 +708,49 @@ limitations go in the pull request.
     text. **A `RetireAfter` of `C01-I` would also have been silently permanent**:
     the lifetime list cannot capture a workstream half, and nothing checks that
     a rule's lifetime names a task the list can contain. Raised, not fixed.
+- [x] G37 — Name the protocol's primitives in `ADR-0005`. §§ 4 and 5 named key
+  *roles* and no algorithms, so **no envelope could be produced**: `C01-I` stopped
+  the way `C01-A` had, on the clause next to the one `G36` fixed. A G task
+  amending accepted ADRs, no RFC — precedent `G15` and `G36`; no invariant moves
+  and no refusal code is added.
+  - **Hybrid post-quantum, both pairs.** Field 9 is Ed25519 ‖ ML-DSA-65, exactly
+    **3373 bytes**, and **both must verify** — hybrid is conjunction, so a forgery
+    breaks both or neither. Field 8 is an X25519 ‖ ML-KEM-768 KEM, **plaintext +
+    1136 bytes**, with the transcript bound into the HKDF input because
+    concatenating shared secrets alone is the known-weak hybrid.
+  - **The justification is `RSK-12`, not fashion.** That row already concedes
+    `AST-8` has no rotation and that *"captured ciphertext stays decryptable
+    offline for as long as the key exists"* — harvest-now-decrypt-later, accepted
+    and unmitigated. `AST-7` has no rotation either, so "migrate before a quantum
+    computer exists" had no mechanism to migrate with. The risk row is narrowed
+    **cryptographically only**; no rotation path was created and the date stands.
+  - **The NATS layer stays classical and the ADR says so.** `AST-3`, `AST-6` and
+    `AST-16` are NKeys — Ed25519, the broker's. `ARCH-NATS-006`'s first layer is
+    out of reach whatever this project decides.
+  - **Presence costs 21×** — a signed-only envelope goes from ~161 to ~3470
+    bytes, and presence is the one class sent on a timer. `ADR-0005` already
+    listed signing presence as a negative; that line now carries the figure.
+  - **Envelope bytes are not reproducible**, verified: ML-DSA signing is
+    randomized, so the same input signed twice with the same key differs. The
+    ciphertext already was. **Goldens therefore cover the framing and the signed
+    input, not whole envelopes** — which `AC-12`'s frozen wording permits.
+  - **Zero dependencies.** Every primitive is standard library at the pinned Go
+    version. NaCl box and ChaCha20-Poly1305 were rejected on that alone; pure PQ
+    was rejected for giving up the security-if-either-holds property to save 96
+    bytes.
+  - **`ADR-0003` § 4 gains algorithms and sizes** — public halves are 1984 B
+    signing and 1216 B decryption, and the token bundle's service halves are
+    3200 B where they were 64.
+  - **The same sentence was sharpened twice, and that is the finding.** `G36`
+    fixed *the canonical encoder* and left *the signature and encryption
+    operations* beside it — the identical defect, one clause to the right, found
+    by the next task rather than by the fix. `doclint` gains
+    `primitives-are-c01s` as the sibling of `encoder-format-is-c01s`.
+  - **Both sweeps fired on this task's own drafts.** `encoder-format-is-c01s`
+    caught a reworded deferral that read as the old ownership claim, and
+    `primitives-are-c01s`' first draft had a **subject list narrower than its
+    stale list**, so planted claims about a *cipher*, a *curve* and a *signature
+    scheme* were invisible — the rule read as though it swept them and did not.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

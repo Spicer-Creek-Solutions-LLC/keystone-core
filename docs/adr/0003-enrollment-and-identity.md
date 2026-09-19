@@ -116,14 +116,29 @@ stream, and none needs a publish-acknowledgement inbox (`ADR-0002` § 8).
 
 On first enrollment the agent generates, **on the agent**, three separate keys:
 
-| Key | Asset | Leaves the host? |
-|---|---|---|
-| NATS identity NKey | `AST-3`'s material | **Public half only** |
-| Envelope-signing key | `AST-4` | **Public half only** |
-| Payload-decryption key | `AST-5` | **Public half only** |
+| Key | Asset | Algorithm | Public half | Leaves the host? |
+|---|---|---|---|---|
+| NATS identity NKey | `AST-3`'s material | Ed25519 — **the broker's, not ours** | 32 B | **Public half only** |
+| Envelope-signing key | `AST-4` | Ed25519 ‖ ML-DSA-65 (`ADR-0005` § 4) | **1984 B** | **Public half only** |
+| Payload-decryption key | `AST-5` | X25519 ‖ ML-KEM-768 (`ADR-0005` § 5) | **1216 B** | **Public half only** |
 
 `ARCH-NATS-006` requires them separate and forbids reusing an NKey seed as a
 Keystone signing or encryption key.
+
+**Algorithms and sizes added at `G37`**, when `ADR-0005` named the primitives.
+This section had generated three keys without saying what they were, which was
+survivable only while nothing produced an envelope.
+
+**The two Keystone keys are hybrid post-quantum; the NKey is not, and cannot
+be.** A NATS identity key is an NKey — Ed25519, defined by the broker — so
+`ARCH-NATS-006`'s first layer stays classical whatever this project decides.
+`ADR-0005` § 5 records why the other two do not: `RSK-12` gives `AST-8` no
+rotation and concedes that captured ciphertext stays decryptable for as long as
+the key exists.
+
+**The public halves are now kilobytes rather than tens of bytes**, which is what
+an enrollment request carries and what § 1's token bundle carries back. The
+service halves in the bundle total **3200 B** (`AST-7` 1984 ‖ `AST-8` 1216).
 
 **All three public halves travel in the enrollment request, and the server
 records all three.** The NATS public key is what the permanent user JWT is
