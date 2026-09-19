@@ -128,6 +128,34 @@ protects. For each field in order:
 After field 9, any remaining bytes are **malformed envelope**. A prefix that
 disagrees with its field is step 3.
 
+#### Every field's encoding, in one place
+
+**Added at `G38`, and the table is the point.** Three tasks running closed one
+field's gap and left its neighbour: `G36` fixed the framing and left the limit
+semantics a paragraph later; `G37` named the primitives and left field 2 with no
+encoding at all. Each was found by the next task rather than by the fix. A
+specification scattered across nine sections cannot be *read* for completeness,
+so the rows below are its index, and `tools/archlint` fails the build if one is
+blank or reads *unspecified*.
+
+| # | Field | Encoding |
+|---|---|---|
+| 1 | Protocol version | `uint32` big-endian (§ 2) |
+| 2 | Message class | The class's canonical ASCII token (§ 7) |
+| 3 | Job identifier | `ADR-0004`'s identifier grammar as ASCII, 1 to 64 bytes; empty where the class carries none (§ 3) |
+| 4 | Correlation identifier | As field 3; empty on encrypted classes (§ 3) |
+| 5 | Sender identifier | An agent's identifier, or a reserved service-principal token, as ASCII (§ 3) |
+| 6 | Timestamp | `int64` big-endian, Unix milliseconds, UTC (§ 6) |
+| 7 | Nonce | 16 bytes from a cryptographic random source (§ 6) |
+| 8 | Ciphertext or cleartext payload | Encrypted classes: ephemeral X25519 ‖ ML-KEM-768 ciphertext ‖ AES-256-GCM output (§ 5). Otherwise the class's payload bytes, opaque to this layer |
+| 9 | Signature | Ed25519 ‖ ML-DSA-65, 3373 bytes (§ 4) |
+
+**A row is an index, not a second source.** Each points at the section that
+decides it, so there is one place to change and one place to check for silence.
+The sweeps added at `G36` and `G37` catch a document claiming the wrong owner;
+**nothing caught a document saying nothing at all**, which is what actually
+blocked `C01-A` once and `C01-I` twice.
+
 **So § 10's "field at its maximum length" is well-defined once the envelope's
 shape is pinned**: the cap, less the thirty-six bytes of prefixes, less the other
 eight field values. It is a property of a stated shape and not a universal
@@ -195,6 +223,36 @@ everything else about them.
 That asymmetry is the whole of the difference: an observer can link a command to
 its result by job identifier, which § 6 already concedes as correlation, and
 cannot link an operator's several actions to each other.
+
+#### Field 5, the sender, and the collision it hides
+
+**Added at `G38`.** Field 5 carries *the principal*, and for an **agent** that is
+its identifier — already specified, below. For a **service** it was nothing at
+all: `ADR-0004` § 4 names its principals descriptively, and a description is not
+a byte string.
+
+| Principal | Token |
+|---|---|
+| Command publisher | `command-publisher` |
+| Enrollment service | `enrollment-service` |
+| Result consumer | `result-consumer` |
+| Presence consumer | `presence-consumer` |
+| Monitoring role | `monitoring-role` |
+
+**These five tokens are reserved, and no agent identifier may be assigned any of
+them.** The reservation is the point of writing them here rather than only in
+`ADR-0004`: every token above is a **valid agent identifier** under the grammar
+below — lowercase, digits and hyphens — so without a reservation an agent could
+be assigned `command-publisher` and sign as one. Nothing in the grammar prevents
+it and nothing would have noticed.
+
+A structural separation would be better than a reservation — a prefix, a
+namespace byte — and the charset has nowhere to put one: `.`, `*` and `>` are
+excluded for the NATS reasons below and `-` is already in use. **So the
+reservation is a constraint on whoever assigns identifiers**, stated here because
+this is where the collision becomes exploitable, and enforced where assignment
+happens. `ADR-0004`'s own finding already records that the identifier's origin is
+unspecified; this adds a requirement that origin must satisfy.
 
 **This section needed no amendment at `G37`, and that is worth stating**, since
 every other field's encoding did: the pointer below already resolves to a
@@ -401,6 +459,36 @@ implementation from economising.
 ### 7. Message classification
 
 The table the whole ADR exists to produce.
+
+**Each class's canonical token, added at `G38`.** This is what field 2 carries,
+as ASCII, and what § 8's class header carries — **the same bytes in both**.
+
+| Class | Token |
+|---|---|
+| Enrollment request | `enrollment-request` |
+| Enrollment reply | `enrollment-reply` |
+| Command | `command` |
+| Cancellation | `cancellation` |
+| Result | `result` |
+| Lifecycle event | `lifecycle-event` |
+| Presence | `presence` |
+
+**A token rather than an integer**, because § 8's header already carries the
+class by name and two vocabularies for one concept is a mapping table that can
+drift. A wrong integer is a silent interop bug; a wrong token is a visibly wrong
+token, in a hex dump and in a hand-written framing vector alike. The cost is
+seven to eighteen bytes against four, which on a 3373-byte signature is noise.
+
+**A token outside this set is `unknown class`** — § 9's existing code, and the
+reason the set is closed.
+
+**The header and field 2 must agree, and disagreement is `malformed envelope`.**
+Field 2 is signed; the header is not, and `ACT-5` can rewrite it at will. **The
+check is not an authenticity control** — the signature already decides what the
+class is. It exists so that a broker-side consumer routing on the header and a
+receiver acting on the signed field can never act on *different* classes for the
+same message. **Field 2 is authoritative** wherever they differ, and the envelope
+is refused rather than reconciled.
 
 | | Enrollment request | Enrollment reply | Command | Cancellation | Result | Lifecycle event | Presence |
 |---|---|---|---|---|---|---|---|

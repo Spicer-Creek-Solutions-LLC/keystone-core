@@ -50,6 +50,8 @@ func main() {
 	}
 	note("%d invariants, %d register rows", len(invariants), len(rows))
 
+	fails = append(fails, checkFieldEncodings(*root)...)
+
 	// Both directions. A register missing an invariant is a gap; a register row
 	// naming an invariant that does not exist is a claim about nothing.
 	byID := map[string]row{}
@@ -175,6 +177,72 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("archlint: ok")
+}
+
+// G38: the envelope's nine field encodings are specified across nine sections of
+// ADR-0005, and three tasks running closed one field's gap while leaving its
+// neighbour -- each found by the next task rather than by the fix. The doclint
+// sweeps added at G36 and G37 catch a document naming the wrong OWNER. Nothing
+// caught a document saying NOTHING, which is what actually blocked C01-A once
+// and C01-I twice.
+//
+// So section 1 carries an index of all nine fields, and this asserts it is
+// complete: nine rows, numbered 1 to 9, none blank and none deferring. It does
+// not check that an encoding is CORRECT -- that is review's -- only that one has
+// been written.
+var fieldRowRE = regexp.MustCompile(`(?m)^\| ([1-9]) \|([^|]*)\|([^|]*)\|\s*$`)
+
+var unspecified = regexp.MustCompile(`(?i)\b(unspecified|undefined|tbd|to be decided|to be determined|not stated|n/?a)\b`)
+
+// The index is ANCHORED to its own heading, and that is not fastidiousness.
+// A first draft matched the row shape anywhere in the document and found
+// section 1's ORIGINAL field table first -- same three columns, same leading
+// digit, different meaning. Blanking a cell in the encoding index left archlint
+// green; blanking one in the older table failed it. The check named one table
+// and read another, which is the exact defect it exists to prevent, and only
+// planting a blank in each table told them apart.
+const fieldIndexHeading = "#### Every field's encoding, in one place"
+
+func checkFieldEncodings(root string) []string {
+	b, err := os.ReadFile(filepath.Join(root, "docs/adr/0005-versioned-encrypted-protocol.md"))
+	if err != nil {
+		return []string{fmt.Sprintf("field-encoding index: %v", err)}
+	}
+	doc := string(b)
+	start := strings.Index(doc, fieldIndexHeading)
+	if start < 0 {
+		return []string{fmt.Sprintf("ADR-0005 has no %q section; the field-encoding index is gone", fieldIndexHeading)}
+	}
+	rest := doc[start+len(fieldIndexHeading):]
+	if end := strings.Index(rest, "\n#### "); end >= 0 {
+		rest = rest[:end]
+	}
+	if end := strings.Index(rest, "\n### "); end >= 0 {
+		rest = rest[:end]
+	}
+
+	var fails []string
+	seen := map[string]bool{}
+	for _, m := range fieldRowRE.FindAllStringSubmatch(rest, -1) {
+		num, name, enc := m[1], strings.TrimSpace(m[2]), strings.TrimSpace(m[3])
+		if seen[num] {
+			fails = append(fails, fmt.Sprintf("ADR-0005's field-encoding index has two rows for field %s", num))
+			continue
+		}
+		seen[num] = true
+		switch {
+		case enc == "":
+			fails = append(fails, fmt.Sprintf("ADR-0005 field %s (%s) has a blank encoding", num, name))
+		case unspecified.MatchString(enc):
+			fails = append(fails, fmt.Sprintf("ADR-0005 field %s (%s) defers its encoding: %q", num, name, enc))
+		}
+	}
+	for i := 1; i <= 9; i++ {
+		if !seen[fmt.Sprint(i)] {
+			fails = append(fails, fmt.Sprintf("ADR-0005's field-encoding index has no row for field %d", i))
+		}
+	}
+	return fails
 }
 
 var invRE = regexp.MustCompile(`(?m)^### (ARCH-[A-Z]+-\d+)`)
