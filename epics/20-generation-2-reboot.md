@@ -751,6 +751,15 @@ limitations go in the pull request.
     `primitives-are-c01s`' first draft had a **subject list narrower than its
     stale list**, so planted claims about a *cipher*, a *curve* and a *signature
     scheme* were invisible — the rule read as though it swept them and did not.
+  - **Review found the mirror of that defect, and the reason it survived.**
+    Widening `Pattern` to fix the first drift left `Stale` naming only the
+    generic words, so a claim naming a **concrete** primitive — *"C01 chooses
+    ML-KEM-768"*, *"Ed25519 is C01's choice"*, the most direct form of the claim
+    the rule exists to catch — passed. **Two lists that must agree are now one
+    list**, read by both halves. The first drift was caught by planting in a
+    shell and **not checked in**, which is exactly why the second reached review:
+    `TestPrimitiveOwnershipRuleCatchesConcreteNames` is the demonstration in the
+    tree, and it fails against the pre-fix rule on precisely those cases.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

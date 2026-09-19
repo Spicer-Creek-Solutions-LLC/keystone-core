@@ -41,6 +41,21 @@ type Rule struct {
 
 // rules is the whole set. Adding one is cheap; removing one when it retires is
 // the part that needs forcing, which is what the lifetime check does.
+// primitiveNouns is the vocabulary the primitives-are-c01s rule sweeps for, and
+// it is defined once because the two halves of that rule drifted apart twice.
+//
+// First the SUBJECT was narrower than the stale side, so planted claims about a
+// `cipher`, a `curve` and a `signature scheme` matched no subject and were
+// invisible. Widening Pattern fixed that and introduced the mirror defect, which
+// review caught: Pattern then named Ed25519, ML-KEM and the rest while Stale
+// still listed only the generic words, so `C01 chooses ML-KEM-768` and `Ed25519
+// is C01's choice` -- the most direct form of the claim this rule exists to
+// catch -- passed.
+//
+// Two lists that must agree are one list. Both halves now read this one.
+const primitiveNouns = `algorithms?|primitives?|cipher|curve|signature scheme|` +
+	`Ed25519|X25519|ML-DSA(?:-[0-9]+)?|ML-KEM(?:-[0-9]+)?|AES(?:-[0-9]+)?(?:-GCM)?|HKDF|SHA-?256`
+
 var rules = []Rule{
 	{
 		ID:      "evidence-location",
@@ -340,15 +355,12 @@ var rules = []Rule{
 		//     survives the correction verbatim, since C01 still owns those
 		//     operations as implementations. A first draft matched it and fired
 		//     on the fixed sentence. The verbs below are all that discriminate.
-		// The subject list must cover every noun the Stale side names, or a
-		// stale claim is invisible because the SUBJECT never matched. A first
-		// draft listed only `primitive|algorithm` and silently missed planted
-		// claims about a `cipher`, a `curve` and a `signature scheme` -- the
-		// rule read as though it swept them and did not.
-		Pattern: `signature (?:and|or) encryption|primitives?|algorithms?|cipher|curve|signature scheme|Ed25519|ML-DSA|ML-KEM|X25519|AES-`,
-		Stale: `(?:algorithms?|primitives?|cipher|signature scheme|curve)[^.;]{0,70}(?:is|are|remains?)[^.;]{0,25}\bC01\b` +
-			`|\bC01\b[^.;]{0,60}(?:chooses?|choose|decides?|picks?|selects?)[^.;]{0,45}(?:algorithms?|primitives?|cipher|curve|signature scheme)` +
-			`|(?:algorithms?|primitives?)[^.;]{0,60}(?:to be (?:chosen|decided|selected))[^.;]{0,40}(?:by |at |in )?\bC01\b`,
+		// Both halves read primitiveNouns; the comment on that constant records
+		// the two ways they drifted apart before this.
+		Pattern: `signature (?:and|or) encryption|` + primitiveNouns,
+		Stale: `(?:` + primitiveNouns + `)[^.;]{0,70}(?:is|are|remains?)[^.;]{0,25}\bC01\b` +
+			`|\bC01\b[^.;]{0,60}(?:chooses?|choose|decides?|picks?|selects?|owns?)[^.;]{0,45}(?:` + primitiveNouns + `)` +
+			`|(?:` + primitiveNouns + `)[^.;]{0,60}(?:to be (?:chosen|decided|selected))[^.;]{0,40}(?:by |at |in )?\bC01\b`,
 
 		// The subject is unavoidable in ADR-0005, ADR-0003 and THREAT-MODEL.md.
 		MinHits: 6,
