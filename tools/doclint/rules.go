@@ -41,6 +41,21 @@ type Rule struct {
 
 // rules is the whole set. Adding one is cheap; removing one when it retires is
 // the part that needs forcing, which is what the lifetime check does.
+// primitiveNouns is the vocabulary the primitives-are-c01s rule sweeps for, and
+// it is defined once because the two halves of that rule drifted apart twice.
+//
+// First the SUBJECT was narrower than the stale side, so planted claims about a
+// `cipher`, a `curve` and a `signature scheme` matched no subject and were
+// invisible. Widening Pattern fixed that and introduced the mirror defect, which
+// review caught: Pattern then named Ed25519, ML-KEM and the rest while Stale
+// still listed only the generic words, so `C01 chooses ML-KEM-768` and `Ed25519
+// is C01's choice` -- the most direct form of the claim this rule exists to
+// catch -- passed.
+//
+// Two lists that must agree are one list. Both halves now read this one.
+const primitiveNouns = `algorithms?|primitives?|cipher|curve|signature scheme|` +
+	`Ed25519|X25519|ML-DSA(?:-[0-9]+)?|ML-KEM(?:-[0-9]+)?|AES(?:-[0-9]+)?(?:-GCM)?|HKDF|SHA-?256`
+
 var rules = []Rule{
 	{
 		ID:      "evidence-location",
@@ -316,6 +331,43 @@ var rules = []Rule{
 		// never be found in that list, so the rule would never be forced out and
 		// would become permanent with a lifetime that reads finite. Nothing in
 		// the tool checks that RetireAfter names a task the list can contain.
+		RetireAfter: "C01",
+	},
+	{
+		ID:    "primitives-are-c01s",
+		Added: "G37",
+		Why:   "ADR-0005 named three key roles and no algorithm, so the signature and encryption primitives belonged to nobody and C01-I stopped; G37 gave the primitives to the ADR and their implementation to C01",
+
+		// The sibling of encoder-format-is-c01s, and it exists because that rule
+		// was not enough: G36 sharpened `the canonical encoder` and left `the
+		// signature and encryption operations` in the same sentence untouched,
+		// so the identical defect sat one clause to the right until C01-I hit
+		// it. Pattern is the SUBJECT, Stale the superseded conclusion.
+		//
+		// WHAT THIS CANNOT DETECT, and the second half was learned by trying:
+		//
+		//  1. An algorithm chosen silently in code with no document claiming the
+		//     right to choose it. That is archlint's and review's ground.
+		//  2. The ownership LIST itself. encoder-format-is-c01s can match
+		//     `canonical encoder,` before a `(**C01**)` parenthetical because the
+		//     corrected text reads `encoder's`. There is no equivalent here: the
+		//     phrase `the signature and encryption operations ... (**C01**)`
+		//     survives the correction verbatim, since C01 still owns those
+		//     operations as implementations. A first draft matched it and fired
+		//     on the fixed sentence. The verbs below are all that discriminate.
+		// Both halves read primitiveNouns; the comment on that constant records
+		// the two ways they drifted apart before this.
+		Pattern: `signature (?:and|or) encryption|` + primitiveNouns,
+		Stale: `(?:` + primitiveNouns + `)[^.;]{0,70}(?:is|are|remains?)[^.;]{0,25}\bC01\b` +
+			`|\bC01\b[^.;]{0,60}(?:chooses?|choose|decides?|picks?|selects?|owns?)[^.;]{0,45}(?:` + primitiveNouns + `)` +
+			`|(?:` + primitiveNouns + `)[^.;]{0,60}(?:to be (?:chosen|decided|selected))[^.;]{0,40}(?:by |at |in )?\bC01\b`,
+
+		// The subject is unavoidable in ADR-0005, ADR-0003 and THREAT-MODEL.md.
+		MinHits: 6,
+
+		// Retires after C01: by then the primitives are implemented and frozen
+		// in goldens, and a document claiming C01 may choose them contradicts
+		// something louder than this sweep.
 		RetireAfter: "C01",
 	},
 	{

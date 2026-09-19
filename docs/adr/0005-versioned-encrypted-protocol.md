@@ -162,6 +162,11 @@ Both are necessary and for opposite reasons:
   older format, the protocol's floor would be its weakest historical version
   forever. Covering it means a flip fails verification.
 
+**Encoded as a `uint32` big-endian**, added at `G37`. Four bytes for a small
+integer is more than the value needs and exactly what § 1's length prefixes
+already use; a second width would be a second convention to remember and a second
+place for two implementations to differ.
+
 **An unknown version is refused**, with the typed error of § 9. It is not
 best-effort parsed. A receiver that tries to make sense of a version it does not
 know is a receiver an attacker can teach, and "tolerant of the unknown" is the
@@ -191,6 +196,12 @@ That asymmetry is the whole of the difference: an observer can link a command to
 its result by job identifier, which § 6 already concedes as correlation, and
 cannot link an operator's several actions to each other.
 
+**This section needed no amendment at `G37`, and that is worth stating**, since
+every other field's encoding did: the pointer below already resolves to a
+concrete grammar. `ADR-0004`'s identifier token is lowercase `a`-`z`, digits
+`0`-`9` and `-`, non-empty and at most 64 characters, so an identifier's bytes on
+the wire are those ASCII characters and its length prefix is 1 to 64.
+
 Both are opaque, high-entropy, and constrained to the same character set as
 `ADR-0004`'s subject tokens — not because they appear in subjects, but because
 they appear in audit records (`ARCH-OBS-001`) and in operator output, and an
@@ -206,6 +217,46 @@ either. This protocol never mixes them: a signature is made with a signing key
 (`AST-4`, `AST-7`) and never with a NATS identity key, and encryption uses a
 payload key (`AST-5`, `AST-8`) and never a signing key. `ADR-0003` § 4 generates
 the agent's three separately for the same reason.
+
+#### The algorithm
+
+**Added at `G37`.** This section named three key *roles* and no algorithm, so no
+signature could be produced from it. The gap was the one `G36` closed for the
+framing, one clause to the right.
+
+**A hybrid signature: Ed25519 and ML-DSA-65, concatenated, both mandatory.**
+
+| | Bytes |
+|---|---|
+| Ed25519 signature | 64 |
+| ML-DSA-65 signature (FIPS 204) | 3309 |
+| **Field 9, always** | **3373** |
+| Verification key (`AST-4`, `AST-7`) — Ed25519 ‖ ML-DSA-65 public | 1984 |
+
+Both are computed over the **same signed input** — the framed bytes of fields 1
+to 8, prefixes included, per § 1. Both are fixed-size, so field 9 needs no
+internal framing: the first 64 bytes are Ed25519 and the remainder is ML-DSA.
+
+**Both must verify. Hybrid means conjunction, not choice.** A forgery has to
+break Ed25519 *and* ML-DSA-65. A receiver that accepted either alone would have
+the security of the weaker one, which is the opposite of the reason for carrying
+two.
+
+**Why post-quantum here at all, when a signature only needs to resist forgery
+during its validity window:** because `RSK-12` records that `AST-7` has **neither
+rotation nor revocation**. The usual answer — migrate before a cryptographically
+relevant quantum computer exists — requires a rotation path this product does not
+have, so the choice is to carry the post-quantum signature now or reprovision
+every agent later.
+
+**ML-DSA signing is randomized**, so two signatures over the same input differ.
+Ed25519 is deterministic and does not. What that means for golden vectors is in
+§ Consequences.
+
+**A context string is set** — `keystone-envelope-v1`, FIPS 204's domain
+separator — so a signature made here can never be replayed as a signature for
+something else using the same key. The keys are single-purpose already; this
+costs nothing and removes the question.
 
 **Every envelope class is signed.** No class travels unsigned.
 
@@ -241,6 +292,52 @@ publish and **cannot produce the signature**.
 | Enrollment reply | **Not encrypted** | A NATS user JWT is not a secret; the seed is, and the agent generated it and never sent it |
 | Lifecycle event | **Not encrypted** | See below |
 | Presence | **Not encrypted** | See below |
+
+#### The construction
+
+**Added at `G37`**, for the same reason as § 4: this section said which classes
+are encrypted to whom, and never how.
+
+**A hybrid KEM: X25519 and ML-KEM-768.** Field 8 of an encrypted class is
+
+```
+ephemeral X25519 public (32) ‖ ML-KEM-768 ciphertext (1088) ‖ AES-256-GCM ciphertext‖tag
+```
+
+which is **the plaintext plus 1136 bytes**. The recipient's public half
+(`AST-5`, `AST-8`) is X25519 ‖ ML-KEM-768 encapsulation key, **1216 bytes**.
+
+The sender generates an ephemeral X25519 keypair and derives `ss1` against the
+recipient's static key, encapsulates to the recipient's ML-KEM key for `ss2` and
+its ciphertext, then derives the AEAD key:
+
+```
+HKDF-SHA256( ss1 ‖ ss2 ‖ ephemeral_public ‖ kem_ciphertext, info = "keystone-envelope-v1" )
+```
+
+**The transcript is in the KDF input deliberately.** Concatenating the two shared
+secrets alone is the known-weak way to build a hybrid; binding the ephemeral key
+and the encapsulation ciphertext prevents an attacker who can manipulate one half
+from steering the derived key.
+
+**The GCM nonce is twelve zero bytes, and that is a consequence rather than a
+shortcut.** The key is derived from an ephemeral keypair used exactly once, so it
+encrypts exactly one message and a counter would have nothing to count. Reusing a
+GCM nonce under a *repeated* key is catastrophic; under a single-use key there is
+no repetition to protect against. This is written down so a reader who finds a
+zero nonce finds the reason with it.
+
+**The associated data is empty.** The signature of § 4 covers fields 1 to 8, so a
+ciphertext already cannot be moved to another envelope without failing
+verification. Non-empty associated data would add nothing and would force
+decryption to depend on the header being parsed and framed first, which § 9's
+indistinguishable refusals would then have to account for.
+
+**Post-quantum here is the urgent half.** `RSK-12` records that `AST-8` has no
+rotation and that **captured ciphertext stays decryptable offline for as long as
+the key exists**. That is harvest-now-decrypt-later stated as an accepted risk in
+this project's own threat model, and a classical-only KEM leaves it open
+permanently.
 
 **Presence and lifecycle events are signed and not encrypted, deliberately.**
 Encryption would protect a payload that adds nothing the subject and the timing
@@ -280,6 +377,26 @@ window as the replay bound would be claiming exactly-once execution, which
 the clock assumption `ADR-0003` § 12 already states — server and broker agree
 within a small bound, the agent's clock is not trusted for expiry — and the same
 assumption is relied on here rather than a new one invented.
+
+**Their encodings, added at `G37`.**
+
+| Field | Encoding |
+|---|---|
+| 6, timestamp | `int64` big-endian, Unix **milliseconds**, UTC |
+| 7, nonce | **16 bytes** from a cryptographic random source, fixed length |
+
+**Milliseconds, between two worse options.** Seconds would be enough for a
+staleness bound measured in minutes and would make every envelope within the same
+second indistinguishable by timestamp; nanoseconds imply a precision no clock
+assumption here supports and overflow `int64` in 2262. A textual timestamp is
+rejected outright — RFC 3339 is variable-length and has more than one spelling of
+the same instant, which is the ambiguity § 1 chose binary framing to avoid.
+
+**Field 7 is a replay bound and is not the AEAD nonce.** § 5's AEAD nonce is
+twelve zero bytes under a single-use key and is not carried on the wire at all.
+Using one value for both would be exactly the cross-layer reuse
+`ARCH-NATS-006` forbids, so the two are named separately here to keep an
+implementation from economising.
 
 ### 7. Message classification
 
@@ -430,6 +547,28 @@ P05 creates no new `ARCH-*` identifier.
 
 ## Alternatives considered
 
+**Pure post-quantum, without the classical half.** Rejected at `G37`. Dropping
+Ed25519 and X25519 saves 96 bytes an envelope and gives up the property that
+makes a hybrid worth carrying: security if **either** primitive holds. ML-KEM and
+ML-DSA are young standards, and every comparable migration — TLS, SSH, Signal —
+went hybrid rather than pure for that reason. Ninety-six bytes against a
+single-primitive dependency is not a trade worth making.
+
+**Classical signatures with a post-quantum KEM only.** Rejected at `G37`, and it
+was the closest call. It would leave presence at 161 bytes instead of 3470 and
+still close the harvest-now-decrypt-later half, which is the irreversible one.
+What defeats it is `RSK-12`: `AST-7` has **no rotation path**, so "sign
+classically now and migrate when a quantum computer is near" has no mechanism to
+migrate with. The signing half would stay open permanently rather than until the
+next key rotation.
+
+**NaCl box, or ChaCha20-Poly1305.** Rejected at `G37` on dependencies. Both live
+in `golang.org/x/crypto`; the module has **no dependencies at all**, and
+`crypto/ed25519`, `crypto/ecdh`, `crypto/mlkem`, `crypto/mldsa`, `crypto/hkdf`
+and `crypto/aes` are all standard library at the Go version this project pins.
+Adding the first dependency to obtain a slightly friendlier API is not a trade
+this needed to make.
+
 **Canonical JSON.** Rejected — see § 1. Every canonicalization rule is a place
 two implementations disagree, and the failure is silent.
 
@@ -458,7 +597,22 @@ accepting the unverifiable is the transaction every downgrade attack needs.
 without failing verification. The accepted metadata leakage is now enumerated
 per class rather than described in aggregate.
 
-**Negative.** Signing presence costs a signature per heartbeat per agent.
+**Negative.** Signing presence costs a signature per heartbeat per agent, and
+`G37` made that signature **3373 bytes instead of 64**. A signed-only envelope
+goes from roughly 161 bytes to roughly 3470 — about twenty-one times — and
+presence is the only class sent on a timer. For a thousand agents on a
+thirty-second heartbeat that is roughly 116 KB/s where it was 5. **Accepted**:
+it is bandwidth on a control plane, and the alternative leaves `RSK-12`'s signing
+half open with no rotation path to close it later.
+
+**Negative.** **Envelope bytes are not reproducible.** ML-DSA signing is
+randomized, so the same input signed twice with the same key gives different
+field 9 bytes; the ciphertext was already unreproducible, since both the
+ephemeral X25519 key and the ML-KEM encapsulation draw randomness. **Golden
+vectors therefore cover the framing and the signed input, not whole envelopes** —
+`AC-12`'s stability is a property of what the encoder determines, and a signature
+is not. How an implementation makes its own vectors reproducible is its business,
+not this ADR's.
 Every recipient here is trusted because the token bundle said so, which makes
 the bundle's integrity a protocol dependency and not only an enrollment one —
 `THR-51`, accepted as `RSK-14`. `RSK-12` is unchanged, and the protocol's keys
@@ -472,8 +626,16 @@ extension. That is a cost with versions and a benefit without ambiguity.
 Job lifecycle, delivery semantics and `UNKNOWN` (**P06**); execution limits and
 argv handling (**P07**); the audit record's schema and retention (**P08**);
 operator-facing error presentation (**P09**); the canonical encoder's
-**implementation**, the signature and encryption operations, fuzzing, and the
-**computed** vectors (**C01**).
+**implementation**; the signature and encryption operations as **code and not as
+choices**, since §§ 4 and 5 make the choices; fuzzing; and the **computed**
+vectors (**C01**).
+
+**Sharpened again at `G37`, and for the identical reason.** `G36` fixed *the
+canonical encoder* and left *the signature and encryption operations* beside it
+untouched — so the algorithms belonged to nobody exactly as the length prefix
+had, and `C01-I` stopped on it. **The same defect, one clause to the right, found
+by the next task rather than by the fix.** Choosing a primitive decides bytes on
+the wire, so it was never C01's; implementing the chosen one is.
 
 **Sharpened at `G36`, because the earlier wording is what went wrong.** This read
 *the canonical encoder* without qualification, which can be taken as the encoder's
