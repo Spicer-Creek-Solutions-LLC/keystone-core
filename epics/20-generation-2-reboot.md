@@ -860,6 +860,17 @@ limitations go in the pull request.
     enumerating itself and asserted only that `seen` is scoped per manifest.
     True, and not the property its name claimed. It now runs the real entry
     point and fails when a package is missed.
+  - **Review found that the first draft inferred deferral from absence.**
+    Dropping the hardcoded case-to-test map took an allowlist with it — the old
+    tool named which entries were *allowed* to have no test and fataled on any
+    other — and the replacement treated an empty `test` field as a declaration
+    of intent. So a manifest entry that merely **omitted** the field was
+    reported as a deferred gate and its case vanished from the runner: a typo
+    could retire a real acceptance case silently, which is the one thing
+    `pending-contract` exists to prevent. **It also contradicted this task's own
+    claim that a bad registration self-reports** — true of a *wrong* name, not
+    of a missing one. Deferral is **declared** now, with every contradiction
+    fatal, and all four combinations are regression-tested.
   - **`stray-binary-check` was wrong about the name, and this task is how that
     surfaced — by committing a 4.7 MB binary with the gate green.** It predicted
     `tools/<dir>/<dir>`, the binary named after its **directory**. Go names it

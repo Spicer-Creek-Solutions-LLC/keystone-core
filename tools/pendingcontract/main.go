@@ -30,7 +30,25 @@ type requirement struct {
 	// and a case that PASSES is already fatal here, so a typo surfaces as
 	// "passed; pending-contract must fail" rather than as a case that quietly
 	// checks nothing.
+	//
+	// A MISSING name is a different matter, and Deferred is why.
 	Test string `json:"test"`
+
+	// Deferred marks an entry that legitimately has no test -- an owed gate
+	// rather than an unimplemented case.
+	//
+	// It exists because G39's first draft inferred that from an empty Test,
+	// and review found what that costs: a manifest entry that simply omitted
+	// the field was reported as a deferred gate and the case disappeared from
+	// the runner. A typo in one field could retire a real acceptance case
+	// silently.
+	//
+	// The old tool held an allowlist of case names that were allowed to have no
+	// test, which is the same statement made in a place the manifest could not
+	// reach. Classification is now DECLARED rather than inferred from absence,
+	// and every contradiction is fatal: a case cannot be both, and a case can
+	// be neither only by saying so.
+	Deferred bool `json:"deferred"`
 }
 
 type manifest struct {
@@ -113,7 +131,14 @@ func checkPackage(root, manifestPath, epic string) int {
 			fatal("%s: duplicate requirement %q", rel, r.Case)
 		}
 		seen[r.Case] = true
-		if r.Test != "" {
+
+		switch {
+		case r.Test != "" && r.Deferred:
+			fatal("%s: requirement %q names a test and is marked deferred; it is one or the other", rel, r.Case)
+		case r.Test == "" && !r.Deferred:
+			fatal("%s: requirement %q names no test and is not marked deferred. "+
+				"A pending case needs \"test\"; an owed gate needs \"deferred\": true", rel, r.Case)
+		case r.Test != "":
 			cases = append(cases, r)
 		}
 	}
@@ -134,7 +159,7 @@ func checkPackage(root, manifestPath, epic string) int {
 		fmt.Printf("%s %s fails as expected: %s\n", rel, r.Case, r.Reason)
 	}
 	for _, r := range m.Requirements {
-		if r.Test == "" {
+		if r.Deferred {
 			fmt.Printf("%s %s remains registered as a deferred gate: %s\n", rel, r.Case, r.Reason)
 		}
 	}

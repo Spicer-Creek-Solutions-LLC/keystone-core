@@ -50,7 +50,7 @@ func TestTwoPackagesMayBothRegisterTheSameCaseIdentifier(t *testing.T) {
 	for _, pkg := range []string{"protocol", "persistence"} {
 		write(t, filepath.Join(root, "test", "contract", pkg, "pending-requirements.json"),
 			manifest{Requirements: []requirement{
-				{Case: "AC-1", Owner: "C02", Expiry: "C02", Reason: "not built in " + pkg, Test: ""},
+				{Case: "AC-1", Owner: "C02", Expiry: "C02", Reason: "not built in " + pkg, Deferred: true},
 			}})
 	}
 
@@ -81,19 +81,19 @@ func TestManifestValidation(t *testing.T) {
 		epic string
 	}{
 		{"duplicate case within one manifest",
-			[]requirement{{Case: "AC-1", Owner: "C02", Expiry: "C02", Reason: "r"}, {Case: "AC-1", Owner: "C02", Expiry: "C02", Reason: "r"}},
+			[]requirement{{Case: "AC-1", Owner: "C02", Expiry: "C02", Reason: "r", Deferred: true}, {Case: "AC-1", Owner: "C02", Expiry: "C02", Reason: "r", Deferred: true}},
 			epicWith("C02")},
 		{"owner is not an epic task",
-			[]requirement{{Case: "AC-1", Owner: "C99", Expiry: "C02", Reason: "r"}},
+			[]requirement{{Case: "AC-1", Owner: "C99", Expiry: "C02", Reason: "r", Deferred: true}},
 			epicWith("C02")},
 		{"expiry is not an epic task",
-			[]requirement{{Case: "AC-1", Owner: "C02", Expiry: "C99", Reason: "r"}},
+			[]requirement{{Case: "AC-1", Owner: "C02", Expiry: "C99", Reason: "r", Deferred: true}},
 			epicWith("C02")},
 		{"missing reason",
-			[]requirement{{Case: "AC-1", Owner: "C02", Expiry: "C02"}},
+			[]requirement{{Case: "AC-1", Owner: "C02", Expiry: "C02", Deferred: true}},
 			epicWith("C02")},
 		{"expiry task already complete",
-			[]requirement{{Case: "AC-1", Owner: "C02", Expiry: "C02", Reason: "r"}},
+			[]requirement{{Case: "AC-1", Owner: "C02", Expiry: "C02", Reason: "r", Deferred: true}},
 			"# epic\n\n- [x] C02 — done.\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -108,13 +108,53 @@ func TestManifestValidation(t *testing.T) {
 	}
 }
 
+// Review of #356: G39's first draft inferred "deferred gate" from an empty test
+// field, so a manifest entry that merely OMITTED the field was reported as
+// deferred and its case vanished from the runner. A typo could retire a real
+// acceptance case silently, which is what pending-contract exists to prevent.
+//
+// Classification is declared now, and every combination is checked here --
+// including the two that must be rejected, because a rule that only ever sees
+// well-formed input is not a rule.
+func TestDeferralIsDeclaredAndNotInferred(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		req    requirement
+		reject bool
+	}{
+		{"a real case with no test and no deferred flag",
+			requirement{Case: "AC-1", Owner: "C02", Expiry: "C02", Reason: "not built"}, true},
+		{"a case that is both a test and deferred",
+			requirement{Case: "AC-1", Owner: "C02", Expiry: "C02", Reason: "r", Test: "TestAC1", Deferred: true}, true},
+		{"an owed gate, declared",
+			requirement{Case: "nightly", Owner: "C02", Expiry: "C02", Reason: "no schedule", Deferred: true}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			write(t, filepath.Join(root, "test", "contract", "x", "pending-requirements.json"),
+				manifest{Requirements: []requirement{tc.req}})
+			out, err := runToolOutput(t, root, epicWith("C02"))
+			switch {
+			case tc.reject && err == nil:
+				t.Errorf("accepted a manifest it must reject\n%s", out)
+			case !tc.reject && err != nil:
+				t.Errorf("rejected a well-formed manifest: %v\n%s", err, out)
+			}
+			// And the case must never be reported as deferred unless it said so.
+			if tc.reject && strings.Contains(out, "remains registered as a deferred gate") {
+				t.Errorf("an unclassified case was reported as a deferred gate\n%s", out)
+			}
+		})
+	}
+}
+
 // A well-formed deferred gate must pass, or the cases above would prove only
 // that the tool rejects everything.
 func TestAWellFormedDeferredGateIsAccepted(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "test", "contract", "x", "pending-requirements.json")
 	write(t, path, manifest{Requirements: []requirement{
-		{Case: "nightly", Owner: "C15", Expiry: "C15", Reason: "no schedule exists", Test: ""},
+		{Case: "nightly", Owner: "C15", Expiry: "C15", Reason: "no schedule exists", Deferred: true},
 	}})
 	if err := runTool(t, root, epicWith("C15")); err != nil {
 		t.Error("a well-formed deferred gate was rejected")
