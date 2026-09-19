@@ -18,8 +18,10 @@ All thirteen cases are pending under `C01-I`. `make pending-contract` runs each
 case separately with the pending mode enabled and captures a non-zero exit code;
 normal contract execution verifies the manifest before skipping only registered
 pending cases. The manifest remains mutable so C01-I can remove entries in the
-same pull request that makes their production assertions pass; the accepted
-case source and framing tests remain immutable.
+same pull request that makes their production assertions pass. The immutable
+acceptance surface records each case name and requirement text; C01-I may
+replace a pending body with a production assertion without changing that
+approved meaning.
 
 The nightly timed fuzz-search deferral is also registered explicitly in the
 manifest. It is a gate deferral, not a protocol behavior case, but recording it
@@ -45,9 +47,10 @@ broker-observation case remains C08's responsibility.
 The pending contract proves that missing behavior cannot be mistaken for a
 passing acceptance suite. It does not prove protocol behavior until C01-I
 removes the entries and supplies the implementation. The framing vectors check
-field order, uint32 big-endian prefixes, cumulative envelope boundary arithmetic,
-length disagreement, and a zeroed signature field; they do not choose the still-
-structural value encodings for version, timestamp, or nonce.
+field order, uint32 big-endian prefixes, and concrete cumulative envelope
+boundary lengths at the ADR-0002 limit and one byte over it. They do not test
+receiver refusal or choose the still-structural value encodings for version,
+timestamp, or nonce.
 
 ## Validation
 

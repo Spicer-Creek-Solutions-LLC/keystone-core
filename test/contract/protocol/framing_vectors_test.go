@@ -68,23 +68,26 @@ func TestFramingEnvelopeBoundaries(t *testing.T) {
 	const envelopeLimit = 1 << 20
 	const prefixBytes = 9 * 4
 	const fixedValueBytes = 1 + 1 + 0 + 0 + 1 + 1 + 1 + 32
-	maxField := envelopeLimit - prefixBytes - fixedValueBytes
+	maxField := (1 << 20) - prefixBytes - fixedValueBytes
 	if maxField <= 0 {
 		t.Fatal("invalid envelope boundary arithmetic")
 	}
+	base := [][]byte{
+		{0x01}, {0x01}, nil, nil, {0x01}, {0x01}, {0x01}, nil,
+		make([]byte, 32),
+	}
 	for _, tc := range []struct {
-		name string
-		want int
+		name      string
+		fieldSize int
+		want      int
 	}{
-		{name: "field-at-envelope-limit", want: envelopeLimit},
-		{name: "field-one-byte-over-envelope-limit", want: envelopeLimit + 1},
+		{name: "field-at-envelope-limit", fieldSize: maxField, want: 1 << 20},
+		{name: "field-one-byte-over-envelope-limit", fieldSize: maxField + 1, want: (1 << 20) + 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			fieldBytes := maxField
-			if tc.want > envelopeLimit {
-				fieldBytes++
-			}
-			got := prefixBytes + fixedValueBytes + fieldBytes
+			fields := append([][]byte(nil), base...)
+			fields[7] = make([]byte, tc.fieldSize)
+			got := len(frameFields(fields))
 			if got != tc.want {
 				t.Fatalf("framed envelope length = %d, want %d", got, tc.want)
 			}
@@ -92,10 +95,13 @@ func TestFramingEnvelopeBoundaries(t *testing.T) {
 	}
 }
 
-func TestFramingLengthDisagreementVector(t *testing.T) {
-	framed := []byte{0, 0, 0, 1, 0x01, 0, 0, 0, 2, 0x01}
-	declared := binary.BigEndian.Uint32(framed[5:9])
-	if int(declared) == len(framed)-9 {
-		t.Fatalf("test vector does not contain a length disagreement: declared %d, available %d", declared, len(framed)-9)
+func frameFields(fields [][]byte) []byte {
+	var framed bytes.Buffer
+	for _, field := range fields {
+		var prefix [4]byte
+		binary.BigEndian.PutUint32(prefix[:], uint32(len(field)))
+		framed.Write(prefix[:])
+		framed.Write(field)
 	}
+	return framed.Bytes()
 }

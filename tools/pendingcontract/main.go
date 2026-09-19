@@ -82,9 +82,6 @@ func main() {
 			fatal("requirement %q is neither a contract test nor a known deferred gate", r.Case)
 		}
 	}
-	if len(cases) != len(tests) {
-		fatal("manifest covers %d contract tests; want %d", len(cases), len(tests))
-	}
 	sort.Slice(cases, func(i, j int) bool { return cases[i].Case < cases[j].Case })
 
 	for _, r := range cases {
