@@ -4,7 +4,7 @@ This records the acceptance-contract half of C01. It does not implement the
 protocol; C01-I owns the production behavior and must remove each pending entry
 when its corresponding case passes.
 
-Contract commit: `57babfa786e23d315c2d980a9066a0891ef3030d`
+Contract commit: `7d290ba58c6bc5e7632e1475cf404aeec20522e4`
 
 ## Contract cases
 
