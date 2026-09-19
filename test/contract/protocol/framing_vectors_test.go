@@ -65,13 +65,8 @@ func TestFramingVectorsAreSelfConsistent(t *testing.T) {
 }
 
 func TestFramingEnvelopeBoundaries(t *testing.T) {
-	const envelopeLimit = 1 << 20
-	const prefixBytes = 9 * 4
-	const fixedValueBytes = 1 + 1 + 0 + 0 + 1 + 1 + 1 + 32
-	maxField := (1 << 20) - prefixBytes - fixedValueBytes
-	if maxField <= 0 {
-		t.Fatal("invalid envelope boundary arithmetic")
-	}
+	const envelopeLimit = 1048576
+	const maxFieldAtLimit = 1048503
 	base := [][]byte{
 		{0x01}, {0x01}, nil, nil, {0x01}, {0x01}, {0x01}, nil,
 		make([]byte, 32),
@@ -81,8 +76,8 @@ func TestFramingEnvelopeBoundaries(t *testing.T) {
 		fieldSize int
 		want      int
 	}{
-		{name: "field-at-envelope-limit", fieldSize: maxField, want: 1 << 20},
-		{name: "field-one-byte-over-envelope-limit", fieldSize: maxField + 1, want: (1 << 20) + 1},
+		{name: "field-at-envelope-limit", fieldSize: maxFieldAtLimit, want: envelopeLimit},
+		{name: "field-one-byte-over-envelope-limit", fieldSize: maxFieldAtLimit + 1, want: envelopeLimit + 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fields := append([][]byte(nil), base...)

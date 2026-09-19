@@ -21,7 +21,9 @@ pending cases. The manifest remains mutable so C01-I can remove entries in the
 same pull request that makes their production assertions pass. The immutable
 acceptance surface records each case name and requirement text; C01-I may
 replace a pending body with a production assertion without changing that
-approved meaning.
+approved meaning. The hand-written framing vectors are pinned alongside that
+surface because changing both the inputs and expected bytes would hide a wrong
+encoding.
 
 The nightly timed fuzz-search deferral is also registered explicitly in the
 manifest. It is a gate deferral, not a protocol behavior case, but recording it
