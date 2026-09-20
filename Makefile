@@ -213,17 +213,53 @@ approved-documents-check: ## Compare merged documents with explicit approval sna
 pending-contract: ## Prove every registered C01-A case still fails for its reason
 	@cd tools/pendingcontract && go run . -root ../..
 
-contract: ## Run the C01-A contract, skipping only registered pending cases
-	go test -tags contract ./test/contract/protocol
+contract: ## Run every contract package, skipping only registered pending cases
+	# Enumerated, not listed. G39 did this for pending-contract and left its two
+	# siblings in this file single-package; a list beside the thing it lists is
+	# a second copy, and the copy goes stale.
+	@pkgs="$$(find test/contract -mindepth 1 -maxdepth 1 -type d | sort)"; \
+	[ -n "$$pkgs" ] || { echo "contract: no contract package found under test/contract"; exit 1; }; \
+	for p in $$pkgs; do echo "contract: $$p"; go test -tags contract "./$$p" || exit 1; done
 
-contract-immutability-check: ## Reject changes to the accepted C01-A surface
-	@sha="$$(sed -n 's/^Contract commit: `\([0-9a-f]\{40\}\)`.*/\1/p' docs/dossiers/C01-A-acceptance-evidence.md)"; \
-	if [ -z "$$sha" ]; then echo "contract-immutability-check: missing recorded contract commit"; exit 1; fi; \
-	git cat-file -e "$$sha^{commit}" || { echo "contract-immutability-check: recorded commit $$sha is unavailable"; exit 1; }; \
-	git diff --quiet "$$sha" -- test/contract/protocol/contract_surface.go test/contract/protocol/framing-vectors.json || { \
-		echo "contract-immutability-check: C01-I changed the accepted surface at $$sha"; exit 1; \
-	}; \
-	echo "contract-immutability-check: contract matches $$sha"
+contract-immutability-check: ## Reject changes to any accepted Cxx-A surface
+	# Each Cxx-A evidence file declares the package it governs and the commit
+	# that froze it. The directory name and the task id are unrelated, so the
+	# link has to be stated somewhere; stating it beside the commit keeps the
+	# two facts in one place.
+	#
+	# Matched BOTH WAYS, as archlint checks the register: a surface with no
+	# declaration fails rather than being skipped, and a declaration naming a
+	# package that does not exist fails too. Skipping an undeclared surface
+	# would be inference from absence, which is the defect G39 had to undo.
+	@ok=1; declared=""; \
+	for ev in docs/dossiers/*-A-acceptance-evidence.md; do \
+		[ -f "$$ev" ] || continue; \
+		pkg="$$(sed -n 's/^Contract package: `\([^`]*\)`.*/\1/p' $$ev)"; \
+		sha="$$(sed -n 's/^Contract commit: `\([0-9a-f]\{40\}\)`.*/\1/p' $$ev)"; \
+		[ -n "$$pkg" ] || continue; \
+		if [ -z "$$sha" ]; then \
+			echo "contract-immutability-check: $$ev declares $$pkg and records no commit"; ok=0; continue; fi; \
+		if [ ! -f "$$pkg/contract_surface.go" ]; then \
+			echo "contract-immutability-check: $$ev declares $$pkg, which has no contract_surface.go"; ok=0; continue; fi; \
+		git cat-file -e "$$sha^{commit}" 2>/dev/null || { \
+			echo "contract-immutability-check: $$ev records $$sha, which is unavailable"; ok=0; continue; }; \
+		frozen="$$(git ls-tree -r --name-only "$$sha" -- "$$pkg" | grep -E 'contract_surface\.go$$|\.json$$' | grep -v 'pending-requirements\.json$$')"; \
+		[ -n "$$frozen" ] || frozen="$$pkg/contract_surface.go"; \
+		if ! git diff --quiet "$$sha" -- $$frozen; then \
+			echo "contract-immutability-check: $$pkg changed since $$sha"; ok=0; continue; fi; \
+		declared="$$declared $$pkg"; \
+		echo "contract-immutability-check: $$pkg matches $$sha"; \
+	done; \
+	for s in test/contract/*/contract_surface.go; do \
+		[ -f "$$s" ] || continue; \
+		p="$$(dirname $$s)"; \
+		case " $$declared " in *" $$p "*) ;; *) \
+			echo "contract-immutability-check: $$p has an accepted surface that no Cxx-A evidence file declares"; ok=0;; \
+		esac; \
+	done; \
+	[ -n "$$declared" ] || { echo "contract-immutability-check: no package was checked"; ok=0; }; \
+	[ $$ok -eq 1 ] || exit 1
+
 
 archlint: ## The requirements register, both directions, with liveness from the epic
 	cd tools/archlint && go run . -root ../..
