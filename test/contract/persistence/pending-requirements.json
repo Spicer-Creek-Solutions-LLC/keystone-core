@@ -1,0 +1,11 @@
+{
+  "requirements": [
+    {
+      "case": "AC-11",
+      "owner": "C02",
+      "expiry": "C13",
+      "reason": "C13 provisions the store directories; C02 verifies file ownership and mode, while the directory mode remains owed to the provisioning task",
+      "deferred": true
+    }
+  ]
+}

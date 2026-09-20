@@ -14,7 +14,6 @@ import (
 
 const (
 	LedgerFileMode = 0o600
-	LedgerDirMode  = 0o700
 )
 
 var ErrCorrupt = errors.New("ledger is corrupt")

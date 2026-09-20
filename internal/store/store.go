@@ -15,7 +15,6 @@ import (
 
 const (
 	StoreFileMode = 0o600
-	StoreDirMode  = 0o700
 )
 
 var ErrCorrupt = errors.New("store is corrupt")

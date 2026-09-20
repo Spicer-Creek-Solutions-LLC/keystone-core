@@ -29,7 +29,7 @@ all thirteen frozen C02 cases:
 | AC-8 | Result publication acknowledgement is a separate write after the terminal result. |
 | AC-9 | The ledger can be read directly through SQLite without the server package. |
 | AC-10 | The checked-in schema artifact matches the shipped ledger tables. |
-| AC-11 | The contract verifies the provisioned ledger directory and both database modes are `0700` and `0600`. |
+| AC-11 | The contract verifies both database owners and file modes; directory provisioning and its `0700` mode remain explicitly deferred to C13. |
 | AC-12 | Receipt retention removes records older than the supplied floor. |
 | AC-13 | A non-SQLite ledger is refused as corrupt. |
 
@@ -42,7 +42,14 @@ path and provision its containing directory before opening a store.
 The focused contract was run with:
 
 ```text
-GOCACHE=/tmp/keystone-go-cache GOFLAGS=-buildvcs=false go test -tags contract ./test/contract/persistence
+go test -tags contract ./test/contract/persistence
+go test ./internal/store ./internal/ledger
 ```
 
-The pending manifest is removed because every C02 case is now implemented.
+AC-11 remains registered in `pending-requirements.json` as a deferred C13 gate:
+C02 does not create or chmod the store directories, and the contract does not
+claim that a fixture-created directory proves that property.
+
+Package tests cover rollback of an unknown server job and rejection of an
+agent start without a durable receipt; the contract remains the acceptance
+authority for the full behavior.
