@@ -29,11 +29,11 @@ does.
 | ARCH-COMM-001 | `ADR-0002` | `test/architecture/nats_only_test.go` | PR | `C06` |
 | ARCH-COMM-002 | `ADR-0002` | `test/e2e/docker/network_isolation_test.go` | PR | `P11` |
 | ARCH-COMM-003 | `ADR-0010` | `test/contract/protocol/contract_test.go`, `test/e2e/docker/journey_test.go` | PR | `C05` |
-| ARCH-NATS-001 | `ADR-0002` | `test/e2e/docker/accounts_test.go` | PR | `C03` |
-| ARCH-NATS-002 | `ADR-0003` | `test/e2e/docker/identity_inventory_test.go` | PR | `C03` |
-| ARCH-NATS-003 | `ADR-0004` | `test/e2e/docker/permissions_test.go` | PR | `C03` |
+| ARCH-NATS-001 | `ADR-0002` | `test/contract/authorization/accounts_test.go` | PR | `C03` |
+| ARCH-NATS-002 | `ADR-0003` | `test/contract/authorization/identity_inventory_test.go` | PR | `C03` |
+| ARCH-NATS-003 | `ADR-0004` | `test/contract/authorization/permissions_test.go` | PR | `C03` |
 | ARCH-NATS-004 | `ADR-0003` | `test/e2e/docker/enrollment_test.go` | PR | `C05` |
-| ARCH-NATS-005 | `ADR-0004` | `test/e2e/docker/system_subject_permissions_test.go` | PR | `C03` |
+| ARCH-NATS-005 | `ADR-0004` | `test/contract/authorization/system_subject_permissions_test.go` | PR | `C03` |
 | ARCH-NATS-006 | `ADR-0005` | `test/e2e/docker/envelope_confidentiality_test.go`, `test/e2e/docker/envelope_signature_test.go` | PR | `C08` |
 | ARCH-NATS-007 | `ADR-0002` | `test/e2e/docker/resource_limits_test.go` | Main | `C15` |
 | ARCH-NATS-008 | RFC/ADR process | `tools/archlint` decision-matrix rule | PR | `P11` |
