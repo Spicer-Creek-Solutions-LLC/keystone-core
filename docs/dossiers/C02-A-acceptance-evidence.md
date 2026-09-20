@@ -16,6 +16,22 @@ Contract amendments:
   to create, so it was unsatisfiable when it was frozen. The requirement now
   names the store file modes; the directory modes and the owning accounts are
   owed by C13.
+- `0902f56f13316842cb93abf50fe6fac289786196` — `G43`. `AC-11`'s test was still
+  called `TestAC11OwnershipAndModes` and asserted no ownership, because `G42`
+  narrowed the requirement and left the name. It is `TestAC11StoreFileModes`.
+
+  Both frozen surfaces were swept for the same defect rather than the one case
+  review named. Of twenty-six case names, twenty-five are at least as narrow as
+  their requirement and one claimed more. **Direction is the finding.** A name
+  narrower than its requirement is harmless because the requirement governs —
+  `AC-9` omits *"at its documented path"*, `AC-6` omits *"before publication"* —
+  while a name broader than its requirement is taken for the specification by a
+  reader who does not open this file.
+
+  **No gate holds that, and none is claimed.** A test name is not mechanically
+  comparable to a natural-language requirement; what is enforced is that every
+  entry above has a function of that name, so a half-landed rename does not
+  compile. The sweep is a reading, recorded here as one.
 
 The freeze commit never moves. Every commit that touches a frozen file after it
 is listed here with the task that approved it, and
