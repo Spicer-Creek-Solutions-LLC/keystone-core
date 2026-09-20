@@ -2,7 +2,10 @@
 
 package authorizationcontract
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestPOS1CommandPublisherPublishesCommand(t *testing.T)           { pending(t, "POS-1") }
 func TestPOS2CommandPublisherPublishesCancellation(t *testing.T)      { pending(t, "POS-2") }
@@ -27,5 +30,54 @@ func TestPOS20ResultConsumerAcknowledgesResult(t *testing.T)          { pending(
 func TestPOS21ResultConsumerSubscribesOwnInbox(t *testing.T)          { pending(t, "POS-21") }
 func TestPOS22MonitoringSubscribesTerminatedAdvisory(t *testing.T)    { pending(t, "POS-22") }
 func TestPOS23MonitoringSubscribesLimitAdvisory(t *testing.T)         { pending(t, "POS-23") }
-func TestGEN3GeneratedPermissionsContainNoExtraGrant(t *testing.T)    { pending(t, "GEN-3") }
-func TestGEN4GeneratedPermissionsOmitNoGrant(t *testing.T)            { pending(t, "GEN-4") }
+
+// GEN-3 and GEN-4 are the pair ADR-0004 section 8 is explicit about: "a positive
+// list shorter than the permission list lets C03 generate a JWT missing a
+// granted permission and still pass every case". One direction catches a
+// permission too wide, the other a permission too narrow, and a suite with only
+// the first cannot see an agent quietly losing the ability to publish its own
+// results.
+//
+// Both read the DECODED JWT, not the generator's Go record of what it intended
+// to put there, and compare against frozenPermissionMatrix -- which is C03-A's
+// independent transcription of ADR-0004 sections 4 and 6, not a list derived
+// from generator code.
+
+func TestGEN3GeneratedPermissionsContainNoExtraGrant(t *testing.T) {
+	d := generated(t)
+	frozen := frozenSet()
+	got := generatedSet(t, d)
+
+	if len(got) == 0 {
+		t.Fatal("no generated grant was read; the comparison below would pass by checking nothing")
+	}
+	for key := range got {
+		if !frozen[key] {
+			principal, direction, subject := splitKey(key)
+			t.Errorf("generated %s grant for %s is absent from the frozen matrix: %s",
+				direction, principal, subject)
+		}
+	}
+}
+
+func TestGEN4GeneratedPermissionsOmitNoGrant(t *testing.T) {
+	d := generated(t)
+	frozen := frozenSet()
+	got := generatedSet(t, d)
+
+	if len(frozen) == 0 {
+		t.Fatal("the frozen matrix is empty; the comparison below would pass by checking nothing")
+	}
+	for key := range frozen {
+		if !got[key] {
+			principal, direction, subject := splitKey(key)
+			t.Errorf("frozen %s grant for %s is absent from every generated JWT: %s",
+				direction, principal, subject)
+		}
+	}
+}
+
+func splitKey(key string) (principal, direction, subject string) {
+	parts := strings.SplitN(key, "\x00", 3)
+	return parts[0], parts[1], parts[2]
+}

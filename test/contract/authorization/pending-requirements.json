@@ -37,13 +37,6 @@
     {"case":"NEG-12","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not distinguished another consumer's permissions violation from a missing consumer","test":"TestNEG12AgentCannotPullOtherConsumer"},
     {"case":"NEG-13","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not distinguished a bare-ack permissions violation from every other refusal","test":"TestNEG13AgentCannotPublishBareAcknowledgement"},
     {"case":"NEG-14","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the command publisher cannot subscribe to results","test":"TestNEG14CommandPublisherCannotSubscribeResults"},
-    {"case":"NEG-15","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the presence consumer cannot publish commands","test":"TestNEG15PresenceConsumerCannotPublishCommands"},
-    {"case":"GEN-1","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not generated exactly two correctly separated accounts","test":"TestGEN1TwoAccountsAndNoSystemPrincipals"},
-    {"case":"GEN-2","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not generated a distinct identity for every principal","test":"TestGEN2EveryPrincipalHasDistinctIdentity"},
-    {"case":"GEN-3","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved generated JWTs contain no grant outside the frozen matrix","test":"TestGEN3GeneratedPermissionsContainNoExtraGrant"},
-    {"case":"GEN-4","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved generated JWTs omit no grant from the frozen matrix","test":"TestGEN4GeneratedPermissionsOmitNoGrant"},
-    {"case":"GEN-5","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not rendered every account limit and the stream and consumer limit values","test":"TestGEN5AccountLimitsAreFinite"},
-    {"case":"GEN-6","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved invalid and reserved identifiers are refused","test":"TestGEN6IdentifiersAreValidated"},
-    {"case":"GEN-7","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the operator seed is outside every deployment process","test":"TestGEN7OperatorSeedIsOutsideDeploymentProcesses"}
+    {"case":"NEG-15","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the presence consumer cannot publish commands","test":"TestNEG15PresenceConsumerCannotPublishCommands"}
   ]
 }
