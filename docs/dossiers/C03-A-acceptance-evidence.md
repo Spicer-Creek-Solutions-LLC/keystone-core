@@ -34,7 +34,15 @@ No separate `NATS-AUTHORIZATION.md` is owed. The operator-readable permission
 set would duplicate the accepted ADR while providing no stronger protection:
 the structured matrix in `contract_surface.go` is the independent source C03-I
 must compare generated JWTs against, and the existing immutability guard freezes
-it with the case meanings.
+it with the case meanings. C03-I therefore cannot retune the generator and its
+expected permissions together.
+
+The freeze-time review reconciled every enumerated grant in `ADR-0004` §§ 4 and
+6 with the matrix: it contains twenty-two distinct grants, with none missing or
+extra. The ADR's summary arithmetic says those sections contain fifteen and
+eleven grants, but their enumerated lists contain thirteen and ten; the command
+publisher's inbox grant appears in both sections and is represented once in the
+matrix.
 
 ## Contract cases
 
@@ -46,6 +54,10 @@ at C03-I. No entry is a deferred gate.
 The broker fixture accepts only a directory produced by the production
 generator, requires `nats-server.conf`, mounts the directory read-only, and
 starts `nats:2.15.0-alpine`. It contains no JWT and no permissive fallback.
+No case can execute the fixture until C03-I supplies that generated directory,
+so C03-A has reviewed but not run its port parsing, readiness loop, or cleanup.
+The fixture is not part of the frozen surface and C03-I may correct it without a
+contract amendment.
 
 The frozen requirements preserve the three distinctions most likely to produce
 false evidence:
@@ -86,8 +98,11 @@ connection control.
 The frozen matrix proves what C03-I must compare. It cannot prove that
 `ADR-0004` chose the right permissions, that a future NATS version enforces them
 identically, or that an unimplemented pending body would detect a behavioral
-mutation. The exact broker pin, two-direction matrix cases, per-case mutation
-requirement, and independent security review hold those boundaries explicitly.
+mutation. Its transcription is guarded by independent review at freeze time and
+by immutability thereafter; any transcription error remains part of the
+contract until an approved amendment removes it. The exact broker pin,
+two-direction matrix cases, per-case mutation requirement, and independent
+security review hold those boundaries explicitly.
 
 ## Validation
 
