@@ -7,7 +7,7 @@ passes against those production outputs.
 
 Contract package: `test/contract/authorization`
 
-Contract commit: `PENDING-FIRST-COMMIT`
+Contract commit: `f7bee60a2857c78beb81b2c6ea70a1b81d3cd575`
 
 Contract amendments:
 
