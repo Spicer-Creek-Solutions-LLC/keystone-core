@@ -94,3 +94,4 @@ name.
 | P11 — Repository skeleton and CI | [P11.md](P11.md) | Complete — P11a and P11b merged |
 | C01 — Protocol types and cryptographic vectors | [C01.md](C01.md) | **Complete** — C01-A's contract and C01-I's implementation both merged |
 | C02 — SQLite migrations and durable ledgers | [C02.md](C02.md) | **Complete** — C02-A and C02-I landed |
+| C03 — NATS operator, account, identity and permission generation | [C03.md](C03.md) | Dossier landed — C03-A and C03-I not started |
