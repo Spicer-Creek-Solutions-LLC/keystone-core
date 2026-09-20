@@ -27,7 +27,7 @@ var acceptanceContractSurface = map[string]acceptanceCase{
 	"AC-8":  {"TestAC8AcknowledgementIsItsOwnWrite", "the result acknowledgement must be its own write"},
 	"AC-9":  {"TestAC9LedgerIsReadableWithoutTheServer", "the agent ledger must be readable without the server at its documented path"},
 	"AC-10": {"TestAC10PublishedSchemaMatchesTheShippedOne", "the published schema must match the schema the implementation ships"},
-	"AC-11": {"TestAC11OwnershipAndModes", "each store and its directory must carry the owner and mode ADR-0008 fixes"},
+	"AC-11": {"TestAC11OwnershipAndModes", "each store file must carry the mode ADR-0008 fixes"},
 	"AC-12": {"TestAC12RetentionFloor", "no record may be removed before its retention floor"},
 	"AC-13": {"TestAC13CorruptStoreIsRefused", "a corrupt store must be refused rather than served"},
 }
