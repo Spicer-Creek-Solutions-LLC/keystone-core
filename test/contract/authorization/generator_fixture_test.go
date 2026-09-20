@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/nats-io/jwt/v2"
+	"github.com/nats-io/nkeys"
 
 	"go.keystone-core.io/keystone-core/internal/natsauth"
 )
@@ -23,18 +24,59 @@ const (
 	inboxSplit = ".>"
 )
 
+// agentKeys is what the AGENTS do, on the agents. ADR-0003 § 4 generates the
+// NATS NKey there and sends only the public half, so the fixture holds the
+// seeds and Generate never sees one. The seeds are returned because I2 needs
+// them to connect as each agent; nothing in I1 uses them, and they are kept
+// here rather than in the deployment for the reason the ADR gives.
+func agentKeys(t *testing.T) map[string][]byte {
+	t.Helper()
+	seeds := map[string][]byte{}
+	for _, id := range []string{agentOne, agentTwo} {
+		kp, err := nkeys.CreateUser()
+		if err != nil {
+			t.Fatalf("create agent key: %v", err)
+		}
+		seed, err := kp.Seed()
+		if err != nil {
+			t.Fatalf("agent seed: %v", err)
+		}
+		seeds[id] = seed
+	}
+	return seeds
+}
+
 func generated(t *testing.T) *natsauth.Deployment {
 	t.Helper()
+	d, _ := generatedWithAgentSeeds(t)
+	return d
+}
+
+func generatedWithAgentSeeds(t *testing.T) (*natsauth.Deployment, map[string][]byte) {
+	t.Helper()
+	seeds := agentKeys(t)
+	var agents []natsauth.AgentKey
+	for _, id := range []string{agentOne, agentTwo} {
+		kp, err := nkeys.FromSeed(seeds[id])
+		if err != nil {
+			t.Fatalf("load agent key: %v", err)
+		}
+		pub, err := kp.PublicKey()
+		if err != nil {
+			t.Fatalf("agent public key: %v", err)
+		}
+		agents = append(agents, natsauth.AgentKey{ID: id, PublicKey: pub})
+	}
 	d, err := natsauth.Generate(natsauth.Config{
 		FleetSize:     fleetSize,
-		Agents:        []string{agentOne, agentTwo},
+		Agents:        agents,
 		Tokens:        []string{tokenOne, tokenTwo},
 		RevokedTokens: []string{tokenTwo},
 	})
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
-	return d
+	return d, seeds
 }
 
 func writtenDeployment(t *testing.T) (*natsauth.Deployment, string) {

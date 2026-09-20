@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nats-io/nkeys"
+
 	"go.keystone-core.io/keystone-core/internal/natsauth"
 )
 
@@ -32,6 +34,20 @@ func TestGEN2EveryPrincipalHasDistinctIdentity(t *testing.T) {
 			t.Errorf("%s and %s share a public key", n.name, owner)
 		}
 		keys[n.identity.PublicKey] = n.name
+
+		// A permanent agent has no seed on this side at all: ADR-0003 § 4 keeps
+		// it on the agent. The exception is asserted rather than assumed --
+		// skipping an empty seed silently would let a service role lose its own
+		// seed without this case noticing.
+		if len(n.identity.Seed) == 0 {
+			if n.principal != "agent" {
+				t.Errorf("%s has no seed, and only a permanent agent may have none", n.name)
+			}
+			continue
+		}
+		if n.principal == "agent" {
+			t.Errorf("%s is a permanent agent and this side holds its seed", n.name)
+		}
 		if owner, clash := seeds[string(n.identity.Seed)]; clash {
 			t.Errorf("%s and %s share a seed", n.name, owner)
 		}
@@ -68,9 +84,18 @@ func TestGEN6IdentifiersAreValidated(t *testing.T) {
 		}{"reserved for a service principal", string(p)})
 	}
 
+	// A VALID public key is supplied every time, so the identifier is the only
+	// thing left to reject. With an empty key each case would fail on
+	// ErrAgentPublicKey and this would be a test of the wrong rule -- which the
+	// errors.Is assertion below is what catches.
+	key := validAgentKey(t)
+
 	for _, tc := range refused {
 		t.Run(tc.name+"/"+tc.id, func(t *testing.T) {
-			_, err := natsauth.Generate(natsauth.Config{FleetSize: 1, Agents: []string{tc.id}})
+			_, err := natsauth.Generate(natsauth.Config{
+				FleetSize: 1,
+				Agents:    []natsauth.AgentKey{{ID: tc.id, PublicKey: key}},
+			})
 			if err == nil {
 				t.Fatalf("generated an authorization set for identifier %q", tc.id)
 			}
@@ -83,7 +108,10 @@ func TestGEN6IdentifiersAreValidated(t *testing.T) {
 	// A rule that refuses everything is not a rule. Exactly 64 characters is
 	// the boundary the grammar permits, so it is the accepted case.
 	accepted := strings.Repeat("a", 64)
-	if _, err := natsauth.Generate(natsauth.Config{FleetSize: 1, Agents: []string{accepted}}); err != nil {
+	if _, err := natsauth.Generate(natsauth.Config{
+		FleetSize: 1,
+		Agents:    []natsauth.AgentKey{{ID: accepted, PublicKey: key}},
+	}); err != nil {
 		t.Fatalf("refused a well-formed 64-character identifier: %v", err)
 	}
 
@@ -93,4 +121,17 @@ func TestGEN6IdentifiersAreValidated(t *testing.T) {
 	if _, err := natsauth.Generate(natsauth.Config{FleetSize: 1, Tokens: []string{"token.one"}}); err == nil {
 		t.Fatal("generated an authorization set for an enrollment token containing a dot")
 	}
+}
+
+func validAgentKey(t *testing.T) string {
+	t.Helper()
+	kp, err := nkeys.CreateUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub, err := kp.PublicKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return pub
 }

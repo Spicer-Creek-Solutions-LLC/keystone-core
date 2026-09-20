@@ -21,7 +21,6 @@ const (
 	credentialMode  = 0o600
 	directoryMode   = 0o700
 	credentialsExt  = ".creds"
-	agentPrefix     = "agent-"
 	bootstrapPrefix = "bootstrap-"
 )
 
@@ -69,17 +68,19 @@ func (d *Deployment) Write(dir string) error {
 	return nil
 }
 
-// credentialSet names every credential file the deployment holds. Agents and
-// bootstrap identities are prefixed so an identifier can never collide with a
-// service role's file name -- the service tokens are valid agent identifiers,
-// which is the collision ADR-0005 § 3 reserves them against.
+// credentialSet names every credential file the deployment holds. Bootstrap
+// identities are prefixed so a token can never collide with a service role's
+// file name -- the service tokens are valid identifiers, which is the collision
+// ADR-0005 § 3 reserves them against.
+//
+// PERMANENT AGENTS ARE ABSENT, and that is the point. A .creds file carries a
+// seed, ADR-0003 § 4 keeps the agent's seed on the agent, and this side has
+// none to write. An agent's JWT is not secret and returns to it over the
+// enrollment reply subject (ADR-0003 § 4); it is not deployment state here.
 func (d *Deployment) credentialSet() map[string]Identity {
 	set := map[string]Identity{}
 	for p, identity := range d.Services {
 		set[string(p)] = identity
-	}
-	for id, identity := range d.Agents {
-		set[agentPrefix+id] = identity
 	}
 	for token, identity := range d.Bootstraps {
 		set[bootstrapPrefix+token] = identity
