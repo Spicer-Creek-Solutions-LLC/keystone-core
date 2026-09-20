@@ -8,7 +8,11 @@ module go.keystone-core.io/keystone-core
 
 go 1.27
 
-require modernc.org/sqlite v1.59.0
+require (
+	github.com/nats-io/jwt/v2 v2.8.2
+	github.com/nats-io/nkeys v0.4.16
+	modernc.org/sqlite v1.59.0
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -16,6 +20,11 @@ require (
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	// Held at v0.56.0 deliberately. nkeys requires v0.52.0, which carries four
+	// known vulnerabilities; three are fixed by v0.56.0 and none is reachable
+	// from this module, so `make vuln` passes either way and nothing but this
+	// line keeps the floor.
+	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	modernc.org/libc v1.75.7 // indirect
 	modernc.org/mathutil v1.7.1 // indirect

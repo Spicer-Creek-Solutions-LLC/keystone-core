@@ -1,0 +1,299 @@
+package natsauth
+
+import (
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/nats-io/jwt/v2"
+	"github.com/nats-io/nkeys"
+)
+
+// The contract is the acceptance authority. These cover what it does not reach:
+// properties of the generator that no frozen case names, and that would
+// otherwise be checked by nobody.
+
+// agentKeypair is what an AGENT does on first enrollment: ADR-0003 § 4 has it
+// generate its NKey locally and send only the public half. The seed stays here,
+// on the test's side of the boundary, and is never handed to Generate.
+func agentKeypair(t *testing.T) (AgentKey, []byte) {
+	t.Helper()
+	kp, err := nkeys.CreateUser()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub, err := kp.PublicKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := kp.Seed()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return AgentKey{ID: "agent-one", PublicKey: pub}, seed
+}
+
+func generate(t *testing.T) *Deployment {
+	t.Helper()
+	agent, _ := agentKeypair(t)
+	d, err := Generate(Config{
+		FleetSize:     4,
+		Agents:        []AgentKey{agent},
+		Tokens:        []string{"token-one", "token-two"},
+		RevokedTokens: []string{"token-two"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+// ADR-0003 section 6 S5 revokes at the account, so the account JWT is the
+// artifact that carries it -- not the absence of a user.
+func TestRevocationIsRecordedInTheAccount(t *testing.T) {
+	d := generate(t)
+
+	claims, err := jwt.DecodeAccountClaims(d.Keystone.JWT)
+	if err != nil {
+		t.Fatal(err)
+	}
+	revoked := d.Bootstraps["token-two"].PublicKey
+	if !claims.Revocations.IsRevoked(revoked, time.Now()) {
+		t.Error("the revoked bootstrap identity is not in the account's revocation list")
+	}
+	live := d.Bootstraps["token-one"].PublicKey
+	if claims.Revocations.IsRevoked(live, time.Now()) {
+		t.Error("an unrevoked bootstrap identity is in the revocation list")
+	}
+}
+
+// ADR-0003 section 8's short expiry is the failure backstop, so it has to be on
+// the claim rather than enforced by whoever remembers to stop using it.
+func TestBootstrapIdentitiesExpireAndPermanentOnesDoNot(t *testing.T) {
+	d := generate(t)
+
+	bootstrap, err := jwt.DecodeUserClaims(d.Bootstraps["token-one"].JWT)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bootstrap.Expires == 0 {
+		t.Error("a bootstrap identity does not expire")
+	}
+	agent, err := jwt.DecodeUserClaims(d.Agents["agent-one"].JWT)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if agent.Expires != 0 {
+		t.Error("a permanent agent identity expires")
+	}
+}
+
+// Two generations must never agree. A generator that produced a stable key
+// would make a committed fixture possible, which ADR-0010 section 3 forbids.
+func TestGenerationIsNotReproducible(t *testing.T) {
+	first, second := generate(t), generate(t)
+	if first.OperatorPublicKey == second.OperatorPublicKey {
+		t.Error("two generations produced the same operator key")
+	}
+	if first.Keystone.PublicKey == second.Keystone.PublicKey {
+		t.Error("two generations produced the same account key")
+	}
+}
+
+// Credentials are secrets on disk. Nothing in ADR-0008 section 4 covers them --
+// that table is the stores -- so the mode is asserted here or nowhere.
+func TestWrittenCredentialsAreNotReadableByOthers(t *testing.T) {
+	d := generate(t)
+	dir := t.TempDir()
+	if err := d.Write(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	seen := 0
+	err := filepath.WalkDir(filepath.Join(dir, CredentialsDir), func(path string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		seen++
+		if info.Mode().Perm() != credentialMode {
+			t.Errorf("%s mode = %o, want %o", filepath.Base(path), info.Mode().Perm(), credentialMode)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if seen == 0 {
+		t.Fatal("no credential file was written; the walk checked nothing")
+	}
+}
+
+// The service tokens are valid identifiers, which is why ADR-0005 section 3
+// reserves them. The credential file names have to keep an enrollment token
+// apart from a service role too, or one would overwrite the other.
+func TestBootstrapCredentialsCannotCollideWithAServiceRole(t *testing.T) {
+	d, err := Generate(Config{FleetSize: 1, Tokens: []string{"one"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	set := d.credentialSet()
+	if len(set) != len(Services())+1 {
+		t.Fatalf("credential set holds %d entries, want %d", len(set), len(Services())+1)
+	}
+	for name := range set {
+		if strings.HasPrefix(name, bootstrapPrefix) {
+			continue
+		}
+		if _, service := map[string]bool{
+			string(CommandPublisher): true, string(EnrollmentService): true,
+			string(ResultConsumer): true, string(PresenceConsumer): true,
+			string(MonitoringRole): true,
+		}[name]; !service {
+			t.Errorf("credential %q is neither a service role nor a prefixed token", name)
+		}
+	}
+}
+
+// ADR-0003 section 4: "no private key the agent uses is ever generated by,
+// transmitted to, or recoverable from the server". Review of C03-I1 found the
+// generator creating agent keypairs and writing their seeds into the deployment
+// directory, which let a server holding that directory become an agent rather
+// than merely mint a new one.
+//
+// GEN-7 searches the artifacts for the OPERATOR seed and is blind to this, so
+// the property is asserted here or nowhere.
+func TestDeploymentArtifactsCannotRecoverAnAgentSeed(t *testing.T) {
+	agent, seed := agentKeypair(t)
+	d, err := Generate(Config{FleetSize: 1, Agents: []AgentKey{agent}, Tokens: []string{"token-one"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := d.Agents[agent.ID]; len(got.Seed) != 0 {
+		t.Fatal("the generator retained an agent seed")
+	}
+
+	dir := t.TempDir()
+	if err := d.Write(dir); err != nil {
+		t.Fatal(err)
+	}
+	files := 0
+	err = filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		files++
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		if strings.Contains(string(content), string(seed)) {
+			rel, _ := filepath.Rel(dir, path)
+			t.Errorf("%s contains the agent seed", rel)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if files == 0 {
+		t.Fatal("the deployment wrote no files; the search read nothing")
+	}
+
+	// The agent's JWT must still have been minted, against the public key the
+	// agent supplied. Without this the case would pass against a generator that
+	// simply refused to issue agent identities at all.
+	claims, err := jwt.DecodeUserClaims(d.Agents[agent.ID].JWT)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claims.Subject != agent.PublicKey {
+		t.Errorf("agent JWT subject = %q, want the supplied public key %q", claims.Subject, agent.PublicKey)
+	}
+}
+
+// There is no path that produces an agent identity without the agent's public
+// key. A generator that fell back to creating one would reintroduce the defect
+// review found, so the refusal is a test rather than a convention.
+func TestAnAgentIdentityCannotBeGeneratedWithoutItsPublicKey(t *testing.T) {
+	for _, tc := range []struct{ name, key string }{
+		{"absent", ""},
+		{"not an NKey", "not-a-key"},
+		{"an account key rather than a user key", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Generate(Config{FleetSize: 1, Agents: []AgentKey{{ID: "agent-one", PublicKey: tc.key}}})
+			if !errors.Is(err, ErrAgentPublicKey) {
+				t.Fatalf("generated an agent identity with public key %q: %v", tc.key, err)
+			}
+		})
+	}
+}
+
+// ADR-0002 section 9 requires that no limit be absent or infinite. Generate
+// used to copy Config.Limits straight through, so a caller could sign an
+// account with no bound on anything -- and GEN-5 could not see it, because the
+// contract generates with the defaults and the reflective case therefore
+// demonstrated the default instance rather than the configurable input path.
+func TestSuppliedLimitsAreValidatedBeforeAnythingIsSigned(t *testing.T) {
+	tightened := DefaultLimits(4)
+	tightened.Account.MaxConnections = 6
+	tightened.Consumer.MaxDeliver = 3
+
+	for _, tc := range []struct {
+		name    string
+		limits  Limits
+		refused bool
+	}{
+		{"a zero value is absent everywhere", Limits{}, true},
+		{"one field left at zero", withAccountConnections(DefaultLimits(4), 0), true},
+		{"jwt.NoLimit is infinite, not a value", withAccountConnections(DefaultLimits(4), -1), true},
+		{"an empty backoff schedule", withoutBackOff(DefaultLimits(4)), true},
+		{"a non-positive backoff entry", withBackOff(DefaultLimits(4), []int64{1, 0, 5}), true},
+		{"a tightened set is accepted", tightened, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			limits := tc.limits
+			d, err := Generate(Config{FleetSize: 4, Limits: &limits, Tokens: []string{"token-one"}})
+			switch {
+			case tc.refused && err == nil:
+				t.Fatal("generated a deployment with an absent or infinite limit")
+			case tc.refused && !errors.Is(err, ErrLimits):
+				t.Fatalf("refused with %v, want a limits error", err)
+			case !tc.refused && err != nil:
+				t.Fatalf("refused a tightened but complete limit set: %v", err)
+			case !tc.refused:
+				// The tightened values must actually reach the signed account,
+				// or acceptance would mean nothing.
+				claims, err := jwt.DecodeAccountClaims(d.Keystone.JWT)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if claims.Limits.Conn != 6 {
+					t.Errorf("account Conn = %d, want the tightened 6", claims.Limits.Conn)
+				}
+			}
+		})
+	}
+}
+
+func withAccountConnections(l Limits, n int64) Limits {
+	l.Account.MaxConnections = n
+	return l
+}
+
+func withoutBackOff(l Limits) Limits {
+	l.Consumer.BackOffSeconds = nil
+	return l
+}
+
+func withBackOff(l Limits, schedule []int64) Limits {
+	l.Consumer.BackOffSeconds = schedule
+	return l
+}
