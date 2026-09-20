@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 	"unicode"
@@ -214,8 +213,6 @@ func TestAC11OwnershipAndModes(t *testing.T) {
 	}
 	openLedgerAt(t, path).Close()
 	checkMode(t, path, 0o600)
-	checkOwner(t, filepath.Dir(path))
-	checkOwner(t, path)
 	serverPath := filepath.Join(root, "server.db")
 	s, err := store.Open(serverPath)
 	if err != nil {
@@ -223,7 +220,6 @@ func TestAC11OwnershipAndModes(t *testing.T) {
 	}
 	s.Close()
 	checkMode(t, serverPath, 0o600)
-	checkOwner(t, serverPath)
 }
 
 func TestAC12RetentionFloor(t *testing.T) {
@@ -325,20 +321,6 @@ func checkMode(t *testing.T, path string, want os.FileMode) {
 	}
 	if info.Mode().Perm() != want {
 		t.Fatalf("%s mode = %o, want %o", path, info.Mode().Perm(), want)
-	}
-}
-func checkOwner(t *testing.T, path string) {
-	t.Helper()
-	info, err := os.Stat(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	stat, ok := info.Sys().(*syscall.Stat_t)
-	if !ok {
-		t.Fatalf("%s has no POSIX ownership information", path)
-	}
-	if uint32(os.Getuid()) != stat.Uid {
-		t.Fatalf("%s uid = %d, want %d", path, stat.Uid, os.Getuid())
 	}
 }
 func normalizeSQL(s string) string {

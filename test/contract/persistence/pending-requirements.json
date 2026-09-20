@@ -1,10 +1,10 @@
 {
   "requirements": [
     {
-      "case": "AC-11",
-      "owner": "C02",
+      "case": "store-directory-ownership",
+      "owner": "C13",
       "expiry": "C13",
-      "reason": "C13 provisions the store directories; C02 verifies file ownership and mode, while the directory mode remains owed to the provisioning task",
+      "reason": "ADR-0008 section 4 fixes both store directories at 0700 and names the account that owns each store; C13 provisions accounts and directories, and no in-process C02 test can observe which account owns a file",
       "deferred": true
     }
   ]

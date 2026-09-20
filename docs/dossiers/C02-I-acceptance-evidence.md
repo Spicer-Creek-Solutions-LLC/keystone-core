@@ -29,7 +29,7 @@ all thirteen frozen C02 cases:
 | AC-8 | Result publication acknowledgement is a separate write after the terminal result. |
 | AC-9 | The ledger can be read directly through SQLite without the server package. |
 | AC-10 | The checked-in schema artifact matches the shipped ledger tables. |
-| AC-11 | The contract verifies both database owners and file modes; directory provisioning and its `0700` mode remain explicitly deferred to C13. |
+| AC-11 | The contract verifies both store file modes required by ADR-0008. |
 | AC-12 | Receipt retention removes records older than the supplied floor. |
 | AC-13 | A non-SQLite ledger is refused as corrupt. |
 
@@ -46,9 +46,9 @@ go test -tags contract ./test/contract/persistence
 go test ./internal/store ./internal/ledger
 ```
 
-AC-11 remains registered in `pending-requirements.json` as a deferred C13 gate:
-C02 does not create or chmod the store directories, and the contract does not
-claim that a fixture-created directory proves that property.
+The pending manifest registers `store-directory-ownership` as a deferred C13
+gate. C02 does not create or chmod the store directories, and no C02 test claims
+to prove which account owns them.
 
 Package tests cover rollback of an unknown server job and rejection of an
 agent start without a durable receipt; the contract remains the acceptance
