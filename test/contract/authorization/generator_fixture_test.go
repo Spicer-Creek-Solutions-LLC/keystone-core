@@ -52,7 +52,18 @@ func generated(t *testing.T) *natsauth.Deployment {
 	return d
 }
 
+func generatedWithLimits(t *testing.T, limits *natsauth.Limits) *natsauth.Deployment {
+	t.Helper()
+	d, _ := generate(t, limits)
+	return d
+}
+
 func generatedWithAgentSeeds(t *testing.T) (*natsauth.Deployment, map[string][]byte) {
+	t.Helper()
+	return generate(t, nil)
+}
+
+func generate(t *testing.T, limits *natsauth.Limits) (*natsauth.Deployment, map[string][]byte) {
 	t.Helper()
 	seeds := agentKeys(t)
 	var agents []natsauth.AgentKey
@@ -72,6 +83,7 @@ func generatedWithAgentSeeds(t *testing.T) (*natsauth.Deployment, map[string][]b
 		Agents:        agents,
 		Tokens:        []string{tokenOne, tokenTwo},
 		RevokedTokens: []string{tokenTwo},
+		Limits:        limits,
 	})
 	if err != nil {
 		t.Fatalf("generate: %v", err)

@@ -235,3 +235,65 @@ func TestAnAgentIdentityCannotBeGeneratedWithoutItsPublicKey(t *testing.T) {
 		})
 	}
 }
+
+// ADR-0002 section 9 requires that no limit be absent or infinite. Generate
+// used to copy Config.Limits straight through, so a caller could sign an
+// account with no bound on anything -- and GEN-5 could not see it, because the
+// contract generates with the defaults and the reflective case therefore
+// demonstrated the default instance rather than the configurable input path.
+func TestSuppliedLimitsAreValidatedBeforeAnythingIsSigned(t *testing.T) {
+	tightened := DefaultLimits(4)
+	tightened.Account.MaxConnections = 6
+	tightened.Consumer.MaxDeliver = 3
+
+	for _, tc := range []struct {
+		name    string
+		limits  Limits
+		refused bool
+	}{
+		{"a zero value is absent everywhere", Limits{}, true},
+		{"one field left at zero", withAccountConnections(DefaultLimits(4), 0), true},
+		{"jwt.NoLimit is infinite, not a value", withAccountConnections(DefaultLimits(4), -1), true},
+		{"an empty backoff schedule", withoutBackOff(DefaultLimits(4)), true},
+		{"a non-positive backoff entry", withBackOff(DefaultLimits(4), []int64{1, 0, 5}), true},
+		{"a tightened set is accepted", tightened, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			limits := tc.limits
+			d, err := Generate(Config{FleetSize: 4, Limits: &limits, Tokens: []string{"token-one"}})
+			switch {
+			case tc.refused && err == nil:
+				t.Fatal("generated a deployment with an absent or infinite limit")
+			case tc.refused && !errors.Is(err, ErrLimits):
+				t.Fatalf("refused with %v, want a limits error", err)
+			case !tc.refused && err != nil:
+				t.Fatalf("refused a tightened but complete limit set: %v", err)
+			case !tc.refused:
+				// The tightened values must actually reach the signed account,
+				// or acceptance would mean nothing.
+				claims, err := jwt.DecodeAccountClaims(d.Keystone.JWT)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if claims.Limits.Conn != 6 {
+					t.Errorf("account Conn = %d, want the tightened 6", claims.Limits.Conn)
+				}
+			}
+		})
+	}
+}
+
+func withAccountConnections(l Limits, n int64) Limits {
+	l.Account.MaxConnections = n
+	return l
+}
+
+func withoutBackOff(l Limits) Limits {
+	l.Consumer.BackOffSeconds = nil
+	return l
+}
+
+func withBackOff(l Limits, schedule []int64) Limits {
+	l.Consumer.BackOffSeconds = schedule
+	return l
+}

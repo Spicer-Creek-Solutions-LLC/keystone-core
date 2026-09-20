@@ -1,5 +1,12 @@
 package natsauth
 
+import (
+	"errors"
+	"fmt"
+	"reflect"
+	"strings"
+)
+
 // Limits renders ADR-0002 § 9. That section calls its values "starting points a
 // deployment may tighten" and requires that **none is absent or infinite**, so
 // every field here is explicit and GEN-5 asserts the property rather than the
@@ -90,4 +97,59 @@ func DefaultLimits(fleetSize int64) Limits {
 			AckWaitSeconds: 30,
 		},
 	}
+}
+
+// ErrLimits is returned for a limit set that is absent or infinite anywhere.
+var ErrLimits = errors.New("every limit must be present and finite")
+
+// Validate rejects a limit set ADR-0002 § 9 forbids: "the requirement is that
+// none is absent or infinite". Zero is absent, and jwt.NoLimit is -1, so both
+// are non-positive and one rule covers them.
+//
+// It walks by reflection rather than listing fields, for the reason GEN-5 does:
+// a field added later is covered without this function being edited, and a
+// listed field set is a second copy of the struct that goes stale. Any kind the
+// walk does not understand is an error rather than a skip -- a limit the check
+// cannot judge is a limit it is not checking.
+//
+// WHY THIS EXISTS AT ALL: Generate used to copy Config.Limits straight through,
+// so a caller could hand it a zero value or jwt.NoLimit and receive a signed
+// account with no bound on anything. GEN-5 could not see it, because the
+// contract generates with the defaults and the reflective case therefore
+// demonstrated the default instance rather than the configurable input.
+//
+// It does NOT enforce that a supplied set only tightens the defaults. ADR-0002
+// § 9 calls the values "starting points a deployment may tighten" and states one
+// requirement -- none absent, none infinite. Refusing a looser-but-finite value
+// would be C03 deciding a limit, which § 3's "What C03 decides" puts outside it.
+func (l Limits) Validate() error {
+	var problems []string
+	var walk func(path string, v reflect.Value)
+	walk = func(path string, v reflect.Value) {
+		switch v.Kind() {
+		case reflect.Struct:
+			for i := 0; i < v.NumField(); i++ {
+				walk(path+"."+v.Type().Field(i).Name, v.Field(i))
+			}
+		case reflect.Slice:
+			if v.Len() == 0 {
+				problems = append(problems, path+" is empty")
+				return
+			}
+			for i := 0; i < v.Len(); i++ {
+				walk(fmt.Sprintf("%s[%d]", path, i), v.Index(i))
+			}
+		case reflect.Int64, reflect.Int:
+			if v.Int() <= 0 {
+				problems = append(problems, fmt.Sprintf("%s is %d", path, v.Int()))
+			}
+		default:
+			problems = append(problems, path+" has kind "+v.Kind().String()+", which this check cannot judge")
+		}
+	}
+	walk("Limits", reflect.ValueOf(l))
+	if len(problems) > 0 {
+		return fmt.Errorf("%w: %s", ErrLimits, strings.Join(problems, "; "))
+	}
+	return nil
 }

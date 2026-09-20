@@ -64,9 +64,44 @@ func TestGEN1TwoAccountsAndNoSystemPrincipals(t *testing.T) {
 // is walked rather than listed, so a limit added later is covered without this
 // case being edited -- and no field is exempt, which is why the command
 // stream's per-subject limit is set rather than left at a benign zero.
+//
+// It runs over the DEFAULT deployment and over a supplied one. Review of
+// C03-I1 found the first draft exercising only the defaults: the generator
+// copied Config.Limits straight through, so a caller could sign an account with
+// no bound on anything and this case demonstrated the default instance rather
+// than the input path that could carry the defect.
 func TestGEN5AccountLimitsAreFinite(t *testing.T) {
-	d, _ := writtenDeployment(t)
+	t.Run("the defaults a deployment starts from", func(t *testing.T) {
+		d, _ := writtenDeployment(t)
+		assertLimitsAreFinite(t, d)
+	})
 
+	t.Run("a set the deployment supplied", func(t *testing.T) {
+		tightened := natsauth.DefaultLimits(fleetSize)
+		tightened.Account.MaxConnections = 6
+		tightened.Consumer.MaxDeliver = 3
+		d := generatedWithLimits(t, &tightened)
+		assertLimitsAreFinite(t, d)
+	})
+
+	// An absent limit must not be able to reach a deployment at all. Without
+	// this the two cases above would only describe inputs that happen to be
+	// well formed.
+	t.Run("an absent limit cannot reach a deployment", func(t *testing.T) {
+		infinite := natsauth.DefaultLimits(fleetSize)
+		infinite.Account.MaxSubscriptions = -1
+		if _, err := natsauth.Generate(natsauth.Config{
+			FleetSize: fleetSize,
+			Tokens:    []string{tokenOne},
+			Limits:    &infinite,
+		}); err == nil {
+			t.Fatal("generated a deployment whose account had an infinite subscription limit")
+		}
+	})
+}
+
+func assertLimitsAreFinite(t *testing.T, d *natsauth.Deployment) {
+	t.Helper()
 	var walk func(path string, v reflect.Value)
 	walk = func(path string, v reflect.Value) {
 		switch v.Kind() {

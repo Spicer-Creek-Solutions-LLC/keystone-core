@@ -128,6 +128,12 @@ func Generate(cfg Config) (*Deployment, error) {
 	if cfg.Limits != nil {
 		limits = *cfg.Limits
 	}
+	// Validated whether supplied or defaulted. A bad default is as capable of
+	// signing an account with no bound on anything as a bad argument, and
+	// checking only the argument would trust the one nobody passes.
+	if err := limits.Validate(); err != nil {
+		return nil, err
+	}
 
 	operator, err := nkeys.CreateOperator()
 	if err != nil {
