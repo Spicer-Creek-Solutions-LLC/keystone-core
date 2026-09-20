@@ -205,7 +205,7 @@ func TestAC10PublishedSchemaMatchesTheShippedOne(t *testing.T) {
 	}
 }
 
-func TestAC11OwnershipAndModes(t *testing.T) {
+func TestAC11StoreFileModes(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "ledger", "ledger.db")
 	if err := os.Mkdir(filepath.Dir(path), 0o700); err != nil {
