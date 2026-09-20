@@ -8,6 +8,24 @@ Contract package: `test/contract/persistence`
 
 Contract commit: `94e602a97428ff3f12d0427b0b5b03b9bf995ea4`
 
+Contract amendments:
+
+- `25b3b50239d92b7283b6f99814c7a41ba761f1cb` — `G42`. `AC-11` required the owner
+  and mode of each store **and its directory**, and `C02.md` § 12 puts creating
+  directories at C13. The case demanded a property of a thing C02 is forbidden
+  to create, so it was unsatisfiable when it was frozen. The requirement now
+  names the store file modes; the directory modes and the owning accounts are
+  owed by C13.
+
+The freeze commit never moves. Every commit that touches a frozen file after it
+is listed here with the task that approved it, and
+`contract-immutability-check` enumerates those commits from git and rejects one
+that is not declared. **Recording the amendment is what makes it legitimate**,
+not the gate: before `G42` the gate ran `git diff --quiet` against the recorded
+commit, so any change that also moved the recorded commit passed. Its help text
+said it rejected changes to an accepted surface; what it did was re-baseline
+them.
+
 ## Contract cases
 
 Thirteen cases, `AC-1` through `AC-13`, frozen in
