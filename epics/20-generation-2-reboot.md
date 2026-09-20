@@ -925,6 +925,31 @@ limitations go in the pull request.
     its neighbours is how this list got here.
   - **Named specifically rather than opening `cmd/`.** C02 needs one binary, and
     a path list admitting any binary is not a boundary.
+- [x] G42 — Let `AC-11` require what C02 can hold, and make amending a frozen
+  surface checkable. `C02-A` froze `AC-11` as *"each store **and its directory**
+  must carry the owner and mode `ADR-0008` fixes"* while `C02.md` § 12 puts
+  creating accounts and directories at C13. **The case demanded a property of a
+  thing C02 is forbidden to create**, so no implementation could satisfy it; the
+  requirement now names the store file modes, and § 5.2's row agrees. The
+  directory modes and the owning accounts are owed by C13 and belong in the
+  manifest as a deferred gate, which `C02-I` registers.
+  - **`pending-contract` rejects a deferred entry that names a registered
+    case.** `C02-I` marked `AC-11` deferred, and the tool accepted it: the case
+    ran green under `make contract` while the manifest reported it as work
+    nobody had done. G39 made the classification **declared** rather than
+    inferred from an empty field, and left the declaration unverified. The
+    surface is read from source, because `tools/` cannot import a contract
+    package; an unreadable one is fatal rather than read as no cases.
+  - **`contract-immutability-check` no longer re-baselines what it claims to
+    reject.** It ran `git diff --quiet` against `Contract commit:`, so a pull
+    request that changed a surface and moved that commit passed every gate. The
+    freeze commit now never moves: every commit touching a frozen file after it
+    is enumerated from git and must be declared under `Contract amendments:`
+    with an approving task that exists in the epic, matched both ways.
+  - **G42 is the first amendment to a frozen surface**, which is exactly why it
+    could not be the change that walked through that hole. The branch
+    demonstrates the gate against itself: the commit that amends the surface
+    fails `contract-immutability-check` until the commit that records it lands.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

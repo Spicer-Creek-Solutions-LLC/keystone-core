@@ -221,7 +221,7 @@ contract: ## Run every contract package, skipping only registered pending cases
 	[ -n "$$pkgs" ] || { echo "contract: no contract package found under test/contract"; exit 1; }; \
 	for p in $$pkgs; do echo "contract: $$p"; go test -tags contract "./$$p" || exit 1; done
 
-contract-immutability-check: ## Reject changes to any accepted Cxx-A surface
+contract-immutability-check: ## Reject an undeclared change to any accepted Cxx-A surface
 	# Each Cxx-A evidence file declares the package it governs and the commit
 	# that froze it. The directory name and the task id are unrelated, so the
 	# link has to be stated somewhere; stating it beside the commit keeps the
@@ -231,6 +231,21 @@ contract-immutability-check: ## Reject changes to any accepted Cxx-A surface
 	# declaration fails rather than being skipped, and a declaration naming a
 	# package that does not exist fails too. Skipping an undeclared surface
 	# would be inference from absence, which is the defect G39 had to undo.
+	#
+	# THE FREEZE COMMIT NEVER MOVES. Until G42 this target ran
+	# `git diff --quiet $$sha -- $$frozen`, so a pull request that changed a
+	# surface and moved `Contract commit:` to match passed: the help text said
+	# it rejected changes to an accepted surface, and what it did was
+	# re-baseline them. A frozen surface that any commit may silently rewrite
+	# is not frozen, and G42 was itself the first amendment, so it should not
+	# have been the change that walked through that hole.
+	#
+	# An amendment is legitimate because it is RECORDED, not because a gate
+	# permits it. Every commit touching a frozen file after the freeze is
+	# enumerated from git and must be declared under `Contract amendments:`
+	# with the task that approved it, and that task must exist in the epic.
+	# Matched both ways again: a declaration naming a commit that touched
+	# nothing is as wrong as a commit no declaration names.
 	@ok=1; declared=""; \
 	for ev in docs/dossiers/*-A-acceptance-evidence.md; do \
 		[ -f "$$ev" ] || continue; \
@@ -243,12 +258,29 @@ contract-immutability-check: ## Reject changes to any accepted Cxx-A surface
 			echo "contract-immutability-check: $$ev declares $$pkg, which has no contract_surface.go"; ok=0; continue; fi; \
 		git cat-file -e "$$sha^{commit}" 2>/dev/null || { \
 			echo "contract-immutability-check: $$ev records $$sha, which is unavailable"; ok=0; continue; }; \
-		frozen="$$(git ls-tree -r --name-only "$$sha" -- "$$pkg" | grep -E 'contract_surface\.go$$|\.json$$' | grep -v 'pending-requirements\.json$$')"; \
-		[ -n "$$frozen" ] || frozen="$$pkg/contract_surface.go"; \
-		if ! git diff --quiet "$$sha" -- $$frozen; then \
-			echo "contract-immutability-check: $$pkg changed since $$sha"; ok=0; continue; fi; \
 		declared="$$declared $$pkg"; \
-		echo "contract-immutability-check: $$pkg matches $$sha"; \
+		frozen="$$( { git ls-tree -r --name-only "$$sha" -- "$$pkg"; git ls-files -- "$$pkg"; } \
+			| grep -E 'contract_surface\.go$$|\.json$$' | grep -v 'pending-requirements\.json$$' | sort -u)"; \
+		[ -n "$$frozen" ] || frozen="$$pkg/contract_surface.go"; \
+		amends="$$(sed -n 's/^- `\([0-9a-f]\{40\}\)` — `\([PCRG][0-9][0-9][ab]\{0,1\}\)`.*/\1 \2/p' $$ev)"; \
+		bad=0; \
+		echo "$$amends" | while read -r a t; do [ -n "$$a" ] || continue; \
+			git cat-file -e "$$a^{commit}" 2>/dev/null || { echo "contract-immutability-check: $$ev declares amendment $$a, which is unavailable"; exit 1; }; \
+			grep -qE "^ *- \[[ x]\] \*{0,2}$$t\*{0,2}([^0-9a-zA-Z]|$$)" epics/20-generation-2-reboot.md || { \
+				echo "contract-immutability-check: $$ev declares amendment $$a as $$t, which is not a task in the epic"; exit 1; }; \
+			git log --format=%H "$$sha..HEAD" -- $$frozen | grep -qx "$$a" || { \
+				echo "contract-immutability-check: $$ev declares amendment $$a, which touched no frozen file in $$pkg"; exit 1; }; \
+		done || bad=1; \
+		for c in $$(git log --format=%H "$$sha..HEAD" -- $$frozen); do \
+			echo "$$amends" | awk '{print $$1}' | grep -qx "$$c" || { \
+				echo "contract-immutability-check: $$pkg changed in $$c, which no amendment in $$ev declares"; bad=1; }; \
+		done; \
+		last="$$(echo "$$amends" | awk 'NF{print $$1}' | tail -1)"; [ -n "$$last" ] || last="$$sha"; \
+		if ! git diff --quiet "$$last" -- $$frozen; then \
+			echo "contract-immutability-check: $$pkg differs from $$last in the working tree"; bad=1; fi; \
+		[ $$bad -eq 0 ] || { ok=0; continue; }; \
+		n="$$(echo "$$amends" | grep -c . || true)"; \
+		echo "contract-immutability-check: $$pkg matches $$last ($$n declared amendment(s) since $$sha)"; \
 	done; \
 	for s in test/contract/*/contract_surface.go; do \
 		[ -f "$$s" ] || continue; \
@@ -259,7 +291,6 @@ contract-immutability-check: ## Reject changes to any accepted Cxx-A surface
 	done; \
 	[ -n "$$declared" ] || { echo "contract-immutability-check: no package was checked"; ok=0; }; \
 	[ $$ok -eq 1 ] || exit 1
-
 
 archlint: ## The requirements register, both directions, with liveness from the epic
 	cd tools/archlint && go run . -root ../..
