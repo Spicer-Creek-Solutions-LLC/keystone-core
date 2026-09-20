@@ -4,6 +4,8 @@ This records the acceptance-contract half of C01. It does not implement the
 protocol; C01-I owns the production behavior and must remove each pending entry
 when its corresponding case passes.
 
+Contract package: `test/contract/protocol`
+
 Contract commit: `7d290ba58c6bc5e7632e1475cf404aeec20522e4`
 
 ## Contract cases

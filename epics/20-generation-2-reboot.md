@@ -880,6 +880,34 @@ limitations go in the pull request.
     guessing: a check that has to predict a name is wrong whenever the name is.
     Demonstrated both ways — the old form returns **0** on the binary that was
     committed; the new one catches it and three other spellings.
+- [x] G40 — Generalise the remaining contract gates to more than one package.
+  `G39` fixed `pending-contract` and **left its two siblings in the same
+  Makefile**: `contract` ran `./test/contract/protocol` and
+  `contract-immutability-check` hardcoded both the surface paths and
+  `C01-A-acceptance-evidence.md`. `C02-A` could not land a second package
+  without changing them. **Close a gap, leave its neighbour — the fourth time,
+  and this one was one file away from the fix.**
+  - **`contract` enumerates** `test/contract/*/` and fails when the directory
+    holds none, so an empty tree is a failure rather than a silent pass.
+  - **The guard needed a decision, not a glob.** A directory name and a task id
+    are unrelated, so nothing links `test/contract/persistence` to
+    `C02-A-acceptance-evidence.md`. Each evidence file now **declares the
+    package it governs**, beside the commit it already records — two facts that
+    only make sense together, kept together.
+  - **Matched both ways, as `archlint` checks the register.** A surface with no
+    declaration **fails rather than being skipped**, and a declaration naming a
+    package that does not exist fails too. Skipping an undeclared surface would
+    be inference from absence, which is exactly what `G39` had to undo one task
+    earlier.
+  - **Putting the commit inside the frozen surface was considered and
+    rejected**: a file cannot contain the hash of the commit that introduces it,
+    which is the chicken-and-egg `C01-A` already solved with a second commit.
+  - Demonstrated four ways — an undeclared second surface fails; a declaration
+    naming a missing package fails; a declared package with an unreachable
+    commit fails; and `make contract` runs both packages where the pre-G40 form
+    ran one. **A Makefile recipe is not something a test can be committed for**,
+    so these are shell-verified and reported as such, the same caveat `C01-I1`
+    made about implementation mutations.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
