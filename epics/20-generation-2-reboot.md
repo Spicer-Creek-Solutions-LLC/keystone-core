@@ -908,6 +908,23 @@ limitations go in the pull request.
     ran one. **A Makefile recipe is not something a test can be committed for**,
     so these are shell-verified and reported as such, the same caveat `C01-I1`
     made about implementation mutations.
+- [x] G41 — Let `C02.md` § 3.3 permit the binary `C02-A` specified. The crash
+  harness is named at `cmd/keystone-ledger-crash` in
+  `test/contract/persistence/crash_harness.go`, and § 3.3 — **two sections
+  away** — listed no path under `cmd/`. `C02-I` built it where the specification
+  said and was out of scope by the dossier's own rule, which § 7 makes
+  authoritative. **The specification was right and the list was wrong.**
+  - **The fifth instance of close-a-gap-leave-its-neighbour, and the shortest
+    distance yet.** `G36` left a paragraph, `G37` left a clause, `G39` left two
+    targets in one Makefile, and this left a path list in the same file as the
+    decision that needed it. The dossier was written *after* the pattern had
+    been recorded twice.
+  - **Every path `C02-I` touched was swept against § 3.3**, not just the one
+    review noticed. `cmd/keystone-ledger-crash/` is the only gap; the other
+    twelve files are all permitted. Fixing what was found and not looking for
+    its neighbours is how this list got here.
+  - **Named specifically rather than opening `cmd/`.** C02 needs one binary, and
+    a path list admitting any binary is not a boundary.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
