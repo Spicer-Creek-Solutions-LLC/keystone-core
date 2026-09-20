@@ -6,7 +6,7 @@ each pending entry when its case passes.
 
 Contract package: `test/contract/persistence`
 
-Contract commit: `PLACEHOLDER`
+Contract commit: `94e602a97428ff3f12d0427b0b5b03b9bf995ea4`
 
 ## Contract cases
 
