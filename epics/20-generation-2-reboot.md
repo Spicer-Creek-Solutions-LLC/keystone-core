@@ -220,7 +220,9 @@ workstream depends on. Detailed controls are normative in the execution plan.
     Refused now at three boundaries. The sharper half of that finding was that
     **no case exercised field 4 in either direction**: the gap was in what the
     fixture did not contain, not in what an assertion said.
-- [ ] C02 — SQLite migrations and durable ledgers.
+- [x] C02 — SQLite migrations and durable ledgers. C02-A's frozen contract and
+  C02-I's two independent SQLite stores, crash-boundary harness, published
+  ledger schema, and thirteen live acceptance cases are landed.
 - [ ] C03 — NATS operator, account, identity, and permission generation.
 - [ ] C04 — Local operator control substrate.
 - [ ] C05 — One-use enrollment vertical slice.

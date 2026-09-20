@@ -1,95 +1,11 @@
 {
   "requirements": [
     {
-      "case": "AC-1",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "the persistence implementation does not exist yet",
-      "test": "TestAC1MigrationOrder"
-    },
-    {
-      "case": "AC-2",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "the persistence implementation does not exist yet",
-      "test": "TestAC2PartialMigration"
-    },
-    {
-      "case": "AC-3",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "the persistence implementation does not exist yet",
-      "test": "TestAC3StoresMigrateIndependently"
-    },
-    {
-      "case": "AC-4",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "no store exists and the crash harness binary is not built",
-      "test": "TestAC4ReceiptAndStartAreSeparateTransactions"
-    },
-    {
-      "case": "AC-5",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "no store exists and the crash harness binary is not built",
-      "test": "TestAC5CrashBetweenReceiptAndStartIsDistinguishable"
-    },
-    {
-      "case": "AC-6",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "the persistence implementation does not exist yet",
-      "test": "TestAC6AcceptedRequestCommitsWithItsIdentifier"
-    },
-    {
-      "case": "AC-7",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "the persistence implementation does not exist yet",
-      "test": "TestAC7TerminalStateCommitsWithItsResult"
-    },
-    {
-      "case": "AC-8",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "the persistence implementation does not exist yet",
-      "test": "TestAC8AcknowledgementIsItsOwnWrite"
-    },
-    {
-      "case": "AC-9",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "the persistence implementation does not exist yet",
-      "test": "TestAC9LedgerIsReadableWithoutTheServer"
-    },
-    {
-      "case": "AC-10",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "the published schema is C02-I's output and does not exist yet",
-      "test": "TestAC10PublishedSchemaMatchesTheShippedOne"
-    },
-    {
-      "case": "AC-11",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "the persistence implementation does not exist yet",
-      "test": "TestAC11OwnershipAndModes"
-    },
-    {
-      "case": "AC-12",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "the persistence implementation does not exist yet",
-      "test": "TestAC12RetentionFloor"
-    },
-    {
-      "case": "AC-13",
-      "owner": "C02-I",
-      "expiry": "C02-I",
-      "reason": "the persistence implementation does not exist yet",
-      "test": "TestAC13CorruptStoreIsRefused"
+      "case": "store-directory-ownership",
+      "owner": "C13",
+      "expiry": "C13",
+      "reason": "ADR-0008 section 4 fixes both store directories at 0700 and names the account that owns each store; C13 provisions accounts and directories, and no in-process C02 test can observe which account owns a file",
+      "deferred": true
     }
   ]
 }
