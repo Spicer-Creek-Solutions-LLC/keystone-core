@@ -952,6 +952,28 @@ limitations go in the pull request.
     could not be the change that walked through that hole. The branch
     demonstrates the gate against itself: the commit that amends the surface
     fails `contract-immutability-check` until the commit that records it lands.
+- [x] G43 — Let `AC-11`'s test name claim what its requirement says. `G42`
+  narrowed the requirement to *"each store file must carry the mode `ADR-0008`
+  fixes"* and left the test called `TestAC11OwnershipAndModes`, which asserts no
+  ownership at all. It is `TestAC11StoreFileModes` now. **The amendment that
+  narrowed the requirement is the one that should have renamed it** — close a
+  gap, leave its neighbour, this time inside the file the gap was in.
+  - **Both frozen surfaces were swept, not just the case review named.** Of
+    twenty-six case names, twenty-five are at least as narrow as their
+    requirement and one claimed more. **Direction is the whole finding.** A name
+    narrower than its requirement is harmless because the requirement governs —
+    `AC-9` omits *"at its documented path"*, `AC-6` omits *"before publication"*
+    — while a name broader than its requirement is taken for the specification
+    by every reader who does not open the surface.
+  - **No gate can hold this, and none is claimed.** A test name is not
+    mechanically comparable to a natural-language requirement. What is enforced
+    is that every surface entry has a function of that name, so a half-landed
+    rename does not compile; the sweep is a reading, and
+    `C02-A-acceptance-evidence.md` records it as one rather than implying a
+    check.
+  - **The second amendment through `G42`'s route, and the first that is not
+    `G42` itself.** The commit that renames fails `contract-immutability-check`
+    until the commit that records it lands.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
