@@ -33,6 +33,30 @@ func write(t *testing.T, path string, v any) {
 	}
 }
 
+// surface writes the frozen acceptance surface a contract package must carry.
+//
+// Every fixture needs one, because G42 made a missing surface fatal: a package
+// whose surface cannot be read would otherwise accept any deferred entry at
+// all, which is inference from absence.
+//
+// The identifiers here are deliberately ones the manifests below do not name,
+// so each case still fails for its own reason rather than for G42's rule.
+func surface(t *testing.T, dir string, cases ...string) {
+	t.Helper()
+	var b strings.Builder
+	b.WriteString("package x_test\n\nvar acceptanceContractSurface = map[string]acceptanceCase{\n")
+	for _, c := range cases {
+		b.WriteString("\t\"" + c + "\": {\"Test" + c + "\", \"a requirement\"},\n")
+	}
+	b.WriteString("}\n")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "contract_surface.go"), []byte(b.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func epicWith(tasks ...string) string {
 	var b strings.Builder
 	b.WriteString("# epic\n\n")
@@ -48,6 +72,7 @@ func epicWith(tasks ...string) string {
 func TestTwoPackagesMayBothRegisterTheSameCaseIdentifier(t *testing.T) {
 	root := t.TempDir()
 	for _, pkg := range []string{"protocol", "persistence"} {
+		surface(t, filepath.Join(root, "test", "contract", pkg), "AC-99")
 		write(t, filepath.Join(root, "test", "contract", pkg, "pending-requirements.json"),
 			manifest{Requirements: []requirement{
 				{Case: "AC-1", Owner: "C02", Expiry: "C02", Reason: "not built in " + pkg, Deferred: true},
@@ -98,6 +123,7 @@ func TestManifestValidation(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
+			surface(t, filepath.Join(root, "test", "contract", "x"), "AC-99")
 			path := filepath.Join(root, "test", "contract", "x", "pending-requirements.json")
 			write(t, path, manifest{Requirements: tc.reqs})
 			_ = path
@@ -131,6 +157,7 @@ func TestDeferralIsDeclaredAndNotInferred(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := t.TempDir()
+			surface(t, filepath.Join(root, "test", "contract", "x"), "AC-99")
 			write(t, filepath.Join(root, "test", "contract", "x", "pending-requirements.json"),
 				manifest{Requirements: []requirement{tc.req}})
 			out, err := runToolOutput(t, root, epicWith("C02"))
@@ -152,12 +179,62 @@ func TestDeferralIsDeclaredAndNotInferred(t *testing.T) {
 // that the tool rejects everything.
 func TestAWellFormedDeferredGateIsAccepted(t *testing.T) {
 	root := t.TempDir()
+	surface(t, filepath.Join(root, "test", "contract", "x"), "AC-99")
 	path := filepath.Join(root, "test", "contract", "x", "pending-requirements.json")
 	write(t, path, manifest{Requirements: []requirement{
 		{Case: "nightly", Owner: "C15", Expiry: "C15", Reason: "no schedule exists", Deferred: true},
 	}})
 	if err := runTool(t, root, epicWith("C15")); err != nil {
 		t.Error("a well-formed deferred gate was rejected")
+	}
+}
+
+// G42. C02-I marked AC-11 -- a case the frozen surface registers and the
+// contract runs -- as a deferred gate, and this tool accepted it: `make
+// contract` reported the case green while the manifest reported it as work
+// nobody had done. Neither could fail, and the two records disagreed.
+//
+// A deferred entry is an owed gate with no test. Declaring one for a case that
+// HAS a test retires it from the runner while it still passes, which is the
+// same silent retirement G39 removed -- reached by a different route.
+func TestADeferredEntryMayNotNameARegisteredCase(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		id     string
+		reject bool
+	}{
+		{"a registered case declared a deferred gate", "AC-11", true},
+		{"an owed gate the surface does not register", "nightly-fuzz-search", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			surface(t, filepath.Join(root, "test", "contract", "x"), "AC-11")
+			write(t, filepath.Join(root, "test", "contract", "x", "pending-requirements.json"),
+				manifest{Requirements: []requirement{
+					{Case: tc.id, Owner: "C02", Expiry: "C02", Reason: "owed", Deferred: true},
+				}})
+			out, err := runToolOutput(t, root, epicWith("C02"))
+			switch {
+			case tc.reject && err == nil:
+				t.Errorf("accepted a deferred entry naming a registered case\n%s", out)
+			case !tc.reject && err != nil:
+				t.Errorf("rejected a well-formed owed gate: %v\n%s", err, out)
+			}
+		})
+	}
+}
+
+// An unreadable surface must be fatal. Reading it as "no cases" would let a
+// package with no surface accept any deferred entry, which is the inference
+// from absence G39 took out of this tool's classification.
+func TestAMissingSurfaceIsFatal(t *testing.T) {
+	root := t.TempDir()
+	write(t, filepath.Join(root, "test", "contract", "x", "pending-requirements.json"),
+		manifest{Requirements: []requirement{
+			{Case: "nightly", Owner: "C02", Expiry: "C02", Reason: "owed", Deferred: true},
+		}})
+	if err := runTool(t, root, epicWith("C02")); err == nil {
+		t.Error("a contract package with no acceptance surface was accepted")
 	}
 }
 
