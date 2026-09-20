@@ -12,7 +12,7 @@ services:
   # NATS is the only service attached to both networks. That is the whole shape:
   # ARCH-COMM-002 requires server and agents to work with no direct route.
   broker:
-    image: nats:2-alpine
+    image: nats:2.15.0-alpine
     command: ["-js", "-m", "8222"]
     networks: [server-net, agent-net]
 
