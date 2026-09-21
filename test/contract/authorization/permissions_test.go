@@ -5,31 +5,88 @@ package authorizationcontract
 import (
 	"strings"
 	"testing"
+
+	"go.keystone-core.io/keystone-core/internal/natsauth"
 )
 
-func TestPOS1CommandPublisherPublishesCommand(t *testing.T)           { pending(t, "POS-1") }
-func TestPOS2CommandPublisherPublishesCancellation(t *testing.T)      { pending(t, "POS-2") }
-func TestPOS3AgentSubscribesOwnCommand(t *testing.T)                  { pending(t, "POS-3") }
-func TestPOS4AgentSubscribesOwnCancellation(t *testing.T)             { pending(t, "POS-4") }
-func TestPOS5AgentPublishesOwnResult(t *testing.T)                    { pending(t, "POS-5") }
-func TestPOS6AgentPublishesOwnPresence(t *testing.T)                  { pending(t, "POS-6") }
-func TestPOS7AgentPullsOwnCommandConsumer(t *testing.T)               { pending(t, "POS-7") }
-func TestPOS8AgentAcknowledgesOwnCommand(t *testing.T)                { pending(t, "POS-8") }
-func TestPOS9PresenceConsumerSubscribesFleetPresence(t *testing.T)    { pending(t, "POS-9") }
-func TestPOS10ResultConsumerPullsOwnConsumer(t *testing.T)            { pending(t, "POS-10") }
-func TestPOS11BootstrapPublishesOwnRequest(t *testing.T)              { pending(t, "POS-11") }
-func TestPOS12BootstrapSubscribesOwnReply(t *testing.T)               { pending(t, "POS-12") }
-func TestPOS13EnrollmentServiceSubscribesRequests(t *testing.T)       { pending(t, "POS-13") }
+func TestPOS1CommandPublisherPublishesCommand(t *testing.T) {
+	d := runningBroker(t)
+	connectAsService(t, d, natsauth.CommandPublisher).publishPermitted(t, "ks.job."+agentOne+".cmd")
+}
+func TestPOS2CommandPublisherPublishesCancellation(t *testing.T) {
+	d := runningBroker(t)
+	// agentTwo rather than agentOne: the grant is `ks.job.*.cancel`, and a case
+	// that only ever named one agent would pass against a generator that had
+	// scoped the command publisher to that agent alone.
+	connectAsService(t, d, natsauth.CommandPublisher).publishPermitted(t, "ks.job."+agentTwo+".cancel")
+}
+func TestPOS3AgentSubscribesOwnCommand(t *testing.T) {
+	d := runningBroker(t)
+	connectAsAgent(t, d, agentOne).subscribePermitted(t, "ks.job."+agentOne+".cmd")
+}
+func TestPOS4AgentSubscribesOwnCancellation(t *testing.T) {
+	d := runningBroker(t)
+	connectAsAgent(t, d, agentOne).subscribePermitted(t, "ks.job."+agentOne+".cancel")
+}
+func TestPOS5AgentPublishesOwnResult(t *testing.T) {
+	d := runningBroker(t)
+	connectAsAgent(t, d, agentOne).publishPermitted(t, "ks.out."+agentOne+".result")
+}
+func TestPOS6AgentPublishesOwnPresence(t *testing.T) {
+	d := runningBroker(t)
+	connectAsAgent(t, d, agentOne).publishPermitted(t, "ks.out."+agentOne+".presence")
+}
+func TestPOS7AgentPullsOwnCommandConsumer(t *testing.T) { pending(t, "POS-7") }
+func TestPOS8AgentAcknowledgesOwnCommand(t *testing.T)  { pending(t, "POS-8") }
+func TestPOS9PresenceConsumerSubscribesFleetPresence(t *testing.T) {
+	d := runningBroker(t)
+	// The wildcard is the grant: presence is a fleet view, and ADR-0004 § 4
+	// documents this as one of the four permitted exceptions.
+	connectAsService(t, d, natsauth.PresenceConsumer).subscribePermitted(t, "ks.out.*.presence")
+}
+func TestPOS10ResultConsumerPullsOwnConsumer(t *testing.T) { pending(t, "POS-10") }
+func TestPOS11BootstrapPublishesOwnRequest(t *testing.T) {
+	d := runningBroker(t)
+	connectAsBootstrap(t, d, tokenOne).publishPermitted(t, "ks.enroll."+tokenOne+".request")
+}
+func TestPOS12BootstrapSubscribesOwnReply(t *testing.T) {
+	d := runningBroker(t)
+	connectAsBootstrap(t, d, tokenOne).subscribePermitted(t, "ks.enroll."+tokenOne+".reply")
+}
+func TestPOS13EnrollmentServiceSubscribesRequests(t *testing.T) {
+	d := runningBroker(t)
+	connectAsService(t, d, natsauth.EnrollmentService).subscribePermitted(t, "ks.enroll.*.request")
+}
 func TestPOS14MonitoringSubscribesMaxDeliveriesAdvisory(t *testing.T) { pending(t, "POS-14") }
-func TestPOS15CommandPublisherSubscribesOwnInbox(t *testing.T)        { pending(t, "POS-15") }
-func TestPOS16EnrollmentServicePublishesReplies(t *testing.T)         { pending(t, "POS-16") }
-func TestPOS17AgentPublishesOwnEvent(t *testing.T)                    { pending(t, "POS-17") }
-func TestPOS18AgentSubscribesOwnInbox(t *testing.T)                   { pending(t, "POS-18") }
-func TestPOS19MonitoringSubscribesFleetEvents(t *testing.T)           { pending(t, "POS-19") }
-func TestPOS20ResultConsumerAcknowledgesResult(t *testing.T)          { pending(t, "POS-20") }
-func TestPOS21ResultConsumerSubscribesOwnInbox(t *testing.T)          { pending(t, "POS-21") }
-func TestPOS22MonitoringSubscribesTerminatedAdvisory(t *testing.T)    { pending(t, "POS-22") }
-func TestPOS23MonitoringSubscribesLimitAdvisory(t *testing.T)         { pending(t, "POS-23") }
+func TestPOS15CommandPublisherSubscribesOwnInbox(t *testing.T) {
+	d := runningBroker(t)
+	// Without this the command publisher receives no PubAck for anything it
+	// publishes to KS_CMD -- ADR-0002 § 6 is why the grant exists at all.
+	connectAsService(t, d, natsauth.CommandPublisher).subscribeToOwnInboxPermitted(t)
+}
+func TestPOS16EnrollmentServicePublishesReplies(t *testing.T) {
+	d := runningBroker(t)
+	connectAsService(t, d, natsauth.EnrollmentService).publishPermitted(t, "ks.enroll."+tokenOne+".reply")
+}
+func TestPOS17AgentPublishesOwnEvent(t *testing.T) {
+	d := runningBroker(t)
+	connectAsAgent(t, d, agentOne).publishPermitted(t, "ks.out."+agentOne+".event")
+}
+func TestPOS18AgentSubscribesOwnInbox(t *testing.T) {
+	d := runningBroker(t)
+	connectAsAgent(t, d, agentOne).subscribeToOwnInboxPermitted(t)
+}
+func TestPOS19MonitoringSubscribesFleetEvents(t *testing.T) {
+	d := runningBroker(t)
+	connectAsService(t, d, natsauth.MonitoringRole).subscribePermitted(t, "ks.out.*.event")
+}
+func TestPOS20ResultConsumerAcknowledgesResult(t *testing.T) { pending(t, "POS-20") }
+func TestPOS21ResultConsumerSubscribesOwnInbox(t *testing.T) {
+	d := runningBroker(t)
+	connectAsService(t, d, natsauth.ResultConsumer).subscribeToOwnInboxPermitted(t)
+}
+func TestPOS22MonitoringSubscribesTerminatedAdvisory(t *testing.T) { pending(t, "POS-22") }
+func TestPOS23MonitoringSubscribesLimitAdvisory(t *testing.T)      { pending(t, "POS-23") }
 
 // GEN-3 and GEN-4 are the pair ADR-0004 section 8 is explicit about: "a positive
 // list shorter than the permission list lets C03 generate a JWT missing a

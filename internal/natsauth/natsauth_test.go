@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -296,4 +297,55 @@ func withoutBackOff(l Limits) Limits {
 func withBackOff(l Limits, schedule []int64) Limits {
 	l.Consumer.BackOffSeconds = schedule
 	return l
+}
+
+// An empty allow list does not deny in NATS -- it is read as unrestricted. So a
+// principal ADR-0004 section 4 gives no grants in a direction must carry an
+// explicit deny, or it is free to act in that direction however it likes.
+//
+// Found at C03-I2: the presence consumer and the monitoring role are both
+// "Publish: none" in that table, and both could publish a command. NEG-15
+// covers one instance of that at C03-I3; this covers the general property, in
+// both directions, for every principal the generator produces.
+func TestADirectionWithNoGrantsIsDeniedRatherThanUnrestricted(t *testing.T) {
+	agent, _ := agentKeypair(t)
+	d, err := Generate(Config{
+		FleetSize: 4,
+		Agents:    []AgentKey{agent},
+		Tokens:    []string{"token-one"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	checked := 0
+	empty := 0
+	for name, identity := range d.credentialSet() {
+		claims, err := jwt.DecodeUserClaims(identity.JWT)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for direction, permission := range map[string]jwt.Permission{
+			"publish":   claims.Permissions.Pub,
+			"subscribe": claims.Permissions.Sub,
+		} {
+			checked++
+			if len(permission.Allow) > 0 {
+				continue
+			}
+			empty++
+			if !slices.Contains([]string(permission.Deny), ">") {
+				t.Errorf("%s has no %s grant and no deny; NATS reads that as unrestricted", name, direction)
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no permission was read; the loop checked nothing")
+	}
+	// At least one direction must actually be empty, or the assertion above
+	// never ran and this case would pass against a generator that had lost the
+	// deny entirely.
+	if empty == 0 {
+		t.Fatal("no principal had an empty direction; the rule was never exercised")
+	}
 }
