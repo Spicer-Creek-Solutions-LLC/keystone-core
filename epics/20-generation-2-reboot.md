@@ -986,7 +986,11 @@ limitations go in the pull request.
     specified a binary at a path § 3.3 did not permit). Each time the decision
     was right and the path list was wrong, and each time the two were sections
     apart in one file. **Writing the decision is not writing the permission to
-    carry it out.**
+    carry it out.** Recorded as **`DL-9`** in `DEFECT-LEDGER.md`, in this pull
+    request rather than a later one, which is that document's own rule. It is
+    **not** `DL-8`: nothing was reported and nothing was repaired too narrowly —
+    both halves were written by one author in one pull request and merged
+    inconsistent.
   - **`D-C03-1`'s approved text was not rewritten.** It weighed a signing
     library, so its counts are the record of what was decided rather than a
     running total; a paragraph records the third dependency it never considered

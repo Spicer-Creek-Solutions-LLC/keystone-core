@@ -37,7 +37,7 @@ is not a status.
 **The status describes the current countermeasure, which means it can be
 laundered.** Revise a countermeasure after it fails and the entry becomes
 `Proposed`, and the record of the failure disappears. Left unguarded, that would
-let a ledger of eight defects show no failures at all.
+let a ledger of nine defects show no failures at all.
 
 `Proposed` becomes `Adopted` only when the countermeasure has been *exercised on
 a later task* — that task presented the chance for the defect and it did not
@@ -92,6 +92,7 @@ justified exemption.
 | `DL-6` | Shell-hostile command construction | `Proposed` |
 | `DL-7` | A substitution that did not do what it claimed | `Failed` |
 | `DL-8` | A finding repaired only where it was pointed out | `Failed` |
+| `DL-9` | A document that decides work its own permission list forbids | `Proposed` |
 
 ### `DL-1` — A check that cannot fail, mistaken for evidence
 
@@ -837,6 +838,77 @@ than one that fails silently, and that is the honest case for keeping this
 approach rather than any claim that it works. § "On whether this
 document works" names the reason for scepticism: `DL-2` and `DL-3` were written
 down and recurred anyway, and `DL-8` has now done it too.
+
+### `DL-9` — A document that decides work its own permission list forbids
+
+**Instances.** Three occasions across three tasks, each a task dossier whose
+decision section required work its own § 3.3 did not permit, and each found only
+when the implementation began.
+
+1. **`C02.md` and `tools/pendingcontract/`.** `D-C02-4` decided that C02 reuse
+   C01-A's contract machinery and named the collision that reuse would hit — the
+   tool's coupling to a single package. § 3.3, one section away, did not grant
+   the path that fix needed. Found at `G39`; granted in `1cd66348c`.
+2. **`C02.md` and `cmd/keystone-ledger-crash/`.** `C02-A` specified the crash
+   harness binary at that path in `test/contract/persistence/crash_harness.go`.
+   § 3.3 listed no path under `cmd/`, so `C02-I` built the binary the
+   specification named and was out of scope by the dossier's own rule. Found in
+   review of pull request #359; granted at `G41`, `7d8e0f479`.
+3. **`C03.md` and `github.com/nats-io/nats.go`.** `D-C03-1` decided how a NATS
+   JWT gets **signed** and weighed three ways of doing it. It never weighed how a
+   principal **connects**, and § 3.3 permitted only *"the dependencies of
+   `D-C03-1`"* — while every one of the thirty-eight `POS` and `NEG` cases
+   connects. Found at the start of `C03-I2`, before any code was written;
+   granted at `G44`, this pull request.
+
+**This is not `DL-8`.** That class needs a prior finding: someone reports a
+defect and it is repaired at the cited site only. Here nothing was reported and
+nothing was repaired too narrowly. **Both halves were written by the same author
+in the same pull request, reviewed, and merged** — the document was internally
+inconsistent on the day it landed, and stayed that way until work started
+against it. The detection moment differs too, which is what makes the
+countermeasures different: `DL-8` is swept *after* a finding, and this is
+checked *before* a document lands.
+
+**Root cause.** A dossier's decisions and its permission lists are written as
+separate acts of authorship, and only the first feels like deciding. § 11 asks
+what the task should do; § 3.3 asks what it may touch; and the author who has
+just settled a hard question does not re-read the list two sections away to ask
+whether it now says no. The defect is invisible to every reader of the decision,
+because the decision is right — which is why all three instances survived review
+and were found by whoever tried to do the work.
+
+**Countermeasure.** Two steps, at the two moments the inconsistency can be seen.
+
+*Before a dossier lands*, the author derives § 3.3 from the rest of the document
+rather than writing it independently: for every output in § 3.1 and § 3.2 and
+every decision in § 11, name the paths and dependencies it requires, and check
+each against the list. The pull request states that this was done. **Deriving is
+the point** — a list written from memory of what the task will touch is a second
+copy of the plan, and the copy is what goes stale.
+
+*At the start of every implementation task*, before writing code, enumerate the
+paths and dependencies the plan needs and diff them against § 3.3. This is
+cheap, it is the moment the mismatch becomes concrete, and it is how the third
+instance was found. **A task that discovers the gap here stops and asks** rather
+than widening the list under its own approval, which is `AGENTS.md` § 3's rule
+and the reason all three repairs are G tasks rather than quiet edits.
+
+Neither step is mechanical, and that is a real limit. What a dossier's decisions
+require is prose, and no checker reads it; `archlint` validates the register and
+`contract-immutability-check` the frozen surfaces, but nothing compares a
+document's intentions with its own permissions.
+
+**Last recurrence.** This pull request — `C03.md` § 3.3, found at the start of
+`C03-I2`.
+
+**Status: `Proposed`.** The countermeasure is defined here and has not been
+tested by events. The third instance was caught at implementation start by the
+practice the second step now writes down, but § "Status values" is explicit that
+**continued use inside the task that recorded the defect is not evidence**, and
+crediting the catch to a countermeasure written afterwards is exactly the
+laundering that section warns about. `Adopted` needs a later dossier that
+presented the chance and did not produce it.
 
 ## On whether this document works
 
