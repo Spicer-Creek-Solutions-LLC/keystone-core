@@ -974,6 +974,31 @@ limitations go in the pull request.
   - **The second amendment through `G42`'s route, and the first that is not
     `G42` itself.** The commit that renames fails `contract-immutability-check`
     until the commit that records it lands.
+- [x] G44 — Let `C03.md` § 3.3 permit the client `C03-I` needs. `D-C03-1`
+  decided how a NATS JWT gets **signed** and weighed `jwt/v2` and `nkeys`
+  against `nsc` and a hand-rolled implementation. It never weighed how a
+  principal **connects**, because signing and connecting are different problems
+  — and every `POS` and `NEG` case connects, so `C03-I2` could not start against
+  a list that permitted only `D-C03-1`'s dependencies. § 3.3 now names
+  `github.com/nats-io/nats.go`.
+  - **The third instance of a dossier under-specifying a neighbour**, after
+    `G39` (`D-C02-4` named a tool § 3.3 did not grant) and `G41` (`C02-A`
+    specified a binary at a path § 3.3 did not permit). Each time the decision
+    was right and the path list was wrong, and each time the two were sections
+    apart in one file. **Writing the decision is not writing the permission to
+    carry it out.**
+  - **`D-C03-1`'s approved text was not rewritten.** It weighed a signing
+    library, so its counts are the record of what was decided rather than a
+    running total; a paragraph records the third dependency it never considered
+    and states the total after `C03-I2` — four. `G43` had to repair a number in
+    one document that stopped matching a table in another, and *"two direct
+    dependencies"* beside a `go.mod` holding four invites the wrong correction.
+  - **§ 12 was read and deliberately left alone.** It already says the cases
+    *"assert authorization outcomes, not message delivery"*, which is what a
+    permission probe is. Editing a neighbour that already agrees is how a
+    document acquires two statements of one rule.
+  - **The boundary holds.** `internal/cli/boundary_test.go` forbids the client
+    outside `_test.go`, so the contract connects and the product still cannot.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
