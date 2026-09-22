@@ -1047,8 +1047,11 @@ limitations go in the pull request.
     "nothing" is written down.
   - **`ADR-0002` § 8's own denial paragraph was corrected too.** It said the
     repetition was for the reader; for a principal with no list in that
-    direction it is not repetition but the rule. The principals it covers least
-    well are exactly the two with no `$JS.API` grants at all.
+    direction it is not repetition but the rule. **The distinguishing property
+    is no PUBLISH grants at all**, not an absent `$JS.API` entry: the enrollment
+    service and bootstrap identities reach no `$JS.API` subject either and are
+    unaffected, because they publish elsewhere and so their lists exist and
+    exclude.
   - **§ 15's capability row was read and left alone.** It says *"an **enumerated**
     allow list is a closed boundary"*, which speaks of a list that exists and is
     already correct. Editing a neighbour that agrees is how a document acquires

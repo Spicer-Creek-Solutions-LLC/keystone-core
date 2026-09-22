@@ -235,10 +235,10 @@ rule, which is why it is here among the shapes rather than in § 4 among the
 policy: the permissions are unchanged and what changes is how "nothing" is
 written down.
 
-**No acceptance case in `C03-A`'s frozen surface covers it.** § 9's fifteen
-negatives include `NEG-15`, a presence consumer publishing a command, which is
-one instance; nothing there covers a service principal reaching an
-administrative `$JS.API` subject, which the same defect also permitted.
+**`C03-A`'s frozen surface covers one instance of this and not the rule.**
+§ 9's fifteen negatives include `NEG-15`, a presence consumer publishing a
+command; none covers a service principal reaching an administrative `$JS.API`
+subject, which the same defect also permitted.
 `C03-I2`'s package tests assert the property in both directions for every
 principal the generator produces. Adding a sixteenth case would be an amendment
 to an accepted contract and is not made here.

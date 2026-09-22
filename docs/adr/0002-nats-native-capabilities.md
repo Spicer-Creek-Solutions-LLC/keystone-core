@@ -227,9 +227,13 @@ denies them, and the repetition is for the reader and for P04's negative tests
 rather than for the broker. **For a principal with no list in that direction it
 is not repetition but the rule itself**: an empty allow list is read as
 unrestricted, so the deny has to be rendered — `ADR-0004` § 7, corrected at
-`G46` after `C03-I2` measured a presence consumer publishing a command. The
-principals that reach no `$JS.API` subject at all are exactly the ones this
-paragraph covers least well, which is why it says so here:
+`G46` after `C03-I2` measured a presence consumer publishing a command. **The
+principals this paragraph covers least well are the ones with no PUBLISH grants
+at all** — `ADR-0004` § 4 gives the presence consumer and the monitoring role
+`none` there — because it is an empty publish list, not an absent `$JS.API`
+entry, that fails to exclude the administrative subjects below. The enrollment
+service and bootstrap identities reach no `$JS.API` subject either and are
+unaffected: both publish elsewhere, so their lists exist and exclude. Hence:
 
 - all of `$SYS`;
 - every administrative `$JS.API` subject — stream and consumer create, update,
