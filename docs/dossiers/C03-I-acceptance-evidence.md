@@ -1,13 +1,13 @@
 # C03-I acceptance evidence
 
-This records the implementation half of C03, landed in five stages against the
+This records the implementation half of C03, landed in six stages against the
 contract `C03-A` froze. Every one of its forty-five cases is live;
 `pending-requirements.json` holds no case, and one deferred gate.
 
-**C03 is not complete.** § 3.2 requires *"broker configuration the topology
-consumes"*, and `compose.yaml`'s broker does not consume it — see § Limits. The
-deferred gate expires at **C03**, so ticking that task while it stands fails
-`pending-contract`.
+**C03 is complete.** § 3.2's *"broker configuration the topology consumes"* was
+undeliverable inside § 3.3 and was held open by a deferred gate expiring at this
+task; `G47` granted the path once the maintainer approved the wiring, and `I6`
+delivered it.
 
 ## The stages, and what each closed
 
@@ -17,7 +17,8 @@ deferred gate expires at **C03**, so ticking that task while it stands fails
 | `I2` | 16 core `POS` — generated configuration boots a broker | #367 |
 | `I3` | 11 core `NEG` | #370 |
 | `I4` | 7 `POS` + 3 `NEG` on JetStream subjects | #371 |
-| `I5` | `NEG-7` — revocation refused at connection | this one |
+| `I5` | `NEG-7` — revocation refused at connection | #372 |
+| `I6` | the compose topology consumes the generated configuration | this one |
 
 `internal/natsauth` generates the operator and account JWTs, the five service
 users of `ADR-0002` § 3, the per-agent and bootstrap templates, the account
@@ -89,25 +90,30 @@ and diagnostics are `N/A`: C03 runs no journey.
 `GEN-5` asserts none is absent or infinite; the stream and consumer limits are
 values C06 applies.
 
-**The compose topology does not consume the generated configuration, and that
-is an approved § 3.2 output of this task.** The container suite only runs
-`docker compose config`, which parses the topology and never brings it up, so
-proving the wiring needs a test under `test/e2e/docker/` — a path § 3.3 does not
-grant. `DL-9` instance 5.
+**The topology consumes the configuration; it runs no journey across it.** `I6`
+brings the topology up and proves the broker is running what the generator
+produced, by connecting with a generated credential and asserting an
+authorization outcome only those JWTs produce. `compose.yaml`'s own comment says
+C05 is the first task with a journey.
 
-An earlier version of this file registered it as owed by **C05** and marked C03
-complete. **Reassigning an approved output is the maintainer's decision, not
-this task's**, and review caught it. The gate now expires at **C03**, so the
-epic cannot be ticked while the output is absent.
+The route there is worth recording. The output was undeliverable inside § 3.3,
+which grants `compose.yaml` and no test beside it — `DL-9` instance 5. An
+earlier version of `I5` registered it as owed by **C05** and ticked C03;
+**reassigning an approved output is the maintainer's decision, not this
+task's**, and review refused it. It was held instead by a deferred gate
+expiring at C03, so the tick was impossible while the output was absent, and
+`G47` granted the path once the maintainer approved the wiring.
+
+**No principal this generator produces may provision a stream.** `ADR-0002` § 7
+defines `KS_CMD` and `KS_RES` and not the identity that creates them, while
+`ADR-0004` § 4 denies administrative `$JS.API` to every Keystone identity. The
+contract's provisioner is a test fixture minted outside the frozen matrix, which
+is why `GEN-3` does not see it. Registered as a deferred gate owed by **C06**,
+which owns the production stream configuration.
 
 **No frozen case covers `ADR-0003` § 4's key custody**, and `GEN-7` does not:
 its requirement is the *operator* seed and it searches for that one. Package
 tests in `internal/natsauth` hold the property for agent seeds.
-
-**Who provisions streams in a deployment is unanswered.** `ADR-0002` § 7 defines
-the two streams and not the identity that creates them. The contract's
-provisioner is a test fixture minted outside the generated matrix, which is why
-`GEN-3` does not see it.
 
 These cases prove the broker enforces what `ADR-0004` § 4 specifies. They do not
 prove that § 4 specifies the right permissions.
