@@ -293,8 +293,7 @@ func mintAgent(agent AgentKey, account Account, signing nkeys.KeyPair) (Identity
 	claims := jwt.NewUserClaims(agent.PublicKey)
 	claims.Name = agent.ID
 	claims.IssuerAccount = account.PublicKey
-	claims.Permissions.Pub.Allow = append(jwt.StringList{}, g.pub...)
-	claims.Permissions.Sub.Allow = append(jwt.StringList{}, g.sub...)
+	applyPermissions(claims, g)
 	encoded, err := claims.Encode(signing)
 	if err != nil {
 		return Identity{}, err
@@ -325,8 +324,7 @@ func newUser(name string, g grants, account Account, signing nkeys.KeyPair, ttl 
 	claims := jwt.NewUserClaims(pub)
 	claims.Name = name
 	claims.IssuerAccount = account.PublicKey
-	claims.Permissions.Pub.Allow = append(jwt.StringList{}, g.pub...)
-	claims.Permissions.Sub.Allow = append(jwt.StringList{}, g.sub...)
+	applyPermissions(claims, g)
 	if ttl > 0 {
 		claims.Expires = time.Now().Add(ttl).Unix()
 	}
@@ -370,4 +368,35 @@ func (d *Deployment) revoke(tokens []string, operator nkeys.KeyPair) error {
 	}
 	d.Keystone.JWT = encoded
 	return nil
+}
+
+// applyPermissions writes a grant set onto a claim.
+//
+// AN EMPTY ALLOW LIST DOES NOT DENY. NATS reads a permission with no allow
+// entries as UNRESTRICTED, not as "nothing permitted", so a principal
+// ADR-0004 § 4 gives no grants in a direction would be free to act in that
+// direction however it liked. The presence consumer and the monitoring role are
+// both "Publish: none" in that table, and before this both could publish a
+// command -- which is NEG-15's property, live in a generated deployment.
+//
+// ADR-0004 § 7 requires this: "a direction with no grants is rendered as an
+// explicit deny of the whole subject space". That sentence exists because of
+// this defect -- G46 put it there after C03-I2 measured it, and corrected § 4,
+// which had said an omission already denied and so described a mechanism NATS
+// does not have. An explicit deny of `>` is what makes the table's "none" mean
+// none.
+//
+// Found at C03-I2 by the control publish every positive case synchronises on:
+// two cases failed because the broker did not refuse a subject nobody should
+// have been able to reach.
+func applyPermissions(claims *jwt.UserClaims, g grants) {
+	claims.Permissions.Pub = permissionFor(g.pub)
+	claims.Permissions.Sub = permissionFor(g.sub)
+}
+
+func permissionFor(allow []string) jwt.Permission {
+	if len(allow) == 0 {
+		return jwt.Permission{Deny: jwt.StringList{">"}}
+	}
+	return jwt.Permission{Allow: append(jwt.StringList{}, allow...)}
 }

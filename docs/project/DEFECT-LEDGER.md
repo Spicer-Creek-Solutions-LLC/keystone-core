@@ -120,6 +120,24 @@ tell a check that does not fire from a plant that missed. Normative for
 dossiers in [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md)
 § "Required task dossier".
 
+**Last recurrence.** `C03-I2` — the authorization fixture read the broker's
+authorization errors before they existed. A permissions violation is reported
+asynchronously: the publish succeeds locally, the server answers `-ERR` on the
+wire, and `nats.go` dispatches the handler after `Flush` has returned. The first
+draft read its error slice straight after `Flush`, saw nothing, and every
+positive case passed against a broker that had refused the operation — `POS-1`
+did, publishing to a subject its principal has no grant for.
+
+Replaced by a control the assertion waits for: each case also publishes to a
+subject denied to every principal, and reads the record only once that refusal
+has arrived. Async callbacks are dispatched in order, so a violation for an
+earlier operation cannot arrive after it, and **the case fails loudly when the
+control is not refused** — which is what then exposed a real authorization hole
+in the generator, two principals able to publish commands.
+
+**This is the first recurrence recorded by the task that produced it**, which
+`G45` made possible.
+
 **C01-I and C02-I produced instances of this class that never reached this
 entry**, and the reason is `DL-9`'s, not inattention: both wrote them up in their
 dossiers' § 5.3 and in their pull requests, and no behaviour dossier granted the
@@ -129,7 +147,7 @@ above are known to be low and are **not** reconstructed here — inventing figur
 for tasks whose evidence would have to be re-derived is the drift this document
 exists against, and the cause is recorded rather than the symptom patched.
 
-**Last recurrence.** `G33` — the container suite's `requireDocker` called
+Before that, `G33` — the container suite's `requireDocker` called
 `t.Skip` when the Docker client or daemon was absent, landed at P11b and unread
 until G33 moved the suite into `check` and CI. Had it landed in CI as written, a
 job whose client install silently failed would have reported a **green** gate:
@@ -850,12 +868,16 @@ down and recurred anyway, and `DL-8` has now done it too.
 
 ### `DL-9` — A document that requires work a permission list forbids
 
-**Instances.** Four occasions across four tasks. The first three are one
-shape — a task dossier whose decision section required work its **own** § 3.3
-did not permit, found only when the implementation began. The fourth widened the
-class, which is why this entry is no longer titled for a document's own list: an
-obligation can be imposed by a **different** document than the one holding the
-permissions.
+**Instances.** Five occasions across four tasks. Four are one shape — a task
+dossier whose decision section required work its **own** § 3.3 did not permit,
+found only when the implementation began. The fourth widened the class, which is
+why this entry is no longer titled for a document's own list: an obligation can
+be imposed by a **different** document than the one holding the permissions.
+
+**They are numbered in the order they were recorded, not the order they
+occurred.** The fifth was found before the fourth, at the start of `C03-I2`, and
+is recorded here rather than at `G45` because this is the pull request that
+found it — which is the rule `G45` exists to make keepable.
 
 1. **`C02.md` and `tools/pendingcontract/`.** `D-C02-4` decided that C02 reuse
    C01-A's contract machinery and named the collision that reuse would hit — the
@@ -882,6 +904,16 @@ permissions.
    request #367; granted at `G45` in
    [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) § "Required task
    dossier", as one standing statement rather than a line in each dossier.
+
+5. **`C03.md` and `test/e2e/docker/`.** `C03-I` owes *"broker configuration the
+   topology consumes"*, and the container suite only runs `docker compose
+   config` — it never brings the topology up — so proving the wiring needs a
+   test under `test/e2e/docker/`. § 3.3 grants `compose.yaml` and `Dockerfile`
+   and no test file beside them. **The first shape, not the widened one**, and
+   **caught by the countermeasure**: the paths `C03-I2` needed were enumerated
+   against § 3.3 before any code was written, the gap was found, and the task
+   raised it rather than widening the list. Recorded in this pull request; the
+   wiring itself is unresolved and is with the maintainer.
 
 **This is not `DL-8`.** That class needs a prior finding: someone reports a
 defect and it is repaired at the cited site only. Here nothing was reported and
@@ -928,17 +960,27 @@ require is prose, and no checker reads it; `archlint` validates the register and
 `contract-immutability-check` the frozen surfaces, but nothing compares a
 document's intentions with its own permissions.
 
-**Last recurrence.** This pull request — the missing grant to this file in every
-behaviour dossier, found in review of pull request #367.
+**Last recurrence.** `G45` — the missing grant to this file in every behaviour
+dossier, found in review of pull request #367. Instance 5, recorded here at
+`C03-I2`, **occurred earlier** and does not replace it: this field takes the
+latest occasion the defect occurred, not the latest one written down.
 
-**Status: `Failed`.** The countermeasure was in force, was applied, and did not
-prevent instance 4. It was written at `G44` and exercised at `C03-I2`, which
+**Status: `Failed`, unchanged.** The countermeasure was in force, was applied,
+and did not prevent instance 4. It was written at `G44` and exercised at `C03-I2`, which
 enumerated the paths its plan needed against § 3.3 before writing any code —
 and the path to this file was not among them, because **it checks the paths a
 plan intends to touch, and the duty to record a recurrence is incurred by
 *finding* one, which no plan enumerates in advance.**
 
-The third step above is the response, and it has not been tested by events.
+**It did catch instance 5**, at the same task and in the same week: the paths
+`C03-I2`'s plan needed were enumerated against § 3.3 before any code, the
+compose-test gap was found, and the task raised it rather than widening the
+list. That is the countermeasure working on the shape it was written for, and it
+does not move the status — one prevented occasion does not undo an unprevented
+one, and `Held` would describe half the evidence.
+
+The third step above is the response to the half it missed, and it has not been
+tested by events.
 
 ## On whether this document works
 

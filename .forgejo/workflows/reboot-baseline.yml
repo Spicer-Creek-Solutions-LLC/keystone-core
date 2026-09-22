@@ -138,31 +138,14 @@ jobs:
       - name: approved document snapshots
         run: make approved-documents-check
 
-      # C01-A's contract is intentionally pending until C01-I supplies the
-      # production protocol. This proves each registered case still fails for
-      # its documented reason rather than silently disappearing.
-      - name: pending acceptance contract
-        run: make pending-contract
-
-      - name: protocol acceptance contract
-        run: make contract
-
-      - name: contract immutability
-        run: make contract-immutability-check
-
-      - name: requirements register
-        run: make archlint
-
-      # The exemption asserts itself: if the DCO gate is ever removed, `check`'s
-      # one named exception becomes a gate nobody runs, and this fails. G25 added
-      # the second half — presence was never the property, since a step can be
-      # present and conditioned on an event that never fires.
-      #
-      # P11b moved this comment back onto its step. Inserting the two sweeps
-      # above left it describing a gate three steps away.
-      - name: the one CI-only gate still exists, and can still run
-        run: make dco-exempt-check
-
+      # THE CLIENT IS INSTALLED HERE, BEFORE THE CONTRACT GATES, and C03-I2 is
+      # why it moved. `make contract` runs every package under test/contract/,
+      # and the authorization package starts a broker container: ADR-0010 § 3
+      # forbids a test-only authorization adapter, so the cases are measured
+      # against a real broker running generated configuration. With the install
+      # below the contract steps, that package failed in CI with no docker
+      # binary while `make check` was green locally, where Docker is present
+      # throughout. Order in this file is now load-bearing.
       # The Docker client, pinned, in the shape lychee above already uses.
       #
       # CI-RUNNER.md § What is deployed records why this step exists: the job
@@ -221,6 +204,36 @@ jobs:
           docker --version
           docker compose version
           docker info --format 'server {{.ServerVersion}}, {{.Driver}}'
+
+      # C01-A's contract is intentionally pending until C01-I supplies the
+      # production protocol. This proves each registered case still fails for
+      # its documented reason rather than silently disappearing.
+      - name: pending acceptance contract
+        run: make pending-contract
+
+      # Named for every contract package rather than one. This step was called
+      # "protocol acceptance contract" from when test/contract/protocol was the
+      # only one, and it stayed that way through C02's persistence package and
+      # C03's authorization package -- so C03-I2's failure in the authorization
+      # package was reported as the protocol contract failing.
+      - name: acceptance contracts
+        run: make contract
+
+      - name: contract immutability
+        run: make contract-immutability-check
+
+      - name: requirements register
+        run: make archlint
+
+      # The exemption asserts itself: if the DCO gate is ever removed, `check`'s
+      # one named exception becomes a gate nobody runs, and this fails. G25 added
+      # the second half — presence was never the property, since a step can be
+      # present and conditioned on an event that never fires.
+      #
+      # P11b moved this comment back onto its step. Inserting the two sweeps
+      # above left it describing a gate three steps away.
+      - name: the one CI-only gate still exists, and can still run
+        run: make dco-exempt-check
 
       # CI-RUNNER.md § Verification, step 3: the isolation probe, in both
       # directions. The target sets KEYSTONE_REQUIRE_DOCKER, so this cannot skip
