@@ -48,9 +48,29 @@ func TestNEG10AgentCannotSubscribeSystemSubjects(t *testing.T) {
 	d := runningBroker(t)
 	agent(t, d, agentOne).deniedSubscribe(t, "$SYS.>")
 }
-func TestNEG11AgentCannotDeleteCommandStream(t *testing.T)        { pending(t, "NEG-11") }
-func TestNEG12AgentCannotPullOtherConsumer(t *testing.T)          { pending(t, "NEG-12") }
-func TestNEG13AgentCannotPublishBareAcknowledgement(t *testing.T) { pending(t, "NEG-13") }
+func TestNEG11AgentCannotDeleteCommandStream(t *testing.T) {
+	d := runningBroker(t)
+	provisionJetStream(t, d)
+	// The stream EXISTS, so a refusal here cannot be a missing target.
+	agent(t, d, agentOne).deniedPublish(t, "$JS.API.STREAM.DELETE."+natsauth.CommandStream)
+}
+func TestNEG12AgentCannotPullOtherConsumer(t *testing.T) {
+	d := runningBroker(t)
+	provisionJetStream(t, d)
+	// agentTwo's consumer exists -- that is why the fixture creates one per
+	// agent. Without it this case could not tell a permissions violation from a
+	// consumer that is simply not there.
+	agent(t, d, agentOne).deniedPublish(t,
+		"$JS.API.CONSUMER.MSG.NEXT."+natsauth.CommandStream+"."+natsauth.CommandConsumer(agentTwo))
+}
+func TestNEG13AgentCannotPublishBareAcknowledgement(t *testing.T) {
+	d := runningBroker(t)
+	provisionJetStream(t, d)
+	// POS-8 shows the agent may acknowledge on its own consumer. This shows the
+	// bare wildcard is permitted to nobody, which is the other half of ADR-0004
+	// section 6's justification for the trailing wildcard being bounded.
+	agent(t, d, agentOne).deniedPublish(t, "$JS.ACK.>")
+}
 func TestNEG14CommandPublisherCannotSubscribeResults(t *testing.T) {
 	d := runningBroker(t)
 	connectAsService(t, d, natsauth.CommandPublisher).
