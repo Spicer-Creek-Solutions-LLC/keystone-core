@@ -44,8 +44,8 @@ func main() {
 	case "session", "multi":
 		fs := flag.NewFlagSet(cmd, flag.ExitOnError)
 		path := fs.String("path", "", "socket path")
-		frame := fs.String("frame", "", "JSON body, framed and sent one byte per write")
-		raw := fs.String("raw-hex", "", "raw bytes, sent one byte per write instead of -frame")
+		frame := fs.String("frame", "", "JSON body, framed and sent")
+		raw := fs.String("raw-hex", "", "raw bytes, sent instead of -frame")
 		watch := fs.Int("watch-ms", 3000, "how long to observe each connection")
 		waitFor := fs.String("wait-for", "", "block until this file exists before connecting")
 		fifo := fs.String("notify-fifo", "", "write one byte to this FIFO when the first frame arrives")
@@ -71,17 +71,25 @@ func main() {
 	case "listen":
 		fs := flag.NewFlagSet(cmd, flag.ExitOnError)
 		path := fs.String("path", "", "")
+		closeAfter := fs.Int("close-after-ms", 0, "close each connection after this long, unread; 0 holds it open")
 		fs.Parse(args)
 		fd, err := sockprobe.Listen(*path)
 		if err != nil {
 			fail("listen: " + err.Error())
 		}
-		// Accept and hold every connection without reading: a live server that
-		// never consumes anything, so a connection to it is observable and a
-		// removed socket is not.
+		// Accept every connection and never read from it: a live server that
+		// consumes nothing. With -close-after-ms it then closes each one, which
+		// is the refusal the ordering case expects of the real server.
 		for {
-			if _, _, err := syscall.Accept(fd); err != nil {
+			c, _, err := syscall.Accept(fd)
+			if err != nil {
 				fail("accept: " + err.Error())
+			}
+			if *closeAfter > 0 {
+				go func(c int) {
+					time.Sleep(time.Duration(*closeAfter) * time.Millisecond)
+					syscall.Close(c)
+				}(c)
 			}
 		}
 	case "bind-stale":
@@ -200,14 +208,21 @@ func statPath(path string) statResult {
 
 type sessionResult struct {
 	identity
-	ConnectErrno string `json:"connect_errno"`
-	Sent         int    `json:"sent"`
+	// ConsumptionObservable is whether this platform can tell a consumed byte
+	// from an unconsumed one at close (sockprobe.ConsumptionObservable).
+	ConsumptionObservable bool   `json:"consumption_observable"`
+	ConnectErrno          string `json:"connect_errno"`
+	Sent                  int    `json:"sent"`
 	sockprobe.Watch
 	ProbeError string `json:"probe_error,omitempty"`
 }
 
+func newResult() sessionResult {
+	return sessionResult{identity: whoami(), ConsumptionObservable: sockprobe.ConsumptionObservable()}
+}
+
 func session(path string, payload []byte, watchMS, until int, fifo string) sessionResult {
-	r := sessionResult{identity: whoami()}
+	r := newResult()
 	fd, err := sockprobe.Dial(path)
 	if err != nil {
 		r.ConnectErrno = sockprobe.ErrnoName(err)
@@ -218,10 +233,15 @@ func session(path string, payload []byte, watchMS, until int, fifo string) sessi
 }
 
 func observe(fd int, r sessionResult, payload []byte, watchMS, until int, fifo string) sessionResult {
-	if err := sockprobe.SendSingly(fd, payload); err != nil {
-		// A server may close a connection it refused before every byte is
-		// written. That is an observation, not a probe failure.
-		r.ProbeError = "send: " + sockprobe.ErrnoName(err)
+	for sent := 0; sent < len(payload); {
+		n, err := syscall.Write(fd, payload[sent:])
+		if err != nil {
+			// A server may close a connection it refused before every byte is
+			// written. That is an observation, not a probe failure.
+			r.ProbeError = "send: " + sockprobe.ErrnoName(err)
+			break
+		}
+		sent += n
 	}
 	r.Sent = len(payload)
 	var onFrame func()
@@ -253,7 +273,7 @@ func multi(path string, payload []byte, watchMS, until, count, stagger int) []se
 		if i > 0 && stagger > 0 {
 			time.Sleep(time.Duration(stagger) * time.Millisecond)
 		}
-		r := sessionResult{identity: whoami()}
+		r := newResult()
 		fd, err := sockprobe.Dial(path)
 		if err != nil {
 			r.ConnectErrno = sockprobe.ErrnoName(err)

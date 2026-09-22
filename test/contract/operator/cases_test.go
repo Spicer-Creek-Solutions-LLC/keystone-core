@@ -71,51 +71,36 @@ func TestSOCK4KernelRefusesOutsiderConnect(t *testing.T) {
 // ORD -- ADR-0009 § 3's ordering obligation, and § 10
 // ---------------------------------------------------------------------------
 
-const (
-	// holdMS is how long the fault point holds a connection after the
-	// decision; a read before the decision shows up as a fall in the unread
-	// count long before the hold ends. The margin absorbs scheduling noise on a
-	// shared runner, and is wide because a false pass here is the expensive
-	// failure.
-	holdMS   = 1500
-	marginMS = 1000
-)
+// oneByte is ORD-1's whole request. A single byte cannot be partly consumed, so
+// a server that reads anything at all from the connection empties the queue;
+// with a longer payload it could consume a prefix and still close on unread
+// data.
+const oneByte = "7b"
 
-// One case covers § 3's first three rows and § 10. "No byte consumed before the
-// decision" is strictly stronger than "no byte parsed before authorization",
-// and the instrument (sockprobe) cannot tell a read from a parse -- only a
-// consumed byte from an unconsumed one. It cannot see MSG_PEEK at all.
-func TestORD1NoRequestByteReadBeforeDecision(t *testing.T) {
+// ORD-1 carries § 3's first three rows and § 10 for a refused peer, through the
+// stricter rule the surface freezes: a refused connection is never read. How
+// that is observed is sockprobe's, and platform-specific; on Linux the kernel
+// reports a close on unread data as ECONNRESET and a close on an empty queue as
+// a clean end of stream. The server's own account of its order is not consulted
+// -- that is what review of the first version of this case showed cannot be
+// trusted.
+func TestORD1RefusedConnectionIsNeverRead(t *testing.T) {
 	pending(t, "ORD-1")
 	b := newBox(t)
-	c := defaultConfig()
-	c.HoldAfterMS = holdMS
-	b.start(c)
-	release := b.armStale("ord1", "-frame", request(controlOp, nil), "-watch-ms", "10000")
-
-	a := b.session(alice, "-frame", request(controlOp, nil), "-watch-ms", "10000", "-until-frames", "1")
-	if a.InitialOutQ == 0 {
-		t.Fatalf("authorized: the request was consumed before the probe could measure it: %+v", a)
-	}
-	if a.FirstDropMS >= 0 && a.FirstDropMS < marginMS {
-		t.Fatalf("authorized: the server consumed request bytes at %dms, inside the %dms hold after its decision -- it read before deciding: %+v", a.FirstDropMS, holdMS, a)
-	}
-	if len(a.Frames) != 1 || errorCode(t, a.Frames[0]) != errUnknownOperation || a.FrameMS[0] < marginMS {
-		t.Fatalf("authorized: expected %s after the hold: %+v", errUnknownOperation, a)
-	}
-
+	b.start(defaultConfig())
+	release := b.armStale("ord1", "-raw-hex", oneByte, "-watch-ms", "10000")
+	root := b.session("", "-raw-hex", oneByte, "-watch-ms", "10000")
 	b.revoke(stale)
-	s := release()
-	if s.InitialOutQ == 0 {
-		t.Fatalf("denied: the request was consumed before the probe could measure it: %+v", s)
+	for who, s := range map[string]session{"stale member": release(), "root": root} {
+		if !s.ConsumptionObservable {
+			t.Fatalf("%s: this platform has no instrument that can tell a consumed byte from an unconsumed one; ORD-1 cannot be measured here and must not pass", who)
+		}
+		denied(t, who, s)
+		if s.Ended != endedReset {
+			t.Fatalf("%s: the connection ended %q after the denial; the server consumed the request byte of a connection it refused (want %q)", who, s.Ended, endedReset)
+		}
 	}
-	if s.FirstDropMS >= 0 && s.FirstDropMS < marginMS {
-		t.Fatalf("denied: the server consumed request bytes at %dms, inside the hold after its decision: %+v", s.FirstDropMS, s)
-	}
-	denied(t, "denied", s)
-	if s.FrameMS[0] < marginMS {
-		t.Fatalf("denied: the denial arrived at %dms, before the hold after the decision ended", s.FrameMS[0])
-	}
+	b.authorizedControl()
 }
 
 // ordRepetitions is how many times ORD-2 kills a server on its denial. A server
@@ -567,11 +552,11 @@ func TestFLT1EnabledFaultPointIsAudited(t *testing.T) {
 	}
 	b.stop()
 	c := defaultConfig()
-	c.HoldAfterMS = 1
+	c.HoldBeforeMS = 1
 	b.start(c)
 	// Read before any connection: the record must precede accepting one.
-	if rows := b.audit().withAction(actionFaultPrefix + keyHoldAfterDecision); len(rows) != 1 {
-		t.Fatalf("a server started with %s enabled has %d records of it, want 1", keyHoldAfterDecision, len(rows))
+	if rows := b.audit().withAction(actionFaultPrefix + keyHoldBeforeDecision); len(rows) != 1 {
+		t.Fatalf("a server started with %s enabled has %d records of it, want 1", keyHoldBeforeDecision, len(rows))
 	}
 	b.authorizedControl()
 }

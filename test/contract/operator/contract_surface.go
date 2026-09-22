@@ -22,7 +22,7 @@ var acceptanceContractSurface = map[string]acceptanceCase{
 	"SOCK-2": {"TestSOCK2RefusesToStartWithoutAdminGroup", "a server whose configuration names no admin group must exit non-zero without creating the socket, and the same configuration with the group must start"},
 	"SOCK-3": {"TestSOCK3OutsiderCannotStatTheSocket", "a principal outside the admin group must be refused a stat of the socket while a member is not"},
 	"SOCK-4": {"TestSOCK4KernelRefusesOutsiderConnect", "a principal outside the admin group must have connect() refused by the kernel with EACCES while a member's connection is answered"},
-	"ORD-1":  {"TestORD1NoRequestByteReadBeforeDecision", "while the server is held after its authorization decision, the count of request bytes it has not consumed must not fall, for an authorized peer and for a denied one"},
+	"ORD-1":  {"TestORD1RefusedConnectionIsNeverRead", "a connection the in-band check refuses must have none of its request bytes consumed, before or after the decision: a refused peer that sent one byte must receive the denial and the server must close with that byte unconsumed"},
 	"ORD-2":  {"TestORD2DenialRecordDurableBeforeResponse", "a server killed with SIGKILL the moment its denial response arrives must already have written that denial's record, on every repetition"},
 	"ORD-3":  {"TestORD3NoDenialAnsweredWithoutDurableRecord", "when the denial record cannot be written the server must close the connection without writing a response, and must answer and record the next denial once it can"},
 	"DENY-1": {"TestDENY1StaleMemberDeniedInBand", "a session that still carries the admin group after its account was removed from it must connect and then be denied in-band"},
@@ -86,12 +86,11 @@ const (
 	tableFaults = "faults"
 	// keyHoldBeforeDecision holds a connection after accept() and before the
 	// authorization decision. It elapses INSIDE the window the authorization
-	// timeout bounds and counts against the unauthorized-connection limit.
+	// timeout bounds and counts against the unauthorized-connection limit. It
+	// exists to make § 9's two pre-authorization limits observable, and it
+	// proves nothing about ordering: where an implementation places it is the
+	// implementation's to get right, which is why ORD-1 does not rely on it.
 	keyHoldBeforeDecision = "operator_hold_before_decision_ms"
-	// keyHoldAfterDecision holds a connection after the authorization decision
-	// and before anything else is done with it: before any read, any record,
-	// and any response.
-	keyHoldAfterDecision = "operator_hold_after_decision_ms"
 )
 
 // The framing: every frame, in both directions, is a uint32 big-endian length
@@ -100,7 +99,13 @@ const (
 // is "error".
 //
 // No byte of a request is read before the authorization decision (ADR-0009
-// §§ 3, 10). No request member may name the actor (§ 7).
+// §§ 3, 10), and NO BYTE IS EVER READ from a connection the in-band check
+// refused. The second rule is stricter than ADR-0009, which forbids only reading
+// before the decision; C04 adopts it because it is what can be observed from
+// outside the server without trusting the server's account of its own order.
+// It is stated here without reference to any platform. How a test observes it
+// is the instrument's, and is platform-specific. No request member may name the
+// actor (§ 7).
 const (
 	requestOp = "op"
 	errorKey  = "error"
@@ -146,7 +151,7 @@ const (
 var _ = map[string]func(*testing.T){
 	"SOCK-1": TestSOCK1SocketOwnershipAndModes, "SOCK-2": TestSOCK2RefusesToStartWithoutAdminGroup,
 	"SOCK-3": TestSOCK3OutsiderCannotStatTheSocket, "SOCK-4": TestSOCK4KernelRefusesOutsiderConnect,
-	"ORD-1": TestORD1NoRequestByteReadBeforeDecision, "ORD-2": TestORD2DenialRecordDurableBeforeResponse,
+	"ORD-1": TestORD1RefusedConnectionIsNeverRead, "ORD-2": TestORD2DenialRecordDurableBeforeResponse,
 	"ORD-3":  TestORD3NoDenialAnsweredWithoutDurableRecord,
 	"DENY-1": TestDENY1StaleMemberDeniedInBand, "DENY-2": TestDENY2RootOutsideGroupDeniedInBand,
 	"DENY-3": TestDENY3DenialSaysOnlyAuthorizationDenied, "DENY-4": TestDENY4InBandDenialIsRecorded,

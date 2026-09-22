@@ -27,10 +27,26 @@ func TestFixtureInstrumentsTheHost(t *testing.T) {
 	}
 	b.sh("chgrp " + adminGroup + " " + socketPath + " && chmod 0660 " + socketPath)
 
-	t.Run("a member reaches the socket and the instrument sees no read", func(t *testing.T) {
-		s := b.session(alice, "-frame", request(controlOp, nil), "-watch-ms", "500")
-		if s.ConnectErrno != "" || s.InitialOutQ == 0 || s.FirstDropMS != -1 {
-			t.Fatalf("against a peer that never reads: %+v", s)
+	t.Run("a member reaches the socket and it stays open", func(t *testing.T) {
+		s := b.session(alice, "-frame", request(controlOp, nil), "-watch-ms", "300")
+		if s.ConnectErrno != "" || s.Ended != endedOpen {
+			t.Fatalf("against a peer that holds the connection: %+v", s)
+		}
+	})
+
+	// ORD-1's instrument, inside the container: a peer that closes without
+	// reading must be seen to have left the byte unconsumed.
+	t.Run("a peer that closes without reading is seen not to have read", func(t *testing.T) {
+		path := socketDir + "/closer.sock"
+		b.detach("", probeBin, "listen", "-path", path, "-close-after-ms", "200")
+		for i := 0; i < 50 && b.stat("", path).Type != "socket"; i++ {
+			b.exec("", "sleep", "0.1")
+		}
+		b.sh("chgrp " + adminGroup + " " + path + " && chmod 0660 " + path)
+		var s session
+		b.probe(alice, &s, "session", "-path", path, "-raw-hex", oneByte, "-watch-ms", "3000")
+		if !s.ConsumptionObservable || s.ConnectErrno != "" || s.Ended != endedReset {
+			t.Fatalf("a close on an unread byte was not observed as unread: %+v", s)
 		}
 	})
 
@@ -64,7 +80,7 @@ func TestFixtureInstrumentsTheHost(t *testing.T) {
 	})
 
 	t.Run("the listener holds no IP socket", func(t *testing.T) {
-		pid := strings.Fields(b.sh("pgrep -f '^" + probeBin + " listen'"))
+		pid := strings.Fields(b.sh("pgrep -f '^" + probeBin + " listen -path " + socketPath + "$'"))
 		if len(pid) != 1 {
 			t.Fatalf("listener pids: %v", pid)
 		}
@@ -114,7 +130,7 @@ func TestFixtureInstrumentsTheHost(t *testing.T) {
 	})
 
 	t.Run("the peak virtual size of a process is readable", func(t *testing.T) {
-		pid := strings.Fields(b.sh("pgrep -f '^" + probeBin + " listen'"))
+		pid := strings.Fields(b.sh("pgrep -f '^" + probeBin + " listen -path " + socketPath + "$'"))
 		var r struct {
 			Error    string `json:"error"`
 			VmPeakKB int    `json:"vm_peak_kb"`

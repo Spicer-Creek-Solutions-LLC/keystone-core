@@ -225,7 +225,6 @@ type serverConfig struct {
 	MaxAuthorized   int
 	MaxFrameBytes   int
 	HoldBeforeMS    int
-	HoldAfterMS     int
 }
 
 func defaultConfig() serverConfig { return serverConfig{AdminGroup: adminGroup} }
@@ -245,14 +244,8 @@ func (c serverConfig) render() string {
 		}
 	}
 	fmt.Fprintf(&s, "\n[%s]\n%s = %q\n", tableStore, keyStore, storePath)
-	if c.HoldBeforeMS != 0 || c.HoldAfterMS != 0 {
-		fmt.Fprintf(&s, "\n[%s]\n", tableFaults)
-		if c.HoldBeforeMS != 0 {
-			fmt.Fprintf(&s, "%s = %d\n", keyHoldBeforeDecision, c.HoldBeforeMS)
-		}
-		if c.HoldAfterMS != 0 {
-			fmt.Fprintf(&s, "%s = %d\n", keyHoldAfterDecision, c.HoldAfterMS)
-		}
+	if c.HoldBeforeMS != 0 {
+		fmt.Fprintf(&s, "\n[%s]\n%s = %d\n", tableFaults, keyHoldBeforeDecision, c.HoldBeforeMS)
 	}
 	return s.String()
 }
@@ -357,25 +350,26 @@ type statResult struct {
 	Inode uint64 `json:"inode"`
 }
 
-type sample struct {
-	MS   int `json:"ms"`
-	OutQ int `json:"outq"`
+type session struct {
+	UID                   int      `json:"uid"`
+	Groups                []int    `json:"groups"`
+	ConsumptionObservable bool     `json:"consumption_observable"`
+	ConnectErrno          string   `json:"connect_errno"`
+	Sent                  int      `json:"sent"`
+	Frames                []string `json:"frames"`
+	FrameMS               []int    `json:"frame_ms"`
+	Trailing              int      `json:"trailing_bytes"`
+	Ended                 string   `json:"ended"`
+	EOFMS                 int      `json:"eof_ms"`
+	ProbeError            string   `json:"probe_error"`
 }
 
-type session struct {
-	UID          int      `json:"uid"`
-	Groups       []int    `json:"groups"`
-	ConnectErrno string   `json:"connect_errno"`
-	Sent         int      `json:"sent"`
-	InitialOutQ  int      `json:"initial_outq"`
-	Samples      []sample `json:"samples"`
-	FirstDropMS  int      `json:"first_drop_ms"`
-	Frames       []string `json:"frames"`
-	FrameMS      []int    `json:"frame_ms"`
-	Trailing     int      `json:"trailing_bytes"`
-	EOFMS        int      `json:"eof_ms"`
-	ProbeError   string   `json:"probe_error"`
-}
+// The ways a connection can end, as sockprobe reports them.
+const (
+	endedOpen  = "open"
+	endedEOF   = "eof"
+	endedReset = "reset"
+)
 
 type auditResult struct {
 	Error   string           `json:"error"`

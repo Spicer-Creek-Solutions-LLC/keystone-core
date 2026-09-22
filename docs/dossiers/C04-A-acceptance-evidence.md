@@ -17,17 +17,24 @@ None.
 
 Settled at C04-A's approval, per [`C04.md`](C04.md) § 11.
 
-- `D-C04-1` — **the dossier's proposal was replaced.** It proposed a parser that
-  records when it was first entered, which is a seam in production code that
-  exists for a test. The contract instead measures the order from outside the
-  server: `SIOCOUTQ` on the client's end of a unix stream socket reports the
-  bytes the peer has not consumed. The probe sends one byte per write, so a read
-  of any single byte moves the count, and a fault point holds the server after
-  its decision, so a read before the decision shows as a fall in the count long
-  before the hold ends. The fault point is `ADR-0010` § 5's mechanism —
-  configuration in the shipped binary, inert by default, recorded in the audit
-  when enabled — not a test hook. The same fault points hold the window
-  `ADR-0009` § 9's two pre-authorization limits need.
+- `D-C04-1` — **the dossier's proposal was replaced, and so was this
+  contract's first answer.** The dossier proposed a parser that records when it
+  was first entered. The first version of `ORD-1` instead held the server with
+  a fault point "after its decision" and watched for request bytes consumed
+  before the hold ended. Review of #376 showed both share one flaw: **the
+  implementation decides where the marker goes.** A server that holds, then
+  reads, then decides passes either one. A record of the server's own order is
+  the same claim in a different place.
+
+  `ORD-1` therefore asks the kernel instead. The contract freezes a
+  platform-neutral rule: **a connection the in-band check refuses is never
+  read, before or after the decision.** A refused peer sends one byte. On
+  Linux, a unix stream socket closed with unread data marks its peer
+  `ECONNRESET`, and one closed on an empty queue gives a clean end of stream.
+  So a denial followed by a reset shows that byte was never consumed, whatever
+  the server believes about its own order. No timing, no hold and no server
+  marker is involved. The maintainer approved the change and its costs, set
+  out under § Limits and § Portability.
 - `D-C04-2` — no register row lands at C04, and none cites `ADR-0009`.
   `archlint` checks nothing for C04; the substrate is tracked by this contract
   alone, and C04-I's evidence states the gap again.
@@ -48,7 +55,8 @@ the cases, so a later change is an amendment and not an edit:
 - **Invocation.** `keystone-server` with no arguments, reading the TOML file
   `KEYSTONE_SERVER_CONFIG` names.
 - **Configuration.** `[operator] admin_group` (required, no default), the four
-  observable § 9 limits, `[store] path`, and two `[faults]` hold durations.
+  observable § 9 limits, `[store] path`, and one `[faults]` hold, which makes
+  the two pre-authorization limits observable and proves nothing about order.
 - **Framing.** A uint32 big-endian length, then a JSON object. Requests carry
   `op`; every server error is an object whose only member is `error`, one of
   `authorization_denied`, `unknown_operation`, `frame_too_large` and
@@ -101,10 +109,24 @@ Every row of `C04.md` § 5.2, and where it went. Two cases were added.
 | **Added:** a stale socket in a directory a non-root principal can write | `REC-5` — `ADR-0009` § 8's first row makes the directory the precondition of a safe unlink |
 | **Added:** an enabled fault point is not recorded | `FLT-1` — `ADR-0010` § 12, owed by the first task with a fault point |
 
-**`ORD-1` carries three rows because the instrument cannot separate them.** It
-observes only whether a byte was consumed. "Nothing consumed before the
-decision" is strictly stronger than "nothing parsed", and a decision that needs
-the peer's credentials cannot precede reading them.
+**`ORD-1` carries three rows through a stricter rule.** § 3's rows and § 10 say
+nothing may be read or parsed before the decision. `ORD-1` requires that a
+refused connection is never read at all. That implies every one of them for a
+refused peer, and it is the only form of them the kernel can report without
+trusting the server.
+
+**It is stricter than `ADR-0009`**, which permits a server to read and discard a
+refused connection's bytes once the decision is made. C04 forbids that too,
+because it is what makes the order observable. The throwaway server's
+`drain-after-deny` defect below is the cost, stated: it is ADR-compliant and
+fails `ORD-1`.
+
+**The authorized path is covered by argument, not observation.** Reading before
+the decision for a member is the same code path as reading before the decision
+for anyone. The server does not yet know which peer it has, so it cannot read
+early for members only. A server that chose to read early from cached knowledge
+of a peer would have made a decision from stale state, which is `DENY-1`'s
+subject.
 
 **`ISO-1` is a weaker statement than § 11's.** § 11's test is that removing the
 broker leaves no path to an agent. At C04 there is no broker and no agent, so the
@@ -146,15 +168,19 @@ obligation can be mistaken for a pass, and nothing about discrimination.
 ### The instrument
 
 `sockprobe` is proven on the running kernel by its own tests, which run in every
-`make check`. Each was planted against:
+`make check`. The kernel-semantic ones are in `unread_linux_test.go` and assert
+each property `ConsumptionObservable` claims: an unread byte ends in a reset, a
+consumed one in a clean end of stream, and the frame written before close is
+delivered either way.
 
 | Planted defect | Fails |
 |---|---|
-| `SendSingly` sends the payload in one write | `TestReadingASingleByteMovesTheCount` only |
+| A reset is reported as a clean end of stream | the three tests that expect a reset |
+| The Linux build reports no instrument | `TestConsumptionIsObservableHere` only |
 
 Two of those tests assert limits rather than capabilities, so that neither can
-silently stop being true: a partial read of one multi-byte write is invisible,
-which is why the probe writes one byte at a time, and so is `MSG_PEEK`.
+silently stop being true. A partial read of a longer payload still ends in a
+reset, which is why `ORD-1` sends one byte. A `MSG_PEEK` ends in a reset too.
 
 ### The fixture
 
@@ -168,7 +194,7 @@ runs.
 | Planted defect | Fails |
 |---|---|
 | The outsider is made a member of the admin group | `the kernel refuses an outsider` only |
-| The stand-in listener reads one byte of each connection | `a member reaches the socket and the instrument sees no read` only |
+| The closing stand-in listener reads before it closes | `a peer that closes without reading is seen not to have read` only |
 | Revocation does nothing | `a revoked member's running session still passes the kernel` only |
 
 ### The cases' discrimination, against a throwaway server
@@ -181,10 +207,19 @@ it is for. It says nothing about C04-I's server, and **C04-I still owes a
 planted-defect demonstration per case against production code**, per `C04.md`
 § 5.3.
 
-Unmodified, it passed every case, on two consecutive runs. That run found two
-defects in this contract's own bodies before they reached C04-I: an unanchored
-`pkill` pattern that matched its own shell, and an inode comparison defeated by
-tmpfs reusing an unlinked inode's number (see § Limits).
+Unmodified, it passed every case. Its first run found two defects in this
+contract's own bodies before they reached C04-I: an unanchored `pkill` pattern
+that matched its own shell, and an inode comparison defeated by tmpfs reusing an
+unlinked inode's number (see § Limits).
+
+**The first version of this matrix missed the defect review found.** Its only
+ordering defect read the request immediately, which the first `ORD-1` caught
+by timing; nothing planted a server that held first, then read, then decided.
+Both ordering defects below are now **faithful**: whatever they read before
+deciding is replayed after authorization, so each is only an ordering defect and
+the authorized path still works. An earlier draft of them swallowed the
+authorized control's request, failed nearly every case, and so said nothing
+about `ORD-1` in particular.
 
 Each row below plants one defect and records every case that failed.
 
@@ -192,14 +227,16 @@ Each row below plants one defect and records every case that failed.
 |---|---|
 | None | none |
 | Parses the first request before deciding, then behaves correctly | `ORD-1`, `LIM-4` |
+| **Holds, then reads what the peer sent, then decides** — the defect review found | `ORD-1`, `LIM-2` |
+| Decides first, then reads and discards a refused connection before closing | `ORD-1` — ADR-compliant; the stricter rule's cost |
 | Writes the denial, then the record 20 ms later | `ORD-2`, `ORD-3` |
 | Answers the denial when the record's write failed | `ORD-3` |
 | Never writes a denial record | `ORD-2`, `ORD-3`, `DENY-4`, `DENY-6`, `DENY-7` |
 | Authorizes every peer the kernel admitted | `ORD-1`, `ORD-2`, `ORD-3`, `DENY-1`–`DENY-4`, `DENY-6`, `DENY-7` |
-| Authorizes `root` | `ORD-3`, `DENY-2`, `DENY-3`, `DENY-4` |
+| Authorizes `root` | `ORD-1`, `ORD-3`, `DENY-2`, `DENY-3`, `DENY-4` |
 | Adds a `reason` member to the denial | `ORD-1`, `ORD-2`, `ORD-3`, `DENY-1`–`DENY-4`, `DENY-6`, `DENY-7` |
 | Adds a `peer_pid` column | `DENY-6` |
-| Takes the recorded actor from a request field | `DENY-7` |
+| Takes the recorded actor from a request field | `ORD-1`, `DENY-7` |
 | Unlinks whatever is at the socket path | `REC-1`, `REC-2`, `REC-3` |
 | Trusts a directory the admin group can write | `REC-5` |
 | Never recovers a stale socket | `REC-4`, `REC-5` |
@@ -223,7 +260,16 @@ blunt case.**
   denial each of those cases starts from.
 - **Parsing before deciding.** The defect fires `LIM-4` as well as `ORD-1`
   legitimately: parsing the first request before the decision includes
-  allocating its body, and `LIM-4`'s request is a hostile length prefix.
+  allocating its body, and `LIM-4`'s request is a hostile length prefix. Against
+  `ORD-1`'s one byte it blocks for the rest of a frame, so the refused peer gets
+  no denial at all.
+- **Holding, reading, deciding.** `ORD-1` fails because the refused
+  connection ends in a clean end of stream after its denial — the byte was
+  consumed. `LIM-2` fails too, because the defect's hold sits inside the
+  authorization window that case times.
+- **Reading a refused peer's request.** The defect that takes the recorded actor
+  from the request fires `ORD-1` as well as `DENY-7`, because reading that
+  request at all is what `ORD-1` forbids.
 - **`ORD-3` fires on several.** Its last step expects one record and one answer
   after the disk is freed.
 
@@ -236,13 +282,17 @@ the operator sees; `SOCK-1` asserts each mode.
 
 What these cases cannot detect, and what would.
 
-- **A peek.** A server that inspects request bytes with `MSG_PEEK` before
-  deciding consumes nothing, and `ORD-1` cannot see it. Review of C04-I's
-  source is what finds it.
-- **Timing.** `ORD-1`, `LIM-1` and `LIM-2` rely on holds of a second or more
-  against margins of hundreds of milliseconds. A runner stalled for longer than
-  the margin can fail a correct server; it cannot pass a defective one, because
-  every timing assertion is a lower bound on when the server acted.
+- **A peek.** A server that inspects a refused peer's bytes with `MSG_PEEK`
+  consumes nothing, and `ORD-1` cannot see it. Review of C04-I's source is what
+  finds it.
+- **The authorized path.** `ORD-1` observes refused peers only; the argument
+  for members is in § "The dossier's cases, mapped".
+- **Timing.** `LIM-1` and `LIM-2` rely on a pre-authorization hold of seconds
+  against margins of hundreds of milliseconds, in both directions: a served
+  connection must answer after the hold, a shed one must close well before it.
+  A runner stalled for longer than a margin can fail a correct server. What
+  these cases catch is what the defect matrix shows, and no more general claim
+  is made. `ORD-1` has no timing dependence.
 - **`ORD-2` is probabilistic.** A server that answers before its record is
   durable loses the record only if the kill lands in the gap. The kill is
   microseconds behind the response and the case repeats five times.
@@ -264,6 +314,36 @@ What these cases cannot detect, and what would.
 - **Inodes are reused.** tmpfs reissued an unlinked socket's inode number when
   `REC-4` was first run against the throwaway server, so no case uses an inode
   to prove a replacement — only that an unchanged object was not touched.
+
+## Portability
+
+Generation 2 is Linux-only, and the maintainer's direction is that later
+Windows, macOS and BSD support must stay possible. The contract separates what
+is required from how it is measured, so that a port replaces the measurement and
+not the requirement.
+
+- **`ORD-1`'s requirement is platform-neutral.** Its rule — a refused
+  connection is never read — is a statement about the server and names no
+  kernel interface. It is the one requirement this contract chose the form of.
+- **Other requirements name what `ADR-0009` names.** `SOCK-4`, `DENY-5`,
+  `DENY-6` and `REC-4` mention `connect()`, `EACCES`, `SO_PEERCRED` or
+  `ECONNREFUSED` because the ADR decides in those terms. A port amends them
+  when it amends the ADR, not before.
+- **The measurement is behind one seam.** `sockprobe.ConsumptionObservable` is
+  defined per platform: `unread_linux.go` returns true and carries the kernel
+  argument, and `unread_other.go` returns false on every other platform. A false
+  result **fails** `ORD-1` as unmeasurable rather than passing it. A port adds
+  its own file and kernel test, or records that the platform cannot observe
+  consumption and decides what replaces it.
+- **The larger coupling is `ADR-0009`'s, not this contract's.** `SO_PEERCRED`
+  is Linux's; the BSDs and macOS have `getpeereid` and `LOCAL_PEERCRED`, and
+  Windows has neither on unix sockets and would likely need named pipes and a
+  different identity model. `/run/keystone`, POSIX groups and `root` do not map
+  to Windows at all. **For C04-I, and for its reviewer:** peer-credential
+  retrieval and group-membership lookup belong behind a small interface with
+  Linux as its only implementation, so that a port adds a file rather than
+  rewriting the listener. Requiring that is C04-I's approval to make; it is
+  recorded here so it is not rediscovered.
 
 ## Validation
 

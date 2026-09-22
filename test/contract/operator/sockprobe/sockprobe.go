@@ -1,4 +1,4 @@
-// Package sockprobe is the instrument C04-A's contract measures the operator
+// Package sockprobe is the instrument C04-A's contract speaks to the operator
 // socket with. It is test code: nothing in the product imports it.
 //
 // It uses syscall rather than net. Nothing here needs net, and
@@ -6,27 +6,13 @@
 // a probe that imported net would have to loosen a boundary the product is
 // still held to.
 //
-// # The ordering instrument
+// # How a connection ended, and what that shows
 //
-// ADR-0009 § 3 requires that no request byte is read before the server has
-// decided whether the peer is authorized. A refusal proves the outcome and not
-// the order, so the contract measures the order from outside the server:
-// SIOCOUTQ on a unix stream socket reports the bytes the client sent that the
-// PEER HAS NOT CONSUMED YET. An AF_UNIX skb stays charged to the sender until
-// the receiver has read all of it.
-//
-// Two properties of that count decide how it is used, and sockprobe_test.go
-// asserts both on the running kernel rather than trusting this comment:
-//
-//   - The count moves only when an skb is FULLY consumed. A server that reads
-//     one byte of a hundred-byte write leaves it unchanged. SendSingly
-//     therefore writes one byte per syscall, so that a read of any single byte
-//     consumes a whole skb and moves the count.
-//   - MSG_PEEK consumes nothing, and the count cannot see it. That is a limit
-//     of this instrument, stated in C04-A's evidence rather than hidden.
-//
-// The count is in units of skb truesize, not payload bytes. Every assertion
-// is therefore about whether the count CHANGED, never about its value.
+// C04-A freezes a platform-neutral requirement: a connection the in-band check
+// refuses has none of its request bytes consumed. Observing that from outside
+// the server is platform-specific, and is isolated in ConsumptionObservable,
+// which each platform's file defines. See unread_linux.go for the one platform
+// with an instrument today.
 package sockprobe
 
 import (
@@ -34,15 +20,15 @@ import (
 	"errors"
 	"syscall"
 	"time"
-	"unsafe"
 )
 
 // Dial connects a unix stream socket to path. The descriptor is blocking.
 func Dial(path string) (int, error) {
-	fd, err := syscall.Socket(syscall.AF_UNIX, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 0)
+	fd, err := syscall.Socket(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
 	if err != nil {
 		return -1, err
 	}
+	syscall.CloseOnExec(fd)
 	if err := syscall.Connect(fd, &syscall.SockaddrUnix{Name: path}); err != nil {
 		syscall.Close(fd)
 		return -1, err
@@ -53,10 +39,11 @@ func Dial(path string) (int, error) {
 // Listen binds and listens on path. It is the probe's own server, used to
 // prove the instrument and to plant a live or stale socket.
 func Listen(path string) (int, error) {
-	fd, err := syscall.Socket(syscall.AF_UNIX, syscall.SOCK_STREAM|syscall.SOCK_CLOEXEC, 0)
+	fd, err := syscall.Socket(syscall.AF_UNIX, syscall.SOCK_STREAM, 0)
 	if err != nil {
 		return -1, err
 	}
+	syscall.CloseOnExec(fd)
 	if err := syscall.Bind(fd, &syscall.SockaddrUnix{Name: path}); err != nil {
 		syscall.Close(fd)
 		return -1, err
@@ -66,25 +53,6 @@ func Listen(path string) (int, error) {
 		return -1, err
 	}
 	return fd, nil
-}
-
-// OutQ reports the send-queue count the peer has not consumed.
-func OutQ(fd int) (int, error) {
-	var n int32
-	if _, _, e := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TIOCOUTQ), uintptr(unsafe.Pointer(&n))); e != 0 {
-		return 0, e
-	}
-	return int(n), nil
-}
-
-// SendSingly writes b one byte per syscall. See the package comment for why.
-func SendSingly(fd int, b []byte) error {
-	for i := range b {
-		if _, err := syscall.Write(fd, b[i:i+1]); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // Frame is the operator framing C04-A freezes: a uint32 big-endian length,
@@ -110,26 +78,28 @@ func Frames(buf []byte) (bodies [][]byte, rest []byte) {
 	return bodies, buf
 }
 
-// Sample is one observation of the send queue, in milliseconds since the
-// watch began.
-type Sample struct {
-	MS   int `json:"ms"`
-	OutQ int `json:"outq"`
-}
+// How a connection ended, as the client saw it.
+const (
+	// EndedOpen: the budget ran out, or enough frames arrived, before the
+	// server closed the connection.
+	EndedOpen = "open"
+	// EndedEOF: the server closed the connection and the client read a clean
+	// end of stream.
+	EndedEOF = "eof"
+	// EndedReset: the server closed the connection and the client's read
+	// failed with ECONNRESET. What that shows depends on the platform; see
+	// ConsumptionObservable.
+	EndedReset = "reset"
+)
 
 // Watch is what one connection observed after its payload was sent.
 type Watch struct {
-	// InitialOutQ is the count once every payload byte was written and before
-	// the first sample. Zero means the payload was empty or already consumed.
-	InitialOutQ int `json:"initial_outq"`
-	// Samples records each CHANGE of the count, not every poll.
-	Samples []Sample `json:"samples"`
-	// FirstDropMS is when the count first fell below InitialOutQ, or -1.
-	FirstDropMS int `json:"first_drop_ms"`
 	// Frames are the complete response bodies, in arrival order.
 	Frames   []string `json:"frames"`
 	FrameMS  []int    `json:"frame_ms"`
 	Trailing int      `json:"trailing_bytes"`
+	// Ended is EndedOpen, EndedEOF or EndedReset.
+	Ended string `json:"ended"`
 	// EOFMS is when the server closed the connection, or -1.
 	EOFMS int `json:"eof_ms"`
 }
@@ -138,18 +108,16 @@ type Watch struct {
 // broken probe from an observed server behaviour.
 var ErrWatch = errors.New("sockprobe: watch failed")
 
-// Observe samples fd's send queue and reads responses until the server closes
-// the connection, budget elapses, or -- when untilFrames is positive -- that
-// many complete frames have arrived. onFrame, when set, runs once, after the
-// first complete frame arrives.
+// Observe reads responses until the server closes the connection, budget
+// elapses, or -- when untilFrames is positive -- that many complete frames
+// have arrived. onFrame, when set, runs once, after the first complete frame
+// arrives.
+//
+// Every byte the server wrote is read before the end is classified: data
+// queued ahead of a reset is still delivered, so a denial followed by a reset
+// is observed as both.
 func Observe(fd int, budget time.Duration, untilFrames int, onFrame func()) (Watch, error) {
-	w := Watch{FirstDropMS: -1, EOFMS: -1}
-	q, err := OutQ(fd)
-	if err != nil {
-		return w, errors.Join(ErrWatch, err)
-	}
-	w.InitialOutQ = q
-	last := q
+	w := Watch{Ended: EndedOpen, EOFMS: -1}
 	if err := syscall.SetNonblock(fd, true); err != nil {
 		return w, errors.Join(ErrWatch, err)
 	}
@@ -159,15 +127,6 @@ func Observe(fd int, budget time.Duration, untilFrames int, onFrame func()) (Wat
 	notified := false
 	for {
 		ms := int(time.Since(start) / time.Millisecond)
-		if q, err := OutQ(fd); err == nil {
-			if q != last {
-				w.Samples = append(w.Samples, Sample{MS: ms, OutQ: q})
-				last = q
-			}
-			if q < w.InitialOutQ && w.FirstDropMS < 0 {
-				w.FirstDropMS = ms
-			}
-		}
 		n, err := syscall.Read(fd, chunk)
 		switch {
 		case n > 0:
@@ -188,13 +147,11 @@ func Observe(fd int, budget time.Duration, untilFrames int, onFrame func()) (Wat
 			}
 			continue
 		case n == 0 && err == nil:
-			w.EOFMS = ms
-			w.Trailing = len(buf)
+			w.Ended, w.EOFMS, w.Trailing = EndedEOF, ms, len(buf)
 			return w, nil
 		case err == syscall.EAGAIN:
 		case err == syscall.ECONNRESET:
-			w.EOFMS = ms
-			w.Trailing = len(buf)
+			w.Ended, w.EOFMS, w.Trailing = EndedReset, ms, len(buf)
 			return w, nil
 		default:
 			return w, errors.Join(ErrWatch, err)
@@ -225,6 +182,10 @@ func ErrnoName(err error) string {
 		return "ENOENT"
 	case syscall.ECONNREFUSED:
 		return "ECONNREFUSED"
+	case syscall.ECONNRESET:
+		return "ECONNRESET"
+	case syscall.EPIPE:
+		return "EPIPE"
 	case syscall.EPERM:
 		return "EPERM"
 	case syscall.ENOTDIR:
