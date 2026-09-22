@@ -7,20 +7,9 @@
     {"case":"POS-20","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the result consumer can acknowledge its exact consumer","test":"TestPOS20ResultConsumerAcknowledgesResult"},
     {"case":"POS-22","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved monitoring can receive a real message-terminated advisory","test":"TestPOS22MonitoringSubscribesTerminatedAdvisory"},
     {"case":"POS-23","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved monitoring can receive this account's API limit advisory","test":"TestPOS23MonitoringSubscribesLimitAdvisory"},
-    {"case":"NEG-1","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the broker denies agent command publication","test":"TestNEG1AgentCannotPublishCommand"},
-    {"case":"NEG-2","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the broker denies agent cancellation publication","test":"TestNEG2AgentCannotPublishCancellation"},
-    {"case":"NEG-3","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the broker denies another agent's command subscription","test":"TestNEG3AgentCannotSubscribeOtherCommand"},
-    {"case":"NEG-4","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the broker denies another agent's job-prefix subscription","test":"TestNEG4AgentCannotSubscribeOtherJobPrefix"},
-    {"case":"NEG-5","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the broker denies publishing another agent's result","test":"TestNEG5AgentCannotPublishOtherResult"},
-    {"case":"NEG-6","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the broker denies subscribing to another agent's result","test":"TestNEG6AgentCannotSubscribeOtherResult"},
     {"case":"NEG-7","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved a revoked bootstrap identity fails at connection","test":"TestNEG7RevokedBootstrapCannotConnect"},
-    {"case":"NEG-8","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved a permanent agent cannot publish enrollment requests","test":"TestNEG8PermanentAgentCannotPublishEnrollment"},
-    {"case":"NEG-9","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved a permanent agent cannot subscribe to enrollment","test":"TestNEG9PermanentAgentCannotSubscribeEnrollment"},
-    {"case":"NEG-10","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved an agent cannot subscribe to system subjects","test":"TestNEG10AgentCannotSubscribeSystemSubjects"},
     {"case":"NEG-11","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not distinguished a stream-delete permissions violation from every other refusal","test":"TestNEG11AgentCannotDeleteCommandStream"},
     {"case":"NEG-12","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not distinguished another consumer's permissions violation from a missing consumer","test":"TestNEG12AgentCannotPullOtherConsumer"},
-    {"case":"NEG-13","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not distinguished a bare-ack permissions violation from every other refusal","test":"TestNEG13AgentCannotPublishBareAcknowledgement"},
-    {"case":"NEG-14","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the command publisher cannot subscribe to results","test":"TestNEG14CommandPublisherCannotSubscribeResults"},
-    {"case":"NEG-15","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the presence consumer cannot publish commands","test":"TestNEG15PresenceConsumerCannotPublishCommands"}
+    {"case":"NEG-13","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not distinguished a bare-ack permissions violation from every other refusal","test":"TestNEG13AgentCannotPublishBareAcknowledgement"}
   ]
 }

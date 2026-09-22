@@ -44,7 +44,8 @@ func runningBroker(t *testing.T) deployment {
 // that refused everything, which is the whole of what these cases exist to
 // tell apart.
 type client struct {
-	conn *nats.Conn
+	conn      *nats.Conn
+	permitted permitted
 
 	mu     sync.Mutex
 	errors []error
@@ -225,5 +226,100 @@ func (c *client) subscribeToOwnInboxPermitted(t *testing.T) {
 	t.Cleanup(func() { _ = sub.Unsubscribe() })
 	if found := c.settle(t); len(found) > 0 {
 		t.Fatalf("subscribing to its own inbox was refused: %v", found)
+	}
+}
+
+// permitted records one operation this principal IS allowed, in each direction
+// it has any grant at all. A denial case exercises it alongside the refusal it
+// asserts, and the reason is the whole of what makes a negative case worth
+// anything.
+//
+// **A CONNECTION THAT CAN DO NOTHING SATISFIES EVERY DENIAL.** A generator that
+// denied an agent its own subjects would pass NEG-1 through NEG-10 while being
+// catastrophically wrong, and the execution plan says it directly: a case that
+// fires on every defect is not discriminating. So the assertion below is not
+// "the subject under test was refused" but "the subject under test was refused
+// AND nothing else was".
+type permitted struct {
+	publish   string
+	subscribe string
+	inbox     bool // subscribe to its own inbox rather than a named subject
+}
+
+func (c *client) allow(p permitted) *client {
+	c.permitted = p
+	return c
+}
+
+// deniedPublish asserts the broker refuses a publish, and refuses ONLY it.
+func (c *client) deniedPublish(t *testing.T, subject string) {
+	t.Helper()
+	c.exercisePermitted(t)
+	if err := c.conn.Publish(subject, []byte{0}); err != nil {
+		t.Fatalf("publish to %s: %v", subject, err)
+	}
+	c.expectOnly(t, subject)
+}
+
+// deniedSubscribe asserts the broker refuses a subscription, and refuses ONLY
+// it.
+func (c *client) deniedSubscribe(t *testing.T, subject string) {
+	t.Helper()
+	c.exercisePermitted(t)
+	sub, err := c.conn.SubscribeSync(subject)
+	if err != nil {
+		t.Fatalf("subscribe to %s: %v", subject, err)
+	}
+	t.Cleanup(func() { _ = sub.Unsubscribe() })
+	c.expectOnly(t, subject)
+}
+
+// exercisePermitted issues the operations this principal is allowed, so that a
+// blanket denial cannot be mistaken for a targeted one.
+func (c *client) exercisePermitted(t *testing.T) {
+	t.Helper()
+	if c.permitted.publish == "" && c.permitted.subscribe == "" && !c.permitted.inbox {
+		t.Fatal("no permitted operation was declared for this principal; a denial " +
+			"asserted without one cannot tell a targeted refusal from a broken connection")
+	}
+	if c.permitted.publish != "" {
+		if err := c.conn.Publish(c.permitted.publish, []byte{0}); err != nil {
+			t.Fatalf("publish to %s: %v", c.permitted.publish, err)
+		}
+	}
+	if c.permitted.subscribe != "" {
+		sub, err := c.conn.SubscribeSync(c.permitted.subscribe)
+		if err != nil {
+			t.Fatalf("subscribe to %s: %v", c.permitted.subscribe, err)
+		}
+		t.Cleanup(func() { _ = sub.Unsubscribe() })
+	}
+	if c.permitted.inbox {
+		sub, err := c.conn.SubscribeSync(c.conn.NewRespInbox())
+		if err != nil {
+			t.Fatalf("subscribe to own inbox: %v", err)
+		}
+		t.Cleanup(func() { _ = sub.Unsubscribe() })
+	}
+}
+
+// expectOnly requires exactly one refusal, naming the subject under test.
+func (c *client) expectOnly(t *testing.T, subject string) {
+	t.Helper()
+	found := c.settle(t)
+	var named, other []string
+	for _, err := range found {
+		if strings.Contains(err.Error(), subject) {
+			named = append(named, err.Error())
+			continue
+		}
+		other = append(other, err.Error())
+	}
+	if len(named) == 0 {
+		t.Fatalf("the broker permitted %s", subject)
+	}
+	if len(other) > 0 {
+		t.Fatalf("%s was refused, but so was a permitted operation, so this proves "+
+			"nothing about %s in particular: %v", subject, subject, other)
 	}
 }
