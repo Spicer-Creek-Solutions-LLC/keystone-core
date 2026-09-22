@@ -379,10 +379,12 @@ func (d *Deployment) revoke(tokens []string, operator nkeys.KeyPair) error {
 // both "Publish: none" in that table, and before this both could publish a
 // command -- which is NEG-15's property, live in a generated deployment.
 //
-// ADR-0004 § 4 says "NATS allow-lists are exclusive: a principal may do what
-// appears here and nothing else", and that holds only while the list is
-// non-empty. An explicit deny of the whole subject space is what makes the
-// table's "none" mean none.
+// ADR-0004 § 7 requires this: "a direction with no grants is rendered as an
+// explicit deny of the whole subject space". That sentence exists because of
+// this defect -- G46 put it there after C03-I2 measured it, and corrected § 4,
+// which had said an omission already denied and so described a mechanism NATS
+// does not have. An explicit deny of `>` is what makes the table's "none" mean
+// none.
 //
 // Found at C03-I2 by the control publish every positive case synchronises on:
 // two cases failed because the broker did not refuse a subject nobody should
