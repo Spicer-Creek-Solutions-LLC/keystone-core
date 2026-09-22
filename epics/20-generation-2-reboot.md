@@ -224,6 +224,15 @@ workstream depends on. Detailed controls are normative in the execution plan.
   C02-I's two independent SQLite stores, crash-boundary harness, published
   ledger schema, and thirteen live acceptance cases are landed.
 - [ ] C03 — NATS operator, account, identity, and permission generation.
+  **`C03-A`'s forty-five cases are all live and `C03-I` landed in five stages,
+  and this task is still open**, because § 3.2 requires *"broker configuration
+  the topology consumes"* and `compose.yaml`'s broker does not consume it.
+  Proving that wiring needs a test under `test/e2e/docker/`, which § 3.3 does
+  not grant — `DL-9` instance 5. **Reassigning an approved output is the
+  maintainer's, not this task's**, so it is registered as a deferred gate
+  expiring at C03: ticking this line with the entry present fails
+  `pending-contract`, which is the forcing function that keeps the two records
+  honest.
 - [ ] C04 — Local operator control substrate.
 - [ ] C05 — One-use enrollment vertical slice.
 - [ ] C06 — JetStream transport adapter.

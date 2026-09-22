@@ -48,7 +48,7 @@ does.
 | ARCH-EXEC-002 | `ADR-0007` | descendant-process cancel test | PR + VM | `C07` |
 | ARCH-OBS-001 | `ADR-0008` | correlated lifecycle audit test | PR | `C12` |
 | ARCH-TEST-001 | `ADR-0010` | per-feature effect assertions | PR | `C08` |
-| ARCH-TEST-002 | `ADR-0004` | negative identity matrix | PR | `C03` |
+| ARCH-TEST-002 | `ADR-0004` | `test/contract/authorization/system_subject_permissions_test.go` | PR | `C03` |
 | ARCH-TEST-003 | `ADR-0010` | `tools/archlint` coverage rule | PR | `P11` |
 
 **`ARCH-COMM-003` is paid in two halves, and only the second completes it.**

@@ -349,3 +349,31 @@ func (c *client) requestPermitted(t *testing.T, subject string, payload []byte) 
 		t.Fatalf("request to %s returned no reply", subject)
 	}
 }
+
+// tryConnectAs attempts a connection and returns the failure instead of ending
+// the test, because NEG-7's whole assertion is that a connection does not
+// happen.
+func tryConnectAs(t *testing.T, d deployment, name string, identity natsauth.Identity) (*nats.Conn, error) {
+	t.Helper()
+	creds, err := jwt.FormatUserConfig(identity.JWT, identity.Seed)
+	if err != nil {
+		t.Fatalf("format %s credentials: %v", name, err)
+	}
+	path := filepath.Join(t.TempDir(), "user.creds")
+	if err := os.WriteFile(path, creds, 0o600); err != nil {
+		t.Fatalf("write %s credentials: %v", name, err)
+	}
+	conn, err := nats.Connect(d.broker.URL,
+		nats.UserCredentials(path),
+		nats.CustomInboxPrefix(natsauth.InboxPrefix(name)),
+		nats.Timeout(10*time.Second),
+		// One attempt. A retry would turn a refusal into a timeout and lose the
+		// reason the broker gave.
+		nats.MaxReconnects(0),
+		nats.NoReconnect(),
+	)
+	if err == nil {
+		t.Cleanup(conn.Close)
+	}
+	return conn, err
+}
