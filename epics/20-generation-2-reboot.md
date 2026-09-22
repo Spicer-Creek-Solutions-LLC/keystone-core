@@ -1031,6 +1031,36 @@ limitations go in the pull request.
   - **`ADR-0004` § 4 is untouched.** Review of #367 raised its unsafe mechanism
     claim in the same breath as this; it is an ADR correction and a task of its
     own.
+- [x] G46 — Say what an empty allow list actually does. `ADR-0004` § 4 read
+  *"NATS allow-lists are exclusive: a principal may do what appears here and
+  nothing else"*, and its Denied table rested on *"an omission already
+  denies"*. **Both are true of a list that exists and false of one that does
+  not**: NATS reads an empty allow list as **unrestricted**. The same table
+  gives `none` to the presence consumer's and the monitoring role's publish, so
+  both could publish a command — `NEG-15`'s property, false in a generated
+  deployment, measured at `C03-I2` rather than read.
+  - **`ADR-0002` § 8 had it right all along** — *"once an allow list exists,
+    every subject not on it is denied"* — and `ADR-0004` dropped the qualifier.
+    The correction restores it rather than inventing a new statement.
+  - **The rendering rule lands in `ADR-0004` § 7**, among the shapes rather than
+    in § 4 among the policy: no permission changes, and what changes is how
+    "nothing" is written down.
+  - **`ADR-0002` § 8's own denial paragraph was corrected too.** It said the
+    repetition was for the reader; for a principal with no list in that
+    direction it is not repetition but the rule. **The distinguishing property
+    is no PUBLISH grants at all**, not an absent `$JS.API` entry: the enrollment
+    service and bootstrap identities reach no `$JS.API` subject either and are
+    unaffected, because they publish elsewhere and so their lists exist and
+    exclude.
+  - **§ 15's capability row was read and left alone.** It says *"an **enumerated**
+    allow list is a closed boundary"*, which speaks of a list that exists and is
+    already correct. Editing a neighbour that agrees is how a document acquires
+    two statements of one rule.
+  - **No acceptance case was added and the frozen surface is untouched.**
+    `frozenPermissionMatrix` transcribes § 4's grants, and a rendering rule adds
+    none; § 9's fifteen negatives cover one instance of the defect and not the
+    administrative `$JS.API` reach it also permitted. The ADR says so rather
+    than implying the contract holds it.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

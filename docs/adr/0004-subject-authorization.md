@@ -120,8 +120,25 @@ indistinguishable from one that did not close.
 
 ### 4. The principal-by-subject permission matrix
 
-Publish and subscribe per principal. NATS allow-lists are exclusive: a principal
-may do what appears here and nothing else.
+Publish and subscribe per principal. **Once an allow list exists for a
+direction**, NATS denies every subject not on it, so a principal may do what
+appears here and nothing else.
+
+**An EMPTY allow list is not a deny — NATS reads it as unrestricted**, and the
+qualifier above is the whole of the difference. Two rows below give `none` in a
+direction: the presence consumer and the monitoring role publish nothing. Until
+`G46` this section said an omission already denied them, and it does not. The
+rendering rule that makes `none` mean none is in § 7, and `C03-I2` found the gap
+by measurement rather than by reading:
+
+```
+presence-consumer pub allow=[] deny=[]
+errors after publishing a COMMAND as the presence consumer: []
+```
+
+That is `NEG-15`'s property — *"only the command publisher may publish
+commands"* — false in a generated deployment. `ADR-0002` § 8 stated the
+mechanism correctly all along; this section had dropped its qualifier.
 
 | Principal | Publish | Subscribe | Scope |
 |---|---|---|---|
@@ -134,9 +151,11 @@ may do what appears here and nothing else.
 | **Bootstrap identity** | `ks.enroll.<its own token>.request` | `ks.enroll.<its own token>.reply` | **Exactly one token.** No wildcard across identifiers |
 
 **Denied to every permanent *agent* identity, and stated rather than left
-implicit.** NATS allow-lists are exclusive, so an omission already denies; these
-are written out for the reader and as targets for § 9's cases, exactly as
-`ADR-0002` § 8 does.
+implicit.** An agent holds a non-empty allow list in both directions, so for an
+agent these denials do follow from the grants above — but they are written out
+for the reader and as targets for § 9's cases, exactly as `ADR-0002` § 8 does.
+**They are not left to follow for a principal whose list is empty**, which is
+what § 7's rendering rule exists for.
 
 | Denied | To whom | Why |
 |---|---|---|
@@ -207,6 +226,22 @@ What C03 generates. Shapes, not files.
 | Agent user JWT | Subject lists with `<its own id>` substituted; issued at enrollment against the agent's recorded NATS public key (`ADR-0003` § 6, S1) |
 | Bootstrap user JWT | The two `ks.enroll.<token>.*` entries only, expiring with the token (`ADR-0003` § 3, § 8) |
 | Revocation | Bootstrap users are added to the account's revocation list at `ADR-0003` § 6, S5, and the revocation is verified at S6 |
+
+**A direction with no grants is rendered as an explicit deny of the whole
+subject space.** § 4's table gives `none` to the presence consumer's and the
+monitoring role's publish, and an empty allow list does not deny — so `none` is
+generated as a deny of `>` rather than as an absent list. This is a rendering
+rule, which is why it is here among the shapes rather than in § 4 among the
+policy: the permissions are unchanged and what changes is how "nothing" is
+written down.
+
+**`C03-A`'s frozen surface covers one instance of this and not the rule.**
+§ 9's fifteen negatives include `NEG-15`, a presence consumer publishing a
+command; none covers a service principal reaching an administrative `$JS.API`
+subject, which the same defect also permitted.
+`C03-I2`'s package tests assert the property in both directions for every
+principal the generator produces. Adding a sixteenth case would be an amendment
+to an accepted contract and is not made here.
 
 **Every JWT's permission lists are generated from § 4 and never hand-edited.**
 A permission that exists in a deployed JWT and not in § 4 is a defect in
