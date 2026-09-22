@@ -3,6 +3,7 @@
 package authorizationcontract
 
 import (
+	"strings"
 	"testing"
 
 	"go.keystone-core.io/keystone-core/internal/natsauth"
@@ -32,7 +33,41 @@ func TestNEG6AgentCannotSubscribeOtherResult(t *testing.T) {
 	d := runningBroker(t)
 	agent(t, d, agentOne).deniedSubscribe(t, "ks.out."+agentTwo+".result")
 }
-func TestNEG7RevokedBootstrapCannotConnect(t *testing.T) { pending(t, "NEG-7") }
+func TestNEG7RevokedBootstrapCannotConnect(t *testing.T) {
+	d := runningBroker(t)
+
+	// The control, and it is what stops this case passing for the wrong reason.
+	// If no bootstrap identity could connect -- a broken resolver, an account
+	// that never loaded -- the refusal below would look identical. ADR-0003
+	// section 6 revokes ONE token at S5; the others keep working.
+	if _, err := tryConnectAs(t, d, tokenOne, d.set.Bootstraps[tokenOne]); err != nil {
+		t.Fatalf("an unrevoked bootstrap identity could not connect, so a refusal "+
+			"below would prove nothing about revocation: %v", err)
+	}
+
+	revoked, ok := d.set.Bootstraps[tokenTwo]
+	if !ok {
+		t.Fatal("no bootstrap identity was generated for the revoked token")
+	}
+	if len(d.set.Revoked) == 0 || d.set.Revoked[0] != revoked.PublicKey {
+		t.Fatalf("the deployment does not record %s as revoked; nothing is under test", tokenTwo)
+	}
+
+	// ADR-0004 section 9 marks this case as different in kind from the rest:
+	// revocation removes the user from the account, so the refusal happens
+	// while the connection is being established. "A test that connects
+	// successfully and is refused on publish has proved something weaker than
+	// revocation" -- so a nil error here is the failure, whatever happens after.
+	conn, err := tryConnectAs(t, d, tokenTwo, revoked)
+	if err == nil {
+		conn.Close()
+		t.Fatal("a revoked bootstrap identity established a connection")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "authorization") {
+		t.Fatalf("the connection failed, but not as an authorization refusal, so this "+
+			"does not show revocation was the reason: %v", err)
+	}
+}
 func TestNEG8PermanentAgentCannotPublishEnrollment(t *testing.T) {
 	d := runningBroker(t)
 	agent(t, d, agentOne).deniedPublish(t, "ks.enroll."+tokenOne+".request")

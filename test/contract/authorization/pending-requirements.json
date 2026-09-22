@@ -1,5 +1,11 @@
 {
   "requirements": [
-    {"case":"NEG-7","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved a revoked bootstrap identity fails at connection","test":"TestNEG7RevokedBootstrapCannotConnect"}
+    {
+      "case": "topology-consumes-generated-configuration",
+      "owner": "C03",
+      "expiry": "C03",
+      "reason": "C03.md section 3.2 requires broker configuration the topology consumes, and compose.yaml's broker does not consume it. Proving the wiring needs a test under test/e2e/docker/, a path section 3.3 does not grant -- DL-9 instance 5. Reassigning an approved output to another task is the maintainer's decision, not C03-I's, so this expires at C03: ticking that task with this entry present fails pending-contract",
+      "deferred": true
+    }
   ]
 }
