@@ -917,7 +917,7 @@ than widening the list under its own approval, which is `AGENTS.md` § 3's rule
 and the reason all three repairs are G tasks rather than quiet edits.
 
 *When an obligation arises DURING a task*, the paths it needs were not in the
-plan and the step above cannot have checked them. Instance 5 is exactly that: a
+plan and the step above cannot have checked them. Instance 4 is exactly that: a
 task incurs the duty to record a recurrence by **finding** one, which is not
 something its plan can enumerate in advance. So an obligation a standing
 document places on every task belongs in a standing grant rather than in each

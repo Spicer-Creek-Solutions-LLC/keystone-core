@@ -1003,9 +1003,8 @@ limitations go in the pull request.
     document acquires two statements of one rule.
   - **The boundary holds.** `internal/cli/boundary_test.go` forbids the client
     outside `_test.go`, so the contract connects and the product still cannot.
-- [x] G45 — Let every task record a recurrence, and record the two outstanding
-  ones. `DEFECT-LEDGER.md` requires the task that finds a recurrence to record
-  it **in the same pull request**, and **no behaviour dossier grants the path to
+- [x] G45 — Let every task record a recurrence. `DEFECT-LEDGER.md` requires the
+  task that finds a recurrence to record it **in the same pull request**, and **no behaviour dossier grants the path to
   that file**: `C01.md`, `C02.md` and `C03.md` each name it in § 1 as an input
   and none lists it in § 3.3. Every `Cxx` task was required to record a
   recurrence there and forbidden to, and every commit to it up to this one is a
