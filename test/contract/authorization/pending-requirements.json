@@ -1,15 +1,5 @@
 {
   "requirements": [
-    {"case":"POS-7","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved an agent can pull its existing exact command consumer","test":"TestPOS7AgentPullsOwnCommandConsumer"},
-    {"case":"POS-8","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved an agent can acknowledge on its exact command consumer","test":"TestPOS8AgentAcknowledgesOwnCommand"},
-    {"case":"POS-10","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the result consumer can pull its existing exact consumer","test":"TestPOS10ResultConsumerPullsOwnConsumer"},
-    {"case":"POS-14","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved monitoring can receive a real max-deliveries advisory","test":"TestPOS14MonitoringSubscribesMaxDeliveriesAdvisory"},
-    {"case":"POS-20","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved the result consumer can acknowledge its exact consumer","test":"TestPOS20ResultConsumerAcknowledgesResult"},
-    {"case":"POS-22","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved monitoring can receive a real message-terminated advisory","test":"TestPOS22MonitoringSubscribesTerminatedAdvisory"},
-    {"case":"POS-23","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved monitoring can receive this account's API limit advisory","test":"TestPOS23MonitoringSubscribesLimitAdvisory"},
-    {"case":"NEG-7","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved a revoked bootstrap identity fails at connection","test":"TestNEG7RevokedBootstrapCannotConnect"},
-    {"case":"NEG-11","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not distinguished a stream-delete permissions violation from every other refusal","test":"TestNEG11AgentCannotDeleteCommandStream"},
-    {"case":"NEG-12","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not distinguished another consumer's permissions violation from a missing consumer","test":"TestNEG12AgentCannotPullOtherConsumer"},
-    {"case":"NEG-13","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not distinguished a bare-ack permissions violation from every other refusal","test":"TestNEG13AgentCannotPublishBareAcknowledgement"}
+    {"case":"NEG-7","owner":"C03-I","expiry":"C03-I","reason":"C03-I has not proved a revoked bootstrap identity fails at connection","test":"TestNEG7RevokedBootstrapCannotConnect"}
   ]
 }

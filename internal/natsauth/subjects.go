@@ -68,9 +68,15 @@ func inboxSubtree(name string) string { return InboxPrefix(name) + ".>" }
 // Consumer names. ADR-0002 § 7 fixes one durable pull consumer per agent on the
 // command stream and one for the result consumer; the names are the
 // generator's, and the JWT entries below are bound to them exactly.
-func commandConsumer(id string) string { return "ks-cmd-" + id }
+// CommandConsumer names an agent's durable pull consumer on the command stream.
+// Exported because the contract has to name the same consumer the JWT is bound
+// to: a test that invented its own name would prove a permission for a consumer
+// no agent uses.
+func CommandConsumer(id string) string { return "ks-cmd-" + id }
 
-const resultConsumerName = "ks-res"
+// ResultConsumerName is the result consumer's durable, exported for the same
+// reason as CommandConsumer.
+const ResultConsumerName = "ks-res"
 
 func consumerNext(stream, consumer string) string {
 	return fmt.Sprintf("$JS.API.CONSUMER.MSG.NEXT.%s.%s", stream, consumer)

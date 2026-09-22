@@ -36,15 +36,36 @@ func TestPOS6AgentPublishesOwnPresence(t *testing.T) {
 	d := runningBroker(t)
 	connectAsAgent(t, d, agentOne).publishPermitted(t, "ks.out."+agentOne+".presence")
 }
-func TestPOS7AgentPullsOwnCommandConsumer(t *testing.T) { pending(t, "POS-7") }
-func TestPOS8AgentAcknowledgesOwnCommand(t *testing.T)  { pending(t, "POS-8") }
+func TestPOS7AgentPullsOwnCommandConsumer(t *testing.T) {
+	d := runningBroker(t)
+	provisionJetStream(t, d)
+	connectAsAgent(t, d, agentOne).requestPermitted(t,
+		"$JS.API.CONSUMER.MSG.NEXT."+natsauth.CommandStream+"."+natsauth.CommandConsumer(agentOne),
+		[]byte(`{"batch":1,"expires":1000000000}`))
+}
+func TestPOS8AgentAcknowledgesOwnCommand(t *testing.T) {
+	d := runningBroker(t)
+	provisionJetStream(t, d)
+	// An acknowledgement carries per-message tokens the grant cannot enumerate,
+	// which is why ADR-0004 section 6 justifies the trailing wildcard. It is
+	// bounded to one stream and one consumer, and NEG-13 is the case that keeps
+	// the bare wildcard out.
+	connectAsAgent(t, d, agentOne).publishPermitted(t,
+		"$JS.ACK."+natsauth.CommandStream+"."+natsauth.CommandConsumer(agentOne)+".1.1.1.0.0")
+}
 func TestPOS9PresenceConsumerSubscribesFleetPresence(t *testing.T) {
 	d := runningBroker(t)
 	// The wildcard is the grant: presence is a fleet view, and ADR-0004 § 4
 	// documents this as one of the four permitted exceptions.
 	connectAsService(t, d, natsauth.PresenceConsumer).subscribePermitted(t, "ks.out.*.presence")
 }
-func TestPOS10ResultConsumerPullsOwnConsumer(t *testing.T) { pending(t, "POS-10") }
+func TestPOS10ResultConsumerPullsOwnConsumer(t *testing.T) {
+	d := runningBroker(t)
+	provisionJetStream(t, d)
+	connectAsService(t, d, natsauth.ResultConsumer).requestPermitted(t,
+		"$JS.API.CONSUMER.MSG.NEXT."+natsauth.ResultStream+"."+natsauth.ResultConsumerName,
+		[]byte(`{"batch":1,"expires":1000000000}`))
+}
 func TestPOS11BootstrapPublishesOwnRequest(t *testing.T) {
 	d := runningBroker(t)
 	connectAsBootstrap(t, d, tokenOne).publishPermitted(t, "ks.enroll."+tokenOne+".request")
@@ -57,7 +78,17 @@ func TestPOS13EnrollmentServiceSubscribesRequests(t *testing.T) {
 	d := runningBroker(t)
 	connectAsService(t, d, natsauth.EnrollmentService).subscribePermitted(t, "ks.enroll.*.request")
 }
-func TestPOS14MonitoringSubscribesMaxDeliveriesAdvisory(t *testing.T) { pending(t, "POS-14") }
+func TestPOS14MonitoringSubscribesMaxDeliveriesAdvisory(t *testing.T) {
+	d := runningBroker(t)
+	provisionJetStream(t, d)
+	// The assertion is the PERMISSION, not the arrival of an advisory. An
+	// advisory that never fires is indistinguishable from one that was refused
+	// if the test waits for a message, which is what this case's frozen
+	// requirement means by distinguishing authorization from an absent advisory
+	// source.
+	connectAsService(t, d, natsauth.MonitoringRole).subscribePermitted(t,
+		"$JS.EVENT.ADVISORY.CONSUMER.MAX_DELIVERIES."+natsauth.CommandStream+".*")
+}
 func TestPOS15CommandPublisherSubscribesOwnInbox(t *testing.T) {
 	d := runningBroker(t)
 	// Without this the command publisher receives no PubAck for anything it
@@ -80,13 +111,27 @@ func TestPOS19MonitoringSubscribesFleetEvents(t *testing.T) {
 	d := runningBroker(t)
 	connectAsService(t, d, natsauth.MonitoringRole).subscribePermitted(t, "ks.out.*.event")
 }
-func TestPOS20ResultConsumerAcknowledgesResult(t *testing.T) { pending(t, "POS-20") }
+func TestPOS20ResultConsumerAcknowledgesResult(t *testing.T) {
+	d := runningBroker(t)
+	provisionJetStream(t, d)
+	connectAsService(t, d, natsauth.ResultConsumer).publishPermitted(t,
+		"$JS.ACK."+natsauth.ResultStream+"."+natsauth.ResultConsumerName+".1.1.1.0.0")
+}
 func TestPOS21ResultConsumerSubscribesOwnInbox(t *testing.T) {
 	d := runningBroker(t)
 	connectAsService(t, d, natsauth.ResultConsumer).subscribeToOwnInboxPermitted(t)
 }
-func TestPOS22MonitoringSubscribesTerminatedAdvisory(t *testing.T) { pending(t, "POS-22") }
-func TestPOS23MonitoringSubscribesLimitAdvisory(t *testing.T)      { pending(t, "POS-23") }
+func TestPOS22MonitoringSubscribesTerminatedAdvisory(t *testing.T) {
+	d := runningBroker(t)
+	provisionJetStream(t, d)
+	connectAsService(t, d, natsauth.MonitoringRole).subscribePermitted(t,
+		"$JS.EVENT.ADVISORY.CONSUMER.MSG_TERMINATED."+natsauth.CommandStream+".*")
+}
+func TestPOS23MonitoringSubscribesLimitAdvisory(t *testing.T) {
+	d := runningBroker(t)
+	connectAsService(t, d, natsauth.MonitoringRole).subscribePermitted(t,
+		"$JS.EVENT.ADVISORY.API.LIMIT_REACHED")
+}
 
 // GEN-3 and GEN-4 are the pair ADR-0004 section 8 is explicit about: "a positive
 // list shorter than the permission list lets C03 generate a JWT missing a

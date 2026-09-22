@@ -323,3 +323,29 @@ func (c *client) expectOnly(t *testing.T, subject string) {
 			"nothing about %s in particular: %v", subject, subject, other)
 	}
 }
+
+// requestPermitted asserts the broker permitted a request AND that the target
+// answered it.
+//
+// This is what `POS-7` and `POS-10`'s frozen requirement means by "the test
+// must distinguish authorization from a missing consumer". A publish that is
+// merely not refused proves the permission and nothing about reach: an
+// authorized publish to a consumer that does not exist is also not refused. A
+// reply proves the request arrived at the JetStream API for that exact stream
+// and consumer, and a permissions violation proves it did not -- two different
+// observations, and the case asserts both.
+func (c *client) requestPermitted(t *testing.T, subject string, payload []byte) {
+	t.Helper()
+	reply, err := c.conn.Request(subject, payload, 5*time.Second)
+	violations := c.settle(t)
+	if len(violations) > 0 {
+		t.Fatalf("request to %s was refused: %v", subject, violations)
+	}
+	if err != nil {
+		t.Fatalf("request to %s was permitted but nothing answered it, so this does "+
+			"not show the API was reached: %v", subject, err)
+	}
+	if reply == nil {
+		t.Fatalf("request to %s returned no reply", subject)
+	}
+}

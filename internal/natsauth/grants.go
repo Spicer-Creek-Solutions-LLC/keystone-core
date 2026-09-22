@@ -26,8 +26,8 @@ func serviceGrants(p Principal) grants {
 	case ResultConsumer:
 		return grants{
 			pub: []string{
-				consumerNext(ResultStream, resultConsumerName),
-				consumerAck(ResultStream, resultConsumerName),
+				consumerNext(ResultStream, ResultConsumerName),
+				consumerAck(ResultStream, ResultConsumerName),
 			},
 			sub: []string{inboxSubtree(string(ResultConsumer))},
 		}
@@ -43,7 +43,7 @@ func serviceGrants(p Principal) grants {
 // entry is scoped to that agent: ARCH-NATS-003 allows a documented wildcard
 // only for a service role, and none of these is one.
 func agentGrants(id string) grants {
-	consumer := commandConsumer(id)
+	consumer := CommandConsumer(id)
 	return grants{
 		pub: []string{
 			agentResult(id),
