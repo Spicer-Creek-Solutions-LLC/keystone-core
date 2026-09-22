@@ -3,9 +3,9 @@
 # are the three binaries P11a landed, which start and report their version.
 #
 # They do not yet talk to each other. C05 is the first task with a journey to
-# run across this, and C03 generates the production NATS configuration the
-# broker will use -- ADR-0010 § 3 forbids a test-only one, so there is no
-# placeholder here pretending to be it.
+# run across this. C03 generates the production NATS configuration the broker
+# runs -- ADR-0010 § 3 forbids a test-only one -- and since C03-I6 the broker
+# below consumes it.
 name: keystone-acceptance
 
 services:
@@ -13,7 +13,8 @@ services:
   # ARCH-COMM-002 requires server and agents to work with no direct route.
   broker:
     image: nats:2.15.0-alpine
-    command: ["-js", "-m", "8222"]
+    command: ["-c", "/etc/nats/nats-server.conf", "-js", "-m", "8222"]
+    volumes: ["keystone-nats-config:/etc/nats:ro"]
     networks: [server-net, agent-net]
 
   server:
@@ -45,3 +46,19 @@ networks:
     internal: true
   agent-net:
     internal: true
+
+# THE CONFIGURATION IS GENERATED, AND THIS VOLUME IS HOW IT ARRIVES.
+#
+# `external` because the test creates and seeds it before bringing the topology
+# up. A bind mount cannot do this job: its source is resolved by the DAEMON, on
+# the host, and CI runs the suite inside a job container whose temporary
+# directory the daemon cannot see. Measured -- a broker given a bind mount from
+# inside a job container does not start, and one given this volume does.
+#
+# `docker cp` into a throwaway container populates it, which streams through the
+# daemon API and so does not care whose filesystem the source is on. Nothing
+# here is committed: ADR-0010 § 3 forbids a committed fixture, and a config that
+# stopped matching the generator is exactly what it forbids it for.
+volumes:
+  keystone-nats-config:
+    external: true

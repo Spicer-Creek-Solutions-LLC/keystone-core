@@ -1,10 +1,10 @@
 {
   "requirements": [
     {
-      "case": "topology-consumes-generated-configuration",
-      "owner": "C03",
-      "expiry": "C03",
-      "reason": "C03.md section 3.2 requires broker configuration the topology consumes, and compose.yaml's broker does not consume it. Proving the wiring needs a test under test/e2e/docker/, a path section 3.3 does not grant -- DL-9 instance 5. Reassigning an approved output to another task is the maintainer's decision, not C03-I's, so this expires at C03: ticking that task with this entry present fails pending-contract",
+      "case": "production-stream-provisioning-identity",
+      "owner": "C06",
+      "expiry": "C06",
+      "reason": "ADR-0002 section 7 defines KS_CMD and KS_RES and says nothing about the identity that creates them, while ADR-0004 section 4 denies administrative JetStream API to every Keystone identity -- so no principal this generator produces can provision a stream. The contract's provisioner is a test fixture minted outside the frozen matrix, which is why GEN-3 does not see it. C06 owns the production stream configuration and is where that identity has to be decided and authorized",
       "deferred": true
     }
   ]

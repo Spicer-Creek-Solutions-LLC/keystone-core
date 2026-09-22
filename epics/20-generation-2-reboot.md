@@ -223,16 +223,34 @@ workstream depends on. Detailed controls are normative in the execution plan.
 - [x] C02 — SQLite migrations and durable ledgers. C02-A's frozen contract and
   C02-I's two independent SQLite stores, crash-boundary harness, published
   ledger schema, and thirteen live acceptance cases are landed.
-- [ ] C03 — NATS operator, account, identity, and permission generation.
-  **`C03-A`'s forty-five cases are all live and `C03-I` landed in five stages,
-  and this task is still open**, because § 3.2 requires *"broker configuration
-  the topology consumes"* and `compose.yaml`'s broker does not consume it.
-  Proving that wiring needs a test under `test/e2e/docker/`, which § 3.3 does
-  not grant — `DL-9` instance 5. **Reassigning an approved output is the
-  maintainer's, not this task's**, so it is registered as a deferred gate
-  expiring at C03: ticking this line with the entry present fails
-  `pending-contract`, which is the forcing function that keeps the two records
-  honest.
+- [x] C03 — NATS operator, account, identity, and permission generation.
+  `C03-A`'s forty-five frozen cases are live against a real broker running
+  generated configuration, and since `C03-I6` the compose topology's broker runs
+  it too. `internal/natsauth` produces the operator and account JWTs, the five
+  service users, the per-agent and bootstrap templates, the revocation list and
+  `ADR-0002` § 9's limits; every case connects with a credential it made.
+  `C03-I` landed in six stages, one pull request each.
+  - **Three defects the work found, each corrected where it belonged.** An
+    empty NATS allow list is **unrestricted, not deny-all**, so two principals
+    `ADR-0004` § 4 grants nothing could publish commands — corrected in the ADR
+    at `G46`, not under this task's approval. A permissions violation arrives
+    **after `Flush` returns**, so the first fixture could not observe one and
+    every positive case passed against a broker that had refused the operation.
+    And the permanent agent key was generated **on the server**, which
+    `ADR-0003` § 4 forbids because it is what stops a compromised server
+    becoming an existing agent rather than minting a new one.
+  - **`ARCH-TEST-002` is paid**, all five clauses, `NEG-7` last: a revoked
+    bootstrap identity is refused **at connection**, which `ADR-0004` § 9 marks
+    as different in kind so it is not implemented as a publish denial.
+  - **The tick waited for the output rather than the output being reassigned.**
+    § 3.2's *"broker configuration the topology consumes"* was undeliverable
+    inside § 3.3 and was registered as a deferred gate **expiring at this task**,
+    so this line could not be ticked while it stood. `G47` granted the path once
+    the maintainer approved the wiring, and `C03-I6` delivered it.
+  - **Still owed and registered, not silently dropped.** No principal this
+    generator produces may provision a stream — `ADR-0002` § 7 defines `KS_CMD`
+    and `KS_RES` and not the identity that creates them — so the production
+    provisioning identity is a deferred gate owed by C06.
 - [ ] C04 — Local operator control substrate.
 - [ ] C05 — One-use enrollment vertical slice.
 - [ ] C06 — JetStream transport adapter.
