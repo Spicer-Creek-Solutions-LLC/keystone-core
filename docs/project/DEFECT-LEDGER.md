@@ -912,8 +912,11 @@ found it — which is the rule `G45` exists to make keepable.
    and no test file beside them. **The first shape, not the widened one**, and
    **caught by the countermeasure**: the paths `C03-I2` needed were enumerated
    against § 3.3 before any code was written, the gap was found, and the task
-   raised it rather than widening the list. Recorded in this pull request; the
-   wiring itself is unresolved and is with the maintainer.
+   raised it rather than widening the list. `C03-I5` then registered the output
+   as a deferred gate expiring at **C03** instead of reassigning it, so the epic
+   line cannot be ticked while it stands — an earlier version of that task did
+   reassign it, and review refused. Granted at `G47`, as one named file, after
+   the maintainer authorised the wiring.
 
 **This is not `DL-8`.** That class needs a prior finding: someone reports a
 defect and it is repaired at the cited site only. Here nothing was reported and
