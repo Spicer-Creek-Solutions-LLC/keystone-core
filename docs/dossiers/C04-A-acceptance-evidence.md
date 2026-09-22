@@ -7,7 +7,7 @@ passes against the production `keystone-server`.
 
 Contract package: `test/contract/operator`
 
-Contract commit: `PENDING-FIRST-COMMIT`
+Contract commit: `417a5325377592c0d8da8c8d1421d9835444e376`
 
 Contract amendments:
 
