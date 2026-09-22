@@ -1070,6 +1070,25 @@ limitations go in the pull request.
     none; § 9's fifteen negatives cover one instance of the defect and not the
     administrative `$JS.API` reach it also permitted. The ADR says so rather
     than implying the contract holds it.
+- [x] G47 — Let `C03.md` § 3.3 permit the test that proves § 3.2's output.
+  § 3.2 requires *"broker configuration the topology consumes"*; § 3.3 grants
+  `compose.yaml` and `Dockerfile` and no test file beside them, and the
+  container suite only runs `docker compose config`, which parses the topology
+  and never brings it up. **The output was therefore unprovable inside its own
+  boundary**, which is `DL-9`'s instance 5.
+  - **`C03-I5` did not take the path, and did not shed the output either.** It
+    registered a deferred gate expiring at **C03**, so `pending-contract` fails
+    if that line is ticked while the output is absent. An earlier version of
+    that task reassigned the output to C05 and ticked C03; review refused it,
+    and rightly — **narrowing an approved deliverable is the same overreach as
+    widening a path list**, taken in the other direction.
+  - **One named file, not the directory.** `test/e2e/docker/` is P11b's, and a
+    path list that admits any test beside the topology is not a boundary. The
+    fourth instance of this repair after `G39`, `G41` and `G44`, and the first
+    where the decision reached the maintainer before the task ran rather than
+    being discovered inside one.
+  - **No code.** `C03-I6` does the wiring and removes the gate; this grants the
+    path, as `G41` and `G44` did before their implementations.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
