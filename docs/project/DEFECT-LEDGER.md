@@ -92,7 +92,7 @@ justified exemption.
 | `DL-6` | Shell-hostile command construction | `Proposed` |
 | `DL-7` | A substitution that did not do what it claimed | `Failed` |
 | `DL-8` | A finding repaired only where it was pointed out | `Failed` |
-| `DL-9` | A document that decides work its own permission list forbids | `Proposed` |
+| `DL-9` | A document that requires work a permission list forbids | `Failed` |
 
 ### `DL-1` — A check that cannot fail, mistaken for evidence
 
@@ -119,6 +119,15 @@ assertions to the planting step itself** — without them this procedure cannot
 tell a check that does not fire from a plant that missed. Normative for
 dossiers in [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md)
 § "Required task dossier".
+
+**C01-I and C02-I produced instances of this class that never reached this
+entry**, and the reason is `DL-9`'s, not inattention: both wrote them up in their
+dossiers' § 5.3 and in their pull requests, and no behaviour dossier granted the
+path to this file, so no `Cxx` task could record anything here. `G45` fixed the
+grant, and the tasks that find recurrences now record their own. The counts
+above are known to be low and are **not** reconstructed here — inventing figures
+for tasks whose evidence would have to be re-derived is the drift this document
+exists against, and the cause is recorded rather than the symptom patched.
 
 **Last recurrence.** `G33` — the container suite's `requireDocker` called
 `t.Skip` when the Docker client or daemon was absent, landed at P11b and unread
@@ -839,11 +848,14 @@ approach rather than any claim that it works. § "On whether this
 document works" names the reason for scepticism: `DL-2` and `DL-3` were written
 down and recurred anyway, and `DL-8` has now done it too.
 
-### `DL-9` — A document that decides work its own permission list forbids
+### `DL-9` — A document that requires work a permission list forbids
 
-**Instances.** Three occasions across three tasks, each a task dossier whose
-decision section required work its own § 3.3 did not permit, and each found only
-when the implementation began.
+**Instances.** Four occasions across four tasks. The first three are one
+shape — a task dossier whose decision section required work its **own** § 3.3
+did not permit, found only when the implementation began. The fourth widened the
+class, which is why this entry is no longer titled for a document's own list: an
+obligation can be imposed by a **different** document than the one holding the
+permissions.
 
 1. **`C02.md` and `tools/pendingcontract/`.** `D-C02-4` decided that C02 reuse
    C01-A's contract machinery and named the collision that reuse would hit — the
@@ -860,6 +872,16 @@ when the implementation began.
    `D-C03-1`"* — while every one of the thirty-eight `POS` and `NEG` cases
    connects. Found at the start of `C03-I2`, before any code was written;
    granted at `G44`, this pull request.
+
+4. **Every behaviour dossier, and this file.** § "What belongs here" requires the
+   task that finds a recurrence to record it in the same pull request. `C01.md`,
+   `C02.md` and `C03.md` each name `DEFECT-LEDGER.md` in § 1 as an **input** and
+   none grants the path in § 3.3, so every `Cxx` task was required to record a
+   recurrence here and forbidden to. Every commit to this file up to `G45` is a
+   G or P task, and `DL-1` above says what that cost. Found in review of pull
+   request #367; granted at `G45` in
+   [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) § "Required task
+   dossier", as one standing statement rather than a line in each dossier.
 
 **This is not `DL-8`.** That class needs a prior finding: someone reports a
 defect and it is repaired at the cited site only. Here nothing was reported and
@@ -894,21 +916,29 @@ instance was found. **A task that discovers the gap here stops and asks** rather
 than widening the list under its own approval, which is `AGENTS.md` § 3's rule
 and the reason all three repairs are G tasks rather than quiet edits.
 
+*When an obligation arises DURING a task*, the paths it needs were not in the
+plan and the step above cannot have checked them. Instance 5 is exactly that: a
+task incurs the duty to record a recurrence by **finding** one, which is not
+something its plan can enumerate in advance. So an obligation a standing
+document places on every task belongs in a standing grant rather than in each
+dossier's list, and `G45` made the one this file needs.
+
 Neither step is mechanical, and that is a real limit. What a dossier's decisions
 require is prose, and no checker reads it; `archlint` validates the register and
 `contract-immutability-check` the frozen surfaces, but nothing compares a
 document's intentions with its own permissions.
 
-**Last recurrence.** This pull request — `C03.md` § 3.3, found at the start of
-`C03-I2`.
+**Last recurrence.** This pull request — the missing grant to this file in every
+behaviour dossier, found in review of pull request #367.
 
-**Status: `Proposed`.** The countermeasure is defined here and has not been
-tested by events. The third instance was caught at implementation start by the
-practice the second step now writes down, but § "Status values" is explicit that
-**continued use inside the task that recorded the defect is not evidence**, and
-crediting the catch to a countermeasure written afterwards is exactly the
-laundering that section warns about. `Adopted` needs a later dossier that
-presented the chance and did not produce it.
+**Status: `Failed`.** The countermeasure was in force, was applied, and did not
+prevent instance 4. It was written at `G44` and exercised at `C03-I2`, which
+enumerated the paths its plan needed against § 3.3 before writing any code —
+and the path to this file was not among them, because **it checks the paths a
+plan intends to touch, and the duty to record a recurrence is incurred by
+*finding* one, which no plan enumerates in advance.**
+
+The third step above is the response, and it has not been tested by events.
 
 ## On whether this document works
 

@@ -1003,6 +1003,35 @@ limitations go in the pull request.
     document acquires two statements of one rule.
   - **The boundary holds.** `internal/cli/boundary_test.go` forbids the client
     outside `_test.go`, so the contract connects and the product still cannot.
+- [x] G45 — Let every task record a recurrence, and record the two outstanding
+  ones. `DEFECT-LEDGER.md` requires the task that finds a recurrence to record
+  it **in the same pull request**, and **no behaviour dossier grants the path to
+  that file**: `C01.md`, `C02.md` and `C03.md` each name it in § 1 as an input
+  and none lists it in § 3.3. Every `Cxx` task was required to record a
+  recurrence there and forbidden to, and every commit to it up to this one is a
+  G or P task. The grant is now a standing statement in
+  `REBOOT-EXECUTION-PLAN.md` § "Required task dossier" — **one statement rather
+  than a line in each dossier**, because three exist and every future one would
+  carry the copy.
+  - **`DL-1` records why its count is low**, and does not reconstruct it.
+    `C01-I` and `C02-I` both produced instances of the class their own dossiers
+    name and neither could record one here. Inventing figures for tasks whose
+    evidence would have to be re-derived is the drift that document exists
+    against. **`C03-I2`'s own instance is `C03-I2`'s to record**, in the pull
+    request that found it, which is the rule this task exists to make possible.
+  - **`DL-9` gains an instance and a wider class.** It was *"a document that
+    decides work its **own** permission list forbids"*; the fourth is this file
+    against every dossier — an obligation imposed by a **different** document
+    than the one holding the permissions. Same root cause, wider reach, so the
+    entry broadened rather than a `DL-10` being invented for a variant.
+  - **`DL-9` moves `Proposed` → `Failed`.** The countermeasure was written at
+    `G44`, was applied at `C03-I2`, and did not prevent this: **it checks the
+    paths a plan intends to touch, and the duty to record a recurrence is
+    incurred by *finding* one**, which no plan enumerates in advance. The entry
+    gains a third step for obligations that arise during a task.
+  - **`ADR-0004` § 4 is untouched.** Review of #367 raised its unsafe mechanism
+    claim in the same breath as this; it is an ADR correction and a task of its
+    own.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

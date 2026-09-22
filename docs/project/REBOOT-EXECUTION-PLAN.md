@@ -50,6 +50,19 @@ files. They are not dossier filenames.
 A dossier is a boundary, not an approval: landing one does not authorize the work
 it describes.
 
+**`DEFECT-LEDGER.md` is writable by every task, and no dossier grants it.** That
+document requires the task which finds a recurrence to record it in the same
+pull request — not a later task, not a periodic review — and its § "Status
+values" explains what the alternative cost when it was tried. A dossier's
+allowed-paths list is **not** the authority for this one file, and a dossier
+should not list it: three behaviour dossiers each named it as an input, none
+granted the path, and the result was an obligation every `Cxx` task was required
+to meet and forbidden to. Every commit to it up to `G45` is a G or P task.
+
+The grant is for recording a recurrence and nothing else. Rewriting an entry's
+countermeasure, changing a status for any other reason, or adding an entry
+remains a task of its own, because those are decisions rather than bookkeeping.
+
 **Every applicable acceptance case is demonstrated failing before it is
 accepted.** For each case marked applicable, and for each task-specific case,
 plant a defect that violates exactly that case, record the check reporting the
