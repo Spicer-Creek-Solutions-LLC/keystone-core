@@ -21,6 +21,18 @@ import (
 // the topology.
 const configVolume = "keystone-nats-config"
 
+// Denied to every principal ADR-0004 section 4 defines, and published last so
+// its refusal marks the point after which no earlier one can still arrive.
+const controlSubject = "$SYS.keystone.topology-control"
+
+// compose.yaml's project name, and the broker network a job container joins.
+// Both are compose.yaml's to declare and this file's to read; if either moves,
+// the network connect below fails loudly rather than the test timing out.
+const (
+	composeProject = "keystone-acceptance"
+	brokerNetwork  = "server-net"
+)
+
 // C03.md § 3.2 requires "broker configuration the topology consumes", and until
 // C03-I6 nothing showed that it did. The container suite ran `docker compose
 // config`, which parses the topology and never brings it up, so the broker
@@ -101,29 +113,53 @@ func TestTheTopologyRunsTheGeneratedConfiguration(t *testing.T) {
 
 	// Permitted, and it has to be, or the refusal below would prove only that
 	// the connection is useless.
-	if err := conn.Publish("ks.out."+agentOne+".result", []byte{0}); err != nil {
-		t.Fatal(err)
-	}
+	publish(t, conn, "ks.out."+agentOne+".result")
 	// Refused. ARCH-NATS-003: no wildcard across agent identifiers.
-	if err := conn.Publish("ks.job."+agentTwo+".cmd", []byte{0}); err != nil {
-		t.Fatal(err)
-	}
+	publish(t, conn, "ks.job."+agentTwo+".cmd")
+	// THE CONTROL, AND IT IS WHAT MAKES THE SET COMPLETE. A permissions
+	// violation is dispatched asynchronously, after Flush has returned, so
+	// reading one callback proves only that one arrived. This subject is denied
+	// to every principal, callbacks are dispatched in order, and once its
+	// refusal is in hand every earlier one must be too -- the same
+	// synchronisation the authorization contract uses, and for the same reason.
+	publish(t, conn, controlSubject)
 	if err := conn.Flush(); err != nil {
 		t.Fatal(err)
 	}
 
-	select {
-	case err := <-violations:
-		if !strings.Contains(strings.ToLower(err.Error()), "permissions violation") {
-			t.Fatalf("the broker refused something, but not as a permissions violation: %v", err)
+	deadline := time.After(20 * time.Second)
+	var seen []string
+	for {
+		select {
+		case err := <-violations:
+			if !strings.Contains(strings.ToLower(err.Error()), "permissions violation") {
+				t.Fatalf("the broker refused something, but not as a permissions violation: %v", err)
+			}
+			if strings.Contains(err.Error(), controlSubject) {
+				// Everything earlier has arrived. Assert the WHOLE set.
+				var wrong []string
+				denied := 0
+				for _, v := range seen {
+					if strings.Contains(v, agentTwo) {
+						denied++
+						continue
+					}
+					wrong = append(wrong, v)
+				}
+				if len(wrong) > 0 {
+					t.Fatalf("the broker refused an operation this agent is granted, so its "+
+						"refusal of %s proves nothing in particular: %v", agentTwo, wrong)
+				}
+				if denied != 1 {
+					t.Fatalf("expected exactly one refusal, for %s; got %d: %v", agentTwo, denied, seen)
+				}
+				return
+			}
+			seen = append(seen, err.Error())
+		case <-deadline:
+			t.Fatalf("the broker never refused %s, so this connection cannot report a "+
+				"permissions violation and nothing it asserts means anything", controlSubject)
 		}
-		if !strings.Contains(err.Error(), agentTwo) {
-			t.Fatalf("a permissions violation arrived, but for the wrong subject, so the "+
-				"permitted publish was refused too: %v", err)
-		}
-	case <-time.After(15 * time.Second):
-		t.Fatal("the broker permitted one agent to publish another agent's command, " +
-			"so it is not running the generated authorization configuration")
 	}
 }
 
@@ -160,22 +196,59 @@ func composeUp(t *testing.T) string {
 	run(t, "docker", "compose", "-f", composeFile, "up", "--detach", "--wait", "broker")
 	t.Cleanup(func() { compose(t, "down", "--volumes", "--timeout", "5") })
 
-	// The broker's networks are internal and publish no host port -- TESTING.md
-	// requires that -- so it is reached the way the contract reaches its own
-	// broker: by container address from a sibling, or through this job
-	// container's own namespace when it has one.
+	// THE BROKER IS ON INTERNAL NETWORKS AND PUBLISHES NO HOST PORT. TESTING.md
+	// requires both, and ARCH-COMM-002 is why the networks are internal at all,
+	// so neither can be relaxed to make a test easier to write.
+	//
+	// From the host that is enough: the bridge is routable. From a job
+	// container it is not -- CI runs this suite inside one, on a network of its
+	// own, and Docker isolates bridge networks from each other. Measured:
+	// `dial tcp 172.19.0.2:4222: i/o timeout`.
+	//
+	// So the JOB CONTAINER joins the broker's network for the duration, rather
+	// than the broker leaving its own. The topology is unchanged and the test
+	// reaches it.
+	joinBrokerNetwork(t)
+
 	out := output(t, "docker", "compose", "-f", composeFile, "ps", "--quiet", "broker")
 	id := strings.TrimSpace(out)
 	if id == "" {
 		t.Fatal("compose started no broker container")
 	}
+	// THE ADDRESS ON THE NETWORK WE JOINED, not whichever the daemon lists
+	// first. The broker is on both internal networks, and a Go template ranging
+	// over a map visits its keys SORTED -- so `agent-net` comes before
+	// `server-net`, and reading the first address dials the network this test
+	// is not on. That failed as `dial tcp ...: i/o timeout`, which names the
+	// symptom and not the cause.
+	network := composeProject + "_" + brokerNetwork
 	address := strings.TrimSpace(output(t, "docker", "inspect",
-		"--format", "{{range .NetworkSettings.Networks}}{{.IPAddress}} {{end}}", id))
-	first := strings.Fields(address)
-	if len(first) == 0 {
-		t.Fatal("the broker has no container address; nothing can connect to it")
+		"--format", fmt.Sprintf("{{ (index .NetworkSettings.Networks %q).IPAddress }}", network), id))
+	if address == "" {
+		t.Fatalf("the broker has no address on %s; nothing can connect to it", network)
 	}
-	return "nats://" + first[0] + ":4222"
+	return "nats://" + address + ":4222"
+}
+
+// joinBrokerNetwork attaches this process's own container, when it has one the
+// daemon can see, to the network compose put the broker on.
+//
+// The question is not "am I in a container" but "can the daemon I am talking to
+// see the container I am in" -- only then can it be attached to anything. Asking
+// the daemon answers both at once, and on a developer machine the answer is no
+// and nothing needs doing, because the bridge is routable from the host.
+func joinBrokerNetwork(t *testing.T) {
+	t.Helper()
+	host, err := os.Hostname()
+	if err != nil || host == "" {
+		return
+	}
+	if exec.Command("docker", "inspect", "--format", "{{.Id}}", host).Run() != nil {
+		return
+	}
+	network := composeProject + "_" + brokerNetwork
+	run(t, "docker", "network", "connect", network, host)
+	t.Cleanup(func() { _ = exec.Command("docker", "network", "disconnect", network, host).Run() })
 }
 
 // compose runs a compose subcommand and ignores its failure, which is right for
@@ -184,6 +257,13 @@ func composeUp(t *testing.T) string {
 func compose(t *testing.T, args ...string) {
 	t.Helper()
 	_ = exec.Command("docker", append([]string{"compose", "-f", composeFile}, args...)...).Run()
+}
+
+func publish(t *testing.T, conn *nats.Conn, subject string) {
+	t.Helper()
+	if err := conn.Publish(subject, []byte{0}); err != nil {
+		t.Fatalf("publish to %s: %v", subject, err)
+	}
 }
 
 func run(t *testing.T, name string, args ...string) {
