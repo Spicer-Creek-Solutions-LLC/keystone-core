@@ -7,11 +7,23 @@ passes against the production `keystone-server`.
 
 Contract package: `test/contract/operator`
 
-Contract commit: `07de877cbdd39e65ae09135616248820c6171487`
+Contract commit: `417a5325377592c0d8da8c8d1421d9835444e376`
 
 Contract amendments:
 
-None.
+- `07de877cbdd39e65ae09135616248820c6171487` — `C04`. C04-A's own review round
+  on #376, before acceptance. The frozen `ORD-1` trusted a fault point named
+  "after the decision" to mark the decision, and the implementation decides
+  where it sits: a server that held, then read, then decided passed. `ORD-1`
+  now freezes the stricter, platform-neutral rule that a refused connection is
+  never read, measured by the kernel (§ Settled decisions, `D-C04-1`). The
+  after-decision fault point was removed from the surface, and `ORD-1`'s test
+  was renamed to match its requirement. The maintainer approved the change.
+
+  An earlier revision of this file moved `Contract commit:` to this amendment
+  instead of declaring it. Review found it: the freeze point does not move, and
+  being before merge does not erase that `417a53253` was committed and locked
+  as the freeze.
 
 ## Settled decisions
 
