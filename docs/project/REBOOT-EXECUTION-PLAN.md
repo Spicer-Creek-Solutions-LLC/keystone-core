@@ -586,8 +586,9 @@ no command transport lands here.
 
 Implement token creation through the public CLI and the complete staged
 bootstrap-to-permanent-identity journey over NATS. Acceptance restarts the real
-agent at every transition, proves permanent-connect before revocation, and proves
-expired/revoked bootstrap credentials fail.
+agent at every transition, proves the permanent connection before the token is
+spent, and proves the spent token is refused and the expired bootstrap
+credential fails (RFC 0005).
 
 ### C06 — JetStream transport adapter
 

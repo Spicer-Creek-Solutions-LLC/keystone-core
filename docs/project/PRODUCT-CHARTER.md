@@ -57,7 +57,7 @@ is not a measure.
 | Measure | Target | Method | Owner |
 |---|---|---|---|
 | Time from fresh host to first successful command | ≤ 10 minutes | Timed fresh-VM run at release-candidate gate, per `TESTING.md` § Gate schedule | Project maintainer |
-| Enrollment uses no long-lived credential | 100% of enrollments | Enrollment acceptance test asserts bootstrap credentials are revoked and revocation is verified (`ARCH-NATS-004`) | Project maintainer |
+| Enrollment uses no long-lived credential | 100% of enrollments | Enrollment acceptance test asserts the server refuses the spent token and the broker refuses the bootstrap credential after its expiry (`ARCH-NATS-004`, RFC 0005) | Project maintainer |
 | Interruption never reports a false outcome | 100% of injected fault boundaries | Restart and fault-boundary matrix; every boundary yields a correct terminal state or explicit `UNKNOWN`, never a false success (`ARCH-JOB-004`) | Project maintainer |
 | Cancellation terminates the whole process tree | 100% of cancellations **that reach a running command** | Descendant-process cancellation test, VM-gated (`ARCH-EXEC-002`). A cancellation that never reaches its agent terminates nothing and is measured by the row above, not this one — see § 5.6 | Project maintainer |
 | Every lifecycle transition is auditable | 100% of transitions | Correlated lifecycle audit test (`ARCH-OBS-001`) | Project maintainer |
@@ -154,13 +154,15 @@ keystone-agent enroll --token-file <path> ‡
 
 **Exit:** `keystone enroll create` exits `0` on success, `10` if the operator is
 not authorized to create a token, `1` on local or usage error.
-`keystone-agent enroll` exits `0` once the permanent identity is active and
-bootstrap access is revoked, `10` if the token is spent, expired or invalid, `1`
-on local or usage error.
+`keystone-agent enroll` exits `0` once the permanent identity is active and the
+server has confirmed the token spent, `10` if the token is spent, expired or
+invalid, `1` on local or usage error.
 
 **Observable effect:** a one-use token is issued and printed once; the agent
-holds a permanent scoped credential at mode `0600`; bootstrap access is revoked
-and the revocation is verified; the agent appears in § 5.2.
+holds a permanent scoped credential at mode `0600`; the server refuses the spent
+token at once, and the broker refuses the bootstrap credential from its expiry,
+minutes later ([RFC 0005](../rfcs/0005-bootstrap-access-ends-by-refusal-and-expiry.md));
+the agent appears in § 5.2.
 
 **Invariants:** `ARCH-NATS-004`, `ARCH-NATS-002`, `ARCH-COMM-001`.
 
