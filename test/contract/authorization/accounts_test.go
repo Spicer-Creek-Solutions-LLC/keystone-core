@@ -90,7 +90,7 @@ func TestGEN5AccountLimitsAreFinite(t *testing.T) {
 	t.Run("an absent limit cannot reach a deployment", func(t *testing.T) {
 		infinite := natsauth.DefaultLimits(fleetSize)
 		infinite.Account.MaxSubscriptions = -1
-		if _, err := natsauth.Generate(natsauth.Config{
+		if _, err := natsauth.Generate(natsauth.Config{BrokerNames: []string{brokerName}, RuntimeDir: brokerRuntimeDir,
 			FleetSize: fleetSize,
 			Tokens:    []string{tokenOne},
 			Limits:    &infinite,

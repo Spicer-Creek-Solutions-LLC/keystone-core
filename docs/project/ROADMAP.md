@@ -71,6 +71,14 @@ permanent identity will be revoked — application refusal, short-lived
 server-renewed credentials, and the operator key offline as an emergency path —
 so the task that promotes it inherits a design rather than a custody problem.
 
+**Regulated-market posture is an open question.** Whether Keystone targets
+deployments that require FIPS 140 validated cryptography, FedRAMP or DISA STIGs
+is undecided. It reaches beyond any one task: TLS configuration, where private
+keys may live (a CA key in a passphrase-protected file is unlikely to satisfy an
+assessor who expects an HSM or KMS), running Go in FIPS mode, and `ADR-0005`'s
+hybrid key agreement, whose X25519 half is not FIPS-approved on its own. It
+needs an RFC before any task assumes an answer. Raised at `G49`.
+
 ## Not Planned
 
 Directions that need a new product-level RFC rather than ordinary promotion.

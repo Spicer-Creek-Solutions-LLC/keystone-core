@@ -307,6 +307,24 @@ intended recipient (`ARCH-NATS-006`, `THR-10`, `THR-21`), which this ADR does
 not design — P05 does. Stating it here because the opposite assumption is the
 single most likely misreading of a TLS-everywhere decision.
 
+**Implemented at `G49`**, with each choice measured against the pinned broker
+first:
+
+| Choice | Why |
+|---|---|
+| **TLS-first** (`handshake_first`) | By default NATS sends its `INFO` greeting in plaintext before upgrading. TLS-first sends no byte before the handshake, so there is no plaintext on the connection at all |
+| **TLS 1.3 minimum** | A client capped at 1.2 is refused |
+| **Verification against a configured broker name**, never disabled | A client dials whatever address it has and verifies the certificate against the name; `natsauth.ClientTLSConfig` has no option that turns verification off |
+| **ECDSA P-256**; CA 5 years, broker certificate 1 year, both configurable | Broad support, and a lifetime a rotation procedure can meet. The procedure is C13's, as `RSK-13`'s is |
+| **No client certificates** | A principal's identity is its NATS JWT (§ 2); TLS authenticates the broker and protects the connection |
+| **The CA's private key is never written to the deployment** | Whoever holds it can issue a certificate every client accepts as the broker. The generator returns it to the caller, like the operator seed, and where it goes — an HSM, a KMS, a vault, offline media — is the administrator's decision |
+| **The broker's only listener is the client port** | The monitoring endpoint the test topology once enabled was plaintext and unused, and is gone |
+
+**Not decided here:** the product's posture for regulated markets — FIPS 140
+validated cryptography, FedRAMP, DISA STIGs. It reaches beyond TLS (`ADR-0005`'s
+hybrid key agreement uses X25519) and is recorded in `ROADMAP.md` as an open
+question for an RFC.
+
 ### 13. Credential rotation, and what it cannot reach
 
 Broker-side, a user JWT is revoked by the account it belongs to: the

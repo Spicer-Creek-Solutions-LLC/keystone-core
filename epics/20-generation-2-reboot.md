@@ -1126,9 +1126,21 @@ limitations go in the pull request.
     emergency path. Both broker behaviours it relies on were measured.
   - **Settles `C05.md`'s `D-C05-1`, `D-C05-9` and `D-C05-3`'s S6 half.** C05
     stays blocked on TLS, which is `G49`'s.
-- [ ] G49 — Implement `ADR-0002` § 12's TLS on every broker connection. The
-  generator emits a CA, a broker certificate and a `tls` block, and clients
-  verify against a configured anchor. **C05 is blocked on it** (`D-C05-8`).
+- [x] G49 — Implement `ADR-0002` § 12's TLS on every broker connection. The
+  generator issues a CA and a broker certificate and writes a `tls` block; the
+  broker is **TLS-first at TLS 1.3**, so it sends no plaintext byte, and every
+  client verifies it against a configured name with
+  `natsauth.ClientTLSConfig`, which cannot turn verification off.
+  - **The CA's private key is never written to the deployment.** It is returned
+    to the caller, like the operator seed, for an HSM, KMS, vault or offline
+    media.
+  - **Every choice was measured against the pinned broker first.** One changed
+    the design: the broker resolves certificate paths against its working
+    directory, so the configuration names them absolutely.
+  - **C03's contract passes with every case over TLS**, its frozen surface
+    untouched, and the topology's plaintext monitoring port is gone.
+  - **Unblocks C05** (`D-C05-8`). Regulated-market posture (FIPS, FedRAMP,
+    STIGs) is recorded in `ROADMAP.md` as an open question.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

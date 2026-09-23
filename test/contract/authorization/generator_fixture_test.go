@@ -22,6 +22,13 @@ const (
 	tokenTwo   = "token-two"
 	fleetSize  = 16
 	inboxSplit = ".>"
+
+	// The broker's TLS identity (ADR-0002 § 12, G49). Every client in this
+	// package verifies the broker against brokerName, whatever address it
+	// dialled, and the broker fixture mounts the generated directory at
+	// brokerRuntimeDir.
+	brokerName       = "broker"
+	brokerRuntimeDir = "/etc/nats"
 )
 
 // agentKeys is what the AGENTS do, on the agents. ADR-0003 § 4 generates the
@@ -78,7 +85,7 @@ func generate(t *testing.T, limits *natsauth.Limits) (*natsauth.Deployment, map[
 		}
 		agents = append(agents, natsauth.AgentKey{ID: id, PublicKey: pub})
 	}
-	d, err := natsauth.Generate(natsauth.Config{
+	d, err := natsauth.Generate(natsauth.Config{BrokerNames: []string{brokerName}, RuntimeDir: brokerRuntimeDir,
 		FleetSize:     fleetSize,
 		Agents:        agents,
 		Tokens:        []string{tokenOne, tokenTwo},

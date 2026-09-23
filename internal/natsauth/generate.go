@@ -3,6 +3,7 @@ package natsauth
 import (
 	"errors"
 	"fmt"
+	"path"
 	"sort"
 	"time"
 
@@ -57,6 +58,22 @@ type Config struct {
 
 	// Limits defaults to DefaultLimits(FleetSize) when nil.
 	Limits *Limits
+
+	// BrokerNames are the names the broker's TLS certificate carries, and a
+	// client verifies the broker against one of them (ADR-0002 § 12). Required:
+	// there is no default name.
+	BrokerNames []string
+
+	// RuntimeDir is the absolute path at which the broker will find the
+	// directory Write produces. The broker resolves certificate paths against
+	// its working directory, not the configuration file, so the configuration
+	// has to name them absolutely. Required.
+	RuntimeDir string
+
+	// CALifetime and BrokerCertLifetime default to DefaultCALifetime and
+	// DefaultBrokerCertLifetime when zero.
+	CALifetime         time.Duration
+	BrokerCertLifetime time.Duration
 }
 
 // Identity is one NATS principal: its JWT, the permission lists that JWT
@@ -89,10 +106,19 @@ type Account struct {
 // Deployment is everything generation produces. OperatorSeed is returned to the
 // CALLER and is never written by Write: ADR-0002 § 2 holds it outside every
 // Keystone process, and GEN-7 is the case that checks the artifacts agree.
+//
+// CAKey is returned to the caller for the same reason and is never written by
+// Write either. Whoever holds it can issue a certificate every client accepts
+// as the broker; where it goes -- an HSM, a KMS, a vault, offline media -- is
+// the administrator's decision, and nothing the deployment runs may hold it.
 type Deployment struct {
 	OperatorSeed      []byte
 	OperatorPublicKey string
 	OperatorJWT       string
+
+	CAKey      []byte
+	TLS        TLSMaterial
+	RuntimeDir string
 
 	System   Account
 	Keystone Account
@@ -134,6 +160,16 @@ func Generate(cfg Config) (*Deployment, error) {
 	if err := limits.Validate(); err != nil {
 		return nil, err
 	}
+	// TLS last among the checks: every input a refusal test targets is validated
+	// before it, so a caller that omits the broker's names cannot be refused
+	// for the wrong reason and still satisfy a test of another rule.
+	if !path.IsAbs(cfg.RuntimeDir) {
+		return nil, fmt.Errorf("%w: %q", ErrRuntimeDir, cfg.RuntimeDir)
+	}
+	tlsMaterial, caKey, err := newTLS(cfg.BrokerNames, cfg.CALifetime, cfg.BrokerCertLifetime, time.Now())
+	if err != nil {
+		return nil, err
+	}
 
 	operator, err := nkeys.CreateOperator()
 	if err != nil {
@@ -169,6 +205,9 @@ func Generate(cfg Config) (*Deployment, error) {
 		OperatorSeed:      operatorSeed,
 		OperatorPublicKey: operatorPub,
 		OperatorJWT:       operatorJWT,
+		CAKey:             caKey,
+		TLS:               tlsMaterial,
+		RuntimeDir:        cfg.RuntimeDir,
 		System:            system,
 		Keystone:          keystone,
 		Services:          map[Principal]Identity{},
