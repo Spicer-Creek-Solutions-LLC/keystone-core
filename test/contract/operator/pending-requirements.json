@@ -1,8 +1,0 @@
-{
-  "requirements": [
-    {"case":"CLI-1","owner":"C05","expiry":"C05","reason":"ADR-0009 section 5: the kernel refusal and the in-band refusal must be indistinguishable to the CLI's caller. At the socket they differ by construction; only a CLI can make them the same, and C04 wires no verb (D-C04-4). C05's first verb is where a CLI exists to test","deferred":true},
-    {"case":"CLI-2","owner":"C05","expiry":"C05","reason":"ADR-0009 section 5: either refusal path must exit 10. The exit-code mapping needs a verb to run, and C04 wires none (D-C04-4)","deferred":true},
-    {"case":"CLI-3","owner":"C05","expiry":"C05","reason":"ADR-0009 section 5: ENOENT on the socket must exit 1, not 10. The exit-code mapping needs a verb to run, and C04 wires none (D-C04-4)","deferred":true},
-    {"case":"LIM-5","owner":"C05","expiry":"C05","reason":"ADR-0009 section 9: in-flight requests per connection must be bounded. With no verb there is no request that can be in flight, so C04 cannot make the limit observable","deferred":true}
-  ]
-}
