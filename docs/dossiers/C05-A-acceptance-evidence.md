@@ -211,8 +211,17 @@ make pending-contract
 git diff --check
 ```
 
+From a clean detached worktree, the following also passed: build,
+`govulncheck`, Markdown lint, link checking, capability-catalog check, doclint,
+approved-document checking, contract immutability, archlint, DCO exemption
+checking and gate agreement.
+
 The host has no `docker` executable. Consequently `make contract` reaches the
 existing authorization package and fails when it tries to start its broker;
 `make container-suite` and therefore a full `make check` cannot run here. This
-is an environment limitation, not reported as green. The branch-push CI runner
-must supply the full result.
+is an environment limitation, not reported as green. A clean-worktree
+`make check` also exposed an existing host-sensitive race-suite failure in
+`test/contract/operator/sockprobe`: `TestAPartialReadOfALongerPayloadStillEndsInReset`
+returned `EINVAL` in the full `./...` run, while the same package passed when
+run independently. C05-A does not touch that package. The branch-push CI runner
+must supply the authoritative full result.
