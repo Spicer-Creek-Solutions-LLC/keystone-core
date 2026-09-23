@@ -45,14 +45,21 @@ publish only to its own result, event, and presence subjects. Service roles
 receive only the corresponding direction and scope. Wildcard access across
 agent identifiers is denied unless a narrowly documented service requires it.
 
-### ARCH-NATS-004 — Bootstrap isolation and revocation
+### ARCH-NATS-004 — Bootstrap isolation and the end of bootstrap access
 
 Enrollment uses one-use, token-scoped NATS credentials and token-specific
-subjects. It is a staged, idempotent protocol: issue pending credentials; fsync
-and atomically rename the agent credential file with mode `0600`; prove a
-permanent connection; mark the identity active; revoke bootstrap access; and
-verify revocation. Short bootstrap expiry is the failure backstop. Every stage
-has a defined crash-recovery path.
+subjects. It is a staged, idempotent protocol: issue pending credentials that
+expire with the token; fsync and atomically rename the agent credential file
+with mode `0600`; prove a permanent connection; mark the identity active and the
+token spent, so that the server refuses it; and confirm that refusal to the
+agent before enrollment reports success. Bootstrap access then ends at the
+credential's expiry, which the broker enforces. Nothing verifies the end of
+bootstrap access by reading back what was written; refusal and expiry are each
+proved where they take effect. Every stage has a defined crash-recovery path.
+
+Amended by [RFC 0005](../rfcs/0005-bootstrap-access-ends-by-refusal-and-expiry.md),
+which replaced *"revoke bootstrap access; and verify revocation"* and records
+why: the server cannot revoke a NATS user with the key it holds.
 
 ### ARCH-NATS-005 — Broker API isolation
 

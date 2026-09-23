@@ -189,8 +189,9 @@ that decide and record, as distinct from the agents that execute.
 
 The staged protocol by which a host becomes an agent with a permanent scoped
 identity: issue pending credentials, fsync and atomically rename the credential
-file at mode `0600`, prove a permanent connection, mark the identity active,
-revoke bootstrap access, and verify the revocation (`ARCH-NATS-004`).
+file at mode `0600`, prove a permanent connection, mark the identity active and
+the token spent, and confirm that to the agent. Bootstrap access then ends at
+the credential's expiry (`ARCH-NATS-004`, as RFC 0005 amended it).
 
 ### Command
 

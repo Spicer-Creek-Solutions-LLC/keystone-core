@@ -66,6 +66,11 @@ version, a date or an issue. Promotion to `Next` requires all of:
 - required VM tests identified; and
 - the maintainer accepting its maintenance and commercial rationale.
 
+**Agent decommission is decided but unbuilt.** RFC 0005 § 3 fixes how a
+permanent identity will be revoked — application refusal, short-lived
+server-renewed credentials, and the operator key offline as an emergency path —
+so the task that promotes it inherits a design rather than a custody problem.
+
 ## Not Planned
 
 Directions that need a new product-level RFC rather than ordinary promotion.

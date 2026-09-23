@@ -82,7 +82,10 @@ workstream depends on. Detailed controls are normative in the execution plan.
   `RSK-2` and `RSK-3` renewed.
 - [x] P03 — Enrollment and identity ADR. `ADR-0003`: the token file carries a
   token-scoped bootstrap NATS credential, all three agent keys are generated on
-  the agent, and the staged protocol ends only when revocation is verified.
+  the agent, and the staged protocol ends when the server confirms the token
+  spent, with bootstrap access ending at the credential's broker-enforced
+  expiry. It first ended *"only when revocation is verified"*; RFC 0005 (`G48`)
+  replaced that when the server's key proved unable to revoke.
   `RSK-7` resolved for agent material; `RSK-12` to P05, `RSK-13` to P10.
 - [x] P04 — Subject authorization ADR and executable policy. `ADR-0004`: a
   four-token grammar `ks.<plane>.<id>.<class>`, with the identifier before the
@@ -1107,6 +1110,25 @@ limitations go in the pull request.
     being discovered inside one.
   - **No code.** `C03-I6` does the wiring and removes the gate; this grants the
     path, as `G41` and `G44` did before their implementations.
+- [x] G48 — End bootstrap access by refusal and expiry. RFC 0005: the server
+  **cannot** revoke a NATS user with the account signing key it holds. Measured
+  against the pinned broker, an update it signs is acknowledged, not enforced,
+  and read back as though it were; with the account not yet loaded, it makes
+  the account unusable. `ADR-0002` § 13 said otherwise and is corrected.
+  - **Bootstrap access now ends by the server's refusal of the spent token and
+    the credential's expiry.** `ARCH-NATS-004`, charter § 5.1 and § 3's
+    enrollment measure are amended, and `RSK-15` accepts the minutes-long
+    window in which the credential can do almost nothing.
+  - **The token has no separate secret**: the bootstrap credential is the
+    secret, which `ADR-0003` § 5 never checked and § 4 forbade sending.
+  - **Permanent-identity revocation is decided, not built**: immediate refusal,
+    short-lived server-renewed credentials, and the operator key offline as the
+    emergency path. Both broker behaviours it relies on were measured.
+  - **Settles `C05.md`'s `D-C05-1`, `D-C05-9` and `D-C05-3`'s S6 half.** C05
+    stays blocked on TLS, which is `G49`'s.
+- [ ] G49 — Implement `ADR-0002` § 12's TLS on every broker connection. The
+  generator emits a CA, a broker certificate and a `tls` block, and clients
+  verify against a configured anchor. **C05 is blocked on it** (`D-C05-8`).
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.

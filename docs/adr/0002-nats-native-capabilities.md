@@ -309,9 +309,25 @@ single most likely misreading of a TLS-everywhere decision.
 
 ### 13. Credential rotation, and what it cannot reach
 
-Broker-side, a user JWT is revoked by the account it belongs to, and the
-revocation is a broker operation the server can perform with its account
-signing key (§ 2).
+Broker-side, a user JWT is revoked by the account it belongs to: the
+revocation list lives in the **account** JWT.
+
+**Corrected by [RFC 0005](../rfcs/0005-bootstrap-access-ends-by-refusal-and-expiry.md).**
+This section said the revocation was *"a broker operation the server can
+perform with its account signing key (§ 2)"*. It is not. An account signing key
+signs users; only the operator may sign the account JWT that lists their
+revocations, and § 2 keeps the operator seed out of every Keystone process.
+Measured against the pinned broker, an update the server signs is acknowledged,
+not enforced, and read back as though it were. With the account not yet loaded,
+it makes the whole account unusable.
+
+**So the server revokes nothing at the broker, and nothing needs it to.**
+Bootstrap access ends by the server's refusal and the credential's expiry. A
+permanent identity will end the same way when the task that decommissions
+agents lands: the server refuses it, and declines to renew a short-lived
+credential it signs with the key it does hold. **The operator key revokes
+only offline**, in the broker administrator's hands, as the emergency path.
+RFC 0005 § 3 states the design and its constraints.
 
 **It reaches the NATS identity and nothing else.** P01 § 8 records that
 revoking an agent's NATS identity does not revoke that agent's Keystone

@@ -225,7 +225,7 @@ What C03 generates. Shapes, not files.
 | Service user JWT | One per service role of `ADR-0002` § 3, carrying that role's publish and subscribe lists from § 4 verbatim, and no others |
 | Agent user JWT | Subject lists with `<its own id>` substituted; issued at enrollment against the agent's recorded NATS public key (`ADR-0003` § 6, S1) |
 | Bootstrap user JWT | The two `ks.enroll.<token>.*` entries only, expiring with the token (`ADR-0003` § 3, § 8) |
-| Revocation | Bootstrap users are added to the account's revocation list at `ADR-0003` § 6, S5, and the revocation is verified at S6 |
+| Revocation | **Not performed at runtime.** Bootstrap access ends by the server's refusal of the spent token and by the credential's expiry (RFC 0005). The account's revocation list is written only offline, with the operator key, by the generator or the broker administrator; the server's account signing key cannot sign it |
 
 **A direction with no grants is rendered as an explicit deny of the whole
 subject space.** § 4's table gives `none` to the presence consumer's and the
@@ -321,6 +321,11 @@ implement it as a publish denial.** A revoked bootstrap identity fails at
 connection, not at publish, because revocation removes the user from the
 account. A test that connects successfully and is refused on publish has proved
 something weaker than revocation.
+
+**After RFC 0005, `NEG-7` proves the offline path.** The product never revokes a
+bootstrap identity at runtime; one that is revoked was revoked with the operator
+key, by the generator or the broker administrator. The case still holds, and
+still matters: that is the emergency path for permanent identities.
 
 ### 10. Every deferral, closed
 

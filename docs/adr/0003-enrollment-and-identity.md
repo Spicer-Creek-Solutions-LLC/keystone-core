@@ -4,6 +4,10 @@
 - **Date:** 2026-09-13
 - **Task:** P03, bounded by [`docs/dossiers/P03.md`](../dossiers/P03.md)
 - **Builds on:** [`ADR-0002`](0002-nats-native-capabilities.md)
+- **Amended by:** [RFC 0005](../rfcs/0005-bootstrap-access-ends-by-refusal-and-expiry.md),
+  §§ 1, 2, 6, 7, 8 and 10 — bootstrap access ends by refusal and expiry, not
+  revocation; the token carries no separate secret; and a retired identity is
+  refused and not renewed
 
 ## Context
 
@@ -14,7 +18,10 @@ fixes the shape of the protocol before any design begins — one-use,
 token-scoped credentials; a staged, idempotent sequence; fsync and atomic rename
 at mode `0600`; proof of a permanent connection; revocation, and **verification**
 of that revocation; short bootstrap expiry as the backstop; and a defined
-crash-recovery path at every stage.
+crash-recovery path at every stage. **That was the invariant this ADR was
+written against.** RFC 0005 replaced its revocation clauses with refusal and
+expiry, after the server's key proved unable to revoke; the sections below are
+amended to match.
 
 The charter fixes the operator surface (§ 5.1) and defers three questions here:
 whether the token is also accepted on standard input, the file's required mode,
@@ -67,7 +74,7 @@ durable step:
 
 | Step | Result |
 |---|---|
-| Generate a one-use token | High-entropy random identifier and secret. **Opaque, not a JWT** — a self-validating token cannot be made one-use without server state, so the server keeps the state and the token carries no claims |
+| Generate a one-use token | A high-entropy random identifier. **Opaque, not a JWT** — a self-validating token cannot be made one-use without server state, so the server keeps the state and the token carries no claims. **It has no separate secret** (RFC 0005 § 2): the bootstrap credential's seed is the secret, the bundle is the only place it exists, and the broker authenticates it before any byte reaches the server |
 | Mint a bootstrap NATS credential | A user JWT in the Keystone account, signed with `AST-16`, scoped to this token's subjects only (§ 3), expiring with the token |
 | Record a pending enrollment | Token identifier, agent name, expiry, state `pending`, and the bootstrap identity's public key. The agent's own keys do not exist yet |
 | Add the service public halves | The **service envelope-signing public half** (`AST-7`) and the **result-service encryption public half** (`AST-8`). Both are public; neither is a secret |
@@ -82,7 +89,7 @@ is P09's.
 
 | Question | Decision | Why |
 |---|---|---|
-| Standard input? | **Yes.** `--token-file -` reads the bundle from standard input | `THR-01` is the token being read from shell history or a process listing, and the charter forbids supplying it in a form that exposes it. A pipe satisfies that as well as a file and avoids the bundle touching disk at all, which is strictly better. Neither form ever places the secret in `argv` |
+| Standard input? | **Yes.** `--token-file -` reads the bundle from standard input | `THR-01` is the token being read from shell history or a process listing, and the charter forbids supplying it in a form that exposes it. A pipe satisfies that as well as a file and avoids the bundle touching disk at all, which is strictly better. Neither form ever places the bundle's credential in `argv` |
 | Required mode | **`0600`, enforced.** The agent **refuses** a bundle file that is group- or world-readable, and exits `1` | A bundle is a credential. Refusing is a decision, not a warning: a warning that is ignored leaves a NATS credential world-readable on every host in the fleet |
 | Lifetime | **The agent removes the bundle after the permanent identity is active.** Server-side the token expires on a short default — minutes, not hours — configurable at creation, enforced by the server | Two independent limits: the file stops existing once it is useless, and the token stops working whether or not the file was removed |
 
@@ -190,14 +197,17 @@ because the server's record is what makes the protocol idempotent.
 | S0 | `pending` | Token issued, bootstrap credential minted, nothing claimed |
 | S1 | `issued` | Server validates (§ 5); **durably records the agent's three public halves** — NATS identity, signing verification, encryption; mints the permanent user JWT against the recorded NATS public key with `AST-16`; records the JWT; replies on the token-scoped subject |
 | S2 | `issued` | **Agent** writes the credential file **and the two service public halves from the bundle** in one operation: write to a temporary file in the same directory, `fsync`, `rename` atomically, `fsync` the directory, mode `0600`. Credential and trust anchor are either both present or neither, by the same atomic rename. It also initialises its **durable job ledger**, so that a command arriving immediately after S4 has somewhere to be recorded before it is acted on (`ARCH-JOB-002`) |
-| S3 | `issued` | **Agent** disconnects the bootstrap identity, connects with the permanent identity, and publishes a proof of connection on its own subject |
+| S3 | `issued` | **Agent** connects with the permanent identity and publishes a proof of connection on its own subject. **It keeps its bootstrap connection open**, because S6 arrives on it (RFC 0005 § 1) |
 | S4 | `active` | Server observes the proof and marks the identity active |
-| S5 | `active` | Server revokes bootstrap access — the bootstrap user is added to the account's revocation list |
-| S6 | `active`, bootstrap `revoked` | **Server verifies the revocation** by re-reading the account state and confirming the bootstrap identity is listed. Enrollment is complete only here |
+| S5 | `active`, token `spent` | In the same durable write as S4, the server records the token **spent**. From here every request on the token is refused and audited, except S6's confirmation (RFC 0005 § 1) |
+| S6 | `active`, token `spent` | The agent asks for confirmation on its token-scoped subject, and the server replies that the identity is active and the token spent. The agent then closes the bootstrap connection and removes the bundle. **Bootstrap access ends at the credential's expiry**, which the broker enforces; the server revokes nothing (RFC 0005) |
 
-The agent exits `0` only after S6 is confirmed to it — the charter requires exit
-`0` to mean *the permanent identity is active and bootstrap access is revoked*,
-which is a statement about S4 and S6 together.
+The agent exits `0` only on S6's confirmation. The charter requires exit `0` to
+mean *the permanent identity is active and the server has confirmed the token
+spent*, which is a statement about S4 and S6 together. **As first written, S5
+revoked the bootstrap user and S6 verified it by re-reading the account.** The
+server's key cannot revoke, and a re-read confirmed a revocation the broker was
+not enforcing; RFC 0005 records the measurement.
 
 **One-use is a property of the token, not of the message.** The token admits
 exactly one agent identity. Re-presenting it from the same bootstrap identity
@@ -224,20 +234,22 @@ disagreeing about identity state.
 | S1–S2 | Bundle still present; retries and receives the **same** JWT (§ 6) | `issued`; returns the recorded JWT |
 | S2–S3 | Credential file exists and is complete, by construction — the atomic rename means it is either absent or whole. Agent proceeds to S3 | `issued`, waiting |
 | S3–S4 | Permanent connection may already have been proven; agent republishes the proof, which is idempotent | `issued` or `active`; a repeated proof changes nothing |
-| S4–S5 | Agent has a working identity; it waits for completion and retries the proof | `active`, bootstrap **not yet revoked**. The backstop is bootstrap expiry (§ 8) |
-| S5–S6 | As above | `active`, revocation performed but unverified. The server re-runs S6 on recovery; an unverified revocation is not treated as a revocation |
+| S4–S6 | Agent has a working identity and still holds the bundle; it reconnects its bootstrap identity and asks for S6's confirmation again, which is idempotent | `active`, token `spent`, recorded in S4's one durable write (RFC 0005 § 1), so there is no S4–S5 boundary to crash across. **If the bootstrap credential has expired before the agent asks, the confirmation cannot arrive**, though the permanent identity works; what the agent reports then is C05's to decide (RFC 0005 § Open Questions) |
 
-**The partial state that matters is S4–S6**: an active identity whose bootstrap
-access is still live. That is `THR-03` — bootstrap access surviving enrollment —
-and the design's answer is that it is bounded by expiry even if the server never
-recovers.
+**The partial state that matters is S4 to expiry**: an active identity whose
+bootstrap credential is still valid at the broker. That is `THR-03` — bootstrap
+access surviving enrollment — and it is **no longer a crash case**. Under RFC
+0005 it is how every enrollment ends: the server refuses the spent token, and the
+credential lasts until its expiry, able to do only what RFC 0005 § Motivation
+lists. `RSK-15` records the acceptance.
 
 ### 8. Bootstrap expiry
 
-The bootstrap credential expires on the same short clock as the token, and the
-expiry is the **failure backstop for every stage above**. If enrollment never
-reaches S6, bootstrap access ends anyway; if the server never recovers to revoke,
-bootstrap access ends anyway.
+The bootstrap credential expires on the same short clock as the token, and
+**expiry is how bootstrap access ends** — at every enrollment, not only a failed
+one (RFC 0005). As first written it was the backstop behind a revocation the
+server turned out unable to perform. It still covers every failed enrollment
+too: if enrollment never reaches S6, bootstrap access ends anyway.
 
 Expiry is enforced by the broker against the JWT and by the server against its
 own record. Neither alone is trusted.
@@ -254,10 +266,18 @@ fails, loudly. It does not silently attempt to acquire a new one.
 ### 10. Re-enrollment
 
 Re-enrollment issues a **new identity**, not a refreshed one: a new token, new
-agent-generated keys, a new user JWT. The operator revokes the old identity
+agent-generated keys, a new user JWT. The operator retires the old identity
 explicitly; the server does not infer that a new enrollment supersedes an old
 one, because inferring it would let anyone who can enrol displace an existing
 agent.
+
+**How the old identity is retired is RFC 0005 § 3's**, which amends this
+section. This read *"the operator revokes the old identity"*, and the server
+cannot revoke a NATS user with the key it holds. The server refuses the retired
+identity at once and declines to renew its short-lived credential, so the broker
+ends it at expiry; the operator key revokes it offline in an emergency. That
+design is decided and not built, and lands with the task that promotes agent
+decommission.
 
 The agent's job ledger is not carried across. A re-enrolled host is a new agent
 to the control plane, and `ARCH-JOB-003`'s at-most-one-attempt guarantee is a
@@ -357,7 +377,7 @@ outage. That is P10's.
 
 | Invariant | Where |
 |---|---|
-| `ARCH-NATS-004` | §§ 1–8 — **satisfied**; every clause of the invariant is a section here |
+| `ARCH-NATS-004` | §§ 1–8 — **satisfied**; every clause of the invariant, as RFC 0005 amended it, is a section here |
 | `ARCH-NATS-002` | § 4, § 6 — **registered**; the principal list is `ADR-0002` § 3 |
 | `ARCH-NATS-003` | § 3 — **registered**; the grammar and matrix are P04's |
 | `ARCH-NATS-005` | § 3 — **registered**; the bootstrap identity reaches no `$JS.API` subject, and the allowlist is `ADR-0002` § 8, tested by P04 |
