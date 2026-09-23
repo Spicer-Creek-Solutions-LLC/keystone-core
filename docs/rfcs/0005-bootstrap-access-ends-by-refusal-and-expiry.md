@@ -6,8 +6,8 @@
 - **Amends:** [`ARCH-NATS-004`](../project/ARCHITECTURE-INVARIANTS.md);
   [`PRODUCT-CHARTER.md`](../project/PRODUCT-CHARTER.md) § 3's enrollment
   measure and § 5.1; [`ADR-0003`](../adr/0003-enrollment-and-identity.md)
-  §§ 1, 2, 6, 7 and 8; [`ADR-0004`](../adr/0004-subject-authorization.md) §§ 7
-  and 9
+  §§ 1, 2, 6, 7, 8 and 10; [`ADR-0004`](../adr/0004-subject-authorization.md)
+  §§ 7 and 9
 - **Corrects:** [`ADR-0002`](../adr/0002-nats-native-capabilities.md) § 13,
   whose revocation claim is false against the broker this project pins
 - **Settles:** [`C05.md`](../dossiers/C05.md)'s `D-C05-1`, `D-C05-9`, and the
@@ -177,8 +177,10 @@ bundle still holds a credential.
 
 ### 3. How a permanent identity will be revoked
 
-`ADR-0003` § 10 says *"the operator revokes the old identity explicitly"*, and
-the same custody problem applies. No charter journey revokes an agent yet, so
+`ADR-0003` § 10 said *"the operator revokes the old identity explicitly"*, and
+the same custody problem applies, so this RFC amends § 10 to the design
+below. The operator still acts explicitly; the server still never infers that
+a new enrollment replaces an old one. No charter journey revokes an agent yet, so
 this is **decided and not built**:
 
 | Layer | When | By whom | Mechanism |

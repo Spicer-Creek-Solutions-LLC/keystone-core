@@ -5,8 +5,9 @@
 - **Task:** P03, bounded by [`docs/dossiers/P03.md`](../dossiers/P03.md)
 - **Builds on:** [`ADR-0002`](0002-nats-native-capabilities.md)
 - **Amended by:** [RFC 0005](../rfcs/0005-bootstrap-access-ends-by-refusal-and-expiry.md),
-  §§ 1, 2, 6, 7 and 8 — bootstrap access ends by refusal and expiry, not
-  revocation, and the token carries no separate secret
+  §§ 1, 2, 6, 7, 8 and 10 — bootstrap access ends by refusal and expiry, not
+  revocation; the token carries no separate secret; and a retired identity is
+  refused and not renewed
 
 ## Context
 
@@ -265,10 +266,18 @@ fails, loudly. It does not silently attempt to acquire a new one.
 ### 10. Re-enrollment
 
 Re-enrollment issues a **new identity**, not a refreshed one: a new token, new
-agent-generated keys, a new user JWT. The operator revokes the old identity
+agent-generated keys, a new user JWT. The operator retires the old identity
 explicitly; the server does not infer that a new enrollment supersedes an old
 one, because inferring it would let anyone who can enrol displace an existing
 agent.
+
+**How the old identity is retired is RFC 0005 § 3's**, which amends this
+section. This read *"the operator revokes the old identity"*, and the server
+cannot revoke a NATS user with the key it holds. The server refuses the retired
+identity at once and declines to renew its short-lived credential, so the broker
+ends it at expiry; the operator key revokes it offline in an emergency. That
+design is decided and not built, and lands with the task that promotes agent
+decommission.
 
 The agent's job ledger is not carried across. A re-enrolled host is a new agent
 to the control plane, and `ARCH-JOB-003`'s at-most-one-attempt guarantee is a

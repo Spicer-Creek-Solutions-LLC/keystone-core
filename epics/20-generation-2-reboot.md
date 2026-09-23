@@ -82,7 +82,10 @@ workstream depends on. Detailed controls are normative in the execution plan.
   `RSK-2` and `RSK-3` renewed.
 - [x] P03 — Enrollment and identity ADR. `ADR-0003`: the token file carries a
   token-scoped bootstrap NATS credential, all three agent keys are generated on
-  the agent, and the staged protocol ends only when revocation is verified.
+  the agent, and the staged protocol ends when the server confirms the token
+  spent, with bootstrap access ending at the credential's broker-enforced
+  expiry. It first ended *"only when revocation is verified"*; RFC 0005 (`G48`)
+  replaced that when the server's key proved unable to revoke.
   `RSK-7` resolved for agent material; `RSK-12` to P05, `RSK-13` to P10.
 - [x] P04 — Subject authorization ADR and executable policy. `ADR-0004`: a
   four-token grammar `ks.<plane>.<id>.<class>`, with the identifier before the
