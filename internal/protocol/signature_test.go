@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"errors"
 	"testing"
 )
@@ -114,6 +115,43 @@ func TestParseVerifyingKeyRoundTripsAndRefusesJunk(t *testing.T) {
 	for _, n := range []int{0, VerifyingKeyBytes - 1, VerifyingKeyBytes + 1} {
 		if _, err := ParseVerifyingKey(make([]byte, n)); err == nil {
 			t.Errorf("a %d-byte key was accepted", n)
+		}
+	}
+}
+
+func TestSigningKeyPersistenceRoundTrips(t *testing.T) {
+	k := key(t)
+	wantPublic := k.Verifying().Bytes()
+	b := MarshalSigningKey(k)
+	if len(b) != SigningPrivateKeyBytes {
+		t.Fatalf("private key is %d bytes, want %d", len(b), SigningPrivateKeyBytes)
+	}
+
+	back, err := ParseSigningKey(b)
+	if err != nil {
+		t.Fatalf("a genuine private key was refused: %v", err)
+	}
+	if !bytes.Equal(back.Verifying().Bytes(), wantPublic) {
+		t.Fatal("restored private key has a different public half")
+	}
+	if !bytes.Equal(MarshalSigningKey(back), b) {
+		t.Fatal("restored private key does not re-marshal identically")
+	}
+
+	input := []byte("signed after agent restart")
+	sig, err := Sign(back, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Verify(k.Verifying(), input, sig); err != nil {
+		t.Fatalf("signature from restored key was refused: %v", err)
+	}
+}
+
+func TestParseSigningKeyRefusesWrongLengths(t *testing.T) {
+	for _, n := range []int{0, ed25519.SeedSize, SigningPrivateKeyBytes - 1, SigningPrivateKeyBytes + 1} {
+		if _, err := ParseSigningKey(make([]byte, n)); !errors.Is(err, error(SignatureInvalid)) {
+			t.Errorf("a %d-byte private key returned %v, want signature invalid", n, err)
 		}
 	}
 }

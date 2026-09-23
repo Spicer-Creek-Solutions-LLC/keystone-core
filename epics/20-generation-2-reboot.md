@@ -1145,6 +1145,20 @@ limitations go in the pull request.
     untouched, and the topology's plaintext monitoring port is gone.
   - **Unblocks C05** (`D-C05-8`). Regulated-market posture (FIPS, FedRAMP,
     STIGs) is recorded in `ROADMAP.md` as an open question.
+- [x] G50 — Supply the private signing-key persistence primitive C05 requires.
+  Review of pull request #381 found that C05's durable agent identity must
+  contain AST-4, but `SigningKey` exposes no representation and C05 § 3.3
+  explicitly forbids changing `internal/protocol/`.
+  - **The format is fixed and local:** the 32-byte Ed25519 seed followed by the
+    32-byte ML-DSA-65 seed. Parsing requires exactly 64 bytes and discloses only
+    the existing coarse signature refusal.
+  - **Private material never crosses the agent boundary.** The API exists for
+    enrolled-agent persistence; enrollment still sends only the public half.
+  - **No C05 behavior is implemented here.** C05 consumes this primitive after
+    G50 lands, preserving the acceptance/implementation split and its path
+    boundary.
+  - **Records `DL-9` instance 7.** The requirement and permission list were
+    inconsistent and review caught the gap before C05 implementation began.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
 - [ ] Generation 1 issues and milestones remain readable and are accurately
   marked superseded rather than completed.
