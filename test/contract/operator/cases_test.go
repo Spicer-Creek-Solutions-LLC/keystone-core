@@ -18,7 +18,6 @@ import (
 // ---------------------------------------------------------------------------
 
 func TestSOCK1SocketOwnershipAndModes(t *testing.T) {
-	pending(t, "SOCK-1")
 	b := newBox(t)
 	b.start(defaultConfig())
 	for _, want := range []struct {
@@ -33,7 +32,6 @@ func TestSOCK1SocketOwnershipAndModes(t *testing.T) {
 }
 
 func TestSOCK2RefusesToStartWithoutAdminGroup(t *testing.T) {
-	pending(t, "SOCK-2")
 	b := newBox(t)
 	b.refuse(serverConfig{})
 	if st := b.stat("", socketPath); st.Errno != "ENOENT" {
@@ -45,7 +43,6 @@ func TestSOCK2RefusesToStartWithoutAdminGroup(t *testing.T) {
 }
 
 func TestSOCK3OutsiderCannotStatTheSocket(t *testing.T) {
-	pending(t, "SOCK-3")
 	b := newBox(t)
 	b.start(defaultConfig())
 	if st := b.stat(outsider, socketPath); st.Errno != "EACCES" {
@@ -57,7 +54,6 @@ func TestSOCK3OutsiderCannotStatTheSocket(t *testing.T) {
 }
 
 func TestSOCK4KernelRefusesOutsiderConnect(t *testing.T) {
-	pending(t, "SOCK-4")
 	b := newBox(t)
 	b.start(defaultConfig())
 	s := b.session(outsider, "-frame", request(controlOp, nil), "-watch-ms", "2000", "-until-frames", "1")
@@ -85,7 +81,6 @@ const oneByte = "7b"
 // -- that is what review of the first version of this case showed cannot be
 // trusted.
 func TestORD1RefusedConnectionIsNeverRead(t *testing.T) {
-	pending(t, "ORD-1")
 	b := newBox(t)
 	b.start(defaultConfig())
 	release := b.armStale("ord1", "-raw-hex", oneByte, "-watch-ms", "10000")
@@ -109,7 +104,6 @@ func TestORD1RefusedConnectionIsNeverRead(t *testing.T) {
 const ordRepetitions = 5
 
 func TestORD2DenialRecordDurableBeforeResponse(t *testing.T) {
-	pending(t, "ORD-2")
 	b := newBox(t)
 	for i := 0; i < ordRepetitions; i++ {
 		// A SIGKILLed server leaves its socket behind. Removing it keeps this case
@@ -138,7 +132,6 @@ func TestORD2DenialRecordDurableBeforeResponse(t *testing.T) {
 }
 
 func TestORD3NoDenialAnsweredWithoutDurableRecord(t *testing.T) {
-	pending(t, "ORD-3")
 	b := newBox(t)
 	b.start(defaultConfig())
 	b.authorizedControl()
@@ -174,7 +167,6 @@ func TestORD3NoDenialAnsweredWithoutDurableRecord(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestDENY1StaleMemberDeniedInBand(t *testing.T) {
-	pending(t, "DENY-1")
 	b := newBox(t)
 	b.start(defaultConfig())
 	release := b.armStale("deny1", "-frame", request(controlOp, nil), "-watch-ms", "10000")
@@ -184,7 +176,6 @@ func TestDENY1StaleMemberDeniedInBand(t *testing.T) {
 }
 
 func TestDENY2RootOutsideGroupDeniedInBand(t *testing.T) {
-	pending(t, "DENY-2")
 	b := newBox(t)
 	b.start(defaultConfig())
 	s := b.session("", "-frame", request(controlOp, nil), "-watch-ms", "10000")
@@ -196,7 +187,6 @@ func TestDENY2RootOutsideGroupDeniedInBand(t *testing.T) {
 }
 
 func TestDENY3DenialSaysOnlyAuthorizationDenied(t *testing.T) {
-	pending(t, "DENY-3")
 	b := newBox(t)
 	b.start(defaultConfig())
 	release := b.armStale("deny3", "-frame", request(controlOp, nil), "-watch-ms", "10000")
@@ -212,7 +202,6 @@ func TestDENY3DenialSaysOnlyAuthorizationDenied(t *testing.T) {
 }
 
 func TestDENY4InBandDenialIsRecorded(t *testing.T) {
-	pending(t, "DENY-4")
 	b := newBox(t)
 	b.start(defaultConfig())
 	b.authorizedControl()
@@ -232,7 +221,6 @@ func TestDENY4InBandDenialIsRecorded(t *testing.T) {
 }
 
 func TestDENY5KernelRefusalIsNotRecorded(t *testing.T) {
-	pending(t, "DENY-5")
 	b := newBox(t)
 	b.start(defaultConfig())
 	b.authorizedControl()
@@ -247,7 +235,6 @@ func TestDENY5KernelRefusalIsNotRecorded(t *testing.T) {
 }
 
 func TestDENY6RecordActorIsKernelDerived(t *testing.T) {
-	pending(t, "DENY-6")
 	b := newBox(t)
 	b.start(defaultConfig())
 	release := b.armStale("deny6", "-frame", request(controlOp, nil), "-watch-ms", "10000")
@@ -278,7 +265,6 @@ func TestDENY6RecordActorIsKernelDerived(t *testing.T) {
 }
 
 func TestDENY7RequestCannotSetActor(t *testing.T) {
-	pending(t, "DENY-7")
 	b := newBox(t)
 	b.start(defaultConfig())
 	forged := request(controlOp, map[string]any{
@@ -321,7 +307,6 @@ func (b *box) plantStaleSocket() uint64 {
 }
 
 func TestREC1NonSocketIsNotRemoved(t *testing.T) {
-	pending(t, "REC-1")
 	b := newBox(t)
 	b.plantDir("0750")
 	b.sh("printf evidence > " + socketPath)
@@ -337,7 +322,6 @@ func TestREC1NonSocketIsNotRemoved(t *testing.T) {
 }
 
 func TestREC2ForeignOwnedSocketIsNotRemoved(t *testing.T) {
-	pending(t, "REC-2")
 	b := newBox(t)
 	b.plantDir("0750")
 	inode := b.plantStaleSocket()
@@ -352,7 +336,6 @@ func TestREC2ForeignOwnedSocketIsNotRemoved(t *testing.T) {
 }
 
 func TestREC3LiveSocketIsNotRemoved(t *testing.T) {
-	pending(t, "REC-3")
 	b := newBox(t)
 	b.plantDir("0750")
 	b.detach("", probeBin, "listen", "-path", socketPath)
@@ -382,7 +365,6 @@ func TestREC3LiveSocketIsNotRemoved(t *testing.T) {
 }
 
 func TestREC4StaleSocketIsRecovered(t *testing.T) {
-	pending(t, "REC-4")
 	b := newBox(t)
 	b.plantDir("0750")
 	b.plantStaleSocket()
@@ -397,7 +379,6 @@ func TestREC4StaleSocketIsRecovered(t *testing.T) {
 }
 
 func TestREC5WritableDirectoryRefusesStart(t *testing.T) {
-	pending(t, "REC-5")
 	b := newBox(t)
 	b.plantDir("0770")
 	inode := b.plantStaleSocket()
@@ -425,7 +406,6 @@ func closedUnanswered(s session) bool {
 }
 
 func TestLIM1UnauthorizedConnectionLimit(t *testing.T) {
-	pending(t, "LIM-1")
 	b := newBox(t)
 	c := defaultConfig()
 	c.MaxUnauthorized, c.HoldBeforeMS, c.AuthTimeoutMS = 2, 2000, 20000
@@ -448,7 +428,6 @@ func TestLIM1UnauthorizedConnectionLimit(t *testing.T) {
 }
 
 func TestLIM2AuthorizationTimeoutFreesSlot(t *testing.T) {
-	pending(t, "LIM-2")
 	b := newBox(t)
 	c := defaultConfig()
 	c.MaxUnauthorized, c.AuthTimeoutMS, c.HoldBeforeMS = 1, 300, 5000
@@ -468,7 +447,6 @@ func TestLIM2AuthorizationTimeoutFreesSlot(t *testing.T) {
 }
 
 func TestLIM3AuthorizedConnectionLimit(t *testing.T) {
-	pending(t, "LIM-3")
 	b := newBox(t)
 	c := defaultConfig()
 	c.MaxAuthorized = 1
@@ -485,7 +463,6 @@ func TestLIM3AuthorizedConnectionLimit(t *testing.T) {
 }
 
 func TestLIM4OversizedFrameRefusedBeforeAllocation(t *testing.T) {
-	pending(t, "LIM-4")
 	b := newBox(t)
 	c := defaultConfig()
 	c.MaxFrameBytes = 64
@@ -518,7 +495,6 @@ func TestLIM4OversizedFrameRefusedBeforeAllocation(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestISO1NoNetworkSocket(t *testing.T) {
-	pending(t, "ISO-1")
 	b := newBox(t)
 	pid := b.start(defaultConfig())
 	b.authorizedControl()
@@ -544,7 +520,6 @@ func TestISO1NoNetworkSocket(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFLT1EnabledFaultPointIsAudited(t *testing.T) {
-	pending(t, "FLT-1")
 	b := newBox(t)
 	b.start(defaultConfig())
 	if rows := b.audit().withActionPrefix(actionFaultPrefix); len(rows) != 0 {

@@ -22,7 +22,7 @@ var forbidden = map[string]string{
 	"github.com/nats-io/nats.go": "a NATS connection is C06's",
 	"github.com/nats-io/jsm.go":  "JetStream management is C06's",
 	"os/exec":                    "process execution is C07's",
-	"golang.org/x/sys/unix":      "the identity change and SO_PEERCRED are C04's and C07's",
+	"golang.org/x/sys/unix":      "SO_PEERCRED is confined to C04's operator substrate; identity changes are C07's",
 }
 
 func moduleGoFiles(t *testing.T) []string {
@@ -71,13 +71,12 @@ func TestNoBinaryCanReachTheBrokerTheSocketOrAProcess(t *testing.T) {
 		isTest := strings.HasSuffix(p, "_test.go")
 		for _, imp := range f.Imports {
 			path := strings.Trim(imp.Path.Value, `"`)
-			if why, bad := forbidden[path]; bad && !isTest {
+			operatorFile := strings.Contains(filepath.ToSlash(p), "/internal/operator/")
+			if why, bad := forbidden[path]; bad && !isTest && !(operatorFile && path == "golang.org/x/sys/unix") {
 				t.Errorf("%s imports %q: %s", p, path, why)
 			}
-			// A socket is reachable through net without an explicit unix
-			// import, so the package itself is the boundary at P11a.
-			if path == "net" && !isTest {
-				t.Errorf("%s imports net; no P11a binary opens a connection", p)
+			if path == "net" && !isTest && !operatorFile {
+				t.Errorf("%s imports net: Unix networking is confined to C04's operator substrate", p)
 			}
 		}
 	}

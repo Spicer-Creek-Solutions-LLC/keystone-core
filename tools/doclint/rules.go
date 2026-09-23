@@ -89,18 +89,6 @@ var rules = []Rule{
 		RetireAfter: "C14",
 	},
 	{
-		ID:      "rsk8-forward-reference",
-		Added:   "P09",
-		Why:     "RSK-8 spoke of P09 as a decision not yet made, after ADR-0009 made it",
-		Pattern: `\bRSK-8\b`,
-		Stale:   `P09 will define|authorization model will share`,
-		Exempt: map[string]string{
-			"docs/dossiers/P01-acceptance-evidence.md": "a record of P01, superseded by its own terms",
-		},
-		MinHits:     3,
-		RetireAfter: "C04",
-	},
-	{
 		ID:      "p10-risk-gates",
 		Added:   "P10",
 		Why:     "ADR-0008 sent three risks to P10 expecting a demonstration P10 cannot make; the gates moved to C13 and C14",

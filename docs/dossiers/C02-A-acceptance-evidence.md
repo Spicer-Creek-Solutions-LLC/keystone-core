@@ -10,6 +10,12 @@ Contract commit: `94e602a97428ff3f12d0427b0b5b03b9bf995ea4`
 
 Contract amendments:
 
+`C04-I` changes AC-1 and the two reuse sites in the executable test body to
+require migrations 1 and 2 as an ordered prefix rather than the complete
+migration list. C04 necessarily adds migration 3. The frozen identifier,
+requirement and `contract_surface.go` do not change, so this is not a contract
+amendment and the freeze commit does not move.
+
 - `25b3b50239d92b7283b6f99814c7a41ba761f1cb` — `G42`. `AC-11` required the owner
   and mode of each store **and its directory**, and `C02.md` § 12 puts creating
   directories at C13. The case demanded a property of a thing C02 is forbidden
