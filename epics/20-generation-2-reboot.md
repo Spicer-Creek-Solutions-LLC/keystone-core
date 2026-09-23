@@ -251,7 +251,7 @@ workstream depends on. Detailed controls are normative in the execution plan.
     generator produces may provision a stream — `ADR-0002` § 7 defines `KS_CMD`
     and `KS_RES` and not the identity that creates them — so the production
     provisioning identity is a deferred gate owed by C06.
-- [ ] C04 — Local operator control substrate.
+- [x] C04 — Local operator control substrate.
 - [ ] C05 — One-use enrollment vertical slice.
 - [ ] C06 — JetStream transport adapter.
 - [ ] C07 — Bounded executor.

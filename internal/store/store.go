@@ -45,6 +45,17 @@ type Result struct {
 	RecordedAt     time.Time
 }
 
+type AuditRecord struct {
+	JobID                 *string
+	CorrelationID         *string
+	ActorUID              *uint32
+	ActorUsernameSnapshot *string
+	Target                *string
+	Action                string
+	Result                string
+	At                    time.Time
+}
+
 func Open(path string) (*Store, error) {
 	return open(path, 0)
 }
@@ -143,9 +154,15 @@ func (s *Store) RecordResult(ctx context.Context, r Result) error {
 }
 
 func (s *Store) AppendAudit(ctx context.Context, jobID, correlationID, actor, target, action, result string, at time.Time) error {
+	uid := (*uint32)(nil)
+	return s.AppendAuditRecord(ctx, AuditRecord{&jobID, &correlationID, uid, &actor, &target, action, result, at})
+}
+
+func (s *Store) AppendAuditRecord(ctx context.Context, r AuditRecord) error {
 	_, err := s.db.ExecContext(ctx, `INSERT INTO audit
-		(timestamp, job_id, correlation_id, actor, target, action, result)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`, at.UnixMilli(), jobID, correlationID, actor, target, action, result)
+		(timestamp, job_id, correlation_id, actor_uid, actor_username_snapshot, target, action, result)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, r.At.UnixMilli(), r.JobID, r.CorrelationID,
+		r.ActorUID, r.ActorUsernameSnapshot, r.Target, r.Action, r.Result)
 	return err
 }
 

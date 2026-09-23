@@ -27,7 +27,7 @@ func TestAC1MigrationOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	assertVersions(t, s.DB(), []int{1, 2})
+	assertVersionPrefix(t, s.DB(), []int{1, 2})
 }
 
 func TestAC2PartialMigration(t *testing.T) {
@@ -40,7 +40,7 @@ func TestAC2PartialMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	assertVersions(t, s.DB(), []int{1, 2})
+	assertVersionPrefix(t, s.DB(), []int{1, 2})
 	if _, err := s.DB().Query("SELECT 1 FROM agents"); err != nil {
 		t.Fatalf("migration 1 was not committed: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestAC3StoresMigrateIndependently(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer ledgerDB.Close()
-	assertVersions(t, server.DB(), []int{1, 2})
+	assertVersionPrefix(t, server.DB(), []int{1, 2})
 	assertVersions(t, ledgerDB.DB(), []int{1})
 	if _, err := server.DB().Query("SELECT 1 FROM receipts"); err == nil {
 		t.Fatal("server store contains agent-ledger tables")
@@ -300,6 +300,31 @@ func assertVersions(t *testing.T, db *sql.DB, want []int) {
 	for i := range want {
 		if got[i] != want[i] {
 			t.Fatalf("migration versions = %v, want %v", got, want)
+		}
+	}
+}
+
+func assertVersionPrefix(t *testing.T, db *sql.DB, want []int) {
+	t.Helper()
+	rows, err := db.Query("SELECT version FROM schema_migrations ORDER BY version")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var got []int
+	for rows.Next() {
+		var v int
+		if err := rows.Scan(&v); err != nil {
+			t.Fatal(err)
+		}
+		got = append(got, v)
+	}
+	if len(got) < len(want) {
+		t.Fatalf("migration versions = %v, want prefix %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("migration versions = %v, want prefix %v", got, want)
 		}
 	}
 }

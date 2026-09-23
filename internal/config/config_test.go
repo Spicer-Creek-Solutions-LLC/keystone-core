@@ -170,3 +170,42 @@ func TestADirectoryIsNotConfiguration(t *testing.T) {
 		t.Errorf("Locate accepted a directory, err = %v", err)
 	}
 }
+
+func TestLoadServerDefaultsAndFrozenSurface(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "server.toml")
+	data := "[operator]\nadmin_group = \"keystone-admin\"\n\n[store]\npath = \"/var/lib/keystone/server.db\"\n"
+	if err := os.WriteFile(p, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadServer(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Operator.AdminGroup != "keystone-admin" || c.Store.Path != "/var/lib/keystone/server.db" {
+		t.Fatalf("unexpected parsed configuration: %+v", c)
+	}
+	if c.Operator.MaxUnauthorizedConnections != DefaultMaxUnauthorizedConnections ||
+		c.Operator.AuthorizationTimeout != DefaultAuthorizationTimeout ||
+		c.Operator.MaxAuthorizedConnections != DefaultMaxAuthorizedConnections ||
+		c.Operator.MaxFrameBytes != DefaultMaxFrameBytes {
+		t.Fatalf("unexpected defaults: %+v", c.Operator)
+	}
+}
+
+func TestLoadServerRefusesMissingGroupAndInvalidLimits(t *testing.T) {
+	for name, data := range map[string]string{
+		"missing group": "[operator]\nmax_frame_bytes = 1\n[store]\npath = \"/tmp/x\"\n",
+		"zero limit":    "[operator]\nadmin_group = \"x\"\nmax_frame_bytes = 0\n[store]\npath = \"/tmp/x\"\n",
+		"unknown key":   "[operator]\nadmin_group = \"x\"\nsurprise = 1\n[store]\npath = \"/tmp/x\"\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			p := filepath.Join(t.TempDir(), "server.toml")
+			if err := os.WriteFile(p, []byte(data), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := LoadServer(p); err == nil {
+				t.Fatal("invalid server configuration was accepted")
+			}
+		})
+	}
+}

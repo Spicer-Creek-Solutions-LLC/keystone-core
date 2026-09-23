@@ -12,6 +12,7 @@ require (
 	github.com/nats-io/jwt/v2 v2.8.2
 	github.com/nats-io/nats.go v1.54.0
 	github.com/nats-io/nkeys v0.4.16
+	golang.org/x/sys v0.48.0
 	modernc.org/sqlite v1.59.0
 )
 
@@ -33,7 +34,6 @@ require (
 	// The line stays: the day nats.go relaxes its requirement is the day the
 	// floor would silently drop.
 	golang.org/x/crypto v0.57.0 // indirect
-	golang.org/x/sys v0.48.0 // indirect
 	modernc.org/libc v1.75.7 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect

@@ -95,4 +95,4 @@ name.
 | C01 — Protocol types and cryptographic vectors | [C01.md](C01.md) | **Complete** — C01-A's contract and C01-I's implementation both merged |
 | C02 — SQLite migrations and durable ledgers | [C02.md](C02.md) | **Complete** — C02-A and C02-I landed |
 | C03 — NATS operator, account, identity and permission generation | [C03.md](C03.md) | **Complete** — C03-A's forty-five cases and C03-I's six stages landed |
-| C04 — Local operator control substrate | [C04.md](C04.md) | C04-A contract landed — C04-I pending |
+| C04 — Local operator control substrate | [C04.md](C04.md) | **Complete** — C04-A contract and C04-I implementation landed |
