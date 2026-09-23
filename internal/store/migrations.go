@@ -62,13 +62,14 @@ var migrations = []migration{
 		timestamp INTEGER NOT NULL,
 		job_id TEXT,
 		correlation_id TEXT,
+		actor TEXT,
 		actor_uid INTEGER,
 		actor_username_snapshot TEXT,
 		target TEXT,
 		action TEXT NOT NULL,
 		result TEXT NOT NULL
 	);
-	INSERT INTO audit (id, timestamp, job_id, correlation_id, actor_username_snapshot, target, action, result)
+	INSERT INTO audit (id, timestamp, job_id, correlation_id, actor, target, action, result)
 		SELECT id, timestamp, job_id, correlation_id, actor, target, action, result FROM audit_v2;
 	DROP TABLE audit_v2;
 	CREATE INDEX audit_job_time ON audit(job_id, timestamp);`},

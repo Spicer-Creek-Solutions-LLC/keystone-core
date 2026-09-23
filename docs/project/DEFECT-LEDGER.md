@@ -868,7 +868,7 @@ down and recurred anyway, and `DL-8` has now done it too.
 
 ### `DL-9` — A document that requires work a permission list forbids
 
-**Instances.** Five occasions across four tasks. Four are one shape — a task
+**Instances.** Six occasions across five tasks. Five are one shape — a task
 dossier whose decision section required work its **own** § 3.3 did not permit,
 found only when the implementation began. The fourth widened the class, which is
 why this entry is no longer titled for a document's own list: an obligation can
@@ -917,6 +917,18 @@ found it — which is the rule `G45` exists to make keepable.
    line cannot be ticked while it stands — an earlier version of that task did
    reassign it, and review refused. Granted at `G47`, as one named file, after
    the maintainer authorised the wiring.
+
+6. **`C04.md`, C02's contract evidence and `tools/doclint/`.** C04 requires a
+   third server-store migration, but C02's executable contract asserted that
+   `[1, 2]` was the complete migration list; making the assertion an ordered
+   prefix required `test/contract/persistence/contract_test.go` and its C02-A
+   evidence note, neither granted by C04 § 3.3. Completing C04 also fired the
+   declared retirement of the `rsk8-forward-reference` sweep, but § 3.3 did not
+   permit removing that rule from `tools/doclint/rules.go`. Found while
+   implementing pull request #377. The maintainer approved both narrow path
+   expansions in that task, and review caught that the recurrence itself had
+   not been recorded here. This is the first-shape failure again: the dossier's
+   own outputs implied paths its permission list omitted.
 
 **This is not `DL-8`.** That class needs a prior finding: someone reports a
 defect and it is repaired at the cited site only. Here nothing was reported and

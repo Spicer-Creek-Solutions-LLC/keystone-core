@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -205,6 +206,41 @@ func TestLoadServerRefusesMissingGroupAndInvalidLimits(t *testing.T) {
 			}
 			if _, err := LoadServer(p); err == nil {
 				t.Fatal("invalid server configuration was accepted")
+			}
+		})
+	}
+}
+
+func TestLoadServerPreservesHashInsideQuotedString(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "server.toml")
+	data := "[operator]\nadmin_group = \"admin#blue\" # comment\n[store]\npath = \"/var/lib/keystone/db#1\"\n"
+	if err := os.WriteFile(p, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadServer(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Operator.AdminGroup != "admin#blue" || c.Store.Path != "/var/lib/keystone/db#1" {
+		t.Fatalf("quoted hashes were stripped: %+v", c)
+	}
+}
+
+func TestLoadServerRejectsLimitsAboveSanityCeilings(t *testing.T) {
+	for key, value := range map[string]int64{
+		"max_unauthorized_connections": MaxUnauthorizedConnections + 1,
+		"authorization_timeout_ms":     MaxAuthorizationTimeout.Milliseconds() + 1,
+		"max_authorized_connections":   MaxAuthorizedConnections + 1,
+		"max_frame_bytes":              MaxFrameBytes + 1,
+	} {
+		t.Run(key, func(t *testing.T) {
+			p := filepath.Join(t.TempDir(), "server.toml")
+			data := fmt.Sprintf("[operator]\nadmin_group = \"admin\"\n%s = %d\n[store]\npath = \"/tmp/db\"\n", key, value)
+			if err := os.WriteFile(p, []byte(data), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := LoadServer(p); err == nil {
+				t.Fatal("limit above sanity ceiling was accepted")
 			}
 		})
 	}

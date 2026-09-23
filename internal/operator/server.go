@@ -1,5 +1,3 @@
-//go:build linux
-
 package operator
 
 import (
@@ -18,7 +16,6 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/config"
 	"go.keystone-core.io/keystone-core/internal/store"
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -36,7 +33,7 @@ type membershipRequest struct {
 }
 
 type membershipResult struct {
-	name       string
+	name       *string
 	authorized bool
 	err        error
 }
@@ -197,9 +194,8 @@ func (s *Server) handle(conn *net.UnixConn) {
 	}
 	if membership.err != nil || !membership.authorized {
 		uid := ucred.Uid
-		name := membership.name
 		if err := s.store.AppendAuditRecord(context.Background(), store.AuditRecord{
-			ActorUID: &uid, ActorUsernameSnapshot: &name,
+			ActorUID: &uid, ActorUsernameSnapshot: membership.name,
 			Action: ActionAuthorizationDenied, Result: "denied", At: time.Now(),
 		}); err != nil {
 			return
@@ -236,31 +232,17 @@ func currentMembership(uid uint32, adminGID int) membershipResult {
 		return membershipResult{err: err}
 	}
 	groups, err := u.GroupIds()
+	name := u.Username
 	if err != nil {
-		return membershipResult{name: u.Username, err: err}
+		return membershipResult{name: &name, err: err}
 	}
 	want := strconv.Itoa(adminGID)
 	for _, gid := range groups {
 		if gid == want {
-			return membershipResult{name: u.Username, authorized: true}
+			return membershipResult{name: &name, authorized: true}
 		}
 	}
-	return membershipResult{name: u.Username}
-}
-
-func peerCredentials(conn *net.UnixConn) (*unix.Ucred, error) {
-	raw, err := conn.SyscallConn()
-	if err != nil {
-		return nil, err
-	}
-	var cred *unix.Ucred
-	var controlErr error
-	if err := raw.Control(func(fd uintptr) {
-		cred, controlErr = unix.GetsockoptUcred(int(fd), unix.SOL_SOCKET, unix.SO_PEERCRED)
-	}); err != nil {
-		return nil, err
-	}
-	return cred, controlErr
+	return membershipResult{name: &name}
 }
 
 func (s *Server) serveAuthorized(conn net.Conn) {

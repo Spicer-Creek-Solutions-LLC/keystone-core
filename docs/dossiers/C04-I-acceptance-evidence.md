@@ -81,8 +81,9 @@ complete `make check` result; no local full-green claim is made.
 ## Store and compatibility
 
 Server migration 3 replaces the original audit shape transactionally, copies
-existing rows, permits a connection-level record with null job and target, and
-adds authoritative uid and username-snapshot columns. C02's executable contract
+existing rows while retaining the nullable general-purpose actor field, permits
+a connection-level record with null job and target, and adds authoritative uid
+and username-snapshot columns for local operators. C02's executable contract
 now requires migrations 1 and 2 as the ordered prefix it owns rather than
 claiming no later migration can exist. Its frozen identifier and requirement
 are unchanged.

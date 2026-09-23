@@ -14,6 +14,11 @@ const (
 	DefaultAuthorizationTimeout       = 5 * time.Second
 	DefaultMaxAuthorizedConnections   = 64
 	DefaultMaxFrameBytes              = 64 * 1024
+	MaxUnauthorizedConnections        = 1024
+	MaxAuthorizationTimeout           = 5 * time.Minute
+	MaxAuthorizedConnections          = 4096
+	MaxFrameBytes                     = 16 * 1024 * 1024
+	MaxFaultDelay                     = 5 * time.Minute
 )
 
 type Server struct {
@@ -51,7 +56,7 @@ func LoadServer(path string) (Server, error) {
 	section := ""
 	s := bufio.NewScanner(f)
 	for line := 1; s.Scan(); line++ {
-		raw := strings.TrimSpace(strings.SplitN(s.Text(), "#", 2)[0])
+		raw := strings.TrimSpace(stripComment(s.Text()))
 		if raw == "" {
 			continue
 		}
@@ -109,20 +114,54 @@ func setServerValue(c *Server, section, key, value string) error {
 	}
 	switch q {
 	case "operator.max_unauthorized_connections":
+		if n > MaxUnauthorizedConnections {
+			return fmt.Errorf("%s exceeds maximum %d", q, MaxUnauthorizedConnections)
+		}
 		c.Operator.MaxUnauthorizedConnections = int(n)
 	case "operator.authorization_timeout_ms":
+		if n > MaxAuthorizationTimeout.Milliseconds() {
+			return fmt.Errorf("%s exceeds maximum %d milliseconds", q, MaxAuthorizationTimeout.Milliseconds())
+		}
 		c.Operator.AuthorizationTimeout = time.Duration(n) * time.Millisecond
 	case "operator.max_authorized_connections":
+		if n > MaxAuthorizedConnections {
+			return fmt.Errorf("%s exceeds maximum %d", q, MaxAuthorizedConnections)
+		}
 		c.Operator.MaxAuthorizedConnections = int(n)
 	case "operator.max_frame_bytes":
-		if n > int64(^uint32(0)) {
-			return fmt.Errorf("%s exceeds uint32 framing", q)
+		if n > MaxFrameBytes {
+			return fmt.Errorf("%s exceeds maximum %d", q, MaxFrameBytes)
 		}
 		c.Operator.MaxFrameBytes = uint32(n)
 	case "faults.operator_hold_before_decision_ms":
+		if n > MaxFaultDelay.Milliseconds() {
+			return fmt.Errorf("%s exceeds maximum %d milliseconds", q, MaxFaultDelay.Milliseconds())
+		}
 		c.Faults.OperatorHoldBeforeDecision = time.Duration(n) * time.Millisecond
 	default:
 		return fmt.Errorf("unknown key %q", q)
 	}
 	return nil
+}
+
+func stripComment(line string) string {
+	quoted, escaped := false, false
+	for i, r := range line {
+		if escaped {
+			escaped = false
+			continue
+		}
+		if quoted && r == '\\' {
+			escaped = true
+			continue
+		}
+		if r == '"' {
+			quoted = !quoted
+			continue
+		}
+		if r == '#' && !quoted {
+			return line[:i]
+		}
+	}
+	return line
 }
