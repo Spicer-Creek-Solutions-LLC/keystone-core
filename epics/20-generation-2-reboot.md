@@ -1134,6 +1134,10 @@ limitations go in the pull request.
   - **The CA's private key is never written to the deployment.** It is returned
     to the caller, like the operator seed, for an HSM, KMS, vault or offline
     media.
+  - **The threat model owns both new keys**: `AST-17` (the CA key) and `AST-18`
+    (the broker's), their lifecycle rows, `THR-55` broker impersonation, and
+    `RSK-16` accepting that nothing revokes a broker certificate until C13's
+    rotation procedure.
   - **Every choice was measured against the pinned broker first.** One changed
     the design: the broker resolves certificate paths against its working
     directory, so the configuration names them absolutely.

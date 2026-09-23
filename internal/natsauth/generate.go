@@ -48,12 +48,16 @@ type Config struct {
 	Agents    []AgentKey
 	Tokens    []string
 
-	// RevokedTokens name bootstrap identities whose access has ended. ADR-0003
-	// § 6 S5 revokes at the account, which is why this is generated here rather
-	// than expressed as an absent user.
+	// RevokedTokens name bootstrap identities revoked in the account JWT, with
+	// the operator key, at generation time. Under RFC 0005 this is the OFFLINE
+	// path -- the generator's or the broker administrator's -- and never the
+	// product's: the server cannot sign an account revocation, and bootstrap
+	// access ends by refusal and expiry instead. NEG-7 exercises it.
 	RevokedTokens []string
 
-	// BootstrapTTL is ADR-0003 § 8's short expiry, the failure backstop.
+	// BootstrapTTL is ADR-0003 § 8's short expiry. Under RFC 0005 it is how
+	// bootstrap access normally ends, at every enrollment, not only a backstop
+	// behind a revocation.
 	BootstrapTTL time.Duration
 
 	// Limits defaults to DefaultLimits(FleetSize) when nil.
@@ -70,8 +74,10 @@ type Config struct {
 	// has to name them absolutely. Required.
 	RuntimeDir string
 
-	// CALifetime and BrokerCertLifetime default to DefaultCALifetime and
-	// DefaultBrokerCertLifetime when zero.
+	// CALifetime defaults to DefaultCALifetime when zero. BrokerCertLifetime
+	// defaults, when zero, to DefaultBrokerCertLifetime or CALifetime, whichever
+	// is shorter. A negative value, or an explicit broker lifetime longer than
+	// the CA's, is ErrLifetime -- never the default.
 	CALifetime         time.Duration
 	BrokerCertLifetime time.Duration
 }
@@ -382,8 +388,10 @@ func newUser(name string, g grants, account Account, signing nkeys.KeyPair, ttl 
 }
 
 // revoke re-encodes the Keystone account with each named bootstrap identity in
-// its revocation list. ADR-0003 § 6 S5 revokes at the account, so the account
-// JWT is the artifact that changes.
+// its revocation list. A revocation lives in the account JWT, so that is the
+// artifact that changes, and only the operator key may sign it: this runs at
+// generation time, outside the deployment. RFC 0005 makes it the offline path
+// and not the product's -- the server's account signing key cannot do this.
 func (d *Deployment) revoke(tokens []string, operator nkeys.KeyPair) error {
 	if len(tokens) == 0 {
 		return nil

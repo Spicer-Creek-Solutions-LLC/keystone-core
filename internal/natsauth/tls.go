@@ -65,6 +65,11 @@ var (
 
 	// ErrRuntimeDir is returned for a runtime directory that is not absolute.
 	ErrRuntimeDir = errors.New("natsauth: the broker's runtime directory must be an absolute path")
+
+	// ErrLifetime is returned for a negative certificate lifetime, or an
+	// explicit broker lifetime longer than the CA's. A mistyped duration is
+	// refused rather than replaced by the longest ordinary value.
+	ErrLifetime = errors.New("natsauth: invalid certificate lifetime")
 )
 
 // TLSMaterial is the broker's TLS identity and the anchor clients trust.
@@ -79,6 +84,33 @@ type TLSMaterial struct {
 	BrokerNames   []string
 }
 
+// certificateLifetimes resolves the two lifetimes.
+//
+// Zero means the default; a negative value is an error, never the default. An
+// EXPLICIT broker lifetime longer than the CA's is an error too, because a
+// certificate cannot outlive its issuer and silently shortening it would hide
+// the mistake. An UNSET broker lifetime is the default or the CA's lifetime,
+// whichever is shorter, so a short-lived CA does not force the caller to set
+// both.
+func certificateLifetimes(caLifetime, brokerLifetime time.Duration) (time.Duration, time.Duration, error) {
+	if caLifetime < 0 {
+		return 0, 0, fmt.Errorf("%w: CA lifetime %v is negative", ErrLifetime, caLifetime)
+	}
+	if brokerLifetime < 0 {
+		return 0, 0, fmt.Errorf("%w: broker certificate lifetime %v is negative", ErrLifetime, brokerLifetime)
+	}
+	if caLifetime == 0 {
+		caLifetime = DefaultCALifetime
+	}
+	switch {
+	case brokerLifetime == 0:
+		brokerLifetime = min(DefaultBrokerCertLifetime, caLifetime)
+	case brokerLifetime > caLifetime:
+		return 0, 0, fmt.Errorf("%w: broker certificate lifetime %v exceeds the CA's %v", ErrLifetime, brokerLifetime, caLifetime)
+	}
+	return caLifetime, brokerLifetime, nil
+}
+
 // newTLS issues a CA and a broker certificate signed by it. It returns the CA
 // private key separately so the caller decides where it goes.
 func newTLS(names []string, caLifetime, brokerLifetime time.Duration, now time.Time) (TLSMaterial, []byte, error) {
@@ -90,18 +122,13 @@ func newTLS(names []string, caLifetime, brokerLifetime time.Duration, now time.T
 			return TLSMaterial{}, nil, ErrBrokerNames
 		}
 	}
-	if caLifetime <= 0 {
-		caLifetime = DefaultCALifetime
-	}
-	if brokerLifetime <= 0 {
-		brokerLifetime = DefaultBrokerCertLifetime
+	caLifetime, brokerLifetime, err := certificateLifetimes(caLifetime, brokerLifetime)
+	if err != nil {
+		return TLSMaterial{}, nil, err
 	}
 	notBefore := now.Add(-clockAllowance)
 	caNotAfter := now.Add(caLifetime)
 	brokerNotAfter := now.Add(brokerLifetime)
-	if brokerNotAfter.After(caNotAfter) {
-		brokerNotAfter = caNotAfter
-	}
 
 	caKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {

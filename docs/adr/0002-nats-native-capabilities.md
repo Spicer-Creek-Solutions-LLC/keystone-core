@@ -315,7 +315,7 @@ first:
 | **TLS-first** (`handshake_first`) | By default NATS sends its `INFO` greeting in plaintext before upgrading. TLS-first sends no byte before the handshake, so there is no plaintext on the connection at all |
 | **TLS 1.3 minimum** | A client capped at 1.2 is refused |
 | **Verification against a configured broker name**, never disabled | A client dials whatever address it has and verifies the certificate against the name; `natsauth.ClientTLSConfig` has no option that turns verification off |
-| **ECDSA P-256**; CA 5 years, broker certificate 1 year, both configurable | Broad support, and a lifetime a rotation procedure can meet. The procedure is C13's, as `RSK-13`'s is |
+| **ECDSA P-256**; CA 5 years, broker certificate 1 year, both configurable | Broad support, and a lifetime a rotation procedure can meet. The procedure is C13's; `RSK-16` accepts the gap and the absence of certificate revocation. A negative or overreaching lifetime is refused, never replaced by the default |
 | **No client certificates** | A principal's identity is its NATS JWT (§ 2); TLS authenticates the broker and protects the connection |
 | **The CA's private key is never written to the deployment** | Whoever holds it can issue a certificate every client accepts as the broker. The generator returns it to the caller, like the operator seed, and where it goes — an HSM, a KMS, a vault, offline media — is the administrator's decision |
 | **The broker's only listener is the client port** | The monitoring endpoint the test topology once enabled was plaintext and unused, and is gone |

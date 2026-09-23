@@ -201,3 +201,44 @@ func TestClientTLSConfigVerifiesTheBroker(t *testing.T) {
 		t.Error("a client configuration was built with no CA")
 	}
 }
+
+// A mistyped lifetime is refused, never replaced by a long default; zero means
+// the default; and an unset broker lifetime follows a shorter CA rather than
+// outliving it.
+func TestCertificateLifetimesRejectNegativesAndExplicitOverreach(t *testing.T) {
+	base := Config{BrokerNames: testBrokerNames, RuntimeDir: testRuntimeDir, FleetSize: 1}
+	refused := map[string]Config{
+		"negative CA lifetime":                 {CALifetime: -time.Hour},
+		"negative broker lifetime":             {BrokerCertLifetime: -time.Hour},
+		"broker lifetime longer than the CA's": {CALifetime: 24 * time.Hour, BrokerCertLifetime: 48 * time.Hour},
+	}
+	for name, lt := range refused {
+		cfg := base
+		cfg.CALifetime, cfg.BrokerCertLifetime = lt.CALifetime, lt.BrokerCertLifetime
+		if _, err := Generate(cfg); !errors.Is(err, ErrLifetime) {
+			t.Errorf("%s: got %v, want ErrLifetime", name, err)
+		}
+	}
+
+	within := func(t *testing.T, c *x509.Certificate, want time.Duration) {
+		t.Helper()
+		got := c.NotAfter.Sub(c.NotBefore) - clockAllowance
+		if d := got - want; d < -time.Minute || d > time.Minute {
+			t.Errorf("%s lifetime is %v, want %v", c.Subject.CommonName, got, want)
+		}
+	}
+	d, err := Generate(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	within(t, certificate(t, d.TLS.CACertPEM), DefaultCALifetime)
+	within(t, certificate(t, d.TLS.BrokerCertPEM), DefaultBrokerCertLifetime)
+
+	short := base
+	short.CALifetime = 30 * 24 * time.Hour
+	d, err = Generate(short)
+	if err != nil {
+		t.Fatalf("an unset broker lifetime under a short CA was refused: %v", err)
+	}
+	within(t, certificate(t, d.TLS.BrokerCertPEM), short.CALifetime)
+}
