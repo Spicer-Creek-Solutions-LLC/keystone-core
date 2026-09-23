@@ -92,7 +92,7 @@ func TestGEN6IdentifiersAreValidated(t *testing.T) {
 
 	for _, tc := range refused {
 		t.Run(tc.name+"/"+tc.id, func(t *testing.T) {
-			_, err := natsauth.Generate(natsauth.Config{
+			_, err := natsauth.Generate(natsauth.Config{BrokerNames: []string{brokerName}, RuntimeDir: brokerRuntimeDir,
 				FleetSize: 1,
 				Agents:    []natsauth.AgentKey{{ID: tc.id, PublicKey: key}},
 			})
@@ -108,7 +108,7 @@ func TestGEN6IdentifiersAreValidated(t *testing.T) {
 	// A rule that refuses everything is not a rule. Exactly 64 characters is
 	// the boundary the grammar permits, so it is the accepted case.
 	accepted := strings.Repeat("a", 64)
-	if _, err := natsauth.Generate(natsauth.Config{
+	if _, err := natsauth.Generate(natsauth.Config{BrokerNames: []string{brokerName}, RuntimeDir: brokerRuntimeDir,
 		FleetSize: 1,
 		Agents:    []natsauth.AgentKey{{ID: accepted, PublicKey: key}},
 	}); err != nil {
@@ -118,7 +118,7 @@ func TestGEN6IdentifiersAreValidated(t *testing.T) {
 	// An enrollment token is a subject token too, and the same grammar governs
 	// it -- ADR-0004 section 1 constrains the <id> position, which a token
 	// occupies on the enrollment plane.
-	if _, err := natsauth.Generate(natsauth.Config{FleetSize: 1, Tokens: []string{"token.one"}}); err == nil {
+	if _, err := natsauth.Generate(natsauth.Config{BrokerNames: []string{brokerName}, RuntimeDir: brokerRuntimeDir, FleetSize: 1, Tokens: []string{"token.one"}}); err == nil {
 		t.Fatal("generated an authorization set for an enrollment token containing a dot")
 	}
 }

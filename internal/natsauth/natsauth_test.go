@@ -13,6 +13,13 @@ import (
 	"github.com/nats-io/nkeys"
 )
 
+// Every deployment in these tests carries TLS material, so every Generate call
+// names the broker and where it will run. They are supplied, never omitted, so
+// that a test of another refusal cannot be refused for a missing one instead.
+var testBrokerNames = []string{"broker"}
+
+const testRuntimeDir = "/etc/nats"
+
 // The contract is the acceptance authority. These cover what it does not reach:
 // properties of the generator that no frozen case names, and that would
 // otherwise be checked by nobody.
@@ -40,7 +47,7 @@ func agentKeypair(t *testing.T) (AgentKey, []byte) {
 func generate(t *testing.T) *Deployment {
 	t.Helper()
 	agent, _ := agentKeypair(t)
-	d, err := Generate(Config{
+	d, err := Generate(Config{BrokerNames: testBrokerNames, RuntimeDir: testRuntimeDir,
 		FleetSize:     4,
 		Agents:        []AgentKey{agent},
 		Tokens:        []string{"token-one", "token-two"},
@@ -140,7 +147,7 @@ func TestWrittenCredentialsAreNotReadableByOthers(t *testing.T) {
 // reserves them. The credential file names have to keep an enrollment token
 // apart from a service role too, or one would overwrite the other.
 func TestBootstrapCredentialsCannotCollideWithAServiceRole(t *testing.T) {
-	d, err := Generate(Config{FleetSize: 1, Tokens: []string{"one"}})
+	d, err := Generate(Config{BrokerNames: testBrokerNames, RuntimeDir: testRuntimeDir, FleetSize: 1, Tokens: []string{"one"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +179,7 @@ func TestBootstrapCredentialsCannotCollideWithAServiceRole(t *testing.T) {
 // the property is asserted here or nowhere.
 func TestDeploymentArtifactsCannotRecoverAnAgentSeed(t *testing.T) {
 	agent, seed := agentKeypair(t)
-	d, err := Generate(Config{FleetSize: 1, Agents: []AgentKey{agent}, Tokens: []string{"token-one"}})
+	d, err := Generate(Config{BrokerNames: testBrokerNames, RuntimeDir: testRuntimeDir, FleetSize: 1, Agents: []AgentKey{agent}, Tokens: []string{"token-one"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +236,7 @@ func TestAnAgentIdentityCannotBeGeneratedWithoutItsPublicKey(t *testing.T) {
 		{"an account key rather than a user key", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := Generate(Config{FleetSize: 1, Agents: []AgentKey{{ID: "agent-one", PublicKey: tc.key}}})
+			_, err := Generate(Config{BrokerNames: testBrokerNames, RuntimeDir: testRuntimeDir, FleetSize: 1, Agents: []AgentKey{{ID: "agent-one", PublicKey: tc.key}}})
 			if !errors.Is(err, ErrAgentPublicKey) {
 				t.Fatalf("generated an agent identity with public key %q: %v", tc.key, err)
 			}
@@ -261,7 +268,7 @@ func TestSuppliedLimitsAreValidatedBeforeAnythingIsSigned(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			limits := tc.limits
-			d, err := Generate(Config{FleetSize: 4, Limits: &limits, Tokens: []string{"token-one"}})
+			d, err := Generate(Config{BrokerNames: testBrokerNames, RuntimeDir: testRuntimeDir, FleetSize: 4, Limits: &limits, Tokens: []string{"token-one"}})
 			switch {
 			case tc.refused && err == nil:
 				t.Fatal("generated a deployment with an absent or infinite limit")
@@ -309,7 +316,7 @@ func withBackOff(l Limits, schedule []int64) Limits {
 // both directions, for every principal the generator produces.
 func TestADirectionWithNoGrantsIsDeniedRatherThanUnrestricted(t *testing.T) {
 	agent, _ := agentKeypair(t)
-	d, err := Generate(Config{
+	d, err := Generate(Config{BrokerNames: testBrokerNames, RuntimeDir: testRuntimeDir,
 		FleetSize: 4,
 		Agents:    []AgentKey{agent},
 		Tokens:    []string{"token-one"},

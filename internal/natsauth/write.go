@@ -31,6 +31,10 @@ const (
 // what lets enrollment mint agent identities without it. GEN-7 reads every byte
 // this produces and fails if the seed is among them, so the rule is checked
 // rather than asserted here.
+//
+// NEITHER IS THE CA's PRIVATE KEY (G49). The broker needs its own certificate
+// and key, and clients need the CA certificate; nothing that runs needs the key
+// that issues them. TestTheCAKeyIsNeverWritten reads every byte this produces.
 func (d *Deployment) Write(dir string) error {
 	if err := os.MkdirAll(dir, directoryMode); err != nil {
 		return fmt.Errorf("create %s: %w", dir, err)
@@ -58,6 +62,27 @@ func (d *Deployment) Write(dir string) error {
 	signingPath := filepath.Join(credsDir, "account-signing.nk")
 	if err := os.WriteFile(signingPath, d.Keystone.SigningSeed, credentialMode); err != nil {
 		return fmt.Errorf("write %s: %w", signingPath, err)
+	}
+
+	// The broker's TLS identity and the anchor clients trust. The CA's PRIVATE
+	// key is not among them; see Deployment.CAKey.
+	tlsDir := filepath.Join(dir, TLSDir)
+	if err := os.MkdirAll(tlsDir, directoryMode); err != nil {
+		return fmt.Errorf("create %s: %w", tlsDir, err)
+	}
+	for _, f := range []struct {
+		name    string
+		content []byte
+		mode    os.FileMode
+	}{
+		{CACertFile, d.TLS.CACertPEM, certificateMode},
+		{BrokerCertFile, d.TLS.BrokerCertPEM, certificateMode},
+		{BrokerKeyFile, d.TLS.BrokerKeyPEM, credentialMode},
+	} {
+		path := filepath.Join(tlsDir, f.name)
+		if err := os.WriteFile(path, f.content, f.mode); err != nil {
+			return fmt.Errorf("write %s: %w", path, err)
+		}
 	}
 
 	config := d.ServerConfig()
@@ -111,6 +136,8 @@ func (d *Deployment) ServerConfig() string {
 		fmt.Fprintf(&b, "  %s: %s\n", entry.key, entry.value)
 	}
 	b.WriteString("}\n\n")
+	b.WriteString(tlsBlock(d.RuntimeDir))
+	b.WriteString("\n")
 	b.WriteString("jetstream {\n")
 	fmt.Fprintf(&b, "  max_memory_store: %d\n", 0)
 	fmt.Fprintf(&b, "  max_file_store: %d\n", d.Limits.Account.MaxJetStreamDiskByte)

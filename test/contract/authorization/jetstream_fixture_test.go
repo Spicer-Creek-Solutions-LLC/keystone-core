@@ -63,9 +63,9 @@ func provisionJetStream(t *testing.T, d deployment) {
 		t.Fatalf("encode provisioner: %v", err)
 	}
 
-	conn, err := nats.Connect(d.broker.URL,
+	conn, err := nats.Connect(d.broker.URL, append(brokerTLS(t, d),
 		nats.UserJWTAndSeed(token, string(seed)),
-		nats.Timeout(10*time.Second))
+		nats.Timeout(10*time.Second))...)
 	if err != nil {
 		t.Fatalf("connect as provisioner: %v", err)
 	}

@@ -13,7 +13,11 @@ services:
   # ARCH-COMM-002 requires server and agents to work with no direct route.
   broker:
     image: nats:2.15.0-alpine
-    command: ["-c", "/etc/nats/nats-server.conf", "-js", "-m", "8222"]
+    # No -m: the monitoring endpoint is plain HTTP, nothing reads it, and
+    # ADR-0002 § 12 puts TLS on every connection (G49). The broker's only
+    # listener is the client port, and the generated configuration makes that
+    # TLS-first.
+    command: ["-c", "/etc/nats/nats-server.conf", "-js"]
     volumes: ["keystone-nats-config:/etc/nats:ro"]
     networks: [server-net, agent-net]
 

@@ -33,6 +33,14 @@ const (
 	brokerNetwork  = "server-net"
 )
 
+// The broker's TLS identity (ADR-0002 § 12, G49). compose.yaml names the
+// service "broker" and mounts the generated directory at /etc/nats; clients
+// dial its address on the network and verify the certificate against the name.
+const (
+	brokerName       = "broker"
+	brokerRuntimeDir = "/etc/nats"
+)
+
 // C03.md § 3.2 requires "broker configuration the topology consumes", and until
 // C03-I6 nothing showed that it did. The container suite ran `docker compose
 // config`, which parses the topology and never brings it up, so the broker
@@ -71,7 +79,9 @@ func TestTheTopologyRunsTheGeneratedConfiguration(t *testing.T) {
 		agents = append(agents, natsauth.AgentKey{ID: id, PublicKey: pub})
 	}
 
-	deployment, err := natsauth.Generate(natsauth.Config{FleetSize: 4, Agents: agents})
+	deployment, err := natsauth.Generate(natsauth.Config{
+		FleetSize: 4, Agents: agents, BrokerNames: []string{brokerName}, RuntimeDir: brokerRuntimeDir,
+	})
 	if err != nil {
 		t.Fatalf("generate: %v", err)
 	}
@@ -94,7 +104,7 @@ func TestTheTopologyRunsTheGeneratedConfiguration(t *testing.T) {
 	}
 
 	violations := make(chan error, 8)
-	conn, err := nats.Connect(url,
+	conn, err := nats.Connect(url, append(brokerTLS(t, deployment),
 		nats.UserCredentials(credsPath),
 		nats.CustomInboxPrefix(natsauth.InboxPrefix(agentOne)),
 		nats.Timeout(15*time.Second),
@@ -104,7 +114,7 @@ func TestTheTopologyRunsTheGeneratedConfiguration(t *testing.T) {
 			default:
 			}
 		}),
-	)
+	)...)
 	if err != nil {
 		t.Fatalf("the topology's broker refused a credential this deployment generated, "+
 			"so it is not running this configuration: %v", err)
@@ -264,6 +274,17 @@ func publish(t *testing.T, conn *nats.Conn, subject string) {
 	if err := conn.Publish(subject, []byte{0}); err != nil {
 		t.Fatalf("publish to %s: %v", subject, err)
 	}
+}
+
+// brokerTLS is how a client reaches the topology's broker: TLS-first, verifying
+// the certificate against the deployment's CA and brokerName.
+func brokerTLS(t *testing.T, d *natsauth.Deployment) []nats.Option {
+	t.Helper()
+	cfg, err := natsauth.ClientTLSConfig(d.TLS.CACertPEM, brokerName)
+	if err != nil {
+		t.Fatalf("client TLS configuration: %v", err)
+	}
+	return []nats.Option{nats.Secure(cfg), nats.TLSHandshakeFirst()}
 }
 
 func run(t *testing.T, name string, args ...string) {

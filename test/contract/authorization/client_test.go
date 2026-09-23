@@ -122,6 +122,20 @@ func (c *client) settle(t *testing.T) []error {
 	}
 }
 
+// brokerTLS is how every client in this package reaches the broker: TLS-first,
+// verifying the broker against the deployment's own CA and brokerName, whatever
+// address was dialled (ADR-0002 § 12, G49). A connection refused here for TLS
+// would be refused before authorization was ever asked, so each case that
+// asserts a refusal is still asserting an authorization refusal.
+func brokerTLS(t *testing.T, d deployment) []nats.Option {
+	t.Helper()
+	cfg, err := natsauth.ClientTLSConfig(d.set.TLS.CACertPEM, brokerName)
+	if err != nil {
+		t.Fatalf("client TLS configuration: %v", err)
+	}
+	return []nats.Option{nats.Secure(cfg), nats.TLSHandshakeFirst()}
+}
+
 // connectAs opens a connection as one principal, with that principal's own
 // inbox prefix. The prefix matters: ADR-0004 § 6 grants each principal its own
 // subtree, and a client using the library default would be denied its replies
@@ -141,7 +155,7 @@ func connectAs(t *testing.T, d deployment, name string, identity natsauth.Identi
 	}
 
 	c := &client{}
-	conn, err := nats.Connect(d.broker.URL,
+	conn, err := nats.Connect(d.broker.URL, append(brokerTLS(t, d),
 		nats.UserCredentials(path),
 		nats.CustomInboxPrefix(natsauth.InboxPrefix(name)),
 		nats.Timeout(10*time.Second),
@@ -151,7 +165,7 @@ func connectAs(t *testing.T, d deployment, name string, identity natsauth.Identi
 				c.record(err)
 			}
 		}),
-	)
+	)...)
 	if err != nil {
 		t.Fatalf("connect as %s: %v", name, err)
 	}
@@ -363,7 +377,7 @@ func tryConnectAs(t *testing.T, d deployment, name string, identity natsauth.Ide
 	if err := os.WriteFile(path, creds, 0o600); err != nil {
 		t.Fatalf("write %s credentials: %v", name, err)
 	}
-	conn, err := nats.Connect(d.broker.URL,
+	conn, err := nats.Connect(d.broker.URL, append(brokerTLS(t, d),
 		nats.UserCredentials(path),
 		nats.CustomInboxPrefix(natsauth.InboxPrefix(name)),
 		nats.Timeout(10*time.Second),
@@ -371,7 +385,7 @@ func tryConnectAs(t *testing.T, d deployment, name string, identity natsauth.Ide
 		// reason the broker gave.
 		nats.MaxReconnects(0),
 		nats.NoReconnect(),
-	)
+	)...)
 	if err == nil {
 		t.Cleanup(conn.Close)
 	}
