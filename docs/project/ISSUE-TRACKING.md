@@ -2,16 +2,21 @@
 
 ## Current state
 
-The tracker holds the Generation 2 planning state and nothing else: one
-`v0.6.0` milestone, twelve workstream epics for `P00`-`P11`, a release tracker,
-and a reboot announcement (#268). All of it was created by reboot task R09, and
-the record of that operation — the reviewed plan with every issue body verbatim,
-the journal, and the verification report — is in
-[`../transition/r09/`](../transition/r09/).
+The tracker holds what R09 created — one `v0.6.0` milestone, twelve workstream
+epics for `P00`-`P11`, a release tracker, and a reboot announcement (#268) — and
+the Generation 2 issues filed since. The record of R09's operation — the
+reviewed plan with every issue body verbatim, the journal, and the verification
+report — is in [`../transition/r09/`](../transition/r09/).
 
-There are no leaf issues. `P00` cannot start until R10 completes, so no
-workstream has an approved dossier yet, and an issue is created only when the
-work it describes has been accepted.
+**The `P00`-`P11` epics are complete and their issues are still open.** The
+epic's checkboxes were ticked as each workstream merged, and no task closed the
+issues: closing one is a forge operation, and none was approved. Closing them
+spans several issues, so it takes the full flow in
+[Forge operations on one issue](#forge-operations-on-one-issue) and is its own
+operation.
+
+No C-stage work was tracked here until `G52`. From `G52` on, a request one agent
+makes of another is an issue — [Requests between agents](#requests-between-agents).
 
 Generation 1's 106 open issues were closed during reboot task R07 as
 **superseded, not completed** — closed because the project changed direction,
@@ -101,6 +106,62 @@ tiered. Any bulk tracker operation needs a journal, resumability, and a
 rate-limit budget. The tool that did the transition work was removed after R09,
 but the operations it performed and the constraints it hit are recorded in
 [`../transition/`](../transition/).
+
+## Requests between agents
+
+Behaviour workstreams alternate agents: one writes the acceptance contract, the
+other the implementation, and whichever writes the code, the other reviews
+([`AGENTS.md`](../../AGENTS.md) § 3). When one agent needs work from the other —
+a contract amendment the implementation cannot write for itself, a review — the
+request is an issue, not a message pasted between sessions.
+
+The issue:
+
+- carries the task identifier of the approved work it belongs to (principle 4);
+- names the requesting agent and the agent asked to do the work;
+- **points at the text that governs the work** — a dossier section, a contract's
+  evidence file, an ADR — and does not restate it. A specification copied into
+  an issue is a second specification, and the gates check only the one in the
+  repository;
+- records every maintainer decision it depends on that no repository document
+  yet holds, with its date, so the decision outlives the conversation it was
+  made in;
+- is referenced by the pull request that does the work, and closes under the
+  ticket lifecycle below.
+
+It uses existing labels only: `generation/2` and one `kind/*`.
+
+## Forge operations on one issue
+
+Program rule 5 of
+[`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md#program-rules) requires a
+reviewed dry run and a separate apply approval for every remote change; RFC 0001
+requires the same. How much ceremony the dry run needs depends on the operation.
+
+**One issue, for one approved task** — creating it, commenting on it, adding or
+removing an existing label, or closing it:
+
+1. **Dry run.** The agent shows the maintainer the exact operation: for a new
+   issue, its title, body and labels verbatim; for a comment or closure, the
+   issue number and the text.
+2. **Apply approval.** The agent applies only on the maintainer's separate,
+   explicit approval of that dry run. Approving the task plan does not approve
+   it, and neither does approving a different dry run.
+3. **Postcondition.** The issue itself is the record. The task's pull request
+   names its URL.
+
+**Anything else takes the full flow**: a dry-run artifact pull request, explicit
+apply approval, the apply, then a postcondition artifact pull request. That
+covers any operation spanning more than one issue, and any change to labels,
+milestones, repository settings or branch protections — the operations R07 and
+R09 performed, where a mistake reaches many records at once and the dry run
+needs checking against the live tracker (`DL-5`).
+
+**The lighter path trades one thing, and the trade is stated.** Its dry run is
+in the conversation, not in the repository. What it keeps is the two approvals
+and a public result anyone can inspect. Principle 3 still holds: a mistaken
+issue is closed and explained, never deleted, so the apply approval is the only
+point at which a mistake is free.
 
 ## Ticket lifecycle
 

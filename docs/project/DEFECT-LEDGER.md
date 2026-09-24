@@ -460,7 +460,7 @@ encodes what is actually there.
 **Countermeasure.** Run the check against production data before believing it —
 for forge operations that means a dry run against the live tracker, recorded as
 an artifact, as [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md) requires
-before any apply. A same-value match is not evidence of a relationship: state
+before any apply wider than one issue. A same-value match is not evidence of a relationship: state
 the relationship the requirement actually asks about, and test that.
 
 **Last recurrence.** R09. Exercised since on a later task: R10's audit
