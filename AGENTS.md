@@ -62,7 +62,8 @@ Rules:
 - If a task uncovers scope outside the epic, stop and ask before expanding.
 - Remote forge changes need a reviewed dry run and a **separate** apply
   approval. Approving a task plan never authorises the apply. An operation on
-  one issue for one approved task shows its dry run in conversation; anything
+  one issue for one approved task shows its dry run in conversation and records
+  its before-state on the issue; anything
   wider uses dry-run and postcondition PRs
   ([`ISSUE-TRACKING.md`](docs/project/ISSUE-TRACKING.md#forge-operations-on-one-issue)).
 - A request one agent makes of another is an issue, not a pasted prompt.

@@ -135,33 +135,52 @@ It uses existing labels only: `generation/2` and one `kind/*`.
 
 Program rule 5 of
 [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md#program-rules) requires a
-reviewed dry run and a separate apply approval for every remote change; RFC 0001
-requires the same. How much ceremony the dry run needs depends on the operation.
+reviewed dry run and a separate apply approval for every remote change. RFC 0001
+requires the same, and its § Rollback adds that **every forge mutation records
+its before-state**. How much ceremony that takes depends on the operation.
 
 **One issue, for one approved task** — creating it, commenting on it, adding or
-removing an existing label, or closing it:
+removing a label that already exists, or closing it:
 
-1. **Dry run.** The agent shows the maintainer the exact operation: for a new
-   issue, its title, body and labels verbatim; for a comment or closure, the
-   issue number and the text.
-2. **Apply approval.** The agent applies only on the maintainer's separate,
+1. **Before-state, read from the live tracker.** Not from memory and not from
+   an earlier reading (`DL-5`):
+
+   | Operation | Before-state |
+   |---|---|
+   | Create | Every issue, open or closed, whose body carries the task identifier — or that there is none |
+   | Comment | The issue's number and state. A comment adds and changes nothing, and is never edited or deleted afterwards |
+   | Label | The issue's labels before the change |
+   | Close | The issue's state and labels before closing |
+
+2. **Dry run.** The agent shows the maintainer the before-state and the exact
+   operation: for a new issue, its title, body and labels verbatim; otherwise
+   the issue number and the text or change.
+3. **Apply approval.** The agent applies only on the maintainer's separate,
    explicit approval of that dry run. Approving the task plan does not approve
-   it, and neither does approving a different dry run.
-3. **Postcondition.** The issue itself is the record. The task's pull request
-   names its URL.
+   it, and neither does approving a different dry run. A before-state that has
+   changed by the time of the apply is a new dry run.
+4. **Record, on the issue.** The before-state goes where the mutation lands, so
+   the record and the change cannot be separated: a new issue's body ends with
+   its before-state and the time it was read; a label change or closure is
+   accompanied by a comment stating the before-state and the change. The forge's
+   own timeline records the label and state events as well; the comment is what
+   states them in words and is not a reading of forge internals. The task's pull
+   request names the issue's URL.
 
 **Anything else takes the full flow**: a dry-run artifact pull request, explicit
-apply approval, the apply, then a postcondition artifact pull request. That
-covers any operation spanning more than one issue, and any change to labels,
-milestones, repository settings or branch protections — the operations R07 and
-R09 performed, where a mistake reaches many records at once and the dry run
-needs checking against the live tracker (`DL-5`).
+apply approval, the apply, then a postcondition artifact pull request, with the
+before-state in a manifest as R07's and R09's were. That covers any operation
+spanning more than one issue, and any change to label definitions, milestones,
+repository settings or branch protections — where a mistake reaches many
+records at once.
 
 **The lighter path trades one thing, and the trade is stated.** Its dry run is
-in the conversation, not in the repository. What it keeps is the two approvals
+in the conversation, not in the repository. What it keeps is the two approvals,
+a before-state recorded durably on the forge beside the change it describes,
 and a public result anyone can inspect. Principle 3 still holds: a mistaken
-issue is closed and explained, never deleted, so the apply approval is the only
-point at which a mistake is free.
+issue is closed and explained, never deleted, so reversal is a new one-issue
+operation taken against the recorded before-state, and the apply approval is the
+only point at which a mistake is free.
 
 ## Ticket lifecycle
 

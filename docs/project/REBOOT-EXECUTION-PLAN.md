@@ -18,7 +18,7 @@ To resume the transition from the development VM, follow the
 4. Do not silently absorb discovered scope. Record it and stop for direction.
 5. Remote changes require a reviewed dry run and a separate apply approval.
    An operation on one issue for one approved task may present its dry run in
-   conversation; everything else uses the artifact flow below
+   conversation and records its before-state on the issue; everything else uses the artifact flow below
    ([`ISSUE-TRACKING.md`](ISSUE-TRACKING.md#forge-operations-on-one-issue)).
 6. Security-sensitive implementation and acceptance review need different
    agents or a named human reviewer.
@@ -101,7 +101,8 @@ Each behavior workstream is split into at least two repository tasks:
 Planning/ADR tasks may use one PR. Remote forge operations use a dry-run artifact
 PR, explicit apply approval, apply, then a postcondition artifact PR — except an
 operation on one issue for one approved task, whose dry run is shown to the
-maintainer verbatim and whose postcondition is the issue itself (`G52`). Long-running
+maintainer verbatim and whose before-state and postcondition are recorded on
+the issue itself (`G52`). Long-running
 pilot/release gates retain a signed evidence report instead of inventing an
 implementation commit.
 

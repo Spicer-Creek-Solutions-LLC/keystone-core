@@ -1168,8 +1168,10 @@ limitations go in the pull request.
     restating it, and records the maintainer decisions no document yet holds.
   - **Program rule 5 is scoped, not relaxed.** An operation on one issue for
     one approved task shows its dry run to the maintainer verbatim and needs a
-    separate apply approval; its postcondition is the issue. Anything wider
-    keeps the artifact-PR flow. RFC 0001's apply-after-dry-run holds either way.
+    separate apply approval; its before-state, read from the live tracker, is
+    recorded on the issue beside the change, and the issue is its
+    postcondition. Anything wider keeps the artifact-PR flow. RFC 0001's
+    apply-after-dry-run and before-state rules hold either way.
   - **No forge write.** The finished `P00`-`P11` epic issues are still open;
     closing them spans several issues and is its own full-flow operation.
 - [ ] Generation 1 is recoverable from protected refs and a verified bundle.
