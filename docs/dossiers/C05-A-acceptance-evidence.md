@@ -11,7 +11,24 @@ Contract commit: `6115c70f35fb0aa03f6642a1de36471976650f05`
 
 Contract amendments:
 
-None.
+- `a8405b8d639701217ef4fe0a5577286493af2f04` — `C05`. Review of pull
+  request #381 found two blocking omissions in the frozen surface. First, it
+  had nowhere to persist the agent's NKey seed, AST-4 signing key or AST-5
+  decryption key before S1, so the first three crash cases and permanent
+  reconnect could not preserve the public halves S1 bound to the token.
+  `agentKeyArtifactV1` now freezes their local representation, atomic mode-0600
+  write before S1, and digest binding to the later identity artifact; `KEY-2`
+  freezes restart with the same keys. G50 supplied the protocol serialization
+  primitive this amendment uses.
+
+  Second, fault-key names were not the crash harness C05 § 3.1 requires and
+  let C05-I choose how its own ordering was observed. `crash-harness.json` now
+  freezes all six kill boundaries, durable agent and server boundary records,
+  SIGKILL, recovery observations, and independent broker/store observations
+  for `ORD-1`, `OBS-1` and `S6-1`. Boundary records establish only where to
+  kill; they are not accepted as proof of order or recovery. The maintainer
+  approved both review fixes. The original contract commit above does not
+  move.
 
 ## Settled decisions
 
@@ -30,7 +47,8 @@ The maintainer approved these with the C05-A plan.
 - `D-C05-4`: broker address, CA and verified name are configuration. The server
   receives one explicit path for the enrollment credential, presence credential
   and account signing seed; it never receives a credential directory. The agent
-  receives one identity-artifact path and one ledger path.
+  receives explicit paths for its pre-S1 private-key artifact, later identity
+  artifact, durable fault journal and ledger.
 - `D-C05-5`: the contract and both C05 traceability paths live here. Crash
   boundaries use audited holds configured in the shipped binaries; the harness
   observes the boundary record before killing the process.
@@ -52,10 +70,15 @@ The maintainer approved these with the C05-A plan.
 - a version-1 JSON bundle carrying the token and assigned agent identifiers,
   bootstrap NATS credentials and both service public halves;
 - version-1 request and reply payloads inside ADR-0005 envelopes;
-- one version-1, mode-`0600` identity artifact containing the permanent NATS
-  credential and both service trust halves, so one rename exposes all or none;
+- one version-1, mode-`0600` agent-key artifact containing the NKey seed and
+  AST-4 and AST-5 private halves, atomically renamed and fsynced before S1;
+- one later version-1, mode-`0600` identity artifact containing the permanent
+  NATS credential, both service trust halves and the SHA-256 digest of the
+  exact key-artifact bytes, so a restart cannot pair different credentials and
+  keys;
 - the exact server and agent configuration keys; and
-- five agent holds and one server hold covering the amended crash matrix.
+- five agent holds, one server hold, and the version-1 crash-harness surface
+  that fixes their durable arrival records and independent observations.
 
 The broker address and TLS CA are deliberately absent from the bundle. They are
 deployment configuration, while the bundle is the out-of-band trust path for
@@ -77,6 +100,7 @@ the service signing and result-encryption public halves.
 | different-key denial and same-key idempotency | `IDEM-1`, `IDEM-2` |
 | server-assigned identifier | `ID-1` |
 | no agent private key leaves the agent | `KEY-1` |
+| private keys persist atomically before S1 and survive restart | `KEY-2` |
 | atomic mode-0600 identity artifact | `CRED-1` |
 | ledger before activation | `LEDGER-1` |
 | permanent proof before the active-and-spent write | `ORD-1` |
@@ -95,6 +119,38 @@ the service signing and result-encryption public halves.
 Each crash boundary is a separate case. A harness cannot satisfy one boundary
 by reaching another, and each case requires the fault-point audit record before
 it evaluates recovery.
+
+## Frozen crash harness
+
+`crash-harness.json` is a frozen input to C05-I's process driver, not a set of
+implementation log messages. It fixes `SIGKILL`, one run per boundary, the
+arrival precondition, and the recovery observation for every `CRASH-*` case.
+The agent appends version-1 JSON lines to configured `faults.record_path` and
+fsyncs each `enabled` and `reached` record. The server uses durable audit rows
+with `fault.enabled:` and `fault.reached:` action prefixes. The harness waits
+for the matching `reached` record before killing the named production process.
+
+Those records answer only *where the kill landed*. They cannot establish the
+orders whose correctness is under test:
+
+- `ORD-1` uses a broker subscription established before the agent starts. The
+  harness decodes and verifies the AST-4-signed presence delivered by the
+  broker while a separate read-only connection observes the server store. An
+  active-and-spent row visible first is failure.
+- `OBS-1` proves the bootstrap credential usable before expiry. While it is
+  still live but spent, a fresh correctly signed request must receive the
+  application denial and create its denial record, while broker protocol trace
+  contains no `$SYS.REQ.CLAIMS.*` publish. After expiry, a new connection with
+  the same credential must fail with the broker's authorization violation.
+- `S6-1` has the harness subscribe to the token reply subject before
+  enrollment, decode and authenticate the S6 envelope using the service key
+  from the bundle, then read active-and-spent directly from the server store.
+  The agent remains running until that reply and may exit zero only afterward.
+
+`crash_harness_test.go` rejects a missing or duplicate boundary, a mismatched
+fault key, an ordering case without its observation, or an unspecified record
+sink. C05-I supplies only the production-process driver and assertions that
+consume this surface.
 
 ## Feature acceptance table
 
@@ -121,10 +177,10 @@ The retained pending runner executed every registered case separately:
 GOCACHE=$PWD/.c05-go-cache GOTMPDIR=$PWD/.c05-go-tmp make pending-contract
 ```
 
-Exit `0`: all 36 C05 cases exited non-zero with their identifier and documented
+Exit `0`: all 37 C05 cases exited non-zero with their identifier and documented
 reason. `make contract` skips exactly those cases under ordinary execution.
 
-### Throwaway reference state machine
+### Throwaway requirement model — not contract discrimination
 
 A throwaway Go state machine, not retained in the repository, exercised the
 frozen state transitions and assertion accounting before the freeze. Its clean
@@ -137,13 +193,14 @@ reference: PASS
 
 Exit `0`.
 
-Each mutation was then run independently as:
+Each modeled mutation was then run independently as:
 
 ```text
 go run /tmp/c05-reference.go <case-id>
 ```
 
-Each exited `1` and reported only its intended case. The mutations were:
+Each exited `1` and reported only its intended model assertion. The mutations
+were:
 
 | Mutation | Failed case |
 |---|---|
@@ -180,11 +237,41 @@ Each exited `1` and reported only its intended case. The mutations were:
 | accept a credential in the wrong server slot | `ROLE-1` |
 | add a direct server-agent route | `ISO-1` |
 
-This model demonstrates that the state requirements are mutually
-discriminating and satisfiable. It does **not** substitute for the required
-C05-I mutation run against the real processes, broker, filesystem and kernel.
-C05-I must show each implemented body fail against the corresponding planted
-production defect before removing its pending entry.
+This demonstrates only that the modeled requirement set is satisfiable and
+that the model's own assertions notice its own mutations. **It is not evidence
+that any frozen pending test discriminates: none of those bodies has run, and
+the model was neither retained nor called by this package.** C05-I must show
+each implemented body fail against the corresponding planted production defect
+in the real processes, broker, filesystem and kernel before removing its
+pending entry.
+
+### Review-amendment checks
+
+The amendment's retained self-test and pending registration passed:
+
+```text
+go test -tags contract ./test/contract/enrollment
+make pending-contract
+make contract-immutability-check
+```
+
+Exit `0`; `pending-contract` reported all 37 C05 cases failing for their
+documented absent production behavior, and the immutability gate retained
+`6115c70f35fb0aa03f6642a1de36471976650f05` as the freeze with one declared
+amendment.
+
+The harness surface was then changed temporarily so `CRASH-6` named
+`enrollment_server_hold_after_activation_commit_ms_defect` instead of its
+frozen server fault. This command:
+
+```text
+go test -tags contract ./test/contract/enrollment \
+  -run TestCrashHarnessSurfaceIsComplete
+```
+
+exited `1` and reported `bad crash boundary` for `CRASH-6`. The defect was
+removed before commit. This proves the retained harness self-test detects a
+boundary-key drift; it does not claim that any pending production case has run.
 
 ## Limits and VM debt
 
