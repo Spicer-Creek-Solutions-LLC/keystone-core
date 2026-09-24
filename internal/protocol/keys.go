@@ -10,12 +10,13 @@ import (
 // calls so a wrong-length key or signature is caught by comparison and never by
 // a panic deep in a primitive.
 const (
-	Ed25519PublicBytes    = ed25519.PublicKeySize // 32
-	MLDSAPublicBytes      = 1952
-	VerifyingKeyBytes     = Ed25519PublicBytes + MLDSAPublicBytes // 1984
-	Ed25519SignatureBytes = ed25519.SignatureSize                 // 64
-	MLDSASignatureBytes   = 3309
-	SignatureBytes        = Ed25519SignatureBytes + MLDSASignatureBytes // 3373
+	Ed25519PublicBytes     = ed25519.PublicKeySize // 32
+	MLDSAPublicBytes       = 1952
+	VerifyingKeyBytes      = Ed25519PublicBytes + MLDSAPublicBytes   // 1984
+	SigningPrivateKeyBytes = ed25519.SeedSize + mldsa.PrivateKeySize // 64
+	Ed25519SignatureBytes  = ed25519.SignatureSize                   // 64
+	MLDSASignatureBytes    = 3309
+	SignatureBytes         = Ed25519SignatureBytes + MLDSASignatureBytes // 3373
 )
 
 // SignatureContext is FIPS 204's domain separator, set so a signature made for
@@ -56,6 +57,31 @@ func (k *SigningKey) Verifying() *VerifyingKey {
 		ed: k.ed.Public().(ed25519.PublicKey),
 		ml: k.ml.PublicKey(),
 	}
+}
+
+// MarshalSigningKey returns the canonical local-persistence form: the
+// Ed25519 seed followed by the ML-DSA-65 seed. The private half never leaves
+// the agent host; ADR-0003 § 4 sends only the public verifying key during
+// enrollment.
+func MarshalSigningKey(k *SigningKey) []byte {
+	out := make([]byte, 0, SigningPrivateKeyBytes)
+	out = append(out, k.ed.Seed()...)
+	return append(out, k.ml.Bytes()...)
+}
+
+// ParseSigningKey restores the canonical local-persistence form. It returns
+// the same coarse refusal as public-key parsing so malformed key material does
+// not create a more detailed oracle.
+func ParseSigningKey(b []byte) (*SigningKey, error) {
+	if len(b) != SigningPrivateKeyBytes {
+		return nil, SignatureInvalid
+	}
+	ed := ed25519.NewKeyFromSeed(b[:ed25519.SeedSize])
+	ml, err := mldsa.NewPrivateKey(mldsaParams(), b[ed25519.SeedSize:])
+	if err != nil {
+		return nil, SignatureInvalid
+	}
+	return &SigningKey{ed: ed, ml: ml}, nil
 }
 
 // Bytes is the wire form: Ed25519 public then ML-DSA-65 public, both fixed, so

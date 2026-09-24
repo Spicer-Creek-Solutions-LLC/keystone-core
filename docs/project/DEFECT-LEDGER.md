@@ -868,7 +868,7 @@ down and recurred anyway, and `DL-8` has now done it too.
 
 ### `DL-9` — A document that requires work a permission list forbids
 
-**Instances.** Six occasions across five tasks. Five are one shape — a task
+**Instances.** Seven occasions across six tasks. Six are one shape — a task
 dossier whose decision section required work its **own** § 3.3 did not permit,
 found only when the implementation began. The fourth widened the class, which is
 why this entry is no longer titled for a document's own list: an obligation can
@@ -930,6 +930,14 @@ found it — which is the rule `G45` exists to make keepable.
    not been recorded here. This is the first-shape failure again: the dossier's
    own outputs implied paths its permission list omitted.
 
+7. **`C05.md` and `internal/protocol/`.** C05 requires an enrolled agent to
+   persist AST-4 and restore it after a crash, while `SigningKey` deliberately
+   exposes no private representation. Supplying the missing persistence API
+   requires `internal/protocol/`, which C05 § 3.3 explicitly places out of
+   bounds. Found in review of pull request #381 after its acceptance contract
+   described a durable identity artifact that could not contain the signing
+   key. `G50` supplies the narrow API before C05 implementation begins.
+
 **This is not `DL-8`.** That class needs a prior finding: someone reports a
 defect and it is repaired at the cited site only. Here nothing was reported and
 nothing was repaired too narrowly. **Both halves were written by the same author
@@ -975,10 +983,9 @@ require is prose, and no checker reads it; `archlint` validates the register and
 `contract-immutability-check` the frozen surfaces, but nothing compares a
 document's intentions with its own permissions.
 
-**Last recurrence.** `G45` — the missing grant to this file in every behaviour
-dossier, found in review of pull request #367. Instance 5, recorded here at
-`C03-I2`, **occurred earlier** and does not replace it: this field takes the
-latest occasion the defect occurred, not the latest one written down.
+**Last recurrence.** `G50` — C05 requires durable agent signing-key material
+while forbidding the protocol change needed to represent it, found in review
+of pull request #381.
 
 **Status: `Failed`, unchanged.** The countermeasure was in force, was applied,
 and did not prevent instance 4. It was written at `G44` and exercised at `C03-I2`, which

@@ -235,15 +235,15 @@ func OpenEnvelope(k *DecryptionKey, e Envelope) ([]byte, error) {
 	return Open(k, e.Payload)
 }
 
-// MarshalDecryptionKey and ParseDecryptionKey exist for the vector binaries and
-// for nothing else.
+// MarshalDecryptionKey and ParseDecryptionKey exist for local enrolled-agent
+// persistence and for the vector binaries.
 //
 // A private half never leaves the host in this product: ADR-0003 § 4 generates
 // all three keys on the agent and sends only public halves. A cross-process
-// VECTOR is the exception, because the verifying process has no enrollment to
-// have recorded anything. Naming that here is the point -- a marshaller for a
-// secret should say why it exists, so its next caller has to argue with the
-// reason rather than just find the function.
+// VECTOR is the cross-process exception, because the verifying process has no
+// enrollment to have recorded anything. Naming the allowed uses here is the
+// point -- a marshaller for a secret should say why it exists, so its next
+// caller has to argue with the reason rather than just find the function.
 func MarshalDecryptionKey(k *DecryptionKey) []byte {
 	out := make([]byte, 0, X25519PublicBytes+len(k.ml.Bytes()))
 	out = append(out, k.x.Bytes()...)
