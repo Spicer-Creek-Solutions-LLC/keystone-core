@@ -15,7 +15,7 @@
   "ordering_observations": [
     {
       "case": "ORD-1",
-      "mechanism": "subscribe before agent start with generated presence-consumer credentials to ks.out.<agent>.presence; decode the broker-delivered envelope and verify its AST-4 signature, while a separate read-only connection polls the server store; fail if active-and-spent is readable before the verified broker delivery"
+      "mechanism": "enable enrollment_agent_hold_after_identity_write_ms and subscribe before agent start with generated presence-consumer credentials to ks.out.<agent>.presence; after the durable reached record and while the agent is held before proof, require no presence delivery and require a separate read-only server-store connection not to read active-and-spent; after the hold expires, require a broker-delivered presence whose AST-4 signature verifies, then require active-and-spent to become readable"
     },
     {
       "case": "OBS-1",
@@ -23,7 +23,7 @@
     },
     {
       "case": "S6-1",
-      "mechanism": "the harness subscribes to the token reply subject with the bootstrap credential before enrollment; when it receives S6 it decodes and verifies the enrollment-reply signature using the bundle service key, then reads active-and-spent directly from the server store; the agent process must remain running until that authenticated reply and may exit zero only afterward"
+      "mechanism": "enable enrollment_server_hold_after_activation_commit_ms and subscribe to the token reply subject with the bootstrap credential before enrollment; after the durable server reached record and while the server is held after the commit, require no S6 delivery and require the agent process still running; after the hold expires, require an enrollment-reply whose service signature verifies and require a direct server-store read to show active-and-spent"
     }
   ],
   "boundaries": [
