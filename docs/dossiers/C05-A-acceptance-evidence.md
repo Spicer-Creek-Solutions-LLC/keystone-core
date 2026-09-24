@@ -30,6 +30,16 @@ Contract amendments:
   approved both review fixes. The original contract commit above does not
   move.
 
+- `cf28ca0acfab28ec2a59fac9b2699f2a515450d5` — `C05`. Review round two found
+  that `ORD-1` and `S6-1` raced a production consumer against the harness's
+  independent copy of the same fanned-out message. A correct server could
+  commit after receiving presence but before the harness received its copy; a
+  correct agent could exit after receiving S6 but before the harness received
+  its copy. The harness now uses the already-frozen pre-proof agent hold and
+  post-commit server hold as deterministic negative windows, then requires the
+  independent authenticated observation after each hold expires. `OBS-1` is
+  unchanged. The original freeze and first amendment do not move.
+
 ## Settled decisions
 
 The maintainer approved these with the C05-A plan.
@@ -133,19 +143,23 @@ for the matching `reached` record before killing the named production process.
 Those records answer only *where the kill landed*. They cannot establish the
 orders whose correctness is under test:
 
-- `ORD-1` uses a broker subscription established before the agent starts. The
-  harness decodes and verifies the AST-4-signed presence delivered by the
-  broker while a separate read-only connection observes the server store. An
-  active-and-spent row visible first is failure.
+- `ORD-1` enables the after-identity-write hold and establishes its broker
+  subscription before the agent starts. While the agent is durably recorded at
+  that pre-proof hold, neither presence nor active-and-spent may be observable.
+  After the hold expires, the harness requires an AST-4-verified presence and
+  then active-and-spent from a separate read-only store connection.
 - `OBS-1` proves the bootstrap credential usable before expiry. While it is
   still live but spent, a fresh correctly signed request must receive the
   application denial and create its denial record, while broker protocol trace
   contains no `$SYS.REQ.CLAIMS.*` publish. After expiry, a new connection with
-  the same credential must fail with the broker's authorization violation.
-- `S6-1` has the harness subscribe to the token reply subject before
-  enrollment, decode and authenticate the S6 envelope using the service key
-  from the bundle, then read active-and-spent directly from the server store.
-  The agent remains running until that reply and may exit zero only afterward.
+  the same credential must fail with the broker's authorization violation. The
+  broker runs with protocol tracing enabled by a harness-side command-line flag
+  such as `-DV`; this is not a generated-configuration change.
+- `S6-1` enables the server's after-activation-commit hold and subscribes to the
+  token reply subject before enrollment. While the server is durably recorded
+  at that hold, the harness must receive no S6 and the agent must remain
+  running. After the hold expires, the harness requires an authenticated S6
+  envelope and reads active-and-spent directly from the server store.
 
 `crash_harness_test.go` rejects a missing or duplicate boundary, a mismatched
 fault key, an ordering case without its observation, or an unspecified record
@@ -257,8 +271,8 @@ make contract-immutability-check
 
 Exit `0`; `pending-contract` reported all 37 C05 cases failing for their
 documented absent production behavior, and the immutability gate retained
-`6115c70f35fb0aa03f6642a1de36471976650f05` as the freeze with one declared
-amendment.
+`6115c70f35fb0aa03f6642a1de36471976650f05` as the freeze with the declared
+amendments.
 
 The harness surface was then changed temporarily so `CRASH-6` named
 `enrollment_server_hold_after_activation_commit_ms_defect` instead of its
@@ -287,6 +301,10 @@ boundary-key drift; it does not claim that any pending production case has run.
 - `KEY-1` observes server storage, logs and broker bytes. Independent source
   review remains necessary to find a private key copied into a transient buffer
   and erased before any observation.
+- The harness self-test enforces the case set, fault-key mapping and presence of
+  each prose mechanism; it does not interpret the prose. Review and the
+  immutability gate guard the mechanism's meaning, as they do for C03-A's
+  matrix transcription.
 
 ## Validation at freeze
 
