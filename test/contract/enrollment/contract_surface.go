@@ -30,6 +30,7 @@ var acceptanceContractSurface = map[string]acceptanceCase{
 	"IDEM-2":   {"TestIDEM2SameKeysReturnSameIdentity", "re-presenting the same public halves while issued must return the same JWT and one token must yield exactly one identity"},
 	"ID-1":     {"TestID1AgentIdentifierIsServerAssigned", "the permanent identifier must be a server-generated 128-bit lowercase hexadecimal identifier, never the operator label or an enrolling-party value"},
 	"KEY-1":    {"TestKEY1AgentPrivateKeysNeverLeaveAgent", "no agent-generated private key may occur in server storage, server logs, or broker-visible bytes"},
+	"KEY-2":    {"TestKEY2PersistedKeysSurvivePreRequestCrash", "the mode-0600 agent-key artifact must atomically persist the NKey seed and AST-4 and AST-5 private keys before S1, and restart after that write must present the same public halves"},
 	"CRED-1":   {"TestCRED1IdentityArtifactIsAtomicAndPrivate", "the permanent credential and service trust halves must become visible together in one mode-0600 identity artifact, never partially"},
 	"LEDGER-1": {"TestLEDGER1LedgerExistsBeforeActivation", "the durable agent ledger must exist before the server can reach S4"},
 	"ORD-1":    {"TestORD1PermanentConnectionPrecedesSpentWrite", "the broker must observe the permanent identity connect and publish its signed presence proof before the server atomically records active and spent"},
@@ -79,7 +80,13 @@ const (
 	agentKeyBrokerName          = "server_name"
 	agentTableAgent             = "agent"
 	agentKeyIdentityPath        = "identity_path"
+	agentKeyPrivateKeysPath     = "private_keys_path"
 	agentKeyLedgerPath          = "ledger_path"
+	agentTableFaults            = "faults"
+	agentKeyFaultRecordPath     = "record_path"
+	agentKeyArtifactVersion     = 1
+	agentFaultRecordVersion     = 1
+	privateArtifactMode         = 0o600
 
 	faultAgentBeforeRequest      = "enrollment_agent_hold_before_request_ms"
 	faultAgentAfterReply         = "enrollment_agent_hold_after_credential_reply_ms"
@@ -127,9 +134,40 @@ type identityArtifactV1 struct {
 	Version                   int    `json:"version"`
 	AgentID                   string `json:"agent_id"`
 	PermanentCredentials      string `json:"permanent_credentials"`
+	AgentKeySHA256            string `json:"agent_key_sha256"`
 	ServiceSigningPublicKey   string `json:"service_signing_public_key"`
 	ResultEncryptionPublicKey string `json:"result_encryption_public_key"`
 }
+
+// agentKeyArtifactV1 is written by atomic rename, chmodded to
+// privateArtifactMode and fsynced before the first S1 request. SigningPrivateKey
+// is the base64 encoding of protocol.MarshalSigningKey; DecryptionPrivateKey is
+// the base64 encoding of protocol.MarshalDecryptionKey. Identity artifacts bind
+// to the SHA-256 digest of the exact bytes stored here, so startup cannot pair
+// permanent credentials with a different private-key set.
+type agentKeyArtifactV1 struct {
+	Version              int    `json:"version"`
+	AgentID              string `json:"agent_id"`
+	NATSSeed             string `json:"nats_seed"`
+	SigningPrivateKey    string `json:"signing_private_key"`
+	DecryptionPrivateKey string `json:"decryption_private_key"`
+}
+
+// agentFaultRecordV1 is one JSON line appended and fsynced at record_path
+// before an enabled agent hold begins. The harness waits for this durable line
+// before SIGKILL. It proves only that the configured boundary was reached; the
+// independent observations in crash-harness.json prove ordering and recovery.
+type agentFaultRecordV1 struct {
+	Version int    `json:"version"`
+	Event   string `json:"event"`
+	Fault   string `json:"fault"`
+	Process string `json:"process"`
+}
+
+const (
+	faultEventEnabled = "enabled"
+	faultEventReached = "reached"
+)
 
 var _ = map[string]func(*testing.T){
 	"ISS-1": TestISS1TokenIssuedOnceAndAudited, "CLI-1": TestCLI1RefusalPathsAreIndistinguishable,
@@ -140,7 +178,8 @@ var _ = map[string]func(*testing.T){
 	"FILE-2": TestFILE2SuccessfulEnrollmentRemovesBundle, "DENY-1": TestDENY1TokenFailuresAreIndistinguishableAndAudited,
 	"AUTH-1": TestAUTH1RequestIdentityAndSignatureMustMatch, "IDEM-1": TestIDEM1DifferentKeysAreNotARetry,
 	"IDEM-2": TestIDEM2SameKeysReturnSameIdentity, "ID-1": TestID1AgentIdentifierIsServerAssigned,
-	"KEY-1": TestKEY1AgentPrivateKeysNeverLeaveAgent, "CRED-1": TestCRED1IdentityArtifactIsAtomicAndPrivate,
+	"KEY-1": TestKEY1AgentPrivateKeysNeverLeaveAgent, "KEY-2": TestKEY2PersistedKeysSurvivePreRequestCrash,
+	"CRED-1":   TestCRED1IdentityArtifactIsAtomicAndPrivate,
 	"LEDGER-1": TestLEDGER1LedgerExistsBeforeActivation, "ORD-1": TestORD1PermanentConnectionPrecedesSpentWrite,
 	"SPENT-1": TestSPENT1SpentTokenOnlyAnswersConfirmation, "EXP-1": TestEXP1BrokerRefusesBootstrapAfterExpiry,
 	"OBS-1": TestOBS1EndOfBootstrapAccessIsObserved, "S6-1": TestS61SuccessRequiresConfirmation,

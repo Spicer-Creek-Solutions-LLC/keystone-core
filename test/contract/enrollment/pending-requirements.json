@@ -17,6 +17,7 @@
     {"case":"IDEM-2","owner":"C05-I","expiry":"C05-I","reason":"idempotent permanent JWT return does not exist","test":"TestIDEM2SameKeysReturnSameIdentity"},
     {"case":"ID-1","owner":"C05-I","expiry":"C05-I","reason":"server-assigned permanent agent identifiers do not exist","test":"TestID1AgentIdentifierIsServerAssigned"},
     {"case":"KEY-1","owner":"C05-I","expiry":"C05-I","reason":"agent-side key generation and the production enrollment path do not exist","test":"TestKEY1AgentPrivateKeysNeverLeaveAgent"},
+    {"case":"KEY-2","owner":"C05-I","expiry":"C05-I","reason":"the atomic pre-S1 agent-key artifact and restart path do not exist","test":"TestKEY2PersistedKeysSurvivePreRequestCrash"},
     {"case":"CRED-1","owner":"C05-I","expiry":"C05-I","reason":"the atomic permanent identity artifact does not exist","test":"TestCRED1IdentityArtifactIsAtomicAndPrivate"},
     {"case":"LEDGER-1","owner":"C05-I","expiry":"C05-I","reason":"enrollment does not initialize the ledger before activation","test":"TestLEDGER1LedgerExistsBeforeActivation"},
     {"case":"ORD-1","owner":"C05-I","expiry":"C05-I","reason":"no permanent connection proof or active-and-spent write exists","test":"TestORD1PermanentConnectionPrecedesSpentWrite"},

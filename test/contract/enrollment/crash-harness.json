@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "kill_signal": "SIGKILL",
+  "agent_fault_records": {
+    "path_config": "faults.record_path",
+    "format": "agentFaultRecordV1 JSON lines",
+    "rule": "append and fsync enabled at startup; append and fsync reached after the preceding durable operation and before entering the hold"
+  },
+  "server_fault_records": {
+    "store": "audit",
+    "enabled_action_prefix": "fault.enabled:",
+    "reached_action_prefix": "fault.reached:",
+    "rule": "commit reached after the preceding durable operation and before entering the hold"
+  },
+  "ordering_observations": [
+    {
+      "case": "ORD-1",
+      "mechanism": "subscribe before agent start with generated presence-consumer credentials to ks.out.<agent>.presence; decode the broker-delivered envelope and verify its AST-4 signature, while a separate read-only connection polls the server store; fail if active-and-spent is readable before the verified broker delivery"
+    },
+    {
+      "case": "OBS-1",
+      "mechanism": "prove the bootstrap credential connects and completes a request before expiry; after S4, use that still-live credential for a fresh correctly signed request and observe the application denial and its audit row while broker protocol trace contains no publish to $SYS.REQ.CLAIMS.*; after expiry, a new connection with the same credential must fail with the broker authorization violation"
+    },
+    {
+      "case": "S6-1",
+      "mechanism": "the harness subscribes to the token reply subject with the bootstrap credential before enrollment; when it receives S6 it decodes and verifies the enrollment-reply signature using the bundle service key, then reads active-and-spent directly from the server store; the agent process must remain running until that authenticated reply and may exit zero only afterward"
+    }
+  ],
+  "boundaries": [
+    {
+      "case": "CRASH-1",
+      "process": "agent",
+      "fault": "enrollment_agent_hold_before_request_ms",
+      "arrival": "durable agent reached record plus a complete mode-0600 agent-key artifact whose public halves are captured by the harness",
+      "recovery": "restart reads the same artifact, presents the captured public halves, and converges on one active identity and one spent token"
+    },
+    {
+      "case": "CRASH-2",
+      "process": "agent",
+      "fault": "enrollment_agent_hold_after_credential_reply_ms",
+      "arrival": "durable agent reached record after receipt of the credential reply",
+      "recovery": "restart uses the pre-S1 key artifact and the recorded JWT, mints no second identity, and converges on one active identity and one spent token"
+    },
+    {
+      "case": "CRASH-3",
+      "process": "agent",
+      "fault": "enrollment_agent_hold_after_identity_write_ms",
+      "arrival": "durable agent reached record plus a complete mode-0600 identity artifact bound to the pre-S1 key artifact digest",
+      "recovery": "restart signs permanent presence with the restored AST-4 key and converges without re-enrollment"
+    },
+    {
+      "case": "CRASH-4",
+      "process": "agent",
+      "fault": "enrollment_agent_hold_after_permanent_proof_ms",
+      "arrival": "durable agent reached record and the harness broker subscription has received and independently verified the signed permanent presence",
+      "recovery": "restart repeats permanent proof idempotently and converges on the unchanged identity"
+    },
+    {
+      "case": "CRASH-5",
+      "process": "agent",
+      "fault": "enrollment_agent_hold_before_confirmation_ms",
+      "arrival": "durable agent reached record and a direct server-store read observes active-and-spent",
+      "recovery": "restart requests authenticated S6 confirmation and converges without changing the identity"
+    },
+    {
+      "case": "CRASH-6",
+      "process": "server",
+      "fault": "enrollment_server_hold_after_activation_commit_ms",
+      "arrival": "durable server fault.reached audit row and a direct server-store read observes the single active-and-spent commit",
+      "recovery": "server restart confirms the same identity and spent token, creates neither a second identity nor a second activation"
+    }
+  ]
+}

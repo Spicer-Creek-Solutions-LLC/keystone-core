@@ -21,6 +21,7 @@ func TestIDEM1DifferentKeysAreNotARetry(t *testing.T)                   { pendin
 func TestIDEM2SameKeysReturnSameIdentity(t *testing.T)                  { pending(t, "IDEM-2") }
 func TestID1AgentIdentifierIsServerAssigned(t *testing.T)               { pending(t, "ID-1") }
 func TestKEY1AgentPrivateKeysNeverLeaveAgent(t *testing.T)              { pending(t, "KEY-1") }
+func TestKEY2PersistedKeysSurvivePreRequestCrash(t *testing.T)          { pending(t, "KEY-2") }
 func TestCRED1IdentityArtifactIsAtomicAndPrivate(t *testing.T)          { pending(t, "CRED-1") }
 func TestLEDGER1LedgerExistsBeforeActivation(t *testing.T)              { pending(t, "LEDGER-1") }
 func TestORD1PermanentConnectionPrecedesSpentWrite(t *testing.T)        { pending(t, "ORD-1") }
