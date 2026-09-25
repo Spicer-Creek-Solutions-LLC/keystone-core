@@ -1,15 +1,8 @@
 {
   "requirements": [
-    {"case":"DENY-1","owner":"C05-I","expiry":"C05-I","reason":"token validation, coarse refusal and denial audit do not exist","test":"TestDENY1TokenFailuresAreIndistinguishableAndAudited"},
-    {"case":"AUTH-1","owner":"C05-I","expiry":"C05-I","reason":"bootstrap identity binding and enrollment signature validation do not exist","test":"TestAUTH1RequestIdentityAndSignatureMustMatch"},
-    {"case":"IDEM-1","owner":"C05-I","expiry":"C05-I","reason":"issued-token key mismatch denial does not exist","test":"TestIDEM1DifferentKeysAreNotARetry"},
-    {"case":"IDEM-2","owner":"C05-I","expiry":"C05-I","reason":"idempotent permanent JWT return does not exist","test":"TestIDEM2SameKeysReturnSameIdentity"},
     {"case":"KEY-2","owner":"C05-I","expiry":"C05-I","reason":"the atomic pre-S1 agent-key artifact and restart path do not exist","test":"TestKEY2PersistedKeysSurvivePreRequestCrash"},
     {"case":"LEDGER-1","owner":"C05-I","expiry":"C05-I","reason":"enrollment does not initialize the ledger before activation","test":"TestLEDGER1LedgerExistsBeforeActivation"},
     {"case":"ORD-1","owner":"C05-I","expiry":"C05-I","reason":"no permanent connection proof or active-and-spent write exists","test":"TestORD1PermanentConnectionPrecedesSpentWrite"},
-    {"case":"SPENT-1","owner":"C05-I","expiry":"C05-I","reason":"spent-token refusal and S6 confirmation do not exist","test":"TestSPENT1SpentTokenOnlyAnswersConfirmation"},
-    {"case":"EXP-1","owner":"C05-I","expiry":"C05-I","reason":"no production bootstrap credential is exercised across expiry","test":"TestEXP1BrokerRefusesBootstrapAfterExpiry"},
-    {"case":"OBS-1","owner":"C05-I","expiry":"C05-I","reason":"server refusal and broker expiry are not yet observed by an enrollment journey","test":"TestOBS1EndOfBootstrapAccessIsObserved"},
     {"case":"S6-1","owner":"C05-I","expiry":"C05-I","reason":"the agent cannot receive or require S6 confirmation","test":"TestS61SuccessRequiresConfirmation"},
     {"case":"CRASH-1","owner":"C05-I","expiry":"C05-I","reason":"the S0-S1 fault point and recovery path do not exist","test":"TestCRASH1RecoverS0ToS1"},
     {"case":"CRASH-2","owner":"C05-I","expiry":"C05-I","reason":"the S1-S2 fault point and recovery path do not exist","test":"TestCRASH2RecoverS1ToS2"},

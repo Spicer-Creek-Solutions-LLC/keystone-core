@@ -552,10 +552,27 @@ func verifiedReply(t *testing.T, dep *deployment, data []byte) enrollmentReplyV1
 
 // harness connects the test process to the topology's broker with a
 // credential, TLS-first and verifying the broker, the way production clients
-// do. The broker is reached on the server network; a job container joins it
-// for the duration, and a developer host routes to the bridge directly.
+// do.
 func (tp *topology) harness(t *testing.T, creds string) *nats.Conn {
 	t.Helper()
+	c, err := tp.connect(t, creds)
+	if err != nil {
+		t.Fatalf("harness connect: %v", err)
+	}
+	return c
+}
+
+// reach makes the broker reachable from the test process, once. It is on the
+// server network; a job container joins that network for the duration, and a
+// developer host routes to the bridge directly.
+func (tp *topology) reach(t *testing.T) string {
+	t.Helper()
+	tp.mu.Lock()
+	ip := tp.brokerIP
+	tp.mu.Unlock()
+	if ip != "" {
+		return ip
+	}
 	if host, err := os.Hostname(); err == nil && exec.Command("docker", "inspect", host).Run() == nil {
 		if out, err := exec.Command("docker", "network", "connect", tp.serverNet, host).CombinedOutput(); err != nil &&
 			!strings.Contains(string(out), "already exists") {
@@ -563,19 +580,30 @@ func (tp *topology) harness(t *testing.T, creds string) *nats.Conn {
 		}
 		tp.cleanup(func() { exec.Command("docker", "network", "disconnect", "--force", tp.serverNet, host).Run() })
 	}
-	ip, err := exec.Command("docker", "inspect", "--format",
+	out, err := exec.Command("docker", "inspect", "--format",
 		fmt.Sprintf("{{ (index .NetworkSettings.Networks %q).IPAddress }}", tp.serverNet), tp.broker).Output()
-	if err != nil || strings.TrimSpace(string(ip)) == "" {
+	if err != nil || strings.TrimSpace(string(out)) == "" {
 		t.Fatalf("the broker has no address on %s: %v", tp.serverNet, err)
 	}
+	tp.mu.Lock()
+	tp.brokerIP = strings.TrimSpace(string(out))
+	tp.mu.Unlock()
+	return tp.brokerIP
+}
+
+// connect dials the broker with a credential and reports the broker's answer
+// rather than failing on it.
+func (tp *topology) connect(t *testing.T, creds string) (*nats.Conn, error) {
+	t.Helper()
+	ip := tp.reach(t)
 	opts, err := enrollment.ClientOptions(tp.dep.nats.TLS.CACertPEM, brokerAlias, []byte(creds))
 	if err != nil {
 		t.Fatal(err)
 	}
-	c, err := nats.Connect("tls://"+strings.TrimSpace(string(ip))+":4222", append(opts, nats.Timeout(10*time.Second))...)
+	c, err := nats.Connect("tls://"+ip+":4222", append(opts, nats.Timeout(10*time.Second), nats.NoReconnect())...)
 	if err != nil {
-		t.Fatalf("harness connect: %v", err)
+		return nil, err
 	}
 	t.Cleanup(c.Close)
-	return c
+	return c, nil
 }

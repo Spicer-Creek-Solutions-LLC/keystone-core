@@ -24,7 +24,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fail("usage: enrollment-probe <read-records|pipeline|request-and-notify|kill-on-fifo|watch-opens|watch-argv|watch-events|connect> [flags]")
+		fail("usage: enrollment-probe <read-records|write-records|pipeline|request-and-notify|kill-on-fifo|watch-opens|watch-argv|watch-events|connect> [flags]")
 	}
 	cmd, args := os.Args[1], os.Args[2:]
 	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
@@ -36,6 +36,11 @@ func main() {
 		query := fs.String("query", "", "")
 		fs.Parse(args)
 		result = readRecords(*db, *query)
+	case "write-records":
+		db := fs.String("db", "", "")
+		stmt := fs.String("statement", "", "")
+		fs.Parse(args)
+		result = writeRecords(*db, *stmt)
 	case "pipeline":
 		path := fs.String("path", "", "")
 		first := fs.String("first", "", "JSON body of the first request")
@@ -149,6 +154,27 @@ func readRecords(db, query string) records {
 	}
 	if err := rows.Err(); err != nil {
 		r.Error = err.Error()
+	}
+	return r
+}
+
+// writeRecords changes a stopped server's store: the fixture's way to make a
+// token one the service never issued.
+func writeRecords(db, stmt string) records {
+	var r records
+	conn, err := sql.Open("sqlite", "file:"+db)
+	if err != nil {
+		r.Error = err.Error()
+		return r
+	}
+	defer conn.Close()
+	res, err := conn.Exec(stmt)
+	if err != nil {
+		r.Error = err.Error()
+		return r
+	}
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
+		r.Error = fmt.Sprintf("%d rows changed: %v", n, err)
 	}
 	return r
 }
