@@ -226,8 +226,8 @@ func composeUp(t *testing.T) string {
 		t.Fatal("compose started no broker container")
 	}
 	// THE ADDRESS ON THE NETWORK WE JOINED, not whichever the daemon lists
-	// first. The broker is on both internal networks, and a Go template ranging
-	// over a map visits its keys SORTED -- so `agent-net` comes before
+	// first. The broker is on every internal network, and a Go template ranging
+	// over a map visits its keys SORTED -- so `agent-1-net` comes before
 	// `server-net`, and reading the first address dials the network this test
 	// is not on. That failed as `dial tcp ...: i/o timeout`, which names the
 	// symptom and not the cause.

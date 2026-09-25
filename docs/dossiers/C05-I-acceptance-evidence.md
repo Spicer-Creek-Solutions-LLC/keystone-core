@@ -161,3 +161,166 @@ against it, and the case failed. The unmodified code then passed.
 - Modes, `fsync`, ownership and real accounts: C13's VM gate.
 - Anything about the broker. I1 starts no broker; `EXP-1`, `OBS-1` and `TLS-1`
   are later stages.
+
+## Stage I2 — the journey across the broker
+
+### Result
+
+`keystone-agent enroll --token-file <path|->` turns a bundle into a permanent
+identity, and exits `0` only on S6's confirmation. The agent:
+
+1. refuses a bundle file readable by group or other, before generating a key
+   or sending anything;
+2. writes its key artifact — NKey seed, `AST-4`, `AST-5` — atomically at `0600`
+   before S1;
+3. connects with the bootstrap credential, TLS-first and verifying the broker,
+   and sends a request signed with its new key (S1);
+4. verifies the service-signed reply against the bundle's half, writes the
+   identity artifact atomically at `0600` and opens its ledger (S2);
+5. connects with the permanent identity and publishes a signed presence (S3);
+6. asks for confirmation until the service says active and spent (S6), then
+   closes the bootstrap connection and removes the bundle.
+
+The server runs the enrollment service on two TLS-first connections, one per
+service credential. It checks every request in `ADR-0003` § 5's order, records
+S1's halves and JWT once and returns the same JWT to the same halves, activates
+the agent and spends the token in one write on the first fresh presence signed
+with the recorded key (S4, S5), and confirms S6 on the spent token. It refuses
+to start if it cannot reach and verify the broker.
+
+Cases implemented: `STDIN-1`, `FILE-1`, `FILE-2`, `ARG-1`, `KEY-1`, `CRED-1`,
+`TLS-1`, `NON-1`, `ISO-1`, and `ID-1` from I1.
+
+**`LEDGER-1` moves to I4.** *"The ledger must exist before the server can reach
+S4"* is an order between two hosts, and without a hold the harness can only race
+it. The frozen `enrollment_agent_hold_after_identity_write_ms` hold, which I4
+builds, stops the agent after S2 and before S3's proof; the ledger must exist at
+that durable boundary. That is deterministic, and it is the observation the case
+should rest on.
+
+### The topology
+
+The contract's fixture is now the topology `ADR-0010` § 2 designs, built with
+the Docker CLI so each case owns its processes: a server network and **one
+network per agent**, all internal, the pinned broker the only service on every
+one, and no published port. The I1 cases run in it unchanged.
+`TestTopologyMatchesCompose` holds it to `compose.yaml`'s shape.
+
+`ISO-1` runs over **`compose.yaml` itself**: the server, both agents and the
+broker come up from the file, the operator issues on the server's host, each
+bundle is delivered out of band, and both agents enroll. This is the journey the
+workflow's owed-gates list names for C05; I6 changes that entry.
+
+**Two findings about the topology, both fixed here.**
+
+- **Agents could reach each other.** `TESTING.md` and `ADR-0010` § 2 require
+  agent-to-agent direct connections to fail, but both compose agents shared
+  `agent-net`, and the isolation probe only tested separate networks. `ISO-1`
+  freezes the requirement, so each agent now has a network of its own, and the
+  broker is attached to all of them. Disabling inter-container traffic on one
+  shared network would have cut the agents off from the broker as well.
+- **The compose images could not build.** The e2e `Dockerfile` copied
+  `go.mod` without `go.sum`, which fails once the server has any dependency.
+  Nothing built those images — the gates parse the file and start only the
+  broker — so the break was latent. `ISO-1` builds them. Each image now holds
+  all three binaries, so the server's host has the operator CLI beside it, as
+  `ADR-0009`'s local socket requires.
+
+### Contract result
+
+Inside a full `make check`, with every file staged:
+
+```text
+ok  go.keystone-core.io/keystone-core/test/contract/enrollment  95.672s
+ok  go.keystone-core.io/keystone-core/test/contract/operator  43.163s
+pending-contract: 19 registered case(s) across 4 package(s) fail for their documented reasons
+contract-immutability-check: test/contract/enrollment matches ae80fb12e7d86d40ff1318f431449393e5b7c729 (3 declared amendment(s) since 6115c70f35fb0aa03f6642a1de36471976650f05)
+check: ok
+```
+
+The first full run failed on the fixture, not the product: Docker had run out of
+address pools. The cleanup removed each agent's network while the broker was
+still attached to it, the removal failed silently, and every case leaked a
+network. Networks are now removed after every container, and a failed removal
+fails the case.
+
+### Planted defects
+
+Each was planted in production code — or, for `ISO-1`, in `compose.yaml` — and
+the named case failed against it for the reason it states.
+
+| Planted defect | Case rejected |
+|---|---|
+| `--token-file -` is read as a path | `STDIN-1` |
+| A bundle read from standard input is spooled to disk | `STDIN-1` |
+| The bundle file's mode is not checked | `FILE-1` |
+| The mode is checked only after keys are generated | `FILE-1` |
+| The bundle is kept after exit `0` | `FILE-2` |
+| The agent runs a child process with the bootstrap seed in its argv | `ARG-1` |
+| The agent puts its NKey seed in its NATS client name | `KEY-1` |
+| The agent publishes its signing private key on its presence subject | `KEY-1` |
+| The identity artifact is written in place | `CRED-1` |
+| The identity artifact is mode `0644` | `CRED-1` |
+| The identity artifact omits the service signing half | `CRED-1` |
+| The agent skips TLS verification | `TLS-1` |
+| The server verifies a fixed name instead of its configured one | `TLS-1` |
+| Activation rewrites every agent's record | `NON-1` |
+| A label that is a valid identifier becomes the identifier | `ID-1` |
+| The service trusts the envelope's sender over its record | `ID-1` |
+| The compose server is also on an agent's network | `ISO-1` |
+| The compose agents share a network | `ISO-1` |
+
+**One defect did not fail at first, and the fault was the plant.** The `ARG-1`
+plant parsed the seed from the raw bundle, where the credential's newlines are
+JSON escapes, so the parse failed and the child process never ran. Planted
+through the bundle's parsed credential, the seed reaches argv and the case names
+the process: `sleep 1 SUA…`.
+
+### How the cases observe what they claim
+
+- **`ARG-1`.** A sampler on each host reads every process's command line from
+  `/proc` continuously while the operator issues and while the agent enrolls,
+  and must itself have seen the command it was watching for — otherwise it
+  proves nothing about the run.
+- **`KEY-1`.** The agent's private keys are read from its artifact, in every
+  representation — the NKey seed, both Keystone keys in base64 and raw. The
+  server host's files and store, and the broker's `-DV` protocol trace, must hold
+  none. The trace's control is that it does hold the request's public signing
+  half.
+- **`CRED-1`.** `inotify` on the agent's state directory: the identity
+  artifact's name must appear only by `MOVED_TO`, never `CREATE`, `MODIFY` or
+  `CLOSE_WRITE`, which a write in place would show part-written.
+- **`TLS-1`.** Every connection is refused for a wrong name and for a CA that
+  did not issue the broker's certificate — the server by refusing to start, the
+  agent before sending anything — and succeeds when both are right. The broker
+  accepts only TLS-first TLS 1.3 (G49), so every connection that succeeds is one.
+- **`ID-1`.** The label is itself a valid 32-hex identifier, so a server that
+  used it would pass every format check. The harness then connects with the
+  token's own bootstrap credential and sends a correctly signed request naming
+  itself as another agent: it is refused, and nothing is recorded.
+- **`ISO-1`.** No shared network between any two of server, agent-1 and
+  agent-2, and `ping` from each to the other's address fails, with the control
+  that the server does reach the broker.
+
+### Decisions made within the approved plan
+
+- **A refused request gets a signed, bare denial.** `KindDenied` carries no
+  reason, so expired, spent and invalid are indistinguishable (`ADR-0003` § 5),
+  and the agent exits `10` at once rather than retrying until the token expires.
+  The reason is in the audit record. The frozen reply shape is unchanged; the
+  kind is an added value.
+- **Presence's payload is `{}`.** Presence's content is C10's; S3 needs only a
+  presence the service can verify.
+- **An enrollment envelope's correlation identifier is its token.** It is the
+  replay key `ADR-0005` § 6 gives both enrollment classes.
+- **The server does not start without the broker.** It tries for 15 seconds,
+  then exits `1`. A server that cannot enroll does not offer to issue tokens.
+- **The compose server's admin group is Alpine's `wheel`,** which root is in, so
+  the CLI runs as root on the server's host. The contract's own fixture keeps
+  C04's separate member and non-member accounts.
+
+### What I2 does not show
+
+- Everything VM-bound, as for I1.
+- Crash recovery and the fault points: I4 and I5. The agent already resumes
+  from its artifacts, but no case yet stops it at a boundary.

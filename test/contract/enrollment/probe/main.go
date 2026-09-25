@@ -24,7 +24,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fail("usage: enrollment-probe <read-records|pipeline|request-and-notify|kill-on-fifo|watch-opens|connect> [flags]")
+		fail("usage: enrollment-probe <read-records|pipeline|request-and-notify|kill-on-fifo|watch-opens|watch-argv|watch-events|connect> [flags]")
 	}
 	cmd, args := os.Args[1], os.Args[2:]
 	fs := flag.NewFlagSet(cmd, flag.ExitOnError)
@@ -62,6 +62,19 @@ func main() {
 		fs.StringVar(&out, "out", "", "")
 		fs.Parse(args)
 		result = watchOpens(*dir, *ready, *until)
+	case "watch-argv":
+		ready := fs.String("ready", "", "created once sampling has begun")
+		until := fs.String("until", "", "stop once this file exists")
+		fs.StringVar(&out, "out", "", "")
+		fs.Parse(args)
+		result = watchArgv(*ready, *until)
+	case "watch-events":
+		dir := fs.String("dir", "", "")
+		ready := fs.String("ready", "", "created once the watch is in place")
+		until := fs.String("until", "", "stop once this file exists")
+		fs.StringVar(&out, "out", "", "")
+		fs.Parse(args)
+		result = watchEvents(*dir, *ready, *until)
 	case "connect":
 		path := fs.String("path", "", "")
 		frame := fs.String("frame", "", "")
@@ -377,6 +390,110 @@ func watchOpens(dir, ready, until string) opensResult {
 			return r
 		}
 		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+type argvResult struct {
+	Error   string   `json:"error,omitempty"`
+	Samples int      `json:"samples"`
+	Argv    []string `json:"argv"`
+}
+
+// watchArgv samples every process's command line, as the kernel exposes it to
+// anyone on the host, until the until file exists, and returns each distinct
+// one seen.
+func watchArgv(ready, until string) argvResult {
+	var r argvResult
+	seen := map[string]bool{}
+	if err := os.WriteFile(ready, nil, 0o644); err != nil {
+		r.Error = err.Error()
+		return r
+	}
+	for {
+		stop := false
+		if _, err := os.Stat(until); err == nil {
+			stop = true
+		}
+		entries, err := os.ReadDir("/proc")
+		if err != nil {
+			r.Error = err.Error()
+			return r
+		}
+		for _, e := range entries {
+			b, err := os.ReadFile("/proc/" + e.Name() + "/cmdline")
+			if err != nil || len(b) == 0 {
+				continue
+			}
+			line := strings.ReplaceAll(strings.TrimRight(string(b), "\x00"), "\x00", " ")
+			if !seen[line] {
+				seen[line] = true
+				r.Argv = append(r.Argv, line)
+			}
+		}
+		r.Samples++
+		if stop {
+			return r
+		}
+	}
+}
+
+type eventsResult struct {
+	Error  string   `json:"error,omitempty"`
+	Events []string `json:"events"`
+}
+
+// watchEvents records every inotify event in dir, in order, as "EVENT name".
+func watchEvents(dir, ready, until string) eventsResult {
+	var r eventsResult
+	fd, err := syscall.InotifyInit1(syscall.IN_NONBLOCK | syscall.IN_CLOEXEC)
+	if err != nil {
+		r.Error = err.Error()
+		return r
+	}
+	defer syscall.Close(fd)
+	if _, err := syscall.InotifyAddWatch(fd, dir, syscall.IN_ALL_EVENTS); err != nil {
+		r.Error = err.Error()
+		return r
+	}
+	if err := os.WriteFile(ready, nil, 0o644); err != nil {
+		r.Error = err.Error()
+		return r
+	}
+	names := []struct {
+		mask uint32
+		name string
+	}{
+		{syscall.IN_CREATE, "CREATE"}, {syscall.IN_MODIFY, "MODIFY"}, {syscall.IN_CLOSE_WRITE, "CLOSE_WRITE"},
+		{syscall.IN_OPEN, "OPEN"}, {syscall.IN_MOVED_FROM, "MOVED_FROM"}, {syscall.IN_MOVED_TO, "MOVED_TO"},
+		{syscall.IN_DELETE, "DELETE"}, {syscall.IN_ATTRIB, "ATTRIB"},
+	}
+	buf := make([]byte, 64<<10)
+	for {
+		stop := false
+		if _, err := os.Stat(until); err == nil {
+			stop = true
+		}
+		n, err := syscall.Read(fd, buf)
+		for off := 0; n > 0 && off+syscall.SizeofInotifyEvent <= n; {
+			ev := (*syscall.InotifyEvent)(unsafe.Pointer(&buf[off]))
+			name := strings.TrimRight(string(buf[off+syscall.SizeofInotifyEvent:off+syscall.SizeofInotifyEvent+int(ev.Len)]), "\x00")
+			for _, m := range names {
+				if ev.Mask&m.mask != 0 {
+					r.Events = append(r.Events, m.name+" "+name)
+				}
+			}
+			off += syscall.SizeofInotifyEvent + int(ev.Len)
+		}
+		if err != nil && err != syscall.EAGAIN {
+			r.Error = err.Error()
+			return r
+		}
+		if stop && n <= 0 {
+			return r
+		}
+		if n <= 0 {
+			time.Sleep(2 * time.Millisecond)
+		}
 	}
 }
 
