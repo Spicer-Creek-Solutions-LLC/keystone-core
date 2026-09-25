@@ -302,7 +302,7 @@ func TestDENY1TokenFailuresAreIndistinguishableAndAudited(t *testing.T) {
 	}
 	run("spent", spent)
 	run("invalid", invalid)
-	waitPast(t, expired)
+	b.waitPast(expired)
 	run("expired", expired)
 
 	for name, r := range results {
@@ -352,10 +352,17 @@ func (b *box) forget(token string) {
 	}
 }
 
-// waitPast waits until a token's bootstrap credential has expired.
-func waitPast(t *testing.T, tok issued) {
-	t.Helper()
-	exp := time.Unix(bootstrapClaims(t, tok.bundle).Expires, 0)
+// waitPast waits until the token has expired by the server's record. That,
+// not the credential's own claim, is the deadline: the case is that the
+// credential stops working when the TOKEN does, and waiting on the JWT's claim
+// would let a credential minted to outlive its token set its own deadline.
+func (b *box) waitPast(tok issued) {
+	b.t.Helper()
+	rows := b.query(fmt.Sprintf("SELECT expires_at FROM enrollment WHERE token_id = '%s'", tok.bundle.TokenID)).Rows
+	if len(rows) != 1 {
+		b.t.Fatalf("token %s has %d records", tok.bundle.TokenID, len(rows))
+	}
+	exp := time.UnixMilli(int64(rows[0]["expires_at"].(float64)))
 	time.Sleep(time.Until(exp) + 2*time.Second)
 }
 
@@ -378,8 +385,8 @@ func TestEXP1BrokerRefusesBootstrapAfterExpiry(t *testing.T) {
 	s = tp.session(t, b, enrolled)
 	denied(t, "control: the spent credential before expiry", s.request(freshKeys(t), requestKindConfirm))
 	s.c.Close()
-	waitPast(t, untouched)
-	waitPast(t, enrolled)
+	b.waitPast(untouched)
+	b.waitPast(enrolled)
 	for name, tok := range map[string]issued{"untouched": untouched, "enrolled": enrolled} {
 		_, err := tp.connect(t, tok.bundle.BootstrapCredentials)
 		if err == nil || !errors.Is(err, nats.ErrAuthorization) && !strings.Contains(strings.ToLower(err.Error()), "authorization") {
@@ -414,7 +421,7 @@ func TestOBS1EndOfBootstrapAccessIsObserved(t *testing.T) {
 	s.c.Close()
 
 	// After expiry, the broker refuses the credential at connection.
-	waitPast(t, tok)
+	b.waitPast(tok)
 	if _, err := tp.connect(t, tok.bundle.BootstrapCredentials); err == nil || !strings.Contains(strings.ToLower(err.Error()), "authorization") {
 		t.Fatalf("after expiry: %v, want the broker's authorization violation", err)
 	}

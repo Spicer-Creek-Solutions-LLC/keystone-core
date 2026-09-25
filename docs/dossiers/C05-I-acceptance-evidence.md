@@ -327,3 +327,107 @@ the process: `sleep 1 SUA…`.
 - Everything VM-bound, as for I1.
 - Crash recovery and the fault points: I4 and I5. The agent already resumes
   from its artifacts, but no case yet stops it at a boundary.
+
+## Stage I3 — refusal, repetition and the end of bootstrap access
+
+### Result
+
+I3 adds no production behaviour of its own. I2's service already validated in
+`ADR-0003` § 5's order, kept S1 idempotent on the recorded halves, and answered
+only S6 on a spent token. I3 is the cases that prove it, and the defects below
+are what they catch.
+
+Cases implemented: `DENY-1`, `AUTH-1`, `IDEM-1`, `IDEM-2`, `SPENT-1`, `EXP-1`,
+`OBS-1`.
+
+### How the cases observe what they claim
+
+**The harness speaks the protocol.** It connects with a token's own bootstrap
+credential, TLS-first and verifying the broker, and sends exactly the request
+a case names, verifying every reply against the service's key:
+
+- **`AUTH-1`.** One token's identity publishing on another token's subject is
+  refused **by the broker** as a permissions violation, and nothing is
+  recorded for the other token. On its own subject, a request naming another
+  token in its signed envelope is denied. So is one whose halves are signed by
+  a different key. The control is the same token, correctly signed, being
+  answered.
+- **`IDEM-1` and `IDEM-2`.** The same halves again return the same JWT, and
+  one token has one minted identity and one credential audit record. Other
+  halves are denied and leave the recorded ones in place, and the recorded
+  ones are still answered afterwards.
+- **`SPENT-1`.** On a spent token these are all denied, and each denial is
+  recorded:
+  - a credential request with the enrolled halves;
+  - a credential request with other halves;
+  - a confirmation with other halves.
+
+  The enrolled agent's own confirmation is answered active and spent, twice,
+  and isn't recorded as a denial. A second agent given the kept bundle exits
+  `10`, and no second identity exists.
+- **`DENY-1`.** Three agents enroll with a spent, an expired and an invalid
+  token, and all exit `10`. **What each reported is compared**: exit code,
+  output, and the standard error the fixture keeps in the agent's log. Each
+  refusal must report something, or the comparison proves nothing.
+  - **Invalid:** a genuine bundle whose record the fixture removed from the
+    stopped server's store, so the broker accepts it and the service has never
+    heard of it.
+  - **Denials observed by the service:** the spent and invalid tokens'
+    denials are recorded with their reasons.
+  - **Expired:** the broker refuses it at connection, so the service observes
+    nothing to record.
+- **`EXP-1`.** Two one-minute tokens, one left untouched and one enrolled
+  through S4. Each completes a request before expiry. After expiry, each
+  connection attempt fails with the broker's authorization violation.
+- **`OBS-1`.** It runs under `-DV` protocol trace:
+  - after S4, the still-live credential's fresh request is denied, and that
+    adds exactly one denial record;
+  - the trace shows the token's own requests, which is the control, and no
+    publish to `$SYS.REQ.CLAIMS` from anything;
+  - after expiry, the broker refuses the credential.
+
+**An earlier draft of `DENY-1` compared nothing.** It compared captured
+standard error, which the fixture had already redirected to the agent's log,
+so all three were empty and equal. It was fixed before the defect run.
+
+### Planted defects
+
+Each was planted in production code and failed the named case for the reason
+it states.
+
+| Planted defect | Case rejected |
+|---|---|
+| The denial reply says why, and the agent reports it | `DENY-1` |
+| A spent token's denial is answered but not recorded | `DENY-1` |
+| The agent exits `1` when the broker refuses an expired credential | `DENY-1` |
+| The request's signature is not verified | `AUTH-1` |
+| The envelope's token is not checked against the subject's | `AUTH-1` |
+| Other halves are given the recorded identity | `IDEM-1` |
+| Every request mints and records a new JWT | `IDEM-2` |
+| A spent token still issues credentials | `SPENT-1` |
+| A spent token refuses the enrolled agent's confirmation too | `SPENT-1` |
+| The bootstrap credential outlives its token by a day | `EXP-1` |
+| The agent publishes to `$SYS.REQ.CLAIMS` after confirmation | `OBS-1` |
+| A spent token's denial is answered but not recorded | `OBS-1` |
+
+**Two results were not taken at face value.**
+
+- *Every request mints and records a new JWT* returned **byte-identical JWTs**
+  within one second: `iat` has one-second resolution and the signature is
+  deterministic. The case's "same JWT" assertion alone would have passed it;
+  its count of credential audit records is what rejected it. Both assertions
+  stay, and this is why the second is not redundant.
+- *The bootstrap credential outlives its token* was first "rejected" by a test
+  timeout, not an assertion: the cases waited for the credential's own claimed
+  expiry, which the defect had moved a day out. A timeout is not evidence. The
+  cases now wait for the token's expiry **as the server recorded it** — the
+  deadline the requirement is about — and against the defect `EXP-1` fails
+  because both credentials still connect after it. The timed-out run also left
+  its containers and networks behind, since a panic skips cleanup; the fixture
+  now sweeps its own labelled leftovers once per process, as C04's does.
+
+### Decisions made within the approved plan
+
+- **The agent treats the broker's refusal of its bootstrap credential as a
+  refused token,** exit `10`. After expiry the broker is the component that
+  refuses, and the charter's code for an expired token is `10` either way.

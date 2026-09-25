@@ -69,6 +69,7 @@ func repoRoot() string { return filepath.Join("..", "..", "..") }
 func buildImage(t *testing.T) {
 	t.Helper()
 	buildOnce.Do(func() {
+		sweep()
 		var buf bytes.Buffer
 		tw := tar.NewWriter(&buf)
 		root := repoRoot()
@@ -108,6 +109,21 @@ func buildImage(t *testing.T) {
 	})
 	if buildErr != nil {
 		t.Fatal(buildErr)
+	}
+}
+
+// sweep removes what an earlier run of this package left behind. A panic or a
+// killed test binary skips t.Cleanup, and this forge cancels runs on push, so
+// leftovers are expected; networks left behind exhaust Docker's address pools.
+// It runs once per process, before this process has created anything.
+func sweep() {
+	out, _ := exec.Command("docker", "ps", "-aq", "--filter", "label="+containerLabel).Output()
+	for _, id := range strings.Fields(string(out)) {
+		exec.Command("docker", "rm", "--force", id).Run()
+	}
+	out, _ = exec.Command("docker", "network", "ls", "-q", "--filter", "label="+containerLabel).Output()
+	for _, id := range strings.Fields(string(out)) {
+		exec.Command("docker", "network", "rm", id).Run()
 	}
 }
 
