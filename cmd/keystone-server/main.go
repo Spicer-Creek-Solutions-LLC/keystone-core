@@ -1,7 +1,7 @@
 // Command keystone-server is the server.
 //
 // It owns the local operator socket and, when enrollment is configured, issues
-// enrollment tokens through it.
+// enrollment tokens through it and runs the enrollment service on the broker.
 package main
 
 import (
@@ -95,6 +95,16 @@ func run(args []string, out, errOut *os.File) cli.Code {
 			fmt.Fprintf(errOut, "%s: record enabled fault: %v\n", role, err)
 			return cli.Local
 		}
+	}
+	// The enrollment service reaches and verifies the broker before the socket
+	// exists: a server that cannot enroll does not offer to issue tokens.
+	if enroll != nil {
+		svc, err := enroll.Start(context.Background())
+		if err != nil {
+			fmt.Fprintf(errOut, "%s: enrollment: %v\n", role, err)
+			return cli.Local
+		}
+		defer svc.Close()
 	}
 	srv, err := operator.New(cfg, st)
 	if err != nil {

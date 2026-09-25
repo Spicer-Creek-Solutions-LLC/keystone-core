@@ -122,7 +122,7 @@ type deployment struct {
 
 func newDeployment(t *testing.T) *deployment {
 	t.Helper()
-	d, err := natsauth.Generate(natsauth.Config{FleetSize: 4, BrokerNames: []string{"broker"}, RuntimeDir: "/etc/nats"})
+	d, err := natsauth.Generate(natsauth.Config{FleetSize: 4, BrokerNames: []string{brokerAlias}, RuntimeDir: brokerRuntimeDir})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,20 +143,26 @@ type box struct {
 	t    *testing.T
 	name string
 	dep  *deployment
+	tp   *topology
 }
 
+// newBox is a server host in a topology of its own.
 func newBox(t *testing.T) *box {
 	t.Helper()
-	if _, err := exec.LookPath("docker"); err != nil {
-		t.Fatalf("the enrollment contract requires Docker: %v", err)
-	}
-	buildImage(t)
-	b := &box{t: t, name: fmt.Sprintf("keystone-c05-%d", time.Now().UnixNano()), dep: newDeployment(t)}
+	return newTopology(t).server()
+}
+
+// server starts the server host on the server network. The operator CLI runs
+// here too: ADR-0009's socket is local to the server.
+func (tp *topology) server() *box {
+	t := tp.t
+	t.Helper()
+	b := &box{t: t, name: tp.prefix + "-server", dep: tp.dep, tp: tp}
 	if out, err := exec.Command("docker", "run", "-d", "--name", b.name, "--label", containerLabel,
-		"--network", "none", "--tmpfs", storeDir+":rw,size=16m", image).CombinedOutput(); err != nil {
+		"--network", tp.serverNet, "--tmpfs", storeDir+":rw,size=16m", image).CombinedOutput(); err != nil {
 		t.Fatalf("start container: %v\n%s", err, out)
 	}
-	t.Cleanup(func() {
+	tp.cleanup(func() {
 		if t.Failed() {
 			log, _ := b.exec("", "cat", serverLog)
 			t.Logf("server log:\n%s", log)
@@ -257,6 +263,16 @@ type serverConf struct {
 	EnrollmentCreds string // default: the enrollment service's own credential
 	PresenceCreds   string // default: the presence consumer's own credential
 	HoldResponseMS  int
+	// ServerName is the broker name the server verifies; default the one its
+	// certificate carries.
+	ServerName string
+}
+
+func (c serverConf) serverName() string {
+	if c.ServerName == "" {
+		return brokerAlias
+	}
+	return c.ServerName
 }
 
 func (c serverConf) render() string {
@@ -271,9 +287,9 @@ func (c serverConf) render() string {
 	fmt.Fprintf(&s, "[operator]\nadmin_group = %q\n\n[store]\npath = %q\n\n", adminGroup, storePath)
 	fmt.Fprintf(&s, "[%s]\n", serverTableNATS)
 	for _, kv := range [][2]string{
-		{serverKeyBrokerURL, "tls://broker:4222"},
+		{serverKeyBrokerURL, "tls://" + brokerAlias + ":4222"},
 		{serverKeyBrokerCA, natsDir + "/ca.pem"},
-		{serverKeyBrokerName, "broker"},
+		{serverKeyBrokerName, c.serverName()},
 		{serverKeyEnrollmentCreds, enroll},
 		{serverKeyPresenceCreds, presence},
 		{serverKeyAccountSigningSeed, natsDir + "/account-signing.nk"},
