@@ -181,6 +181,11 @@ func TestIssueRefusesBadNamesAndLifetimes(t *testing.T) {
 		ttl  time.Duration
 	}{
 		{"", 0}, {"bad\nname", 0}, {string(make([]byte, MaxAgentName+1)), 0}, {"\xff", 0},
+		// Format characters are not controls: a zero-width space, a
+		// right-to-left override, a zero-width joiner, a byte-order mark.
+		{"web\u200b1", 0}, {"web\u202e1", 0}, {"web\u200d1", 0}, {"\ufeffweb", 0},
+		// Whitespace other than the ASCII space.
+		{"web\t1", 0}, {"web\u00a01", 0},
 		{"ok", 59 * time.Second}, {"ok", 3541 * time.Second}, {"ok", -time.Minute},
 	} {
 		if _, err := s.Issuer.Issue(context.Background(), Actor{UID: 1}, c.name, c.ttl); !errors.Is(err, ErrInvalidRequest) {
@@ -190,6 +195,11 @@ func TestIssueRefusesBadNamesAndLifetimes(t *testing.T) {
 	var n int
 	if err := st.DB().QueryRow(`SELECT COUNT(*) FROM enrollment`).Scan(&n); err != nil || n != 0 {
 		t.Fatalf("refused requests left %d records (%v)", n, err)
+	}
+	for _, name := range []string{"web-1", "web 1", "wéb-ünïcode", "服务器"} {
+		if !ValidAgentName(name) {
+			t.Errorf("printable label %q refused", name)
+		}
 	}
 	for _, ttl := range []time.Duration{0, MinTokenTTL, MaxTokenTTL} {
 		if _, err := s.Issuer.Issue(context.Background(), Actor{UID: 1}, "ok", ttl); err != nil {

@@ -82,13 +82,16 @@ func TokenTTL(requested time.Duration) (time.Duration, error) {
 }
 
 // ValidAgentName reports whether a label is acceptable: present, bounded, and
-// printable, since it is shown to operators.
+// printable, since it is shown to operators. Printable is unicode.IsPrint, not
+// "not a control character": format characters such as a zero-width space or a
+// right-to-left override are not controls, and would let a label display as
+// something other than what it is.
 func ValidAgentName(name string) bool {
 	if name == "" || len(name) > MaxAgentName || !utf8.ValidString(name) {
 		return false
 	}
 	for _, r := range name {
-		if unicode.IsControl(r) {
+		if !unicode.IsPrint(r) {
 			return false
 		}
 	}
