@@ -17,9 +17,11 @@ var acceptanceContractSurface = map[string]acceptanceCase{
 	"CLI-1":    {"TestCLI1RefusalPathsAreIndistinguishable", "kernel and in-band operator authorization refusals must be indistinguishable to the CLI caller"},
 	"CLI-2":    {"TestCLI2AuthorizationRefusalsExitTen", "both operator authorization refusal paths must exit 10"},
 	"CLI-3":    {"TestCLI3MissingSocketExitsOne", "a missing operator socket must exit 1"},
-	"LIM-5":    {"TestLIM5BoundsInflightRequests", "one operator connection must not hold more requests in flight than the configured limit"},
+	"LIM-5":    {"TestLIM5BoundsInflightRequests", "one operator connection must process exactly one request at a time: it must not read a pipelined second frame until the first reply is written, and replies must preserve request order"},
+	"FLT-2":    {"TestFLT2OperatorResponseHoldIsAudited", "before serving a connection, a server with operator_hold_before_response_ms enabled must record fault.enabled:operator_hold_before_response_ms, and a server without it must record no such action"},
 	"JWT-1":    {"TestJWT1BootstrapCredentialIsExactAndBounded", "the bootstrap JWT must have only its token request and reply grants, expire with the token, and match C03's frozen matrix"},
-	"BND-1":    {"TestBND1BundleCarriesBothServiceTrustHalves", "the bundle must carry the service signing and result-encryption public halves"},
+	"BND-1":    {"TestBND1BundleCarriesBothServiceTrustHalves", "the bundle must carry the public halves of the fixture-provisioned service signing private key and result-encryption public key"},
+	"SKEY-1":   {"TestSKEY1ServiceSigningPrivateKeyIsOwnerOnly", "the server must refuse to start when the configured service signing private-key file has any group or other permission bit; owner-only modes including 0400 and 0600 are permitted"},
 	"ARG-1":    {"TestARG1BundleNeverAppearsInArgv", "the token bundle and its bootstrap seed must never appear in a process argv"},
 	"FILE-1":   {"TestFILE1RefusesReadableBundle", "a bundle file readable by group or world must be refused as local error 1"},
 	"STDIN-1":  {"TestSTDIN1EnrollsFromStandardInput", "--token-file - must consume the bundle from standard input and enroll"},
@@ -74,6 +76,10 @@ const (
 	serverKeyEnrollmentCreds    = "enrollment_credentials"
 	serverKeyPresenceCreds      = "presence_credentials"
 	serverKeyAccountSigningSeed = "account_signing_seed"
+	serverTableService          = "service"
+	serverKeySigningPrivateKey  = "signing_private_key_file"
+	serverKeyResultPublicKey    = "result_encryption_public_key_file"
+	serverTableFaults           = "faults"
 	agentTableNATS              = "nats"
 	agentKeyBrokerURL           = "url"
 	agentKeyBrokerCA            = "ca_file"
@@ -88,6 +94,7 @@ const (
 	agentFaultRecordVersion     = 1
 	privateArtifactMode         = 0o600
 
+	faultOperatorBeforeResponse  = "operator_hold_before_response_ms"
 	faultAgentBeforeRequest      = "enrollment_agent_hold_before_request_ms"
 	faultAgentAfterReply         = "enrollment_agent_hold_after_credential_reply_ms"
 	faultAgentAfterIdentityWrite = "enrollment_agent_hold_after_identity_write_ms"
@@ -95,6 +102,8 @@ const (
 	faultAgentBeforeConfirmation = "enrollment_agent_hold_before_confirmation_ms"
 	faultServerAfterActivation   = "enrollment_server_hold_after_activation_commit_ms"
 )
+
+const serviceSigningKeyForbiddenMode = 0o077
 
 type operatorEnrollRequest struct {
 	Operation  string `json:"op"`
@@ -172,8 +181,9 @@ const (
 var _ = map[string]func(*testing.T){
 	"ISS-1": TestISS1TokenIssuedOnceAndAudited, "CLI-1": TestCLI1RefusalPathsAreIndistinguishable,
 	"CLI-2": TestCLI2AuthorizationRefusalsExitTen, "CLI-3": TestCLI3MissingSocketExitsOne,
-	"LIM-5": TestLIM5BoundsInflightRequests, "JWT-1": TestJWT1BootstrapCredentialIsExactAndBounded,
-	"BND-1": TestBND1BundleCarriesBothServiceTrustHalves, "ARG-1": TestARG1BundleNeverAppearsInArgv,
+	"LIM-5": TestLIM5BoundsInflightRequests, "FLT-2": TestFLT2OperatorResponseHoldIsAudited,
+	"JWT-1": TestJWT1BootstrapCredentialIsExactAndBounded, "BND-1": TestBND1BundleCarriesBothServiceTrustHalves,
+	"SKEY-1": TestSKEY1ServiceSigningPrivateKeyIsOwnerOnly, "ARG-1": TestARG1BundleNeverAppearsInArgv,
 	"FILE-1": TestFILE1RefusesReadableBundle, "STDIN-1": TestSTDIN1EnrollsFromStandardInput,
 	"FILE-2": TestFILE2SuccessfulEnrollmentRemovesBundle, "DENY-1": TestDENY1TokenFailuresAreIndistinguishableAndAudited,
 	"AUTH-1": TestAUTH1RequestIdentityAndSignatureMustMatch, "IDEM-1": TestIDEM1DifferentKeysAreNotARetry,
