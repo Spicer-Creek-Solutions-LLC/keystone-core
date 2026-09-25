@@ -72,7 +72,12 @@ func TestNoBinaryCanReachTheBrokerTheSocketOrAProcess(t *testing.T) {
 		for _, imp := range f.Imports {
 			path := strings.Trim(imp.Path.Value, `"`)
 			operatorFile := strings.Contains(filepath.ToSlash(p), "/internal/operator/")
-			if why, bad := forbidden[path]; bad && !isTest && !(operatorFile && path == "golang.org/x/sys/unix") {
+			// C05 connects to NATS for enrollment, and only there (C05.md § 3.3).
+			// The rest of the transport is still C06's.
+			enrollmentFile := strings.Contains(filepath.ToSlash(p), "/internal/enrollment/")
+			if why, bad := forbidden[path]; bad && !isTest &&
+				!(operatorFile && path == "golang.org/x/sys/unix") &&
+				!(enrollmentFile && path == "github.com/nats-io/nats.go") {
 				t.Errorf("%s imports %q: %s", p, path, why)
 			}
 			if path == "net" && !isTest && !operatorFile {

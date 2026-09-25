@@ -1,17 +1,10 @@
 {
   "requirements": [
-    {"case":"ARG-1","owner":"C05-I","expiry":"C05-I","reason":"the agent enrollment command does not exist","test":"TestARG1BundleNeverAppearsInArgv"},
-    {"case":"FILE-1","owner":"C05-I","expiry":"C05-I","reason":"bundle-file mode enforcement does not exist","test":"TestFILE1RefusesReadableBundle"},
-    {"case":"STDIN-1","owner":"C05-I","expiry":"C05-I","reason":"standard-input enrollment does not exist","test":"TestSTDIN1EnrollsFromStandardInput"},
-    {"case":"FILE-2","owner":"C05-I","expiry":"C05-I","reason":"successful enrollment and bundle removal do not exist","test":"TestFILE2SuccessfulEnrollmentRemovesBundle"},
     {"case":"DENY-1","owner":"C05-I","expiry":"C05-I","reason":"token validation, coarse refusal and denial audit do not exist","test":"TestDENY1TokenFailuresAreIndistinguishableAndAudited"},
     {"case":"AUTH-1","owner":"C05-I","expiry":"C05-I","reason":"bootstrap identity binding and enrollment signature validation do not exist","test":"TestAUTH1RequestIdentityAndSignatureMustMatch"},
     {"case":"IDEM-1","owner":"C05-I","expiry":"C05-I","reason":"issued-token key mismatch denial does not exist","test":"TestIDEM1DifferentKeysAreNotARetry"},
     {"case":"IDEM-2","owner":"C05-I","expiry":"C05-I","reason":"idempotent permanent JWT return does not exist","test":"TestIDEM2SameKeysReturnSameIdentity"},
-    {"case":"ID-1","owner":"C05-I","expiry":"C05-I","reason":"server-assigned permanent agent identifiers do not exist","test":"TestID1AgentIdentifierIsServerAssigned"},
-    {"case":"KEY-1","owner":"C05-I","expiry":"C05-I","reason":"agent-side key generation and the production enrollment path do not exist","test":"TestKEY1AgentPrivateKeysNeverLeaveAgent"},
     {"case":"KEY-2","owner":"C05-I","expiry":"C05-I","reason":"the atomic pre-S1 agent-key artifact and restart path do not exist","test":"TestKEY2PersistedKeysSurvivePreRequestCrash"},
-    {"case":"CRED-1","owner":"C05-I","expiry":"C05-I","reason":"the atomic permanent identity artifact does not exist","test":"TestCRED1IdentityArtifactIsAtomicAndPrivate"},
     {"case":"LEDGER-1","owner":"C05-I","expiry":"C05-I","reason":"enrollment does not initialize the ledger before activation","test":"TestLEDGER1LedgerExistsBeforeActivation"},
     {"case":"ORD-1","owner":"C05-I","expiry":"C05-I","reason":"no permanent connection proof or active-and-spent write exists","test":"TestORD1PermanentConnectionPrecedesSpentWrite"},
     {"case":"SPENT-1","owner":"C05-I","expiry":"C05-I","reason":"spent-token refusal and S6 confirmation do not exist","test":"TestSPENT1SpentTokenOnlyAnswersConfirmation"},
@@ -25,9 +18,6 @@
     {"case":"CRASH-5","owner":"C05-I","expiry":"C05-I","reason":"the agent S4-S6 fault point and recovery path do not exist","test":"TestCRASH5RecoverAgentS4ToS6"},
     {"case":"CRASH-6","owner":"C05-I","expiry":"C05-I","reason":"the server S4-S6 fault point and recovery path do not exist","test":"TestCRASH6RecoverServerS4ToS6"},
     {"case":"RECON-1","owner":"C05-I","expiry":"C05-I","reason":"permanent agent reconnect does not exist","test":"TestRECON1EnrolledAgentReconnectsWithoutEnrollment"},
-    {"case":"RECON-2","owner":"C05-I","expiry":"C05-I","reason":"the agent has no identity-artifact startup behavior","test":"TestRECON2MissingIdentityFailsLocally"},
-    {"case":"NON-1","owner":"C05-I","expiry":"C05-I","reason":"no two-agent enrollment journey exists","test":"TestNON1SecondEnrollmentDoesNotChangeFirst"},
-    {"case":"TLS-1","owner":"C05-I","expiry":"C05-I","reason":"the production server and agent make no NATS connections yet","test":"TestTLS1EveryProductionConnectionVerifiesBroker"},
-    {"case":"ISO-1","owner":"C05-I","expiry":"C05-I","reason":"no enrollment journey crosses the isolated production topology","test":"TestISO1JourneyUsesOnlyBrokerBetweenServerAndAgents"}
+    {"case":"RECON-2","owner":"C05-I","expiry":"C05-I","reason":"the agent has no identity-artifact startup behavior","test":"TestRECON2MissingIdentityFailsLocally"}
   ]
 }

@@ -1,16 +1,15 @@
-# The minimum topology TESTING.md § "Required test topology" requires, as far as
-# P11b can build it: the networks and their isolation are real, and the services
-# are the three binaries P11a landed, which start and report their version.
-#
-# They do not yet talk to each other. C05 is the first task with a journey to
-# run across this. C03 generates the production NATS configuration the broker
-# runs -- ADR-0010 § 3 forbids a test-only one -- and since C03-I6 the broker
-# below consumes it.
+# The minimum topology TESTING.md § "Required test topology" requires: the
+# networks and their isolation are real, the broker runs the configuration C03
+# generates -- ADR-0010 § 3 forbids a test-only one -- and since C05 the server
+# and agents run enrollment across it. The enrollment contract's ISO-1 is the
+# journey, and TestTopologyMatchesCompose holds that contract's own topology to
+# this file's shape.
 name: keystone-acceptance
 
 services:
-  # NATS is the only service attached to both networks. That is the whole shape:
-  # ARCH-COMM-002 requires server and agents to work with no direct route.
+  # NATS is the only service attached to every network. That is the whole
+  # shape: ARCH-COMM-002 requires server and agents to work with no direct
+  # route, and TESTING.md requires agent-to-agent connections to fail too.
   broker:
     image: nats:2.15.0-alpine
     # No -m: the monitoring endpoint is plain HTTP, nothing reads it, and
@@ -19,24 +18,38 @@ services:
     # TLS-first.
     command: ["-c", "/etc/nats/nats-server.conf", "-js"]
     volumes: ["keystone-nats-config:/etc/nats:ro"]
-    networks: [server-net, agent-net]
+    networks: [server-net, agent-1-net, agent-2-net]
 
+  # The server with no arguments: its configuration, credentials and service
+  # keys arrive in the seeded volume, and it serves until stopped. The operator
+  # CLI is run in this container, where the socket is.
   server:
     build: {context: ../../.., dockerfile: test/e2e/docker/Dockerfile, args: {BIN: keystone-server}}
-    command: ["--version"]
+    environment: [KEYSTONE_SERVER_CONFIG=/etc/keystone/keystone-server.toml]
+    volumes: ["keystone-server-config:/etc/keystone:ro"]
+    tmpfs: [/var/lib/keystone]
+    depends_on: [broker]
     networks: [server-net]
 
   # Two agents with different identities. TESTING.md requires at least two: the
-  # non-target assertion ARCH-TEST-001 asks for is meaningless with one.
+  # non-target assertion ARCH-TEST-001 asks for is meaningless with one. Each
+  # waits for its bundle, which the operator delivers out of band; enrollment
+  # is then `keystone-agent enroll` in the container.
   agent-1:
     build: {context: ../../.., dockerfile: test/e2e/docker/Dockerfile, args: {BIN: keystone-agent}}
-    command: ["--version"]
-    networks: [agent-net]
+    entrypoint: ["tail", "-f", "/dev/null"]
+    environment: [KEYSTONE_AGENT_CONFIG=/etc/keystone/keystone-agent.toml]
+    volumes: ["keystone-agent-config:/etc/keystone:ro"]
+    tmpfs: ["/var/lib/keystone-agent:mode=0700"]
+    networks: [agent-1-net]
 
   agent-2:
     build: {context: ../../.., dockerfile: test/e2e/docker/Dockerfile, args: {BIN: keystone-agent}}
-    command: ["--version"]
-    networks: [agent-net]
+    entrypoint: ["tail", "-f", "/dev/null"]
+    environment: [KEYSTONE_AGENT_CONFIG=/etc/keystone/keystone-agent.toml]
+    volumes: ["keystone-agent-config:/etc/keystone:ro"]
+    tmpfs: ["/var/lib/keystone-agent:mode=0700"]
+    networks: [agent-2-net]
 
   operator:
     build: {context: ../../.., dockerfile: test/e2e/docker/Dockerfile, args: {BIN: keystone}}
@@ -45,10 +58,16 @@ services:
 
 # No route between them, and no host ports published anywhere: TESTING.md
 # requires that no agent publishes one.
+#
+# One network per agent. Two agents sharing a network could reach each other
+# directly, which TESTING.md forbids as it forbids a server-to-agent route; C05's
+# ISO-1 is the first case to require it, and found the shared network.
 networks:
   server-net:
     internal: true
-  agent-net:
+  agent-1-net:
+    internal: true
+  agent-2-net:
     internal: true
 
 # THE CONFIGURATION IS GENERATED, AND THIS VOLUME IS HOW IT ARRIVES.
@@ -65,4 +84,8 @@ networks:
 # stopped matching the generator is exactly what it forbids it for.
 volumes:
   keystone-nats-config:
+    external: true
+  keystone-server-config:
+    external: true
+  keystone-agent-config:
     external: true

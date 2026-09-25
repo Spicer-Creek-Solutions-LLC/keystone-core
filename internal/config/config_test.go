@@ -329,3 +329,48 @@ func TestLoadServerRefusesRelativeFilePaths(t *testing.T) {
 		t.Errorf("relative store path: %v", err)
 	}
 }
+
+const agentText = `[nats]
+url = "tls://broker:4222"
+ca_file = "/etc/keystone/ca.pem"
+server_name = "broker"
+
+[agent]
+identity_path = "/var/lib/keystone-agent/identity.json"
+private_keys_path = "/var/lib/keystone-agent/keys.json"
+ledger_path = "/var/lib/keystone-agent/ledger.db"
+`
+
+func TestLoadAgentReadsEveryKeyAndRequiresThem(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "agent.toml")
+	if err := os.WriteFile(p, []byte(agentText), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := LoadAgent(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.NATS.URL != "tls://broker:4222" || c.Agent.LedgerPath != "/var/lib/keystone-agent/ledger.db" || c.Faults.RecordPath != "" {
+		t.Fatalf("%+v", c)
+	}
+	lines := strings.Split(strings.TrimSpace(agentText), "\n")
+	for i, line := range lines {
+		if !strings.Contains(line, "=") {
+			continue
+		}
+		partial := strings.Join(append(append([]string{}, lines[:i]...), lines[i+1:]...), "\n") + "\n"
+		if err := os.WriteFile(p, []byte(partial), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := LoadAgent(p); err == nil {
+			t.Errorf("accepted without %q", line)
+		}
+	}
+	rel := strings.Replace(agentText, `"/var/lib/keystone-agent/keys.json"`, `"keys.json"`, 1)
+	if err := os.WriteFile(p, []byte(rel), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadAgent(p); !errors.Is(err, ErrRelativePath) {
+		t.Errorf("relative key path: %v", err)
+	}
+}
