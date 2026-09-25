@@ -148,16 +148,26 @@ func (s *Service) onRequest(m *nats.Msg) {
 	if token == "" {
 		return
 	}
-	ctx := context.Background()
-	reply, reason := s.handle(ctx, token, m.Data)
-	if reason != "" {
-		s.deny(ctx, token, reason)
-		reply = &Reply{Kind: KindDenied}
+	if reply := s.respond(context.Background(), token, m.Data); reply != nil {
+		s.reply(token, *reply)
 	}
-	if reply == nil {
-		return
+}
+
+// respond decides the reply to one request, or none. A denial is answered only
+// once its audit record is durable: an unrecorded denial is a failure
+// (ARCH-OBS-001), and answering it anyway would let the caller observe a
+// refusal the record does not show -- the rule C04's ORD-3 holds the operator
+// socket to.
+func (s *Service) respond(ctx context.Context, token string, data []byte) *Reply {
+	reply, reason := s.handle(ctx, token, data)
+	if reason == "" {
+		return reply
 	}
-	s.reply(token, *reply)
+	if err := s.deny(ctx, token, reason); err != nil {
+		log.Printf("enrollment: denial not recorded, so not sent: %v", err)
+		return nil
+	}
+	return &Reply{Kind: KindDenied}
 }
 
 // handle applies ADR-0003 § 5's checks in order, then S1 or S6. It returns the
@@ -239,13 +249,11 @@ func (s *Service) credential(ctx context.Context, rec store.EnrollmentRecord, h 
 	return &Reply{Kind: KindCredential, AgentID: rec.AgentID, PermanentJWT: id.JWT}, ""
 }
 
-func (s *Service) deny(ctx context.Context, token, reason string) {
+func (s *Service) deny(ctx context.Context, token, reason string) error {
 	target := token
-	if err := s.store.AppendAuditRecord(ctx, store.AuditRecord{
+	return s.store.AppendAuditRecord(ctx, store.AuditRecord{
 		CorrelationID: &target, Action: ActionDenied, Result: reason, At: s.now(),
-	}); err != nil {
-		log.Printf("enrollment: record denial: %v", err)
-	}
+	})
 }
 
 func (s *Service) reply(token string, r Reply) {

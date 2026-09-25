@@ -308,7 +308,10 @@ the process: `sleep 1 SUA…`.
   reason, so expired, spent and invalid are indistinguishable (`ADR-0003` § 5),
   and the agent exits `10` at once rather than retrying until the token expires.
   The reason is in the audit record. The frozen reply shape is unchanged; the
-  kind is an added value.
+  kind is an added value. **A denial is sent only once its record is durable**:
+  if the audit write fails, the request is not answered, as C04's `ORD-3` holds
+  the operator socket to. `TestDenialIsAnsweredOnlyOnceRecorded` forces the
+  failure and fails against the version that answered anyway.
 - **Presence's payload is `{}`.** Presence's content is C10's; S3 needs only a
   presence the service can verify.
 - **An enrollment envelope's correlation identifier is its token.** It is the
