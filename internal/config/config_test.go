@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 )
 
 func env(m map[string]string) func(string) string {
@@ -243,5 +245,87 @@ func TestLoadServerRejectsLimitsAboveSanityCeilings(t *testing.T) {
 				t.Fatal("limit above sanity ceiling was accepted")
 			}
 		})
+	}
+}
+
+const enrollmentTables = `[nats]
+url = "tls://broker:4222"
+ca_file = "/etc/keystone/ca.pem"
+server_name = "broker"
+enrollment_credentials = "/etc/keystone/enrollment-service.creds"
+presence_credentials = "/etc/keystone/presence-consumer.creds"
+account_signing_seed = "/etc/keystone/account-signing.nk"
+
+[service]
+signing_private_key_file = "/etc/keystone/service-signing.key"
+result_encryption_public_key_file = "/etc/keystone/result-encryption.pub"
+`
+
+func loadServerText(t *testing.T, data string) (Server, error) {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "server.toml")
+	if err := os.WriteFile(p, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return LoadServer(p)
+}
+
+const operatorTables = "[operator]\nadmin_group = \"admin\"\n[store]\npath = \"/var/lib/keystone/server.db\"\n"
+
+func TestLoadServerReadsEnrollmentTables(t *testing.T) {
+	c, err := loadServerText(t, operatorTables+enrollmentTables+"[faults]\noperator_hold_before_response_ms = 250\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := NATS{
+		URL: "tls://broker:4222", CAFile: "/etc/keystone/ca.pem", ServerName: "broker",
+		EnrollmentCredentials: "/etc/keystone/enrollment-service.creds",
+		PresenceCredentials:   "/etc/keystone/presence-consumer.creds",
+		AccountSigningSeed:    "/etc/keystone/account-signing.nk",
+	}
+	if c.NATS != want || !c.Enrollment() {
+		t.Fatalf("nats = %+v", c.NATS)
+	}
+	if c.Service.SigningPrivateKeyFile != "/etc/keystone/service-signing.key" ||
+		c.Service.ResultEncryptionPublicKeyFile != "/etc/keystone/result-encryption.pub" {
+		t.Fatalf("service = %+v", c.Service)
+	}
+	if c.Faults.OperatorHoldBeforeResponse != 250*time.Millisecond {
+		t.Fatalf("response hold = %v", c.Faults.OperatorHoldBeforeResponse)
+	}
+}
+
+// Without the tables the server is C04's operator substrate and enrolls
+// nothing; with part of them it refuses to start rather than run half a service.
+func TestLoadServerEnrollmentIsAllOrNothing(t *testing.T) {
+	c, err := loadServerText(t, operatorTables)
+	if err != nil || c.Enrollment() {
+		t.Fatalf("a server with no enrollment tables: enrollment=%v err=%v", c.Enrollment(), err)
+	}
+	lines := strings.Split(strings.TrimSpace(enrollmentTables), "\n")
+	for i, line := range lines {
+		if !strings.Contains(line, "=") {
+			continue
+		}
+		partial := strings.Join(append(append([]string{}, lines[:i]...), lines[i+1:]...), "\n") + "\n"
+		if _, err := loadServerText(t, operatorTables+partial); err == nil {
+			t.Errorf("enrollment configured without %q was accepted", line)
+		}
+	}
+}
+
+// Every file the server reads is named absolutely; a relative one would resolve
+// against the working directory.
+func TestLoadServerRefusesRelativeFilePaths(t *testing.T) {
+	for _, key := range []string{"ca_file", "enrollment_credentials", "presence_credentials", "account_signing_seed",
+		"signing_private_key_file", "result_encryption_public_key_file"} {
+		data := operatorTables + enrollmentTables
+		data = regexp.MustCompile(`(?m)^`+key+` = "/etc/keystone/`).ReplaceAllString(data, key+` = "etc/keystone/`)
+		if _, err := loadServerText(t, data); !errors.Is(err, ErrRelativePath) {
+			t.Errorf("%s: relative path accepted or refused for another reason: %v", key, err)
+		}
+	}
+	if _, err := loadServerText(t, "[operator]\nadmin_group = \"admin\"\n[store]\npath = \"server.db\"\n"); !errors.Is(err, ErrRelativePath) {
+		t.Errorf("relative store path: %v", err)
 	}
 }

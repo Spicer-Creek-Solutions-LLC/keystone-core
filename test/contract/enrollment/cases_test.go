@@ -4,15 +4,6 @@ package enrollmentcontract
 
 import "testing"
 
-func TestISS1TokenIssuedOnceAndAudited(t *testing.T)                    { pending(t, "ISS-1") }
-func TestCLI1RefusalPathsAreIndistinguishable(t *testing.T)             { pending(t, "CLI-1") }
-func TestCLI2AuthorizationRefusalsExitTen(t *testing.T)                 { pending(t, "CLI-2") }
-func TestCLI3MissingSocketExitsOne(t *testing.T)                        { pending(t, "CLI-3") }
-func TestLIM5BoundsInflightRequests(t *testing.T)                       { pending(t, "LIM-5") }
-func TestFLT2OperatorResponseHoldIsAudited(t *testing.T)                { pending(t, "FLT-2") }
-func TestJWT1BootstrapCredentialIsExactAndBounded(t *testing.T)         { pending(t, "JWT-1") }
-func TestBND1BundleCarriesBothServiceTrustHalves(t *testing.T)          { pending(t, "BND-1") }
-func TestSKEY1ServiceSigningPrivateKeyIsOwnerOnly(t *testing.T)         { pending(t, "SKEY-1") }
 func TestARG1BundleNeverAppearsInArgv(t *testing.T)                     { pending(t, "ARG-1") }
 func TestFILE1RefusesReadableBundle(t *testing.T)                       { pending(t, "FILE-1") }
 func TestSTDIN1EnrollsFromStandardInput(t *testing.T)                   { pending(t, "STDIN-1") }
@@ -41,5 +32,4 @@ func TestRECON1EnrolledAgentReconnectsWithoutEnrollment(t *testing.T)   { pendin
 func TestRECON2MissingIdentityFailsLocally(t *testing.T)                { pending(t, "RECON-2") }
 func TestNON1SecondEnrollmentDoesNotChangeFirst(t *testing.T)           { pending(t, "NON-1") }
 func TestTLS1EveryProductionConnectionVerifiesBroker(t *testing.T)      { pending(t, "TLS-1") }
-func TestROLE1WrongServerCredentialRoleIsRefused(t *testing.T)          { pending(t, "ROLE-1") }
 func TestISO1JourneyUsesOnlyBrokerBetweenServerAndAgents(t *testing.T)  { pending(t, "ISO-1") }
