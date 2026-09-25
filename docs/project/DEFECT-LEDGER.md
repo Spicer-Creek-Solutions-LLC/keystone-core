@@ -868,7 +868,7 @@ down and recurred anyway, and `DL-8` has now done it too.
 
 ### `DL-9` — A document that requires work a permission list forbids
 
-**Instances.** Seven occasions across six tasks. Six are one shape — a task
+**Instances.** The occasions are numbered below. Six are one shape — a task
 dossier whose decision section required work its **own** § 3.3 did not permit,
 found only when the implementation began. The fourth widened the class, which is
 why this entry is no longer titled for a document's own list: an obligation can
@@ -938,6 +938,18 @@ found it — which is the rule `G45` exists to make keepable.
    described a durable identity artifact that could not contain the signing
    key. `G50` supplies the narrow API before C05 implementation begins.
 
+8. **`THREAT-MODEL.md` and `C05.md`.** `G48` accepted `RSK-15` with the expiry
+   *"2027-03-23, or C05"*, so completing C05 obliges C05 to record the risk's
+   disposition. `C05.md` had landed a task earlier and puts `THREAT-MODEL.md`
+   out of bounds, and `G48` did not amend it. **The widened shape**: the
+   obligation was imposed by a different document from the one holding the
+   permissions, and by a later task. **Caught by the countermeasure** — the
+   implementation plan enumerated what C05's completion fires, before any code,
+   and found the trigger. The same author wrote both halves: the trigger at
+   `G48`, and the dossier it was not reconciled with. The maintainer approved a
+   grant of the `RSK-15` row only with the C05-I plan, and `C05-I1` records it
+   in `C05.md` § 3.3.
+
 **This is not `DL-8`.** That class needs a prior finding: someone reports a
 defect and it is repaired at the cited site only. Here nothing was reported and
 nothing was repaired too narrowly. **Both halves were written by the same author
@@ -983,9 +995,8 @@ require is prose, and no checker reads it; `archlint` validates the register and
 `contract-immutability-check` the frozen surfaces, but nothing compares a
 document's intentions with its own permissions.
 
-**Last recurrence.** `G50` — C05 requires durable agent signing-key material
-while forbidding the protocol change needed to represent it, found in review
-of pull request #381.
+**Last recurrence.** `C05-I1` — `RSK-15`'s expiry names C05 while `C05.md`
+forbids the threat model, found while planning C05-I.
 
 **Status: `Failed`, unchanged.** The countermeasure was in force, was applied,
 and did not prevent instance 4. It was written at `G44` and exercised at `C03-I2`, which

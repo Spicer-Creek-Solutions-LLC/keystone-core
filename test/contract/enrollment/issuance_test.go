@@ -61,11 +61,24 @@ func TestISS1TokenIssuedOnceAndAudited(t *testing.T) {
 		t.Fatalf("one create must add exactly one issuance record naming its actor and agent: %v", issued)
 	}
 
-	// Nowhere else: not in the server's log, its store, or any file on the
-	// host. grep exits 1 when nothing matches.
+	// Nowhere else: not in the server's log, its store, or any regular file on
+	// the host. The search names each file that holds the seed, and any file
+	// it could not search; clean output is exactly the marker. Sockets are not
+	// files a seed could be written to, and grep fails on them, which is why
+	// the search is not a bare recursive grep: that exits 2 on the operator
+	// socket whatever it finds, and a case reading exit codes was blind.
 	seed := seedOf(t, bundle.BootstrapCredentials)
-	if out, err := b.exec("", "grep", "-rlF", seed, "/var/lib/keystone", "/tmp", "/etc", "/run", "/root", "/home"); err == nil {
-		t.Fatalf("the bootstrap seed was written outside standard output:\n%s", out)
+	search := func(dirs string) string {
+		out, _ := b.exec("", "sh", "-c", "find "+dirs+" -type f -exec grep -lF '"+seed+"' {} \\; 2>&1; echo search-done")
+		return strings.TrimSpace(out)
+	}
+	b.sh("printf '%s' '" + seed + "' > /tmp/control-seed")
+	if out := search("/tmp"); !strings.Contains(out, "/tmp/control-seed") {
+		t.Fatalf("control: the search did not find a planted copy of the seed:\n%s", out)
+	}
+	b.sh("rm /tmp/control-seed")
+	if out := search("/var/lib/keystone /tmp /etc /run /root /home"); out != "search-done" {
+		t.Fatalf("the bootstrap seed was written outside standard output, or the search failed:\n%s", out)
 	}
 	if strings.Contains(r.Stderr, seed) {
 		t.Fatal("the bootstrap seed reached standard error")
