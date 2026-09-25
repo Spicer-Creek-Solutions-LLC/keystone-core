@@ -222,27 +222,27 @@ func Generate(cfg Config) (*Deployment, error) {
 		Limits:            limits,
 	}
 
-	signing, err := nkeys.FromSeed(keystone.SigningSeed)
+	minter, err := NewMinter(keystone.PublicKey, keystone.SigningSeed)
 	if err != nil {
-		return nil, fmt.Errorf("account signing key: %w", err)
+		return nil, err
 	}
 
 	for _, p := range Services() {
-		identity, err := newUser(string(p), serviceGrants(p), keystone, signing, 0)
+		identity, err := newUser(string(p), serviceGrants(p), minter, time.Time{})
 		if err != nil {
 			return nil, fmt.Errorf("service %s: %w", p, err)
 		}
 		d.Services[p] = identity
 	}
 	for _, agent := range cfg.Agents {
-		identity, err := mintAgent(agent, keystone, signing)
+		identity, err := minter.Agent(agent)
 		if err != nil {
 			return nil, fmt.Errorf("agent %s: %w", agent.ID, err)
 		}
 		d.Agents[agent.ID] = identity
 	}
 	for _, token := range cfg.Tokens {
-		identity, err := newUser(token, bootstrapGrants(token), keystone, signing, cfg.BootstrapTTL)
+		identity, err := minter.Bootstrap(token, time.Now().Add(cfg.BootstrapTTL))
 		if err != nil {
 			return nil, fmt.Errorf("bootstrap %s: %w", token, err)
 		}
@@ -328,63 +328,6 @@ func applyAccountLimits(claims *jwt.AccountClaims, limits Limits) {
 	// Data is the account's total byte budget; JetStream storage is bounded
 	// separately above and ADR-0002 § 9 requires neither to be infinite.
 	claims.Limits.Data = limits.Account.MaxJetStreamDiskByte
-}
-
-// mintAgent issues a permanent agent JWT against a public key the AGENT
-// generated. No seed exists on this side to return, and Identity.Seed stays nil
-// for exactly that reason -- the absence is the property, not an omission.
-func mintAgent(agent AgentKey, account Account, signing nkeys.KeyPair) (Identity, error) {
-	g := agentGrants(agent.ID)
-	claims := jwt.NewUserClaims(agent.PublicKey)
-	claims.Name = agent.ID
-	claims.IssuerAccount = account.PublicKey
-	applyPermissions(claims, g)
-	encoded, err := claims.Encode(signing)
-	if err != nil {
-		return Identity{}, err
-	}
-	return Identity{
-		Name:      agent.ID,
-		PublicKey: agent.PublicKey,
-		JWT:       encoded,
-		Pub:       append([]string{}, g.pub...),
-		Sub:       append([]string{}, g.sub...),
-	}, nil
-}
-
-func newUser(name string, g grants, account Account, signing nkeys.KeyPair, ttl time.Duration) (Identity, error) {
-	kp, err := nkeys.CreateUser()
-	if err != nil {
-		return Identity{}, err
-	}
-	pub, err := kp.PublicKey()
-	if err != nil {
-		return Identity{}, err
-	}
-	seed, err := kp.Seed()
-	if err != nil {
-		return Identity{}, err
-	}
-
-	claims := jwt.NewUserClaims(pub)
-	claims.Name = name
-	claims.IssuerAccount = account.PublicKey
-	applyPermissions(claims, g)
-	if ttl > 0 {
-		claims.Expires = time.Now().Add(ttl).Unix()
-	}
-	encoded, err := claims.Encode(signing)
-	if err != nil {
-		return Identity{}, err
-	}
-	return Identity{
-		Name:      name,
-		PublicKey: pub,
-		Seed:      seed,
-		JWT:       encoded,
-		Pub:       append([]string{}, g.pub...),
-		Sub:       append([]string{}, g.sub...),
-	}, nil
 }
 
 // revoke re-encodes the Keystone account with each named bootstrap identity in

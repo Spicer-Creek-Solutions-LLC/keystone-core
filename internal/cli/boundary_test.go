@@ -82,10 +82,12 @@ func TestNoBinaryCanReachTheBrokerTheSocketOrAProcess(t *testing.T) {
 	}
 }
 
-// No journey verb exists. The charter's seven journeys are the surface C04 and
-// C05 build; a stub would have to misuse an exit code to refuse one.
+// No journey verb is wired before the task that builds it. The charter's seven
+// journeys are the surface C-stage tasks build; a stub would have to misuse an
+// exit code to refuse one.
 func TestNoJourneyVerbIsWired(t *testing.T) {
-	verbs := []string{`"run"`, `"enroll"`, `"status"`, `"output"`, `"cancel"`, `"audit"`, `"agents"`}
+	// C05 wires `enroll` and nothing else (D-C05-7).
+	verbs := []string{`"run"`, `"status"`, `"output"`, `"cancel"`, `"audit"`, `"agents"`}
 	for _, p := range moduleGoFiles(t) {
 		if strings.HasSuffix(p, "_test.go") {
 			continue

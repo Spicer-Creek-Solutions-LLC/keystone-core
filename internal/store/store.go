@@ -169,6 +169,54 @@ func (s *Store) AppendAuditRecord(ctx context.Context, r AuditRecord) error {
 	return err
 }
 
+// EnrollmentToken is one issued token, as S0 records it.
+type EnrollmentToken struct {
+	TokenID            string
+	AgentID            string
+	AgentName          string
+	BootstrapPublicKey string
+	IssuedAt           time.Time
+	ExpiresAt          time.Time
+	IssuedByUID        uint32
+}
+
+// ErrDuplicateEnrollment is returned when a token or agent identifier already
+// exists. Both are 128 or more random bits, so it means the generator failed,
+// and the caller must not retry with the same values.
+var ErrDuplicateEnrollment = errors.New("enrollment token or agent identifier already exists")
+
+// IssueEnrollment records a token and its issuance audit record in one
+// transaction. Nothing is returned to the operator until it commits, so a token
+// that reached the operator is always on record (ISS-1).
+func (s *Store) IssueEnrollment(ctx context.Context, tok EnrollmentToken, audit AuditRecord) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM enrollment WHERE token_id = ? OR agent_id = ?`,
+		tok.TokenID, tok.AgentID).Scan(&exists); err != nil {
+		return err
+	}
+	if exists != 0 {
+		return ErrDuplicateEnrollment
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO enrollment
+		(token_id, agent_id, agent_name, bootstrap_public_key, state, issued_at, expires_at, issued_by_uid)
+		VALUES (?, ?, ?, ?, 'issued', ?, ?, ?)`, tok.TokenID, tok.AgentID, tok.AgentName,
+		tok.BootstrapPublicKey, tok.IssuedAt.UnixMilli(), tok.ExpiresAt.UnixMilli(), tok.IssuedByUID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO audit
+		(timestamp, job_id, correlation_id, actor, actor_uid, actor_username_snapshot, target, action, result)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, audit.At.UnixMilli(), audit.JobID, audit.CorrelationID,
+		audit.Actor, audit.ActorUID, audit.ActorUsernameSnapshot, audit.Target, audit.Action, audit.Result); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *Store) RetainAudit(ctx context.Context, before time.Time) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM audit WHERE timestamp < ?`, before.UnixMilli())
 	return err

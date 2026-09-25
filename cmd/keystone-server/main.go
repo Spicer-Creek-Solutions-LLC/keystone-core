@@ -1,7 +1,7 @@
 // Command keystone-server is the server.
 //
-// It owns the local operator socket. Journey operations and NATS transport are
-// introduced by later C-stage tasks.
+// It owns the local operator socket and, when enrollment is configured, issues
+// enrollment tokens through it.
 package main
 
 import (
@@ -15,6 +15,7 @@ import (
 
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
+	"go.keystone-core.io/keystone-core/internal/enrollment"
 	"go.keystone-core.io/keystone-core/internal/operator"
 	"go.keystone-core.io/keystone-core/internal/store"
 	"go.keystone-core.io/keystone-core/internal/version"
@@ -65,9 +66,30 @@ func run(args []string, out, errOut *os.File) cli.Code {
 		return cli.Local
 	}
 	defer st.Close()
-	if cfg.Faults.OperatorHoldBeforeDecision > 0 {
+	// Enrollment's inputs are read and checked before anything is recorded or
+	// served: a server that cannot enroll correctly does not start (ROLE-1,
+	// SKEY-1).
+	var enroll *enrollment.Server
+	if cfg.Enrollment() {
+		if enroll, err = enrollment.Open(cfg, st); err != nil {
+			fmt.Fprintf(errOut, "%s: enrollment: %v\n", role, err)
+			return cli.Local
+		}
+	}
+	// ADR-0010 § 5: a fault point in the shipped binary is acceptable only
+	// because enabling it is on record before the server serves.
+	for _, f := range []struct {
+		key string
+		on  bool
+	}{
+		{"operator_hold_before_decision_ms", cfg.Faults.OperatorHoldBeforeDecision > 0},
+		{"operator_hold_before_response_ms", cfg.Faults.OperatorHoldBeforeResponse > 0},
+	} {
+		if !f.on {
+			continue
+		}
 		if err := st.AppendAuditRecord(context.Background(), store.AuditRecord{
-			Action: operator.ActionFaultPrefix + "operator_hold_before_decision_ms",
+			Action: operator.ActionFaultPrefix + f.key,
 			Result: "enabled", At: time.Now(),
 		}); err != nil {
 			fmt.Fprintf(errOut, "%s: record enabled fault: %v\n", role, err)
@@ -78,6 +100,9 @@ func run(args []string, out, errOut *os.File) cli.Code {
 	if err != nil {
 		fmt.Fprintf(errOut, "%s: %v\n", role, err)
 		return cli.Local
+	}
+	if enroll != nil {
+		srv.Handle(enrollment.OperationCreate, enroll.Issuer.CreateHandler())
 	}
 	if err := srv.Listen(); err != nil {
 		fmt.Fprintf(errOut, "%s: listen: %v\n", role, err)

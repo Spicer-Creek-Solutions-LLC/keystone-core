@@ -73,6 +73,37 @@ var migrations = []migration{
 		SELECT id, timestamp, job_id, correlation_id, actor, target, action, result FROM audit_v2;
 	DROP TABLE audit_v2;
 	CREATE INDEX audit_job_time ON audit(job_id, timestamp);`},
+	// C05's one migration: the enrollment record ADR-0003 § 6 describes, for
+	// every stage at once. Migration 1's table is replaced rather than copied:
+	// nothing wrote it before C05, and its nullable agent_id and denied_at are
+	// not ADR-0003's shape -- the identifier is assigned at issuance (D-C05-2)
+	// and denials are audit records, not token state.
+	//
+	// state is the token's: issued until S4's single write marks it spent
+	// (RFC 0005). The request's public halves and the JWT minted for them are
+	// written together at S1, so a retry with the same halves returns the same
+	// JWT and one with different halves is refused (ADR-0003 § 7).
+	{4, `DROP TABLE enrollment;
+	CREATE TABLE enrollment (
+		token_id TEXT PRIMARY KEY,
+		agent_id TEXT NOT NULL UNIQUE,
+		agent_name TEXT NOT NULL,
+		bootstrap_public_key TEXT NOT NULL UNIQUE,
+		state TEXT NOT NULL CHECK (state IN ('issued', 'spent')),
+		issued_at INTEGER NOT NULL,
+		expires_at INTEGER NOT NULL,
+		issued_by_uid INTEGER NOT NULL,
+		nats_public_key TEXT,
+		signing_public_key BLOB,
+		encryption_public_key BLOB,
+		permanent_jwt TEXT,
+		credential_issued_at INTEGER,
+		spent_at INTEGER,
+		CHECK ((nats_public_key IS NULL) = (permanent_jwt IS NULL)),
+		CHECK ((state = 'spent') = (spent_at IS NOT NULL))
+	);
+	ALTER TABLE agents ADD COLUMN nats_public_key TEXT;
+	ALTER TABLE agents ADD COLUMN agent_name TEXT;`},
 }
 
 func (s *Store) migrate(failAt int) error {
