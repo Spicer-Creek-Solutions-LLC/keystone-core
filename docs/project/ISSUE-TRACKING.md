@@ -148,7 +148,7 @@ removing a label that already exists, or closing it:
    | Operation | Before-state |
    |---|---|
    | Create | Every issue, open or closed, whose body carries the task identifier — or that there is none |
-   | Comment | The issue's number and state. A comment adds and changes nothing, and is never edited or deleted afterwards |
+   | Comment | The issue's number and state. The comment is never edited or deleted afterwards |
    | Label | The issue's labels before the change |
    | Close | The issue's state and labels before closing |
 
@@ -159,13 +159,20 @@ removing a label that already exists, or closing it:
    explicit approval of that dry run. Approving the task plan does not approve
    it, and neither does approving a different dry run. A before-state that has
    changed by the time of the apply is a new dry run.
-4. **Record, on the issue.** The before-state goes where the mutation lands, so
-   the record and the change cannot be separated: a new issue's body ends with
-   its before-state and the time it was read; a label change or closure is
-   accompanied by a comment stating the before-state and the change. The forge's
-   own timeline records the label and state events as well; the comment is what
-   states them in words and is not a reading of forge internals. The task's pull
-   request names the issue's URL.
+4. **Record, in what the operation writes.** Every one-issue operation writes
+   text to the issue, and that text ends with the operation's before-state and
+   the time it was read, so the record and the change cannot be separated:
+
+   - a new issue — its body;
+   - a comment — the comment itself, whether it stands alone or accompanies a
+     change;
+   - a label change or closure — always made together with a comment, and that
+     one comment records the issue's before-state, which is the before-state of
+     the comment and of the change alike.
+
+   The forge's own timeline records the label and state events as well; the
+   text is what states them in words and is not a reading of forge internals.
+   The task's pull request names the issue's URL.
 
 **Anything else takes the full flow**: a dry-run artifact pull request, explicit
 apply approval, the apply, then a postcondition artifact pull request, with the
