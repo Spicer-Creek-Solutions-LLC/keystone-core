@@ -9,8 +9,10 @@ func TestCLI1RefusalPathsAreIndistinguishable(t *testing.T)             { pendin
 func TestCLI2AuthorizationRefusalsExitTen(t *testing.T)                 { pending(t, "CLI-2") }
 func TestCLI3MissingSocketExitsOne(t *testing.T)                        { pending(t, "CLI-3") }
 func TestLIM5BoundsInflightRequests(t *testing.T)                       { pending(t, "LIM-5") }
+func TestFLT2OperatorResponseHoldIsAudited(t *testing.T)                { pending(t, "FLT-2") }
 func TestJWT1BootstrapCredentialIsExactAndBounded(t *testing.T)         { pending(t, "JWT-1") }
 func TestBND1BundleCarriesBothServiceTrustHalves(t *testing.T)          { pending(t, "BND-1") }
+func TestSKEY1ServiceSigningPrivateKeyIsOwnerOnly(t *testing.T)         { pending(t, "SKEY-1") }
 func TestARG1BundleNeverAppearsInArgv(t *testing.T)                     { pending(t, "ARG-1") }
 func TestFILE1RefusesReadableBundle(t *testing.T)                       { pending(t, "FILE-1") }
 func TestSTDIN1EnrollsFromStandardInput(t *testing.T)                   { pending(t, "STDIN-1") }
