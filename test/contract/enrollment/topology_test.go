@@ -38,6 +38,7 @@ type topology struct {
 	prefix    string
 	serverNet string
 	broker    string
+	brokerIP  string
 
 	mu       sync.Mutex
 	cleanups []func()
