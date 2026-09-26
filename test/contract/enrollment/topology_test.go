@@ -185,7 +185,19 @@ func (tp *topology) agent(name string) *agentBox {
 	return a
 }
 
-func (a *agentBox) configure(serverName string) {
+// agentFaultPath is where the fixture points an agent's fault journal.
+const agentFaultPath = "/tmp/faults.jsonl"
+
+// configure writes the agent's configuration. holds, when given, are fault
+// keys and their durations in milliseconds.
+func (a *agentBox) configure(serverName string, holds ...faultHold) {
+	var faults strings.Builder
+	if len(holds) > 0 {
+		fmt.Fprintf(&faults, "\n[%s]\n%s = %q\n", agentTableFaults, agentKeyFaultRecordPath, agentFaultPath)
+		for _, h := range holds {
+			fmt.Fprintf(&faults, "%s = %d\n", h.key, h.ms)
+		}
+	}
 	a.writeFile(agentConfig, fmt.Sprintf(`[%s]
 %s = %q
 %s = %q
@@ -198,7 +210,72 @@ func (a *agentBox) configure(serverName string) {
 `, agentTableNATS, agentKeyBrokerURL, "tls://"+brokerAlias+":4222", agentKeyBrokerCA, "/etc/keystone/ca.pem",
 		agentKeyBrokerName, serverName,
 		agentTableAgent, agentKeyIdentityPath, agentStateDir+"/identity.json",
-		agentKeyPrivateKeysPath, agentStateDir+"/keys.json", agentKeyLedgerPath, agentStateDir+"/ledger.db"), 0o600)
+		agentKeyPrivateKeysPath, agentStateDir+"/keys.json", agentKeyLedgerPath, agentStateDir+"/ledger.db")+faults.String(), 0o600)
+}
+
+type faultHold struct {
+	key string
+	ms  int
+}
+
+// startEnroll runs enrollment in the background; wait collects its exit code.
+func (a *agentBox) startEnroll() {
+	a.t.Helper()
+	a.sh("rm -f /tmp/agent.exit")
+	a.detach("", "sh", "-c", "KEYSTONE_AGENT_CONFIG="+agentConfig+" keystone-agent enroll --token-file "+agentBundle+
+		" 2>"+agentLog+"; echo $? > /tmp/agent.exit")
+}
+
+// running reports whether the background enrollment is still running.
+func (a *agentBox) running() bool {
+	_, err := a.exec("", "test", "-e", "/tmp/agent.exit")
+	return err != nil
+}
+
+func (a *agentBox) wait(timeout time.Duration) int {
+	a.t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if out, err := a.exec("", "cat", "/tmp/agent.exit"); err == nil {
+			var code int
+			fmt.Sscan(out, &code)
+			return code
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	a.t.Fatalf("the agent was still enrolling after %v:\n%s", timeout, a.log())
+	return 0
+}
+
+// kill SIGKILLs the agent, as the crash harness freezes.
+func (a *agentBox) kill() {
+	a.t.Helper()
+	a.sh("pkill -KILL keystone-agent; true")
+	for i := 0; i < 50; i++ {
+		if _, err := a.exec("", "pidof", "keystone-agent"); err != nil {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	a.t.Fatal("the agent survived SIGKILL")
+}
+
+// reached waits for the agent's durable record that a hold was reached.
+func (a *agentBox) reached(key string, timeout time.Duration) {
+	a.t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		out, _ := a.exec("", "cat", agentFaultPath)
+		for _, line := range strings.Split(out, "\n") {
+			var r agentFaultRecordV1
+			if json.Unmarshal([]byte(line), &r) == nil && r.Version == agentFaultRecordVersion &&
+				r.Event == faultEventReached && r.Fault == key && r.Process == "agent" {
+				return
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	a.t.Fatalf("the agent never recorded reaching %s:\n%s", key, a.log())
 }
 
 // deliver writes a bundle to the agent host out of band, as an operator would.

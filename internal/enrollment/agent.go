@@ -76,6 +76,7 @@ type Agent struct {
 	service *protocol.VerifyingKey
 	expires time.Time
 	now     func() time.Time
+	faults  faults
 }
 
 // NewAgent checks the bundle and configuration before anything is written or
@@ -95,7 +96,7 @@ func NewAgent(cfg config.Agent, bundleBytes []byte) (*Agent, error) {
 		return nil, err
 	}
 	return &Agent{cfg: cfg, ca: ca, bundle: bundle, service: service,
-		expires: time.Unix(claims.Expires, 0), now: time.Now}, nil
+		expires: time.Unix(claims.Expires, 0), now: time.Now, faults: faults{cfg.Faults}}, nil
 }
 
 // Enroll runs S0 to S6 from wherever a previous run stopped (ADR-0003 § 7),
@@ -104,9 +105,15 @@ func NewAgent(cfg config.Agent, bundleBytes []byte) (*Agent, error) {
 func (a *Agent) Enroll(ctx context.Context) error {
 	ctx, cancel := context.WithDeadline(ctx, a.expires)
 	defer cancel()
+	if err := a.faults.enabled(); err != nil {
+		return err
+	}
 	keys, err := a.keys()
 	if err != nil {
 		return err
+	}
+	if err := a.faults.hold(ctx, "enrollment_agent_hold_before_request_ms"); err != nil {
+		return ErrRefused
 	}
 	boot, replies, err := a.bootstrap(ctx)
 	if err != nil {
@@ -118,6 +125,9 @@ func (a *Agent) Enroll(ctx context.Context) error {
 	if errors.Is(err, os.ErrNotExist) {
 		if identity, err = a.credential(ctx, boot, replies, keys); err != nil {
 			return err
+		}
+		if err := a.faults.hold(ctx, "enrollment_agent_hold_after_identity_write_ms"); err != nil {
+			return ErrRefused
 		}
 	} else if err != nil {
 		return err
@@ -248,6 +258,9 @@ func (a *Agent) credential(ctx context.Context, boot *nats.Conn, replies chan *n
 		if err != nil || claims.Subject != keys.NATSPublicKey() || claims.Name != a.bundle.AgentID {
 			return IdentityArtifact{}, fmt.Errorf("enrollment: the service returned a credential for another identity")
 		}
+		if err := a.faults.hold(ctx, "enrollment_agent_hold_after_credential_reply_ms"); err != nil {
+			return IdentityArtifact{}, ErrRefused
+		}
 		seed, err := keys.NATS.Seed()
 		if err != nil {
 			return IdentityArtifact{}, err
@@ -310,6 +323,15 @@ func Presence(c *nats.Conn, agentID string, k *protocol.SigningKey, now time.Tim
 // and request are both repeated: each is idempotent, and core NATS loses what
 // no one was subscribed to hear.
 func (a *Agent) confirm(ctx context.Context, boot *nats.Conn, replies chan *nats.Msg, perm *nats.Conn, keys AgentKeys) error {
+	if err := Presence(perm, a.bundle.AgentID, keys.Signing, a.now()); err != nil {
+		return err
+	}
+	if err := a.faults.hold(ctx, "enrollment_agent_hold_after_permanent_proof_ms"); err != nil {
+		return ErrRefused
+	}
+	if err := a.faults.hold(ctx, "enrollment_agent_hold_before_confirmation_ms"); err != nil {
+		return ErrRefused
+	}
 	for {
 		if err := Presence(perm, a.bundle.AgentID, keys.Signing, a.now()); err != nil {
 			return err

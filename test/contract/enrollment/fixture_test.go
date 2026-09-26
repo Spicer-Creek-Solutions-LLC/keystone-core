@@ -282,6 +282,8 @@ type serverConf struct {
 	// ServerName is the broker name the server verifies; default the one its
 	// certificate carries.
 	ServerName string
+	// HoldAfterActivationMS is the server's hold after S4's commit.
+	HoldAfterActivationMS int
 }
 
 func (c serverConf) serverName() string {
@@ -314,8 +316,14 @@ func (c serverConf) render() string {
 	}
 	fmt.Fprintf(&s, "\n[%s]\n%s = %q\n%s = %q\n", serverTableService,
 		serverKeySigningPrivateKey, signingKeyPath, serverKeyResultPublicKey, resultKeyPath)
+	if c.HoldResponseMS != 0 || c.HoldAfterActivationMS != 0 {
+		fmt.Fprintf(&s, "\n[%s]\n", serverTableFaults)
+	}
 	if c.HoldResponseMS != 0 {
-		fmt.Fprintf(&s, "\n[%s]\n%s = %d\n", serverTableFaults, faultOperatorBeforeResponse, c.HoldResponseMS)
+		fmt.Fprintf(&s, "%s = %d\n", faultOperatorBeforeResponse, c.HoldResponseMS)
+	}
+	if c.HoldAfterActivationMS != 0 {
+		fmt.Fprintf(&s, "%s = %d\n", faultServerAfterActivation, c.HoldAfterActivationMS)
 	}
 	return s.String()
 }
