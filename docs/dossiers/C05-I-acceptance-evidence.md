@@ -535,3 +535,126 @@ behaviour it replaces:
   subscription's handler, which NATS delivers serially, as it would wait behind
   a slow commit. The frozen boundary is "after the active-and-spent commit and
   before S6 reply", and the gate keeps S6 out of it.
+
+## Stage I5 — the crash matrix, and reconnect
+
+### Result
+
+**`keystone-agent` with no command runs the enrolled agent.** It restores its
+identity and the keys it was written for, and connects with the permanent
+identity. It proves presence every five seconds until stopped, and never
+touches the enrollment plane. With no usable identity — missing, malformed, or
+readable by others — it exits `1` and does nothing else (`ADR-0003` § 9). It
+is not a subcommand: the boundary test forbids a `run` verb, and the server
+already serves with no arguments.
+
+I5 needed no recovery code. Tracing each boundary's restart through the agent's
+resume logic showed each already resumes from its artifacts as `ADR-0003` § 7's
+table says, and the cases below are what establish that.
+
+Cases implemented: `CRASH-1` to `CRASH-6`, `RECON-1`, `RECON-2`.
+
+**Every enrollment case is now implemented.** The package's pending manifest and
+stub file are removed, as C04's were when its last case landed.
+
+**The first version of that change ran no contract at all.** Its comment sat
+inside the target's `\`-continued shell command, which ended the continuation,
+so the loop ran with an empty package list and exited `0`, and `make check` was
+green. It was caught because the enrollment result was missing from the log, and
+is recorded as `DL-1`'s latest recurrence. The numbers below are from the
+corrected target.
+
+**The `contract` target's timeout rises to 30 minutes.** The enrollment contract
+drives six real kills and restarts beside cases that wait out a one-minute token,
+and it neared `go test`'s default ten minutes on a fast machine; the serial CI
+runner is slower. `C05.md` § 3.3 permits a gate change exactly when the crash
+harness needs one. The workflow runs the target, so it inherits the change and
+`gates-agree` is unaffected.
+
+### Contract result
+
+`make contract`, from the corrected target, with every file staged:
+
+```text
+contract: test/contract/authorization
+ok  go.keystone-core.io/keystone-core/test/contract/authorization  16.379s
+contract: test/contract/enrollment
+ok  go.keystone-core.io/keystone-core/test/contract/enrollment  293.847s
+contract: test/contract/operator
+ok  go.keystone-core.io/keystone-core/test/contract/operator  42.071s
+contract: test/contract/persistence
+ok  go.keystone-core.io/keystone-core/test/contract/persistence  0.699s
+contract: test/contract/protocol
+ok  go.keystone-core.io/keystone-core/test/contract/protocol  0.533s
+```
+
+A full `make check` then passed, with these results served from the test cache
+and:
+
+```text
+pending-contract: 0 registered case(s) across 3 package(s) fail for their documented reasons
+contract-immutability-check: test/contract/enrollment matches ae80fb12e7d86d40ff1318f431449393e5b7c729 (3 declared amendment(s) since 6115c70f35fb0aa03f6642a1de36471976650f05)
+check: ok
+```
+
+### How the cases observe what they claim
+
+**Each crash case follows `crash-harness.json`:**
+
+1. It reads its boundary, process and fault from the frozen file, not from a
+   copy.
+2. It enables that one hold, then waits for the durable `reached` record
+   **and** the harness's arrival observation.
+3. It checks the process is still running, then SIGKILLs the named process.
+4. It restarts the process without the hold.
+5. It checks recovery from the store, the broker and the agent's artifacts.
+
+**Every case also requires convergence:** exactly one agent identity, one
+credential minted and one activation recorded, whatever the kill interrupted.
+
+| Case | Arrival checked before the kill | Recovery checked after |
+|---|---|---|
+| `CRASH-1` | Key artifact `0600`, its halves captured, S1 not recorded | The recorded halves are the captured ones |
+| `CRASH-2` | S1's JWT recorded; no identity artifact yet | The identity artifact holds that same JWT |
+| `CRASH-3` | Complete `0600` identity artifact | Presence verifies against the recorded `AST-4` half; the artifact is never written again (`inotify`) and is byte-identical |
+| `CRASH-4` | The harness received and verified the proof; the store shows active-and-spent | The agent row is unchanged by the repeated proof |
+| `CRASH-5` | The store shows active-and-spent | A service-signed S6 was delivered; the agent row and identity artifact are unchanged |
+| `CRASH-6` | The server's `fault.reached` row and the single commit | The waiting agent exits `0` once the server restarts; the agent row is unchanged |
+
+- **`RECON-1`.** The enrolled agent is started, stopped and started again. Each
+  time, a presence verifies against the recorded half, and the broker trace
+  shows **no new traffic on the enrollment plane at all**. The control is
+  that the trace does show the enrollment's own requests.
+- **`RECON-2`.** A missing, a malformed and an exposed identity artifact each
+  exit `1`, with the bundle sitting on the host to be found. The broker trace
+  shows no new `CONNECT` — its control is that the server's own connections
+  appear — and the token has no S1 record. The control for the whole case is
+  that enrollment with the same bundle still works.
+
+**Two assertions were weaker than their names, and both were found here.**
+
+- **The trace counts had no control.** `RECON-1` and `RECON-2` counted trace
+  lines before and after. A trace that never contained them would have
+  passed both. Each now requires its baseline to be non-zero.
+- **`RECON-1` watched one subject, not the plane.** It counted only this
+  token's request subject, and a planted defect that published on another
+  token's enrollment subject passed it. "Never re-enrolls" is a claim about the
+  enrollment plane, so the case now counts all of it.
+
+### Planted defects
+
+Each was planted in production code and failed the named case for the reason it
+states; none was a timeout.
+
+| Planted defect | Case rejected |
+|---|---|
+| A restart generates new keys | `CRASH-1` |
+| A repeated S1 mints and records a new JWT | `CRASH-2` |
+| A restart re-enrolls over its identity artifact | `CRASH-3` |
+| A repeated proof activates the agent again | `CRASH-4` |
+| A restart that has an identity exits `0` without S6 | `CRASH-5` |
+| The server answers S6 only from memory the kill erased | `CRASH-6` |
+| The enrolled agent publishes on the enrollment plane | `RECON-1` |
+| The enrolled agent never proves presence | `RECON-1` |
+| An agent with no identity falls back to enrolling with a bundle it finds | `RECON-2` |
+| An agent with no identity idles and exits `0` | `RECON-2` |

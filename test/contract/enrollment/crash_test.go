@@ -296,9 +296,13 @@ func TestRECON1EnrolledAgentReconnectsWithoutEnrollment(t *testing.T) {
 	presence := make(chan *nats.Msg, 64)
 	c.ChanSubscribe(enrollment.PresenceSubject(tok.bundle.AgentID), presence)
 	c.Flush()
-	requests := strings.Count(tp.brokerTrace(), enrollment.RequestSubject(tok.bundle.TokenID))
-	if requests == 0 {
-		t.Fatal("control: the trace shows none of the enrollment's own requests, so counting them proves nothing")
+	// The whole enrollment plane, not this token's subject: an enrolled agent
+	// that published on ANY enrollment subject would be trying to enrol again.
+	// This topology issued one token, so the baseline is its own enrollment.
+	plane := func() int { return strings.Count(tp.brokerTrace(), "ks.enroll.") }
+	requests := plane()
+	if !strings.Contains(tp.brokerTrace(), enrollment.RequestSubject(tok.bundle.TokenID)) {
+		t.Fatal("control: the trace shows none of the enrollment's own requests, so counting the plane proves nothing")
 	}
 
 	// Twice: the second start is a restart of an enrolled agent.
@@ -313,8 +317,8 @@ func TestRECON1EnrolledAgentReconnectsWithoutEnrollment(t *testing.T) {
 	}
 	// The broker saw no enrollment request from the restarted agent, and
 	// nothing was issued or activated again.
-	if after := strings.Count(tp.brokerTrace(), enrollment.RequestSubject(tok.bundle.TokenID)); after != requests {
-		t.Fatalf("the enrolled agent published on its enrollment subject again (%d -> %d trace lines)", requests, after)
+	if after := plane(); after != requests {
+		t.Fatalf("the enrolled agent touched the enrollment plane again (%d -> %d trace lines)", requests, after)
 	}
 	b.converged(tok)
 }

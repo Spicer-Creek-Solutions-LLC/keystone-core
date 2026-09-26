@@ -217,12 +217,16 @@ contract: ## Run every contract package, skipping only registered pending cases
 	# Enumerated, not listed. G39 did this for pending-contract and left its two
 	# siblings in this file single-package; a list beside the thing it lists is
 	# a second copy, and the copy goes stale.
-	@pkgs="$$(find test/contract -mindepth 1 -maxdepth 1 -type d | sort)"; \
-	[ -n "$$pkgs" ] || { echo "contract: no contract package found under test/contract"; exit 1; }; \
+	#
 	# -timeout: C05's enrollment contract drives the crash harness -- six
 	# boundaries, each a real kill and restart, beside cases that wait out a
 	# token's minimum one-minute lifetime -- and runs near go test's default
-	# ten minutes on a fast machine. The serial runner is not one.
+	# ten minutes on a fast machine. The serial runner is not one. This comment
+	# sits ABOVE the command: inside it, a comment line ends the backslash
+	# continuation, the loop runs as its own shell with $$pkgs empty, iterates
+	# over nothing, and exits 0 -- which C05-I5 did, once, with check green.
+	@pkgs="$$(find test/contract -mindepth 1 -maxdepth 1 -type d | sort)"; \
+	[ -n "$$pkgs" ] || { echo "contract: no contract package found under test/contract"; exit 1; }; \
 	for p in $$pkgs; do echo "contract: $$p"; go test -tags contract -timeout 30m "./$$p" || exit 1; done
 
 contract-immutability-check: ## Reject an undeclared change to any accepted Cxx-A surface
