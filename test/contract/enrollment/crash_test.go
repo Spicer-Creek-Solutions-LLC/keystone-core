@@ -5,10 +5,12 @@ package enrollmentcontract
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/nats-io/jwt/v2"
 	"github.com/nats-io/nats.go"
 
 	"go.keystone-core.io/keystone-core/internal/enrollment"
@@ -332,20 +334,46 @@ func TestRECON2MissingIdentityFailsLocally(t *testing.T) {
 	// The bundle is on the host, so an agent that went looking for an identity
 	// would find one to use.
 	a.deliver(tok.raw, 0o600)
+	keysJSON, identityJSON := validIdentity(t, tp)
 	connects := strings.Count(tp.brokerTrace(), "CONNECT")
 	if connects == 0 {
 		t.Fatal("control: the trace shows no CONNECT at all -- not even the server's -- so counting them proves nothing")
 	}
-	for name, setup := range map[string]string{
-		"missing":    "rm -f " + agentStateDir + "/identity.json",
-		"unreadable": "printf '{' > " + agentStateDir + "/identity.json && chmod 600 " + agentStateDir + "/identity.json",
-		"exposed":    "chmod 644 " + agentStateDir + "/identity.json",
+
+	// In order, each creating the state it tests rather than inheriting the
+	// last one's.
+	for _, c := range []struct {
+		name  string
+		setup func()
+	}{
+		{"missing", func() {
+			a.sh("rm -f " + agentStateDir + "/identity.json " + agentStateDir + "/keys.json")
+		}},
+		{"malformed", func() {
+			a.writeFile(agentStateDir+"/keys.json", keysJSON, 0o600)
+			a.writeFile(agentStateDir+"/identity.json", "{", 0o600)
+		}},
+		// A valid identity, refused for its mode alone: the control below runs
+		// the same files at 0600.
+		{"exposed", func() {
+			a.writeFile(agentStateDir+"/keys.json", keysJSON, 0o600)
+			a.writeFile(agentStateDir+"/identity.json", identityJSON, 0o644)
+		}},
 	} {
-		a.sh(setup)
+		c.setup()
 		a.serve()
-		a.waitFor("/tmp/serve.exit")
+		exited := false
+		for i := 0; i < 100 && !exited; i++ {
+			_, err := a.exec("", "test", "-e", "/tmp/serve.exit")
+			exited = err == nil
+			time.Sleep(50 * time.Millisecond)
+		}
+		if !exited {
+			a.sh("pkill -KILL keystone-agent; true")
+			t.Fatalf("%s identity: the agent served instead of exiting 1", c.name)
+		}
 		if code := strings.TrimSpace(string(a.file("/tmp/serve.exit"))); code != "1" {
-			t.Fatalf("%s identity: exit %s, want 1", name, code)
+			t.Fatalf("%s identity: exit %s, want 1", c.name, code)
 		}
 	}
 	if after := strings.Count(tp.brokerTrace(), "CONNECT"); after != connects {
@@ -354,8 +382,58 @@ func TestRECON2MissingIdentityFailsLocally(t *testing.T) {
 	if b.tokenRow(tok.bundle.TokenID)["nats_public_key"] != nil {
 		t.Fatal("an agent without an identity attempted enrollment")
 	}
-	// The control: with the bundle, enrollment itself still works here.
-	a.sh("rm -f " + agentStateDir + "/identity.json")
+
+	// The controls. The exposed identity is otherwise good: at 0600 it serves.
+	// And with the bundle, enrollment itself still works on this host.
+	a.writeFile(agentStateDir+"/identity.json", identityJSON, 0o600)
+	a.serve()
+	time.Sleep(2 * time.Second)
+	if _, err := a.exec("", "test", "-e", "/tmp/serve.exit"); err == nil {
+		t.Fatalf("control: the same identity at 0600 did not serve:\n%s", a.file("/tmp/serve.log"))
+	}
+	a.sh("pkill -TERM keystone-agent; true")
+	a.waitFor("/tmp/serve.exit")
+	a.sh("rm -f " + agentStateDir + "/identity.json " + agentStateDir + "/keys.json")
 	a.mustEnroll()
 	b.enrolled(tok)
+}
+
+// validIdentity builds a key artifact and an identity artifact bound to it,
+// with a permanent JWT the deployment's own signing key minted: an identity
+// that would serve, built without enrolling.
+func validIdentity(t *testing.T, tp *topology) (keysJSON, identityJSON string) {
+	t.Helper()
+	agentID := strings.Repeat("9", 32)
+	keys, err := enrollment.GenerateAgentKeys()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := t.TempDir() + "/keys.json"
+	if keys, err = enrollment.WriteKeyArtifact(path, agentID, keys); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	minter, err := natsauth.NewMinter(tp.dep.nats.Keystone.PublicKey, tp.dep.nats.Keystone.SigningSeed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id, err := minter.Agent(natsauth.AgentKey{ID: agentID, PublicKey: keys.NATSPublicKey()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, _ := keys.NATS.Seed()
+	creds, err := jwt.FormatUserConfig(id.JWT, seed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, _ := json.Marshal(identityArtifactV1{
+		Version: identityVersion, AgentID: agentID, PermanentCredentials: string(creds),
+		AgentKeySHA256:            keys.Digest,
+		ServiceSigningPublicKey:   enrollment.EncodeKey(tp.dep.signing.Verifying().Bytes()),
+		ResultEncryptionPublicKey: enrollment.EncodeKey(tp.dep.result.Recipient().Bytes()),
+	})
+	return string(raw), string(identity)
 }

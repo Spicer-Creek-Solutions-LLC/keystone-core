@@ -625,11 +625,14 @@ credential minted and one activation recorded, whatever the kill interrupted.
   time, a presence verifies against the recorded half, and the broker trace
   shows **no new traffic on the enrollment plane at all**. The control is
   that the trace does show the enrollment's own requests.
-- **`RECON-2`.** A missing, a malformed and an exposed identity artifact each
-  exit `1`, with the bundle sitting on the host to be found. The broker trace
-  shows no new `CONNECT` — its control is that the server's own connections
-  appear — and the token has no S1 record. The control for the whole case is
-  that enrollment with the same bundle still works.
+- **`RECON-2`.** A missing, a malformed and an exposed identity each exit `1`,
+  with the bundle on the host to be found. The broker trace shows no new
+  `CONNECT` — its control is that the server's own connections appear — and the
+  token has no S1 record. The **exposed** identity is a *valid* one: a key
+  artifact and an identity artifact bound to its digest, with a permanent JWT
+  the deployment's signing key minted. Its control is the same files at `0600`
+  serving, so the refusal is the mode alone. Each case creates its own starting
+  state, in order.
 
 **Two assertions were weaker than their names, and both were found here.**
 
@@ -658,3 +661,12 @@ states; none was a timeout.
 | The enrolled agent never proves presence | `RECON-1` |
 | An agent with no identity falls back to enrolling with a bundle it finds | `RECON-2` |
 | An agent with no identity idles and exits `0` | `RECON-2` |
+| An identity readable by others is used | `RECON-2` |
+
+**Review of #390** found `RECON-2`'s cases in a Go map while one depended on
+another's setup: `exposed` only changed the mode of a file `unreadable` had
+created, so under a different iteration order it failed in setup rather than
+testing the agent. The cases are now an ordered list that each create their own
+state, and `exposed` now exposes a valid identity rather than a malformed one —
+the defect it could not have caught before, an identity used whatever its mode,
+is the last row above.
