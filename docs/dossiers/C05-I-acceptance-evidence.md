@@ -431,3 +431,90 @@ it states.
 - **The agent treats the broker's refusal of its bootstrap credential as a
   refused token,** exit `10`. After expiry the broker is the component that
   refuses, and the charter's code for an expired token is `10` either way.
+
+## Stage I4 — the holds, and the orders they make observable
+
+### Result
+
+**The agent records and honours the five frozen holds**, in stage order:
+
+1. before the request;
+2. after the credential reply;
+3. after the identity write;
+4. after the permanent proof;
+5. before confirmation.
+
+At startup it appends an fsynced `enabled` line for each enabled hold to
+`faults.record_path`, and before entering a hold an fsynced `reached` line, in
+`agentFaultRecordV1`'s format. A hold configured with no record path refuses to
+start: a hold nobody can see reached is one no harness can act on.
+
+**The server's after-activation hold** records a durable
+`fault.reached:enrollment_server_hold_after_activation_commit_ms` audit row
+after S4's commit, and holds a gate every S6 confirmation passes through. No
+confirmation is answered inside the window, so a kill there lands between S4
+and S6, which is `CRASH-6`'s boundary. Enabling it is recorded at startup, like
+the operator holds.
+
+Cases implemented: `ORD-1`, `S6-1`, `KEY-2`, and `LEDGER-1` from I2.
+
+### How the cases observe what they claim
+
+A hold's `reached` record says only **where** a process is. Each case below
+makes its ordering claim from an independent observation, as
+`crash-harness.json` requires. Each also checks that its observations were made
+inside the hold, so a hold that expired early can't make a check vacuous.
+
+- **`ORD-1`.** The harness subscribes as the presence consumer before the agent
+  starts. At the after-identity-write hold:
+  - no presence has been delivered since the subscription began;
+  - a separate read-only store connection shows no active-and-spent.
+
+  After the hold, the first presence must verify against the `AST-4` half S1
+  recorded, and only then does active-and-spent become readable.
+- **`S6-1`.** The harness subscribes to the token's reply subject with the
+  bootstrap credential before enrollment.
+  - **During the server's hold:** the store shows the commit, no S6
+    confirmation has been delivered, and the agent is still running.
+  - **After it:** the agent exits `0`, and a service-signed S6 had been
+    delivered.
+  - **`D-C05-3`, a second run:** the bootstrap credential expires *inside*
+    the server's hold. The agent exits `10`, not `0`, and the store shows the
+    permanent identity active with its identity artifact still in place.
+- **`KEY-2`.** At the before-request hold:
+  - the key artifact is complete and mode `0600`;
+  - `inotify` shows it arrived by rename only;
+  - S1 has not been recorded.
+
+  The agent is SIGKILLed and restarted without the hold. The halves S1 then
+  records are the ones in the artifact captured before the kill.
+- **`LEDGER-1`.** At the after-identity-write hold, the agent's last boundary
+  before S3's proof, the ledger is a ledger: its migration table reads back.
+  The control is that the server hasn't reached S4.
+
+### Planted defects
+
+Each was planted in production code and failed the named case for the reason
+it states. The driver now flags a rejection that came from a test timeout, the
+lesson of I3; none did.
+
+| Planted defect | Case rejected |
+|---|---|
+| The agent publishes its proof before the after-identity-write hold | `ORD-1` |
+| The server activates at S1 instead of on the proof | `ORD-1` |
+| The server answers a confirmation inside its after-commit hold | `S6-1` |
+| The agent exits `0` on its own proof, without S6 | `S6-1` |
+| The agent treats expiry after S4 as success | `S6-1` |
+| The agent keeps its keys in memory and writes them after S1 | `KEY-2` |
+| A restart generates new keys | `KEY-2` |
+| The key artifact is written in place | `KEY-2` |
+| The ledger is opened after the proof | `LEDGER-1` |
+
+### Decisions made within the approved plan
+
+- **The server's hold gates confirmation, not the whole service.** Credential
+  requests, on the enrollment connection, proceed while it holds. Other
+  agents' presence waits behind it: the hold runs in the presence
+  subscription's handler, which NATS delivers serially, as it would wait behind
+  a slow commit. The frozen boundary is "after the active-and-spent commit and
+  before S6 reply", and the gate keeps S6 out of it.
