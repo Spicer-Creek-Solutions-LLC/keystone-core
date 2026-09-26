@@ -120,7 +120,26 @@ tell a check that does not fire from a plant that missed. Normative for
 dossiers in [`REBOOT-EXECUTION-PLAN.md`](REBOOT-EXECUTION-PLAN.md)
 § "Required task dossier".
 
-**Last recurrence.** `C03-I2` — the authorization fixture read the broker's
+**Last recurrence.** `C05-I5` — **a whole gate ran nothing, and `make check`
+was green.** A comment explaining a new `-timeout` was inserted inside the
+`contract` target's shell command, between lines joined by `\`. A comment line
+ends the continuation, so the `for` loop ran as a separate shell in which the
+package list was empty, iterated over nothing, and exited `0`: every contract
+package, C01's to C05's, unrun. It was noticed only because the enrollment
+package's result line was missing from the log, and never left the branch. The
+comment now sits above the command, and records why; a sweep of the Makefile
+found no other comment inside a continued command. **The countermeasure applies
+to the gates themselves:** after changing a gate, read its output for the thing
+it exists to show, not its exit code.
+
+The same task's case bodies produced instances of their own, each caught by its
+planted defect before it landed and recorded in
+[`C05-I-acceptance-evidence.md`](../dossiers/C05-I-acceptance-evidence.md): a
+search that read an exit code BusyBox sets on any socket, a comparison of
+standard error the fixture had already redirected, and trace counts with no
+baseline to count from.
+
+Before that, `C03-I2` — the authorization fixture read the broker's
 authorization errors before they existed. A permissions violation is reported
 asynchronously: the publish succeeds locally, the server answers `-ERR` on the
 wire, and `nats.go` dispatches the handler after `Flush` has returned. The first
