@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Agent is the agent's configuration (D-C05-4): where the broker is and how to
@@ -30,10 +31,34 @@ type AgentPaths struct {
 	LedgerPath      string
 }
 
-// AgentFaults names the agent's fault-record journal. The holds themselves are
-// C05-I4's.
+// AgentFaults are the agent's fault points (ADR-0010 § 5): configuration in the
+// shipped binary, inert when absent, and recorded durably in the journal at
+// RecordPath when enabled. Each hold stops the agent at one enrollment
+// boundary for its duration.
 type AgentFaults struct {
-	RecordPath string
+	RecordPath               string
+	HoldBeforeRequest        time.Duration
+	HoldAfterCredentialReply time.Duration
+	HoldAfterIdentityWrite   time.Duration
+	HoldAfterPermanentProof  time.Duration
+	HoldBeforeConfirmation   time.Duration
+}
+
+// AgentHolds names each hold by its configuration key, in stage order.
+func (f AgentFaults) AgentHolds() []struct {
+	Key  string
+	Hold time.Duration
+} {
+	return []struct {
+		Key  string
+		Hold time.Duration
+	}{
+		{"enrollment_agent_hold_before_request_ms", f.HoldBeforeRequest},
+		{"enrollment_agent_hold_after_credential_reply_ms", f.HoldAfterCredentialReply},
+		{"enrollment_agent_hold_after_identity_write_ms", f.HoldAfterIdentityWrite},
+		{"enrollment_agent_hold_after_permanent_proof_ms", f.HoldAfterPermanentProof},
+		{"enrollment_agent_hold_before_confirmation_ms", f.HoldBeforeConfirmation},
+	}
 }
 
 // LoadAgent reads the agent's file. Every key but the fault journal is
@@ -53,6 +78,13 @@ func LoadAgent(path string) (Agent, error) {
 		"agent.private_keys_path": &c.Agent.PrivateKeysPath,
 		"agent.ledger_path":       &c.Agent.LedgerPath,
 		"faults.record_path":      &c.Faults.RecordPath,
+	}
+	holds := map[string]*time.Duration{
+		"faults.enrollment_agent_hold_before_request_ms":         &c.Faults.HoldBeforeRequest,
+		"faults.enrollment_agent_hold_after_credential_reply_ms": &c.Faults.HoldAfterCredentialReply,
+		"faults.enrollment_agent_hold_after_identity_write_ms":   &c.Faults.HoldAfterIdentityWrite,
+		"faults.enrollment_agent_hold_after_permanent_proof_ms":  &c.Faults.HoldAfterPermanentProof,
+		"faults.enrollment_agent_hold_before_confirmation_ms":    &c.Faults.HoldBeforeConfirmation,
 	}
 	seen := map[string]bool{}
 	section := ""
@@ -76,14 +108,22 @@ func LoadAgent(path string) (Agent, error) {
 			return Agent{}, fmt.Errorf("line %d: invalid configuration", line)
 		}
 		q := section + "." + strings.TrimSpace(parts[0])
-		target, ok := targets[q]
-		if !ok {
-			return Agent{}, fmt.Errorf("line %d: unknown key %q", line, q)
-		}
 		if seen[q] {
 			return Agent{}, fmt.Errorf("line %d: duplicate key %q", line, q)
 		}
 		seen[q] = true
+		if hold, ok := holds[q]; ok {
+			n, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+			if err != nil || n <= 0 || n > MaxFaultDelay.Milliseconds() {
+				return Agent{}, fmt.Errorf("line %d: %s must be a positive number of milliseconds up to %d", line, q, MaxFaultDelay.Milliseconds())
+			}
+			*hold = time.Duration(n) * time.Millisecond
+			continue
+		}
+		target, ok := targets[q]
+		if !ok {
+			return Agent{}, fmt.Errorf("line %d: unknown key %q", line, q)
+		}
 		v, err := strconv.Unquote(strings.TrimSpace(parts[1]))
 		if err != nil || v == "" {
 			return Agent{}, fmt.Errorf("line %d: %s must be a non-empty quoted string", line, q)
@@ -99,6 +139,13 @@ func LoadAgent(path string) (Agent, error) {
 	for q := range targets {
 		if !seen[q] && q != "faults.record_path" {
 			return Agent{}, fmt.Errorf("%s is required", q)
+		}
+	}
+	// A hold with nowhere to record that it was reached is a hold a harness
+	// cannot act on and an audit cannot see.
+	for _, h := range c.Faults.AgentHolds() {
+		if h.Hold > 0 && c.Faults.RecordPath == "" {
+			return Agent{}, fmt.Errorf("faults.%s needs faults.record_path", h.Key)
 		}
 	}
 	return c, nil

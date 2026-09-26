@@ -84,6 +84,7 @@ func run(args []string, out, errOut *os.File) cli.Code {
 	}{
 		{"operator_hold_before_decision_ms", cfg.Faults.OperatorHoldBeforeDecision > 0},
 		{"operator_hold_before_response_ms", cfg.Faults.OperatorHoldBeforeResponse > 0},
+		{enrollment.FaultHoldAfterActivation, cfg.Faults.EnrollmentHoldAfterActivation > 0},
 	} {
 		if !f.on {
 			continue
@@ -99,7 +100,7 @@ func run(args []string, out, errOut *os.File) cli.Code {
 	// The enrollment service reaches and verifies the broker before the socket
 	// exists: a server that cannot enroll does not offer to issue tokens.
 	if enroll != nil {
-		svc, err := enroll.Start(context.Background())
+		svc, err := enroll.Start(context.Background(), cfg.Faults.EnrollmentHoldAfterActivation)
 		if err != nil {
 			fmt.Fprintf(errOut, "%s: enrollment: %v\n", role, err)
 			return cli.Local

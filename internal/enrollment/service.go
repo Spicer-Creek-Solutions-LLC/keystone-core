@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nats-io/jwt/v2"
@@ -44,13 +45,25 @@ type Service struct {
 	now      func() time.Time
 	enroll   *nats.Conn
 	presence *nats.Conn
+
+	// holdAfterActivation is the fault point between S4's commit and any S6
+	// answer (ADR-0010 § 5). While it holds, confirmations wait at gate.
+	holdAfterActivation time.Duration
+	gate                sync.RWMutex
 }
+
+// FaultHoldAfterActivation is the server hold's configuration key.
+const FaultHoldAfterActivation = "enrollment_server_hold_after_activation_commit_ms"
+
+// ActionFaultReached prefixes the durable record of a server hold reached.
+const ActionFaultReached = "fault.reached:"
 
 // Start connects both service identities, subscribes, and returns once both
 // subscriptions are established at the broker. A server that cannot reach the
 // broker, or cannot verify it, does not run.
-func (s *Server) Start(ctx context.Context) (*Service, error) {
-	svc := &Service{srv: s, store: s.Issuer.store, minter: s.Issuer.minter, now: time.Now}
+func (s *Server) Start(ctx context.Context, holdAfterActivation time.Duration) (*Service, error) {
+	svc := &Service{srv: s, store: s.Issuer.store, minter: s.Issuer.minter, now: time.Now,
+		holdAfterActivation: holdAfterActivation}
 	var err error
 	if svc.enroll, err = s.connect(ctx, s.Enrollment, "keystone-server enrollment-service"); err != nil {
 		return nil, err
@@ -210,6 +223,10 @@ func (s *Service) handle(ctx context.Context, token string, data []byte) (*Reply
 	case KindCredential:
 		return s.credential(ctx, rec, halves)
 	case KindConfirmation:
+		// No confirmation is answered while activation is held: S6 follows
+		// S4's commit, and the hold is the window between them.
+		s.gate.RLock()
+		defer s.gate.RUnlock()
 		if rec.State != store.TokenSpent {
 			return nil, ""
 		}
@@ -300,13 +317,44 @@ func (s *Service) onPresence(m *nats.Msg) {
 		return
 	}
 	target := agent
+	if s.holdAfterActivation > 0 {
+		s.gate.Lock()
+		defer s.gate.Unlock()
+	}
 	err = s.store.Activate(ctx, rec.TokenID, s.now(), store.AuditRecord{
 		Target: &target, Action: ActionActivated, Result: "active", At: s.now(),
 	})
-	if err != nil && !errors.Is(err, store.ErrNotActivatable) {
-		log.Printf("enrollment: activate %s: %v", agent, err)
+	if err != nil {
+		if !errors.Is(err, store.ErrNotActivatable) {
+			log.Printf("enrollment: activate %s: %v", agent, err)
+		}
+		return
+	}
+	if s.holdAfterActivation > 0 {
+		s.reachedAfterActivation(ctx, target)
+		time.Sleep(s.holdAfterActivation)
 	}
 }
+
+// reachedAfterActivation makes the hold's reached record durable before the
+// hold begins, so a harness that kills on it kills after the commit and before
+// any S6. It fails closed: until the record is written the gate stays held,
+// and no confirmation is answered without it.
+func (s *Service) reachedAfterActivation(ctx context.Context, agent string) {
+	for {
+		err := s.store.AppendAuditRecord(ctx, store.AuditRecord{
+			Target: &agent, Action: ActionFaultReached + FaultHoldAfterActivation, Result: "reached", At: s.now(),
+		})
+		if err == nil {
+			return
+		}
+		log.Printf("enrollment: fault point reached but not recorded; holding S6 until it is: %v", err)
+		time.Sleep(retryRecord)
+	}
+}
+
+// retryRecord is how often an unrecorded fault point retries its record.
+const retryRecord = 100 * time.Millisecond
 
 type requestHalves struct {
 	natsKey    string

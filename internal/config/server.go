@@ -43,6 +43,9 @@ type Store struct{ Path string }
 type Faults struct {
 	OperatorHoldBeforeDecision time.Duration
 	OperatorHoldBeforeResponse time.Duration
+	// EnrollmentHoldAfterActivation holds the enrollment service after S4's
+	// commit and before any S6 confirmation is answered (CRASH-6, S6-1).
+	EnrollmentHoldAfterActivation time.Duration
 }
 
 // NATS is how the server reaches the broker and which credential it uses for
@@ -183,15 +186,19 @@ func setServerValue(c *Server, section, key, value string) error {
 			return fmt.Errorf("%s exceeds maximum %d", q, MaxFrameBytes)
 		}
 		c.Operator.MaxFrameBytes = uint32(n)
-	case "faults.operator_hold_before_decision_ms", "faults.operator_hold_before_response_ms":
+	case "faults.operator_hold_before_decision_ms", "faults.operator_hold_before_response_ms",
+		"faults.enrollment_server_hold_after_activation_commit_ms":
 		if n > MaxFaultDelay.Milliseconds() {
 			return fmt.Errorf("%s exceeds maximum %d milliseconds", q, MaxFaultDelay.Milliseconds())
 		}
 		d := time.Duration(n) * time.Millisecond
-		if q == "faults.operator_hold_before_decision_ms" {
+		switch q {
+		case "faults.operator_hold_before_decision_ms":
 			c.Faults.OperatorHoldBeforeDecision = d
-		} else {
+		case "faults.operator_hold_before_response_ms":
 			c.Faults.OperatorHoldBeforeResponse = d
+		default:
+			c.Faults.EnrollmentHoldAfterActivation = d
 		}
 	default:
 		return fmt.Errorf("unknown key %q", q)

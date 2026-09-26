@@ -29,6 +29,7 @@ type session struct {
 	tok     issued
 	c       *nats.Conn
 	replies chan *nats.Msg
+	seen    int
 }
 
 func (tp *topology) session(t *testing.T, b *box, tok issued) *session {
