@@ -1,7 +1,9 @@
 // Command keystone-agent is the agent.
 //
 // C05 adds `keystone-agent enroll --token-file <path|->`, which turns a token
-// bundle into a permanent identity (ADR-0003, RFC 0005).
+// bundle into a permanent identity (ADR-0003, RFC 0005). With no command, an
+// enrolled agent connects with that identity and serves until stopped; one
+// without an identity exits 1 and does nothing else (ADR-0003 § 9).
 package main
 
 import (
@@ -11,6 +13,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"go.keystone-core.io/keystone-core/internal/cli"
 	"go.keystone-core.io/keystone-core/internal/config"
@@ -50,11 +54,42 @@ func run(args []string, in io.Reader, out, errOut io.Writer) cli.Code {
 		return cli.OK
 	}
 
-	if rest := fs.Args(); len(rest) >= 1 && rest[0] == "enroll" {
+	rest := fs.Args()
+	switch {
+	case len(rest) >= 1 && rest[0] == "enroll":
 		return enroll(rest[1:], in, errOut)
+	case len(rest) == 0:
+		return serve(errOut)
 	}
-	fmt.Fprintf(errOut, "usage: %s enroll --token-file <path|->\n", role)
+	fmt.Fprintf(errOut, "usage: %s [enroll --token-file <path|->]\n", role)
 	return cli.Local
+}
+
+// serve runs the enrolled agent. It reconnects with its permanent identity and
+// never re-enrolls: an agent with no identity fails rather than seek one.
+func serve(errOut io.Writer) cli.Code {
+	path, err := config.Locate(role, nil)
+	if err != nil {
+		fmt.Fprintf(errOut, "%s: %v\n", role, err)
+		return cli.Local
+	}
+	cfg, err := config.LoadAgent(path)
+	if err != nil {
+		fmt.Fprintf(errOut, "%s: %v\n", role, err)
+		return cli.Local
+	}
+	agent, err := enrollment.LoadEnrolled(cfg)
+	if err != nil {
+		fmt.Fprintf(errOut, "%s: %v\n", role, err)
+		return cli.Local
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	if err := agent.Run(ctx); err != nil {
+		fmt.Fprintf(errOut, "%s: %v\n", role, err)
+		return cli.Local
+	}
+	return cli.OK
 }
 
 // enroll reads the bundle from a file or standard input -- never from argv

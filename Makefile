@@ -219,7 +219,11 @@ contract: ## Run every contract package, skipping only registered pending cases
 	# a second copy, and the copy goes stale.
 	@pkgs="$$(find test/contract -mindepth 1 -maxdepth 1 -type d | sort)"; \
 	[ -n "$$pkgs" ] || { echo "contract: no contract package found under test/contract"; exit 1; }; \
-	for p in $$pkgs; do echo "contract: $$p"; go test -tags contract "./$$p" || exit 1; done
+	# -timeout: C05's enrollment contract drives the crash harness -- six
+	# boundaries, each a real kill and restart, beside cases that wait out a
+	# token's minimum one-minute lifetime -- and runs near go test's default
+	# ten minutes on a fast machine. The serial runner is not one.
+	for p in $$pkgs; do echo "contract: $$p"; go test -tags contract -timeout 30m "./$$p" || exit 1; done
 
 contract-immutability-check: ## Reject an undeclared change to any accepted Cxx-A surface
 	# Each Cxx-A evidence file declares the package it governs and the commit
