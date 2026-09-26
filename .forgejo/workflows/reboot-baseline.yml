@@ -312,11 +312,12 @@ jobs:
 # "architecture-invariant and traceability lint" named P11b as its landing task
 # while `make archlint` was already a step above -- an obligation listed as owed
 # after it was paid, which makes the rest of the list read as less than binding.
-# The Docker entry is now narrowed to the half still owed: the topology itself is
-# exercised by `make container-suite`, and what C05 adds is a journey across it.
+# The Docker entry was narrowed then to the half still owed, a journey across
+# the topology, and C05 paid it: the enrollment contract's ISO-1 runs the
+# journey over compose.yaml itself, inside `make contract`, so it left this list
+# when C05 landed.
 #
 #   protocol compatibility and cryptographic test vectors     -> C01
-#   a journey across the production Docker topology           -> C05
 #   NATS permission positive and negative tests               -> C03
 #   regression tests for every fixed defect                   -> each C task
 #   the complete Docker journey suite, fault matrix,

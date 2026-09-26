@@ -255,7 +255,26 @@ workstream depends on. Detailed controls are normative in the execution plan.
     and `KS_RES` and not the identity that creates them — so the production
     provisioning identity is a deferred gate owed by C06.
 - [x] C04 — Local operator control substrate.
-- [ ] C05 — One-use enrollment vertical slice.
+- [x] C05 — One-use enrollment vertical slice. `keystone enroll create`,
+  `keystone-agent enroll --token-file <path|->` and the server's enrollment
+  service run ADR-0003's stages as RFC 0005 amended them, over G49's TLS, across
+  the topology. C05-A froze thirty-nine cases (with three declared amendments,
+  one of them issue #384's); C05-I implemented all of them in six stages, each
+  shown to fail against a planted production defect before it left the pending
+  manifest.
+  - **The journey runs over `compose.yaml` itself** (`ISO-1`), which paid the
+    workflow's owed Docker journey and found two defects in the file: the
+    agents shared a network, which `TESTING.md` forbids, and its images could
+    not build.
+  - **Every crash boundary is driven**, from `crash-harness.json`: a durable
+    reached record, the frozen arrival observation, SIGKILL, restart, and
+    convergence on one identity, one credential and one activation.
+  - **`D-C05-6`: C05 records and proves the identity `active`**; the server
+    store holds it and every case reads it. Listing agents is C10's.
+  - **`RSK-15`'s trigger fired here** and its row records the disposition, under
+    the grant the maintainer approved with the C05-I plan (`DL-9` instance 8).
+  - **VM debt is C13's**: modes, `fsync`, account ownership and power-loss
+    durability are container feedback here, as `ADR-0010` § 1 intends.
 - [ ] C06 — JetStream transport adapter.
 - [ ] C07 — Bounded executor.
 - [ ] C08 — Single-agent command vertical slice.

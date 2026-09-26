@@ -670,3 +670,68 @@ testing the agent. The cases are now an ordered list that each create their own
 state, and `exposed` now exposes a valid identity rather than a malformed one —
 the defect it could not have caught before, an identity used whatever its mode,
 is the last row above.
+
+## Stage I6 — closing C05
+
+### What closing fires
+
+**Every obligation found by searching the tree for C05.** A reading of the
+dossier alone wouldn't have found them all:
+
+- **The epic line is ticked**, and the dossier index marks C05 complete.
+- **The two doclint sweeps that retire at C05 are removed:**
+  `dossier-file-per-task` and `r6-unmet-suite-deferred`. With C05 ticked,
+  `--tasks-complete` would make each a failure.
+- **The workflow's owed-gates entry for C05 leaves the list.** It was "a journey
+  across the production Docker topology", and `ISO-1` pays it inside `make
+  contract`.
+- **The register's `ARCH-NATS-004` and `ARCH-COMM-003` rows land here.** Both
+  named `test/contract/enrollment/cases_test.go`, the stub file I5 deleted when
+  the last case was implemented. The register's own rule is that renaming a test
+  updates the register in the same pull request, and **I5 did not**. It went
+  unnoticed only because the rows become checked when C05 is ticked. They now
+  name the files that hold the evidence, and `archlint` checks them.
+- **`D-C05-6`: C05 records and proves the identity `active`.** The server store
+  holds it, and every journey, ordering and crash case reads it back. Listing
+  agents is C10's.
+- **`RSK-15`'s row records its disposition.** The maintainer re-accepted it at
+  C05, with the date kept and the trigger dropped. C05 chose the lifetime — 15
+  minutes by default, 60 seconds to 59 minutes at issuance — and `EXP-1`,
+  `SPENT-1` and `OBS-1` observe its end where each part takes effect. No task
+  resolves it, because the window exists by design (RFC 0005). The edit is the
+  `RSK-15` row only, under the grant approved with the C05-I plan (`DL-9`
+  instance 8).
+
+### Left to a follow-up task, by the maintainer's decision
+
+Two statements C05 made false are outside its grant, and a separate G task
+corrects them:
+
+- **`AGENTS.md` § 2** still says there is no product behaviour: no journey verb,
+  no NATS connection, no operator socket. C04 made the last false and C05 the
+  rest.
+- **The workflow's owed-gates list still names C01's and C03's gates.** `make
+  check` runs both contracts, so those entries were paid when those tasks
+  landed. That is the stale-list shape `G33` removed once.
+
+### VM debt, for C13
+
+Container runs are pull-request feedback (`ADR-0010` § 1). These C05 properties
+are shown in Docker and owe their acceptance to the VM gate:
+
+- the `0600` modes of the bundle, both agent artifacts and the service signing
+  key — `FILE-1`, `CRED-1`, `KEY-2`, `SKEY-1`, `RECON-2`;
+- `fsync` and atomic rename surviving power loss, not just a process kill —
+  `CRED-1`, `KEY-2`, and every `CRASH-*` case;
+- real accounts, groups and `SO_PEERCRED` behind the operator CLI's refusals —
+  `CLI-1`, `CLI-2`;
+- the agent's own account owning its state directory — `D-C05-4`;
+- independent clocks: containers share the host's, so `EXP-1` proves the
+  broker's behaviour at expiry, not tolerance of skew.
+
+### C05 is complete
+
+All thirty-nine frozen cases are implemented. Each was shown to fail against a
+planted production defect before it left the pending manifest, and the manifest
+is gone. The contract's frozen surface is unchanged since its third declared
+amendment.

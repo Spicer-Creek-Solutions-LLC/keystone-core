@@ -152,38 +152,6 @@ var rules = []Rule{
 		RetireAfter: "",
 	},
 	{
-		ID:    "dossier-file-per-task",
-		Added: "G26",
-		Why:   "two source documents said dossiers are one file per task while a behaviour workstream's two tasks share one; the unit is the workstream",
-
-		// Subject: any statement of the counting rule, in either wording. The
-		// corrected text says "file per workstream", so sweeping only the old
-		// phrasing would stop finding anything the moment it was fixed and the
-		// rule could not tell a correction from an absence.
-		//
-		// The emphasis markers are not decoration. The index writes the unit as
-		// `per **workstream**`, and a pattern without them matched the plan and
-		// silently missed the index -- which made the site count look right for
-		// the wrong reason.
-		//
-		// WHAT THIS CANNOT DETECT: the rule being deleted outright. MinHits is
-		// satisfied by the passages that QUOTE the superseded wording, so both
-		// live statements can vanish and this still passes. It guards the wrong
-		// unit coming back, not the right one going away. A check that both
-		// documents state the rule would catch that, and does not exist.
-		Pattern: `file per \*{0,2}(?:task|workstream)`,
-
-		// Stale is the superseded unit. A hit that still says "per task" is the
-		// defect; "per workstream" matches Pattern and not this, and passes.
-		Stale: `file per \*{0,2}task`,
-
-		MinHits: 2,
-
-		// Retires after C05: by then several behaviour workstreams have split
-		// and the convention has been exercised rather than merely written.
-		RetireAfter: "C05",
-	},
-	{
 		ID:    "runner-cannot-run-containers",
 		Added: "G28",
 		Why:   "four documents said a runner cannot run containers; the probe measured the container a JOB runs inside, and its own row `a job runs inside a container` passed -- the host starts containers, which is how the job existed",
@@ -213,50 +181,6 @@ var rules = []Rule{
 		// shortest summary of them is the wrong one. G25 made exactly that
 		// substitution while correcting the sentence's other error.
 		RetireAfter: "",
-	},
-	{
-		ID:    "r6-unmet-suite-deferred",
-		Added: "G33",
-		Why:   "R6 was unmet and the container suite deferred; P4 (run 881) met R6, the suite is in `check` and in CI, and `deferred-gates-check` is gone",
-
-		// Pattern is the SUBJECT, Stale the superseded conclusion. Mentioning
-		// R6 or the suite is not a defect -- several documents must, and
-		// CI-RUNNER.md records both states with dates. Asserting the old
-		// conclusion in the present tense is.
-		//
-		// Three grammars, because the claim was written three ways before G33:
-		// as a property of R6 ("not met", "unmet"), as a property of the gate
-		// ("deliberately absent", "deferred"), and as a property of the job
-		// ("no Docker client"). A fix that changed only the first would leave
-		// the other two reading correct. Spans forbid `.` and `;` for the
-		// reason runner-label-absence gives.
-		//
-		// The deferral alternatives require a VERB -- "is deferred", "remains
-		// deferred", "deliberately absent" -- rather than the bare word. A
-		// first draft matched `deferred` alone and hit `deferred-gates-check`
-		// itself, so naming the target G33 deleted, in order to say it was
-		// deleted, read as the claim it was written to forbid. RE2 has no
-		// lookahead, so the verb is the discriminator.
-		Pattern: `\bR6\b|container[- ]suite|container suite`,
-		Stale: `\bR6\b[^.;]{0,70}(?:is|remains|currently)?[^.;]{0,20}(?:not met|unmet|currently fails)` +
-			`|(?:not met|unmet)[^.;]{0,40}\bR6\b` +
-			`|container[- ]suite[^.;]{0,90}(?:is deferred|deliberately absent|deliberately not in|remains deferred)` +
-			`|(?:is|remains|stays) deferred[^.;]{0,70}container[- ]suite` +
-			`|deliberately absent[^.;]{0,70}container[- ]suite` +
-			`|(?:jobs?|runner|CI)[^.;]{0,70}(?:have|has|had) no Docker client`,
-
-		// The subject is everywhere -- CI-RUNNER.md alone carries many -- so a
-		// vanished subject means the rule stopped reading what it claims to.
-		MinHits: 8,
-
-		Exempt: map[string]string{
-			"docs/dossiers/P11-acceptance-evidence.md": "P11's own acceptance record, dated and marked superseded in place; it is evidence of what was true then, not a claim about the tree",
-		},
-
-		// Retires after C05: by then the suite runs a real journey across the
-		// topology, and a document claiming it is deferred would contradict
-		// something far louder than this sweep.
-		RetireAfter: "C05",
 	},
 	{
 		ID:          "no-pipe-to-shell",

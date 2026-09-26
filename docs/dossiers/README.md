@@ -96,4 +96,4 @@ name.
 | C02 — SQLite migrations and durable ledgers | [C02.md](C02.md) | **Complete** — C02-A and C02-I landed |
 | C03 — NATS operator, account, identity and permission generation | [C03.md](C03.md) | **Complete** — C03-A's forty-five cases and C03-I's six stages landed |
 | C04 — Local operator control substrate | [C04.md](C04.md) | **Complete** — C04-A contract and C04-I implementation landed |
-| C05 — One-use enrollment vertical slice | [C05.md](C05.md) | **In progress** — C05-A acceptance contract prepared; C05-I not started |
+| C05 — One-use enrollment vertical slice | [C05.md](C05.md) | **Complete** — C05-A's contract, its three amendments, and C05-I's six stages landed |
