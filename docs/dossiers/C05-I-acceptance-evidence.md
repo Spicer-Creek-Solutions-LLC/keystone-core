@@ -510,6 +510,23 @@ lesson of I3; none did.
 | The key artifact is written in place | `KEY-2` |
 | The ledger is opened after the proof | `LEDGER-1` |
 
+### Review of #389
+
+Two findings, both real, both fixed with a regression test that fails under the
+behaviour it replaces:
+
+- **A hold's journal failure was reported as a refused token.** Every hold
+  error became exit `10`, including a fault journal that could not be written,
+  which is a local fault. Only running out of time at a hold is now a refusal.
+  `TestAHoldsJournalFailureIsNotARefusal` points the journal at a missing
+  directory.
+- **An unrecorded after-activation hold released S6.** If the `fault.reached`
+  row failed to write after the commit, the handler returned and released the
+  gate, skipping the hold and letting a confirmation through without its
+  record. The gate now stays held until the record is written, and the hold
+  runs after it. `TestUnrecordedActivationHoldFailsClosed` blocks the audit
+  write with a trigger and shows no S6 is answered until the trigger goes.
+
 ### Decisions made within the approved plan
 
 - **The server's hold gates confirmation, not the whole service.** Credential

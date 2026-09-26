@@ -331,17 +331,30 @@ func (s *Service) onPresence(m *nats.Msg) {
 		return
 	}
 	if s.holdAfterActivation > 0 {
-		// The reached record is durable before the hold begins, so a harness
-		// that kills on it kills after the commit and before any S6.
-		if err := s.store.AppendAuditRecord(ctx, store.AuditRecord{
-			Target: &target, Action: ActionFaultReached + FaultHoldAfterActivation, Result: "reached", At: s.now(),
-		}); err != nil {
-			log.Printf("enrollment: record fault reached: %v", err)
-			return
-		}
+		s.reachedAfterActivation(ctx, target)
 		time.Sleep(s.holdAfterActivation)
 	}
 }
+
+// reachedAfterActivation makes the hold's reached record durable before the
+// hold begins, so a harness that kills on it kills after the commit and before
+// any S6. It fails closed: until the record is written the gate stays held,
+// and no confirmation is answered without it.
+func (s *Service) reachedAfterActivation(ctx context.Context, agent string) {
+	for {
+		err := s.store.AppendAuditRecord(ctx, store.AuditRecord{
+			Target: &agent, Action: ActionFaultReached + FaultHoldAfterActivation, Result: "reached", At: s.now(),
+		})
+		if err == nil {
+			return
+		}
+		log.Printf("enrollment: fault point reached but not recorded; holding S6 until it is: %v", err)
+		time.Sleep(retryRecord)
+	}
+}
+
+// retryRecord is how often an unrecorded fault point retries its record.
+const retryRecord = 100 * time.Millisecond
 
 type requestHalves struct {
 	natsKey    string
